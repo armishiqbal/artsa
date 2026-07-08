@@ -1,0 +1,20 @@
+# =============================================================================
+# Attack Profile: Quick Scan (Fast Validation)
+# =============================================================================
+
+profile:
+  name: "quick_scan"
+  description: "Fast scan with top 3 attack categories for quick validation"
+
+  categories:
+    - DPI
+    - JBK
+    - SPE
+
+  category_weights:
+    DPI: 0.40
+    JBK: 0.35
+    SPE: 0.25
+
+  mutations_enabled: false
+  max_mutations_per_attack: 0

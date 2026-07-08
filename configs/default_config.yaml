@@ -1,0 +1,41 @@
+# =============================================================================
+# ARTSA — Default Configuration
+# =============================================================================
+
+artsa:
+  version: "0.1.0"
+  data_dir: "./data"
+  log_level: "INFO"
+
+  # Default LLM settings
+  llm:
+    provider: "openai"
+    model: "gpt-4o"
+    temperature: 0.7
+    max_tokens: 4096
+
+  # Red Team Agent settings
+  red_team:
+    llm:
+      provider: "openai"
+      model: "gpt-4o"
+      temperature: 0.9
+    exploration_rate: 0.2
+    max_retries: 2
+
+  # Judge Agent settings  
+  judge:
+    llm:
+      provider: "openai"
+      model: "gpt-4o"
+      temperature: 0.1
+
+  # Rate limiting
+  rate_limit:
+    requests_per_minute: 30
+    delay_between_rounds_sec: 2
+
+  # ChromaDB
+  vector_store:
+    persist_directory: "./data/chroma"
+    collection_prefix: "artsa_"

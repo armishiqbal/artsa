@@ -1,0 +1,130 @@
+# =============================================================================
+# ARTSA CI/CD Pipeline
+# Runs on every push and PR to main/develop branches
+# =============================================================================
+
+name: ARTSA CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+  OPENAI_API_KEY: "sk-ci-mock-key"        # Mock key for testing (no real API calls)
+  ARTSA_LOG_LEVEL: "WARNING"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 1: Lint & Type Check
+  # ─────────────────────────────────────────────────────────────────
+  lint:
+    name: "🔍 Lint & Format"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff check (lint)
+        run: ruff check src/ tests/ scripts/
+
+      - name: Ruff format (formatting)
+        run: ruff format --check src/ tests/ scripts/
+
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 2: Unit Tests
+  # ─────────────────────────────────────────────────────────────────
+  test:
+    name: "🧪 Tests"
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pytest-mock pytest-cov
+
+      - name: Run tests with coverage
+        run: |
+          python -m pytest tests/ \
+            --tb=short \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=60 \
+            -v
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 3: Integration Test (Mock Campaign)
+  # ─────────────────────────────────────────────────────────────────
+  integration:
+    name: "⚔️ Integration Test"
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run 5-round mock campaign
+        run: |
+          python scripts/run_campaign.py --rounds 5
+          # Verify report was generated
+          ls data/results/*/report.md
+
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 4: Build & Publish (on tag only)
+  # ─────────────────────────────────────────────────────────────────
+  publish:
+    name: "📦 Publish"
+    runs-on: ubuntu-latest
+    needs: [test, integration]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      id-token: write    # For PyPI trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,24 @@
+# =============================================================================
+# Attack Profile: Comprehensive (All Categories)
+# =============================================================================
+
+profile:
+  name: "comprehensive"
+  description: "Full attack suite covering all major OWASP LLM Top 10 categories"
+
+  categories:
+    - DPI
+    - JBK
+    - SPE
+    - DEX
+    - MSE
+
+  category_weights:
+    DPI: 0.25
+    JBK: 0.25
+    SPE: 0.20
+    DEX: 0.15
+    MSE: 0.15
+
+  mutations_enabled: true
+  max_mutations_per_attack: 3
