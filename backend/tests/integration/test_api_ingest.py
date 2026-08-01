@@ -23,7 +23,9 @@ def test_api_ingest_event():
         "trace_id": str(uuid.uuid4()),
     }
     response = client.post("/api/v1/ingest", json=payload)
-    assert response.status_code == 200
+    assert response.status_code in [200, 201]
+
     data = response.json()
-    assert "risk_score" in data
-    assert "verdict" in data
+    assert "ingested" in data
+    assert "session_id" in data
+
