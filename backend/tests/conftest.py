@@ -1,11 +1,17 @@
-"""Shared fixtures for ARTSA test suite."""
-
 import os
+import sys
+from pathlib import Path
+
+# Guarantee root backend/ directory is on sys.path for pytest
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 os.environ['OPENAI_API_KEY'] = 'sk-test'
 os.environ['ARTSA_LOG_LEVEL'] = 'WARNING'
 
 import pytest
+
 from datetime import datetime, timezone
 
 from src.models import (

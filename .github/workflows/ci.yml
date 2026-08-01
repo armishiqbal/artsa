@@ -64,11 +64,14 @@ jobs:
           pip install pytest-cov
 
       - name: Run tests with coverage
+        env:
+          PYTHONPATH: backend
         run: |
           cd backend
           python -m pytest tests/ \
             --tb=short \
             -v
+
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 3: Next.js Frontend Production Build
