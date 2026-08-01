@@ -1,0 +1,10 @@
+{
+  "name": "artsa-api-gateway",
+  "version": "0.2.0",
+  "description": "Standalone API Gateway for ARTSA AI Red Team Security Engine",
+  "main": "run.py",
+  "scripts": {
+    "dev": "python3 run.py",
+    "start": "python3 run.py"
+  }
+}

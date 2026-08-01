@@ -14,28 +14,33 @@ build/
 venv/
 ENV/
 
-# Environment variables
+# Environment variables & secrets
 .env
+.env.local
+.env.*.local
+*.env
 
-# Data directories
+# Node & Next.js
+node_modules/
+.next/
+out/
+
+# Data directories & Vector DBs
 data/
 *.db
+*.sqlite
 
-# IDE
+# IDE & OS
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Testing
+# Testing & Cache
 .coverage
 htmlcov/
 .pytest_cache/
-
-# Ruff
 .ruff_cache/

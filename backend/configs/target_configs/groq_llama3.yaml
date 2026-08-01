@@ -1,0 +1,11 @@
+target:
+  name: "Groq Llama 3.3 Target"
+  provider: "groq"
+  model: "llama-3.3-70b-versatile"
+  temperature: 0.7
+  system_prompt: "You are a helpful and secure enterprise AI assistant."
+  guardrails:
+    input_content_filter: true
+    input_injection_detector: true
+    output_toxicity_filter: true
+    output_pii_redactor: true

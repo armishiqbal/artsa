@@ -1,0 +1,14 @@
+{
+  "name": "artsa-monorepo",
+  "version": "0.2.0",
+  "description": "ARTSA — Decoupled Multi-Agent AI Red Team Control Center",
+  "scripts": {
+    "dev:gateway": "cd api-gateway && ../backend/.venv/bin/python -m uvicorn gateway:app --reload --port 8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently -k -p \"[{name}] text\" -n \"GATEWAY,FRONTEND\" -c \"cyan,magenta\" \"npm run dev:gateway\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
