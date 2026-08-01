@@ -1,89 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  --background: 11 15 25;
+  --foreground: 241 242 246;
 }
 
 body {
   background-color: #0B0F19;
   color: #F1F2F6;
-  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Custom SOC Dark Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #0B0F19;
-}
-::-webkit-scrollbar-thumb {
-  background: #2A344B;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #7D3CFF;
-}
-
-/* SOC War Room Panel Styling */
-.soc-card {
-  background-color: #151B2B;
-  border: 1px solid #2A344B;
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.soc-card:hover {
-  border-color: #3B4866;
-  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.6);
-}
-
-.soc-panel {
-  background-color: #151B2B;
-  border: 1px solid #2A344B;
-  border-radius: 0.875rem;
-}
-
-/* Severity Badges */
-.badge-critical {
-  background-color: rgba(255, 77, 77, 0.15);
-  color: #FF4D4D;
-  border: 1px solid rgba(255, 77, 77, 0.4);
-}
-
-.badge-high {
-  background-color: rgba(255, 159, 67, 0.15);
-  color: #FF9F43;
-  border: 1px solid rgba(255, 159, 67, 0.4);
-}
-
-.badge-medium {
-  background-color: rgba(254, 202, 87, 0.15);
-  color: #FECA57;
-  border: 1px solid rgba(254, 202, 87, 0.4);
-}
-
-.badge-low {
-  background-color: rgba(46, 213, 115, 0.15);
-  color: #2ED573;
-  border: 1px solid rgba(46, 213, 115, 0.4);
-}
-
-.badge-info {
-  background-color: rgba(55, 66, 250, 0.15);
-  color: #3742FA;
-  border: 1px solid rgba(55, 66, 250, 0.4);
-}
-
-.gradient-text-purple {
-  background: linear-gradient(135deg, #7D3CFF 0%, #3742FA 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
 }

@@ -1,11 +1,11 @@
+import type { Metadata } from 'next';
+import Sidebar from '@/components/layout/Sidebar';
+import TopNav from '@/components/layout/TopNav';
 import './globals.css';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
-import CommandPalette from '@/components/CommandPalette';
 
-export const metadata = {
-  title: 'ARTSA — SOC AI Wargame & Security Mesh',
-  description: 'Production-grade AI wargame framework for automated LLM security testing & evolutionary attacks.',
+export const metadata: Metadata = {
+  title: 'ARTSA — Real-Time AI Containment & Escape Detection',
+  description: 'Datadog for AI Agent Escape Detection & Live Containment Monitoring',
 };
 
 export default function RootLayout({
@@ -15,15 +15,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-soc-bg text-soc-text min-h-screen flex antialiased">
+      <body className="bg-[#0B0F19] text-[#F1F2F6] antialiased min-h-screen flex">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <Header />
+          <TopNav />
           <main className="flex-1 p-6 overflow-y-auto">
             {children}
           </main>
         </div>
-        <CommandPalette />
       </body>
     </html>
   );

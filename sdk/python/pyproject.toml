@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "artsa-sdk"
+version = "0.3.0"
+description = "ARTSA Python SDK — Live Tool Execution Instrumentation & Containment Monitoring"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "ARTSA Platform Security Team"}]
+
+dependencies = [
+    "requests>=2.31.0",
+    "pydantic>=2.7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["artsa*"]

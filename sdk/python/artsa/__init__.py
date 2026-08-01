@@ -1,5 +1,5 @@
 """ARTSA Python SDK Package."""
 
-from artsa.client import ArtsaClient, test
+from artsa.client import ArtsaClient
 
-__all__ = ["ArtsaClient", "test"]
+__all__ = ["ArtsaClient"]
