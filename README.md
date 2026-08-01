@@ -1,135 +1,80 @@
-# 🛡️ ARTSA — Real-Time AI Agent Containment Platform
+# 🛡️ ARTSA — Real-Time Security & Safety Guardrail for AI Agents
 
-> **"Datadog for AI Agent Escape Detection & Live Containment Monitoring."**
-
-[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688.svg)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-14.2-000000.svg)](https://nextjs.org)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![CI Status](https://img.shields.io/badge/CI%2FCD-Passing-emerald.svg)](.github/workflows/ci.yml)
+> **"The automatic safety airbag for AI agents in your business."**
 
 ---
 
-## 📌 Executive Summary
+## 💡 What is ARTSA? (In Simple Terms)
 
-**ARTSA** (Adversarial Red Team Simulation Architecture) is an enterprise-grade **Real-Time AI Agent Containment & Escape Detection Platform**. It operates directly in front of or inside autonomous AI agent execution loops to inspect tool calls in sub-50ms, detect malicious prompts and containment breaches, and automatically enforce quarantine actions before harm occurs.
+Today, businesses use **AI Agents** — smart digital assistants powered by AI that can automatically read files, answer customer emails, search databases, and run computer commands.
 
-| Core Engine | Function & Performance Target |
-|-------------|--------------------------------|
-| 🔌 **Escape Detection Engine (EDS)** | Real-time tool execution risk scoring (<50ms latency target) |
-| 🗄️ **Supabase PostgreSQL & Pinecone** | Managed persistence & 1024-dim vector embeddings |
-| 🎨 **2026 Bento SOC War Room** | Next.js 14 Command Center with 1-click Autopsy Replay Mode |
-| 📊 **Multi-Model Asymmetry Testing** | Side-by-side Commercial (GPT-5.6 / Opus 5) vs Open Attacker evaluation |
+However, just like human employees, **AI agents can make mistakes or be tricked by hackers** (known as *Prompt Injections* or *Jailbreaks*). If an AI agent gets tricked, it might accidentally leak company passwords, delete important files, or send private customer data to the wrong person.
+
+**ARTSA acts like an automatic security guardrail and airbag for your AI agents.** It watches everything the AI agent tries to do in real-time (in less than 0.05 seconds) and instantly **stops the AI before any damage can happen.**
 
 ---
 
-## 🌟 Key Product Capabilities
+## ❓ The Problem ARTSA Solves
 
-### 1. Escape Detection as a Service (EDS)
-- Intercepts tool calls (`exec_command`, `file_read`, `network_egress`) in **sub-50ms**.
-- Composite scoring across **Rule-Based**, **Statistical Frequency**, **Semantic Prompt Injection**, and **Goal Drift** detectors.
-- Recommended actions: `NONE`, `ALERT`, `THROTTLE`, `KILL`, `QUARANTINE`.
-
-### 2. Live Telemetry & Redis Streams
-- Dual Redis Stream (`events:incoming`) and Celery worker pipeline for high-throughput execution processing.
-- Live WebSocket stream endpoint (`/v1/sessions/{session_id}/stream`) feeding real-time war room widgets.
-
-### 3. 2026 Bento Grid SOC War Room
-- Dynamic dark-mode dashboard (`bg-[#0B0F19]`) with selective glassmorphism.
-- Integrated **Cmd+K Command Palette**, **Defense Depth Meter**, and **Autopsy Replay Modal**.
-
-### 4. Regulatory Audit Exporter
-- Automated export for **EU AI Act Article 15 (Cybersecurity & Robustness)** and **NIST AI RMF 1.0 (GOVERN 1.2 & MEASURE 2.6)** compliance.
+| The Risk | What Could Go Wrong? | How ARTSA Protects You |
+|----------|----------------------|------------------------|
+| 🔓 **AI Getting Tricked** | A sneaky user asks the AI to ignore its rules and reveal secret passwords. | **ARTSA blocks the trick question before the AI responds.** |
+| 💥 **Accidental File Deletion** | The AI misinterprets a command and tries to delete server files. | **ARTSA freezes the command in 0.05 seconds.** |
+| 📤 **Data Leakage** | The AI attempts to send private customer records to an unknown website. | **ARTSA cuts off the AI's internet connection immediately.** |
+| 🌀 **AI Going Off-Track** | The AI wanders off its original goal and starts doing random unauthorized tasks. | **ARTSA flags the unusual behavior and alerts your team.** |
 
 ---
 
-## 🏗️ Monorepo Architecture
+## ⚡ How ARTSA Works in 3 Easy Steps
 
 ```
-artsa/
-├── pyproject.toml                     # Root dependencies & pytest config
-├── package.json                       # Monorepo script runner
-├── docker-compose.yml                 # Postgres 16, Redis 7, Backend API, Frontend
-├── Makefile                           # Development automation commands
-├── .env.example                       # Shared environment configuration template
-│
-├── backend/                           # Fast-API Engine & Data Services
-│   ├── src/
-│   │   ├── api/                       # REST & WebSocket Endpoints (health, ingest, sessions, agents, alerts)
-│   │   ├── core/                      # Pydantic v2 Models (events, sessions, agents, scores, alerts)
-│   │   ├── containment/               # EDS Containment Engine, Detectors & Composite Scorer
-│   │   ├── data/                      # Async SQLAlchemy 2.0 Engine & Repositories
-│   │   ├── services/                  # EventProcessor, SessionTracker, ScoringService
-│   │   └── workers/                   # Celery worker tasks & Redis stream consumers
-│   └── tests/                         # Unit, Integration, and E2E Test Suite
-│
-├── frontend/                          # Next.js 14 Command Center War Room
-│   ├── app/                           # App Router pages (Command Center, Topology, Replay, X-Ray)
-│   ├── components/                    # Bento War Room Grid, Severity Badges, Risk Score meters
-│   └── lib/                           # TypeScript interfaces matching backend models
-│
-├── sdk/                               # Agent Instrumentation SDK
-│   └── python/                        # artsa-sdk client & LangChain tool interceptor
-│
-└── infra/                             # Docker, Kubernetes & Deployment configurations
+1. AI Tries to Act          2. ARTSA Inspects (<0.05s)          3. Safe Result Enforced
+ ┌──────────────┐             ┌─────────────────────┐             ┌────────────────────┐
+ │  AI Agent    │  ───────►   │ 🛡️ ARTSA Guardrail │  ───────►   │ ✅ ALLOW (Safe)    │
+ │  Wants to:   │             │   Checks Risk:      │             │ ⚠️ ALERT (Review)  │
+ │  "Read File" │             │   Rule + AI Scanners│             │ 🛑 BLOCK (Quarantine)
+ └──────────────┘             └─────────────────────┘             └────────────────────┘
 ```
+
+1. **Continuous Inspection**: Every time your AI agent clicks a button, reads a document, or runs a command, ARTSA checks it instantly.
+2. **Instant Risk Score (0 to 100)**: ARTSA assigns a risk score to the action.
+   - **0 - 49 (Green)**: Safe! The AI is allowed to proceed.
+   - **50 - 79 (Yellow)**: Suspicious! The action is flagged for review.
+   - **80 - 100 (Red)**: Danger! ARTSA automatically blocks the AI and alerts your security team.
+3. **Visual Dashboard**: Your team gets a live "War Room" dashboard showing all active AI agents, their safety health, and any blocked threats.
 
 ---
 
-## ⚡ Quick Start Guide
+## 🎨 The Live Security Command Center
 
-### Prerequisites
-- **Python**: 3.11+
-- **Node.js**: 20+
-- **Docker & Docker Compose** (Optional for containerized run)
+ARTSA includes a visual **SOC War Room Dashboard** that anyone can understand:
 
-### 1. Launch with Docker Compose (Recommended)
+- 🟢 **Healthy Agents**: AI assistants working safely.
+- 🟡 **At-Risk Agents**: AI assistants showing unusual behavior.
+- 🔴 **Quarantined Agents**: AI assistants that were stopped because of a security breach.
+- 🎬 **1-Click Autopsy Replay**: Rewind and replay any incident step-by-step to see exactly what the AI was doing.
+
+---
+
+## 🚀 Quick Start Guide (Run in 1 Minute)
+
+### Option 1: Run Everything with 1 Command (Docker)
 ```bash
-docker-compose up -d --build
+docker-compose up -d
 ```
-- 🌐 **Backend API**: `http://localhost:8000/v1/health`
-- 🎨 **Next.js Dashboard**: `http://localhost:3000`
-- 🗄️ **PostgreSQL**: `localhost:5432`
-- 🔴 **Redis**: `localhost:6379`
+- Open **http://localhost:3000** in your browser to view the Live Security Dashboard!
 
-### 2. Local Development (Single Command)
+### Option 2: Local Setup
 ```bash
-# Install root dependencies
+# 1. Install dependencies
 npm install
 
-# Start Backend (Port 8000) and Frontend (Port 3000) concurrently:
+# 2. Start both the Security Engine and Dashboard together:
 npm run dev
 ```
 
-### 3. Running Backend Tests
-```bash
-make test
-# OR manually:
-cd backend && python -m pytest tests/ -v
-```
-
 ---
 
-## 🔌 Python SDK Usage
+## 📄 License & Contact
 
-Install the `artsa-sdk` to instrument any LLM agent tool call loop:
-
-```python
-from artsa import ArtsaClient
-from artsa.middleware.langchain import LangChainContainmentCallback
-
-client = ArtsaClient(api_url="http://localhost:8000")
-
-# Instrument LangChain Agent
-callback = LangChainContainmentCallback(
-    client=client,
-    session_id="session-123",
-    agent_id="support-agent-01"
-)
-```
-
----
-
-## ⚖️ License & Compliance
-
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
+ARTSA is open-source under the **MIT License**. For questions or enterprise security setup, contact the platform team.
