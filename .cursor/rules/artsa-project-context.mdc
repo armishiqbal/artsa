@@ -1,0 +1,40 @@
+---
+description: ARTSA AI cybersecurity dashboard — project context for all code generation
+alwaysApply: true
+---
+# ARTSA — AI Containment Platform Context
+
+## Product
+Enterprise cybersecurity dashboard for real-time AI agent containment, escape detection, and red-team wargaming. Not a generic SaaS template — prioritize security UX clarity over decorative UI.
+
+## Stack
+| Layer | Tech |
+|-------|------|
+| Frontend | Next.js 14 App Router, React 18, TypeScript, Tailwind, shadcn/ui, Framer Motion, Recharts |
+| Backend | FastAPI, Pydantic v2, SQLAlchemy async, pytest |
+| AI | LangChain provider registry, LLM judge, embedding-based semantic detection |
+
+## Repo layout
+- `frontend/` — Next.js command center (port 3000)
+- `backend/src/api/` — production containment API (port 8000 via uvicorn)
+- `api-gateway/` — wargame/campaign gateway (separate app)
+- Do not conflate the two port-8000 apps without explicit user request
+
+## Frontend pages (preserve functionality)
+`/`, `/observatory`, `/wargame`, `/attack-library`, `/providers`, `/reports`, `/topology`, `/replay`, `/xray`
+
+## API contracts — do not change unless asked
+- Containment: `/api/v1/ingest`, `/metrics/dashboard`, `/observatory`, `/topology`, `/websocket`
+- Gateway: `/api/v1/campaigns/run`, `/attack-library`
+- Use `fetchFromBackend()` and existing env `NEXT_PUBLIC_API_URL`
+
+## UX priorities
+1. Live telemetry visibility (WebSocket + polling fallback)
+2. Severity-at-a-glance (critical/high/medium/low)
+3. Sub-50ms containment SLO messaging where relevant
+4. Dark theme, premium density, accessible contrast
+
+## Code generation defaults
+- Match existing naming: `ContainmentEngine`, `SeverityBadge`, `fetchFromBackend`
+- Prefer extending detectors/routes over parallel implementations
+- Keep mock fallbacks when API offline (graceful degradation)

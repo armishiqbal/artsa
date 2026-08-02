@@ -31,7 +31,8 @@ def test_get_session_details():
     assert response.status_code == 200
     timeline = response.json()
     assert len(timeline) >= 1
-    assert timeline[0]["session_id"] == session_id
+    assert timeline[0]["event"]["session_id"] == session_id
+    assert "evaluation" in timeline[0]
 
 
 def test_enforce_session_action():

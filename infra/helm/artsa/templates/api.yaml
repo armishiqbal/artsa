@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "artsa.name" . }}-api
+  labels:
+    {{- include "artsa.api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.api }}
+  selector:
+    matchLabels:
+      {{- include "artsa.api.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "artsa.api.labels" . | nindent 8 }}
+      {{- if .Values.monitoring.prometheusAnnotations.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/api/v1/metrics/prometheus"
+      {{- end }}
+    spec:
+      {{- if .Values.secrets.create }}
+      envFrom:
+        - secretRef:
+            name: {{ include "artsa.name" . }}-secrets
+      {{- end }}
+      containers:
+        - name: api
+          image: "{{ .Values.image.api.repository }}:{{ .Values.image.api.tag }}"
+          imagePullPolicy: {{ .Values.image.api.pullPolicy }}
+          ports:
+            - containerPort: 8000
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources.api | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.chroma.enabled }}
+            - name: chroma-data
+              mountPath: /app/backend/data/chroma
+            {{- end }}
+      volumes:
+        {{- if .Values.persistence.chroma.enabled }}
+        - name: chroma-data
+          persistentVolumeClaim:
+            claimName: {{ include "artsa.name" . }}-chroma
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "artsa.name" . }}-api
+  labels:
+    {{- include "artsa.api.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.api.type }}
+  ports:
+    - port: {{ .Values.service.api.port }}
+      targetPort: 8000
+      name: http
+  selector:
+    {{- include "artsa.api.labels" . | nindent 4 }}
+{{- if .Values.persistence.chroma.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "artsa.name" . }}-chroma
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.persistence.chroma.size }}
+  {{- if .Values.persistence.chroma.storageClass }}
+  storageClassName: {{ .Values.persistence.chroma.storageClass }}
+  {{- end }}
+{{- end }}

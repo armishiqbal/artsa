@@ -1,0 +1,70 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "artsa.name" . }}-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "artsa.name" . }}-postgres
+  template:
+    metadata:
+      labels:
+        app: {{ include "artsa.name" . }}-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgresql.image }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgresql.auth.database }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgresql.auth.username }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgresql.auth.password }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "artsa.name" . }}-postgres
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: {{ include "artsa.name" . }}-postgres
+{{- end }}
+{{- if .Values.redis.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "artsa.name" . }}-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "artsa.name" . }}-redis
+  template:
+    metadata:
+      labels:
+        app: {{ include "artsa.name" . }}-redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "artsa.name" . }}-redis
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: {{ include "artsa.name" . }}-redis
+{{- end }}

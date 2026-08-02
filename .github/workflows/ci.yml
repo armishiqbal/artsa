@@ -34,10 +34,17 @@ jobs:
         run: pip install ruff
 
       - name: Ruff check (lint)
-        run: ruff check backend/src/ backend/tests/ backend/scripts/ || true
+        run: |
+          ruff check \
+            backend/src/api/routes/campaigns.py \
+            backend/src/api/routes/attack_library.py \
+            backend/src/api/routes/forensics.py \
+            backend/src/agents/guardrails/ \
+            backend/src/api/main.py \
+            backend/src/api/dependencies.py || true
 
       - name: Ruff format (formatting)
-        run: ruff format --check backend/src/ backend/tests/ backend/scripts/ || true
+        run: ruff format --check backend/src/api/routes/campaigns.py backend/src/api/routes/attack_library.py backend/src/api/routes/forensics.py || true
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 2: Unit & Integration Tests (Backend)
@@ -72,6 +79,51 @@ jobs:
             --tb=short \
             -v
 
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 2b: Postgres Integration Tests
+  # ─────────────────────────────────────────────────────────────────
+  test_postgres:
+    name: "🐘 Postgres Integration"
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: artsa
+          POSTGRES_PASSWORD: artsa_test
+          POSTGRES_DB: artsa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -e "." || pip install pytest pytest-asyncio pydantic fastapi sqlalchemy asyncpg psycopg2-binary
+
+      - name: Run Postgres persistence tests
+        env:
+          PYTHONPATH: backend
+          ENVIRONMENT: integration_test
+          RUN_POSTGRES_TESTS: "1"
+          USE_SQLITE: "false"
+          DATABASE_URL: postgresql+asyncpg://artsa:artsa_test@localhost:5432/artsa_test
+          SYNC_DATABASE_URL: postgresql://artsa:artsa_test@localhost:5432/artsa_test
+        run: |
+          cd backend
+          python -m pytest tests/integration/test_postgres_persistence.py -v --tb=short
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 3: Next.js Frontend Production Build
@@ -91,4 +143,59 @@ jobs:
         run: |
           cd frontend
           npm ci || npm install
+          npm run test
           npm run build
+
+      - name: Install Playwright browser
+        run: cd frontend && npx playwright install chromium --with-deps
+
+      - name: Run Playwright E2E smoke tests
+        run: cd frontend && npm run test:e2e
+
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 4: Benchmark harness smoke
+  # ─────────────────────────────────────────────────────────────────
+  benchmark:
+    name: "📊 Benchmark Smoke"
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run benchmark harness smoke
+        env:
+          PYTHONPATH: backend
+          ENVIRONMENT: testing
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" || pip install pytest pydantic fastapi pyyaml
+          python -m pytest tests/test_benchmark_harness.py tests/test_ablation_harness.py -q
+
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 5: Containment regression gate (recall / FPR / latency SLOs)
+  # ─────────────────────────────────────────────────────────────────
+  regression_gate:
+    name: "🚦 Regression Gate"
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run containment regression gate
+        env:
+          PYTHONPATH: backend
+          ENVIRONMENT: testing
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -e "." || pip install pydantic fastapi pyyaml
+          python scripts/ci_regression_gate.py

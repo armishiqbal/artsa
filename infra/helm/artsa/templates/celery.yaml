@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "artsa.name" . }}-celery
+  labels:
+    {{- include "artsa.celery.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.celery }}
+  selector:
+    matchLabels:
+      {{- include "artsa.celery.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "artsa.celery.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: celery
+          image: "{{ .Values.image.api.repository }}:{{ .Values.image.api.tag }}"
+          imagePullPolicy: {{ .Values.image.api.pullPolicy }}
+          workingDir: /app/backend
+          command: ["python", "-m", "celery", "-A", "src.workers.celery_app", "worker", "--loglevel=info"]
+          env:
+            - name: PYTHONPATH
+              value: /app/backend
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources.celery | nindent 12 }}

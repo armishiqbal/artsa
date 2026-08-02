@@ -1,0 +1,37 @@
+---
+description: FastAPI layered architecture — router/service/repository boundaries (from awesome-cursorrules/fastapi-production-architecture)
+globs: backend/src/**/*.py
+alwaysApply: false
+---
+# FastAPI Layered Architecture
+
+Source: [fastapi-production-architecture](https://github.com/PatrickJS/awesome-cursorrules) — adapted for ARTSA
+
+## Layer flow
+`api/routes` → `services` → `data/repositories` → ORM / memory store
+
+Imports flow downward only. Routers must not import SQLAlchemy or raw ORM models.
+
+## Routers (`backend/src/api/routes/`)
+- Handlers stay thin: parse input, call one service/repository method, return response
+- Declare `response_model`, status codes, and tags
+- WebSocket routes publish/subscribe via `telemetry_bus`; no business logic inline
+
+## Services (`backend/src/services/`)
+- Orchestrate containment evaluation, session tracking, campaign side effects
+- Raise domain-specific exceptions; let middleware or route handlers map to HTTP
+- No FastAPI `Request`/`Response` objects in services
+
+## Repositories (`backend/src/data/repositories/`)
+- Only layer that touches SQLAlchemy ORM or `memory_store` fallback
+- `_use_memory` when `settings.is_testing` or mock session — keep test path explicit
+- Map ORM ↔ Pydantic domain models in private `_to_domain` / `_to_orm` helpers
+
+## Containment (`backend/src/containment/`)
+- Detectors implement `BaseDetector.detect()`; engine coordinates scoring + verdict
+- New detectors register in `ContainmentEngine.__init__`; update `CompositeScorer` flag mapping
+
+## Do not
+- Put SQL queries in route handlers
+- Import `ContainmentEngine` directly from frontend-facing gateway code without going through services
+- Add cross-layer circular imports

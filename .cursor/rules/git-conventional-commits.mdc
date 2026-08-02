@@ -1,0 +1,35 @@
+---
+description: Conventional Commits for git messages (from awesome-cursorrules/git-conventional-commit-messages)
+globs: "**/*"
+alwaysApply: false
+---
+# Conventional Commits
+
+Source: [git-conventional-commit-messages](https://github.com/PatrickJS/awesome-cursorrules)
+
+## Format
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+## Types
+- `feat` — new feature
+- `fix` — bug fix
+- `refactor` — code change without behavior change
+- `perf` — performance improvement
+- `test` — tests only
+- `docs` — documentation
+- `chore` — tooling, deps, CI
+- `style` — formatting only (no logic change)
+
+## Scope examples (ARTSA)
+- `frontend`, `backend`, `containment`, `api`, `observatory`, `deps`
+
+## Rules
+- Description imperative mood, lowercase, no trailing period: `feat(frontend): wire observatory to live API`
+- Breaking changes: `feat(api)!: rename ingest payload field` or footer `BREAKING CHANGE: ...`
+- One logical change per commit; don't mix frontend redesign with backend refactors

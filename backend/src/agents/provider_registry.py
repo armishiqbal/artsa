@@ -7,9 +7,14 @@ import os
 from typing import Any, Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_openai import ChatOpenAI
 
 logger = logging.getLogger(__name__)
+
+
+def _chat_openai(**kwargs: Any) -> BaseChatModel:
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(**kwargs)
 
 # Type alias for provider factory functions
 ProviderFactory = Callable[
@@ -85,7 +90,7 @@ def create_llm_instance(
         resolved_key = api_key or os.environ.get(env_var) or os.environ.get(f"{prov_clean.upper()}_API_KEY") or "mock-key"
         resolved_model = model if model not in ("gpt-4o", "gpt-5.6-terra", "", "default") else default_m
 
-        return ChatOpenAI(
+        return _chat_openai(
             model=resolved_model,
             temperature=temperature,
             max_retries=max_retries,
@@ -107,7 +112,7 @@ def create_llm_instance(
             provider,
             resolved_url,
         )
-        return ChatOpenAI(
+        return _chat_openai(
             model=model,
             temperature=temperature,
             max_retries=max_retries,
@@ -119,7 +124,7 @@ def create_llm_instance(
     # 4. Standard OpenAI Default
     logger.info("Initializing OpenAI provider for '%s'", provider)
     resolved_key = api_key or os.environ.get("OPENAI_API_KEY") or "mock-key-for-testing"
-    return ChatOpenAI(
+    return _chat_openai(
         model=model,
         temperature=temperature,
         max_retries=max_retries,

@@ -1,22 +1,28 @@
 "use client";
 
-import React from "react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface SeverityBadgeProps {
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  className?: string;
 }
 
-export function SeverityBadge({ severity }: SeverityBadgeProps) {
-  const badgeStyles = {
-    LOW: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    MEDIUM: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    HIGH: "bg-orange-500/10 text-orange-400 border-orange-500/20",
-    CRITICAL: "bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold animate-pulse",
-  };
+const variantMap = {
+  LOW: "info" as const,
+  MEDIUM: "warning" as const,
+  HIGH: "warning" as const,
+  CRITICAL: "critical" as const,
+};
 
+export function SeverityBadge({ severity, className }: SeverityBadgeProps) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono border ${badgeStyles[severity]}`}>
+    <Badge
+      variant={variantMap[severity]}
+      className={cn("font-mono text-[10px] uppercase", severity === "CRITICAL" && "animate-pulse", className)}
+      aria-label={`Severity: ${severity}`}
+    >
       {severity}
-    </span>
+    </Badge>
   );
 }

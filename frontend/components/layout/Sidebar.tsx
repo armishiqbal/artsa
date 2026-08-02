@@ -2,56 +2,94 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, LayoutDashboard, Activity, AlertTriangle, Layers, Users } from "lucide-react";
+import { motion } from "framer-motion";
+import { Shield } from "lucide-react";
+import { navSections } from "@/lib/navigation";
+import { useAuthRole } from "@/lib/hooks/useAuthRole";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { capabilities } = useAuthRole();
 
-  const navItems = [
-    { name: "Command Center", href: "/", icon: LayoutDashboard },
-    { name: "Live Observatory", href: "/observatory", icon: Activity },
-    { name: "Attack Matrix", href: "/attack-library", icon: Layers },
-    { name: "Agents Registry", href: "/providers", icon: Users },
-    { name: "Alerts Feed", href: "/reports", icon: AlertTriangle },
-  ];
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.capability || capabilities[item.capability]
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
-    <aside className="w-64 border-r border-slate-800 bg-[#0E1322] flex flex-col h-screen sticky top-0 z-40">
-      <div className="p-5 border-b border-slate-800 flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-          <ShieldCheck className="w-6 h-6" />
+    <aside className="sticky top-0 z-40 hidden h-screen w-64 flex-col border-r border-border bg-card/50 backdrop-blur-xl lg:flex">
+      <div className="flex items-center gap-3 border-b border-border p-5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+          <Shield className="h-5 w-5" aria-hidden />
         </div>
         <div>
-          <h1 className="font-bold text-sm tracking-tight text-white font-mono flex items-center gap-1.5">
-            ARTSA <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">v0.3</span>
-          </h1>
-          <p className="text-[11px] text-slate-400">AI Escape Containment</p>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold tracking-tight">ARTSA</span>
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-mono">
+              v0.3
+            </Badge>
+          </div>
+          <p className="text-[11px] text-muted-foreground">AI Containment Platform</p>
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <div className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider font-mono">
-          Containment Controls
+      <ScrollArea className="flex-1 px-3 py-4">
+        <nav className="space-y-6" aria-label="Main navigation">
+          {visibleSections.map((section) => (
+            <div key={section.label}>
+              <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {section.label}
+              </p>
+              <ul className="space-y-0.5">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        )}
+                        aria-current={isActive ? "page" : undefined}
+                      >
+                        {isActive && (
+                          <motion.span
+                            layoutId="sidebar-active"
+                            className="absolute inset-0 rounded-lg bg-primary/10 ring-1 ring-primary/20"
+                            transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+                          />
+                        )}
+                        <Icon className="relative h-4 w-4 shrink-0" aria-hidden />
+                        <span className="relative">{item.name}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </ScrollArea>
+
+      <Separator />
+      <div className="p-4">
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <p className="text-xs font-medium text-foreground">Containment SLO</p>
+          <p className="mt-1 font-mono text-[11px] text-emerald-400">&lt;50ms ingest latency</p>
         </div>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition ${
-                isActive
-                  ? "bg-slate-800 text-cyan-400 font-semibold border-l-2 border-cyan-400"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      </div>
     </aside>
   );
 }

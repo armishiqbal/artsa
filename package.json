@@ -4,10 +4,16 @@
   "private": true,
   "description": "ARTSA — Real-Time AI Agent Containment & Escape Detection Platform",
   "scripts": {
-    "dev:gateway": "cd backend && ../backend/.venv/bin/python -m uvicorn src.api.main:app --reload --port 8000",
+    "setup:env": "python backend/scripts/setup_env.py",
+    "dev:backend": "cd backend && PYTHONPATH=. python -m uvicorn src.api.main:app --reload --port 8000",
+    "dev:gateway": "npm run dev:backend",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev": "concurrently -k -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev:gateway\" \"npm run dev:frontend\"",
-    "build:frontend": "cd frontend && npm run build"
+    "dev": "concurrently -k -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "verify": "python backend/scripts/verify_platform.py",
+    "regression-gate": "cd backend && ENVIRONMENT=testing PYTHONPATH=. python scripts/ci_regression_gate.py",
+    "seed:attacks": "cd backend && PYTHONPATH=. python scripts/seed_attack_library.py",
+    "build:frontend": "cd frontend && npm run build",
+    "test:e2e": "cd frontend && npm run build && CI=true npm run test:e2e"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

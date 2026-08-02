@@ -1,8 +1,12 @@
 """FastAPI Dependency Injection Providers."""
 
 from typing import AsyncGenerator, Optional
+
 from fastapi import Header
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.core.config import settings
+from src.data.redis_client import RedisStreamProtocol, get_redis_stream_client
 from src.services.event_processor import EventProcessor
 from src.services.session_tracker import SessionTracker
 
@@ -11,7 +15,7 @@ _tracker = SessionTracker()
 
 
 class MockAsyncSession:
-    """Mock AsyncSession for test environments without greenlet / DB."""
+    """Mock AsyncSession for test environments."""
 
     def add(self, instance: object) -> None:
         pass
@@ -30,52 +34,32 @@ class MockAsyncSession:
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency provider yielding async database session."""
-    yield MockAsyncSession()
+    """Yield async database session (SQLite/Postgres) or mock in tests."""
+    if settings.is_testing:
+        yield MockAsyncSession()  # type: ignore[misc]
+        return
+
+    from src.data.db import get_async_session
+
+    async for session in get_async_session():
+        yield session
 
 
-
-class MockRedis:
-    """Mock Redis client for test environments."""
-
-    def __init__(self) -> None:
-        self._streams = {}
-
-    def xadd(self, stream_name: str, fields: dict) -> str:
-        if stream_name not in self._streams:
-            self._streams[stream_name] = []
-        self._streams[stream_name].append(fields)
-        return "1000-0"
-
-    def xlen(self, stream_name: str) -> int:
-        return len(self._streams.get(stream_name, []))
-
-
-_redis_instance = MockRedis()
-
-
-def get_redis() -> MockRedis:
-    """Dependency provider returning Redis client instance."""
-    return _redis_instance
-
-
-def get_current_tenant(x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -> str:
-    """Extract tenant_id from X-API-Key header."""
-    if not x_api_key:
-        return "default_tenant"
-    return x_api_key
-
-
-def rate_limit_dependency(x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -> None:
-    """Rate limit validator dependency (10K req/min)."""
-    pass
+def get_redis() -> RedisStreamProtocol:
+    return get_redis_stream_client()
 
 
 def get_event_processor() -> EventProcessor:
-    """Dependency provider for EventProcessor service."""
     return _processor
 
 
 def get_session_tracker() -> SessionTracker:
-    """Dependency provider for SessionTracker service."""
     return _tracker
+
+
+async def get_current_tenant(x_tenant_id: Optional[str] = Header(None, alias="X-Tenant-ID")) -> str:
+    return x_tenant_id or settings.ARTSA_TENANT_ID or "default_org"
+
+
+async def rate_limit_dependency() -> None:
+    return None

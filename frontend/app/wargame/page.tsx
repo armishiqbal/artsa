@@ -1,273 +1,416 @@
 "use client";
 
-import { useState } from 'react';
-import { Swords, Play, Terminal, Cpu, Sliders, CheckCircle2, Zap } from 'lucide-react';
-import { fetchFromBackend } from '@/lib/api';
+import { useState, useEffect } from "react";
+import { Swords, Play, Terminal, Cpu, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { fetchFromBackend } from "@/lib/api";
+import { useProviders } from "@/lib/hooks/useProviders";
+import { useAuthRole } from "@/lib/hooks/useAuthRole";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { DashboardCard } from "@/components/shared/DashboardCard";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { toast } from "@/lib/stores/toast";
 
-const providers = [
-  { id: 'groq', name: 'Groq Free Cloud API', model: 'llama-3.3-70b-versatile', badge: 'FREE API' },
-  { id: 'mistral', name: 'Mistral Free API', model: 'open-mistral-7b', badge: 'FREE API' },
-  { id: 'deepseek', name: 'DeepSeek API', model: 'deepseek-chat', badge: 'FREE API' },
-  { id: 'huggingface', name: 'Hugging Face Serverless', model: 'meta-llama/Meta-Llama-3-8B-Instruct', badge: 'FREE API' },
-  { id: 'ollama', name: 'Ollama Local LLM', model: 'llama3.2', badge: 'LOCAL PRIVATE' },
-  { id: 'custom', name: 'Custom OpenAI-Compatible Endpoint', model: 'my-custom-model', badge: 'CUSTOM ENDPOINT' },
-  { id: 'openai', name: 'OpenAI GPT Models', model: 'gpt-5.6-terra', badge: 'COMMERCIAL' },
+const STEPS = ["Target", "Profile", "Launch"] as const;
 
+const ATTACK_PROFILES = [
+  { id: "quick_scan", name: "Quick Scan", desc: "DPI, JBK, SPE — fast surface assessment" },
+  { id: "comprehensive", name: "Comprehensive Audit", desc: "Full multi-vector red-team sweep" },
 ];
 
 export default function WargamePage() {
-  const [selectedProvider, setSelectedProvider] = useState('groq');
-  const [modelName, setModelName] = useState('llama-3.3-70b-versatile');
-  const [attackProfile, setAttackProfile] = useState('quick_scan');
+  const { providers, loading: providersLoading } = useProviders();
+  const { capabilities, loading: authLoading } = useAuthRole();
+  const [step, setStep] = useState(0);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [modelName, setModelName] = useState("");
+  const [attackProfile, setAttackProfile] = useState("quick_scan");
   const [rounds, setRounds] = useState(5);
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-
+  const [baseUrl, setBaseUrl] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [completed, setCompleted] = useState(false);
+
+  const provider = providers.find((p) => p.id === selectedProvider);
+
+  useEffect(() => {
+    if (provider && !modelName) {
+      setModelName(provider.model);
+    }
+  }, [provider, modelName]);
 
   const handleProviderSelect = (pId: string) => {
     setSelectedProvider(pId);
-    const found = providers.find(p => p.id === pId);
+    const found = providers.find((p) => p.id === pId);
     if (found) setModelName(found.model);
   };
 
   const handleLaunch = async () => {
+    if (!selectedProvider) return;
     setIsRunning(true);
-    setLogs([`[SYSTEM] Initializing Wargame Launcher for Provider: ${selectedProvider}...`]);
+    setCompleted(false);
+    setLogs([`[SYSTEM] Initializing wargame for ${selectedProvider}…`]);
 
     try {
-      const data = await fetchFromBackend('/api/v1/campaigns/run', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: `Wargame: ${selectedProvider.toUpperCase()} (${modelName})`,
-          provider: selectedProvider,
-          model: modelName,
-          attack_profile: attackProfile,
-          max_rounds: Number(rounds),
-          api_key: apiKey || undefined,
-          base_url: baseUrl || undefined,
-        }),
-      });
+      const data = await fetchFromBackend<{ campaign_id?: string; error?: string }>(
+        "/api/v1/campaigns/run",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: `Wargame: ${selectedProvider.toUpperCase()} (${modelName})`,
+            provider: selectedProvider,
+            model: modelName,
+            attack_profile: attackProfile,
+            max_rounds: Number(rounds),
+            base_url: baseUrl || undefined,
+          }),
+        }
+      );
 
-      if (data.campaign_id) {
+      if (data?.campaign_id) {
         const cId = data.campaign_id;
         setCampaignId(cId);
-        setLogs(prev => [
+        setLogs((prev) => [
           ...prev,
-          `[GATEWAY] Live Campaign spawned successfully with ID: ${cId}`,
-          `[WARGAME] Dispatching real LLM requests to ${selectedProvider} (${modelName})...`,
+          `[GATEWAY] Campaign spawned: ${cId}`,
+          `[WARGAME] Dispatching to ${selectedProvider} (${modelName})…`,
         ]);
 
-        // Real-time polling loop
         const interval = setInterval(async () => {
-          try {
-            const statusData = await fetchFromBackend(`/api/v1/campaigns/${cId}`);
-            if (statusData) {
-              setLogs(prev => [
-                ...prev,
-                `[LIVE TELEMETRY] Status: ${statusData.status} | Rounds Completed: ${statusData.rounds_completed || 0} / ${rounds}`,
-              ]);
+          const statusData = await fetchFromBackend<{
+            status: string;
+            rounds_completed?: number;
+            error?: string;
+          }>(`/api/v1/campaigns/${cId}`, { silent: true });
 
-              if (statusData.status === 'COMPLETED' || statusData.status === 'FAILED') {
-                clearInterval(interval);
-                setIsRunning(false);
-                if (statusData.status === 'COMPLETED') {
-                  setLogs(prev => [
-                    ...prev,
-                    `[REAL CAMPAIGN COMPLETE] Successfully audited ${selectedProvider} (${modelName}) across ${rounds} rounds!`,
-                  ]);
-                } else {
-                  setLogs(prev => [
-                    ...prev,
-                    `[REAL CAMPAIGN ERROR] ${statusData.error || 'Campaign execution failed'}`,
-                  ]);
-                }
+          if (statusData) {
+            setLogs((prev) => [
+              ...prev,
+              `[TELEMETRY] ${statusData.status} · ${statusData.rounds_completed || 0}/${rounds} rounds`,
+            ]);
+            if (statusData.status === "COMPLETED" || statusData.status === "FAILED") {
+              clearInterval(interval);
+              setIsRunning(false);
+              if (statusData.status === "COMPLETED") {
+                setCompleted(true);
+                toast("Campaign completed", {
+                  description: "View results in Reports or Replay.",
+                  variant: "success",
+                });
               }
+              setLogs((prev) => [
+                ...prev,
+                statusData.status === "COMPLETED"
+                  ? `[COMPLETE] Campaign finished successfully.`
+                  : `[ERROR] ${statusData.error || "Campaign failed"}`,
+              ]);
             }
-          } catch (err: any) {
-            logger_err(err);
           }
         }, 1500);
       } else {
         setIsRunning(false);
       }
-    } catch (e: any) {
-      setLogs(prev => [...prev, `[ERROR] Failed to start simulation: ${e.message}`]);
+    } catch (e: unknown) {
+      setLogs((prev) => [...prev, `[ERROR] ${e instanceof Error ? e.message : "Failed to start"}`]);
       setIsRunning(false);
     }
   };
 
-  const logger_err = (err: any) => console.error(err);
+  const canAdvanceStep0 = !!selectedProvider;
+  const canAdvanceStep1 = !!attackProfile && rounds >= 1;
 
+  if (!authLoading && !capabilities.can_run_campaigns) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Wargame Simulation"
+          description="Configure target providers, attack profiles, and execute autonomous red-team campaigns."
+          icon={<Swords className="h-5 w-5" />}
+        />
+        <EmptyState
+          icon={Swords}
+          title="Campaign access restricted"
+          description="Your API key role does not include permission to launch wargame campaigns. Contact an admin for redteam or admin access."
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
-          <Swords className="w-6 h-6 text-sky-600" />
-          Interactive Wargame Simulation Center
-        </h1>
-        <p className="text-sm text-slate-600 mt-1">
-          Configure target provider parameters, select attack taxonomy, and execute automated multi-round red-team simulations.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title="Wargame Simulation"
+        description="Configure target providers, attack profiles, and execute autonomous red-team campaigns."
+        icon={<Swords className="h-5 w-5" />}
+        actions={
+          isRunning ? (
+            <Badge variant="info" className="animate-pulse">
+              Running
+            </Badge>
+          ) : completed ? (
+            <Badge variant="success">Completed</Badge>
+          ) : null
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Controls Column */}
-        <div className="space-y-4">
-          <div className="ui-panel p-5 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-sky-600" />
-              1. Target Provider & Model
-            </h3>
+      <nav aria-label="Wargame wizard steps" className="flex items-center gap-2">
+        {STEPS.map((label, i) => (
+          <div key={label} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => !isRunning && setStep(i)}
+              disabled={isRunning}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                step === i
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-accent",
+                isRunning && "cursor-not-allowed opacity-60"
+              )}
+            >
+              <span className="font-mono">{i + 1}</span>
+              {label}
+              {i < step && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}
+            </button>
+            {i < STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        ))}
+      </nav>
 
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">Select Provider</label>
-              <div className="grid grid-cols-1 gap-2">
-                {providers.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleProviderSelect(p.id)}
-                    className={`p-3 rounded-xl border text-left flex items-center justify-between transition ${
-                      selectedProvider === p.id
-                        ? 'bg-sky-50 border-sky-300 text-sky-950 font-semibold shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">{p.name}</div>
-                      <div className="text-[11px] text-slate-500">Default: {p.model}</div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6">
+          {step === 0 && (
+            <DashboardCard title="Step 1 · Target Provider" description="Select from configured LLM backends">
+              {providersLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : providers.length === 0 ? (
+                <EmptyState
+                  icon={Swords}
+                  title="No providers available"
+                  description="Configure API keys in Providers before launching a campaign."
+                  action={
+                    <Button asChild size="sm">
+                      <Link href="/providers">Configure providers</Link>
+                    </Button>
+                  }
+                />
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {providers.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleProviderSelect(p.id)}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                          selectedProvider === p.id
+                            ? "border-primary/50 bg-primary/10 text-foreground"
+                            : "border-border hover:bg-accent",
+                          !p.configured && p.type !== "local" && "opacity-60"
+                        )}
+                      >
+                        <div>
+                          <p className="font-medium">{p.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{p.model}</p>
+                        </div>
+                        <Badge
+                          variant={p.configured ? "success" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {p.configured ? "Ready" : "No key"}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedProvider && (
+                    <div className="space-y-3 border-t border-border pt-4">
+                      <label className="text-xs font-medium text-muted-foreground">Model name</label>
+                      <Input
+                        value={modelName}
+                        onChange={(e) => setModelName(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                      {(provider?.type === "local" || selectedProvider === "custom") && (
+                        <>
+                          <label className="text-xs font-medium text-muted-foreground">Base URL</label>
+                          <Input
+                            value={baseUrl}
+                            onChange={(e) => setBaseUrl(e.target.value)}
+                            placeholder="http://localhost:11434/v1"
+                            className="font-mono text-xs"
+                          />
+                        </>
+                      )}
+                      {!provider?.configured && provider?.type !== "local" && (
+                        <p className="text-xs text-amber-400">
+                          No API key configured — add it in{" "}
+                          <Link href="/providers" className="underline">
+                            Providers
+                          </Link>{" "}
+                          or .env before launching.
+                        </p>
+                      )}
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                      {p.badge}
-                    </span>
+                  )}
+                  <Button
+                    className="mt-4 w-full gap-2"
+                    disabled={!canAdvanceStep0}
+                    onClick={() => setStep(1)}
+                  >
+                    Continue <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </DashboardCard>
+          )}
+
+          {step === 1 && (
+            <DashboardCard title="Step 2 · Attack Profile" description="Choose campaign intensity">
+              <div className="space-y-3">
+                {ATTACK_PROFILES.map((profile) => (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    onClick={() => setAttackProfile(profile.id)}
+                    className={cn(
+                      "w-full rounded-lg border p-4 text-left transition-colors",
+                      attackProfile === profile.id
+                        ? "border-primary/50 bg-primary/10"
+                        : "border-border hover:bg-accent"
+                    )}
+                  >
+                    <p className="text-sm font-medium">{profile.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{profile.desc}</p>
                   </button>
                 ))}
               </div>
-            </div>
+              <div className="mt-4">
+                <label htmlFor="rounds" className="text-xs font-medium text-muted-foreground">
+                  Max rounds: {rounds}
+                </label>
+                <input
+                  id="rounds"
+                  type="range"
+                  min={1}
+                  max={20}
+                  value={rounds}
+                  onChange={(e) => setRounds(Number(e.target.value))}
+                  className="mt-2 w-full accent-primary"
+                />
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button variant="outline" onClick={() => setStep(0)}>
+                  Back
+                </Button>
+                <Button className="flex-1 gap-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
+                  Continue <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </DashboardCard>
+          )}
 
-            <div className="space-y-2 pt-2">
-              <label className="text-xs font-semibold text-slate-700">Target Model Name</label>
-              <input
-                type="text"
-                value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">Custom Base URL (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. http://localhost:11434/v1 or https://api.groq.com/openai/v1"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">API Key (Optional / Leave blank for Free/Heuristic)</label>
-              <input
-                type="password"
-                placeholder="gsk_... or mistral_..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600"
-              />
-            </div>
-          </div>
-
-          {/* Profile & Rounds */}
-          <div className="ui-panel p-5 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-sky-600" />
-              2. Simulation Parameters
-            </h3>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">Attack Profile</label>
-              <select
-                value={attackProfile}
-                onChange={(e) => setAttackProfile(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600"
-              >
-                <option value="quick_scan">Quick Security Scan (DPI, JBK, SPE)</option>
-                <option value="comprehensive">Comprehensive Red Team Audit (All Categories)</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">Max Rounds: {rounds}</label>
-              <input
-                type="range"
-                min="1"
-                max="20"
-                value={rounds}
-                onChange={(e) => setRounds(Number(e.target.value))}
-                className="w-full accent-sky-600"
-              />
-            </div>
-
-            <button
-              onClick={handleLaunch}
-              disabled={isRunning}
-              className={`w-full py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs ${
-                isRunning
-                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                  : 'bg-sky-600 hover:bg-sky-700 text-white shadow-sky-500/20'
-              }`}
-            >
-              <Play className="w-4 h-4 fill-current" />
-              {isRunning ? 'Executing Wargame...' : 'Run Autonomous Simulation'}
-            </button>
-          </div>
+          {step === 2 && (
+            <DashboardCard title="Step 3 · Launch" description="Review and execute">
+              <dl className="space-y-2 font-mono text-xs">
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Provider</dt>
+                  <dd>{provider?.name ?? selectedProvider}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Model</dt>
+                  <dd>{modelName}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Profile</dt>
+                  <dd>{attackProfile}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Rounds</dt>
+                  <dd>{rounds}</dd>
+                </div>
+              </dl>
+              <div className="mt-4 flex gap-2">
+                <Button variant="outline" onClick={() => setStep(1)} disabled={isRunning}>
+                  Back
+                </Button>
+                <Button onClick={handleLaunch} disabled={isRunning} className="flex-1 gap-2">
+                  {isRunning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Executing…
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" /> Run Simulation
+                    </>
+                  )}
+                </Button>
+              </div>
+              {completed && (
+                <div className="mt-4 flex flex-col gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/reports">View reports</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/replay">Open replay</Link>
+                  </Button>
+                </div>
+              )}
+            </DashboardCard>
+          )}
         </div>
 
-        {/* Live Execution Console */}
-        <div className="lg:col-span-2 ui-panel p-5 flex flex-col justify-between space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 font-mono">
-              <Terminal className="w-4 h-4 text-sky-600" />
-              Live Simulation Execution Stream
-            </h3>
-            {isRunning && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-200">
-                <span className="w-2 h-2 rounded-full bg-sky-600 animate-ping" /> Running
-              </span>
-            )}
-          </div>
-
-          <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-200 overflow-y-auto max-h-[500px] min-h-[380px] space-y-2">
+        <DashboardCard
+          title="Execution Console"
+          description="Live campaign telemetry"
+          className="lg:col-span-2"
+          badge={<Terminal className="h-4 w-4 text-muted-foreground" aria-hidden />}
+          contentClassName="flex min-h-[480px] flex-col"
+        >
+          <ScrollArea className="flex-1 rounded-lg border border-border bg-zinc-950 p-4 font-mono text-xs">
             {logs.length === 0 ? (
-              <div className="text-slate-500 text-center py-24">
-                Console ready. Select provider parameters and click &quot;Run Autonomous Simulation&quot;.
-              </div>
+              <p className="py-24 text-center text-muted-foreground">
+                Complete the wizard steps and launch a simulation.
+              </p>
             ) : (
               logs.map((log, idx) => (
-                <div 
-                  key={idx} 
-                  className={`leading-relaxed ${
-                    log.includes('ERROR') ? 'text-rose-400 font-bold' :
-                    log.includes('GATEWAY') || log.includes('SIMULATION COMPLETE') ? 'text-emerald-400 font-bold' :
-                    log.includes('RED_TEAM') || log.includes('EVOLUTION') ? 'text-cyan-300' : 'text-slate-300'
-                  }`}
+                <div
+                  key={idx}
+                  className={cn(
+                    "leading-relaxed",
+                    log.includes("ERROR") && "font-semibold text-destructive",
+                    log.includes("COMPLETE") && "font-semibold text-emerald-400",
+                    log.includes("GATEWAY") && "text-primary",
+                    !log.includes("ERROR") &&
+                      !log.includes("COMPLETE") &&
+                      !log.includes("GATEWAY") &&
+                      "text-zinc-400"
+                  )}
                 >
                   {log}
                 </div>
               ))
             )}
+          </ScrollArea>
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-mono">ID: {campaignId ?? "—"}</span>
+            <span className="flex items-center gap-1">
+              <Cpu className="h-3.5 w-3.5" aria-hidden />
+              Evolutionary Red Team
+            </span>
           </div>
-
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs text-slate-600 font-medium">
-            <span>Simulation ID: {campaignId || 'Not started'}</span>
-            <span>Mode: Evolutionary Red Team</span>
-          </div>
-        </div>
+        </DashboardCard>
       </div>
     </div>
   );

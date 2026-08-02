@@ -1,0 +1,34 @@
+---
+description: TypeScript standards for frontend and shared types (from awesome-cursorrules/typescript)
+globs: frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+# TypeScript Standards
+
+Source: [awesome-cursorrules/rules/typescript.mdc](https://github.com/PatrickJS/awesome-cursorrules)
+
+## Types
+- Prefer `interface` for object shapes; use `type` for unions, intersections, and mapped types
+- Never use `any`; use `unknown` and narrow with type guards
+- Enable strict mode; use `readonly` for immutable config objects
+- Suffix React prop interfaces with `Props` (e.g. `StatCardProps`)
+
+## Naming
+- PascalCase: components, interfaces, types
+- camelCase: variables, functions, hooks
+- UPPER_SNAKE_CASE: constants and env keys
+
+## Functions
+- Explicit return types on exported functions and hooks
+- Prefer `async/await`; model expected failures as typed results or discriminated unions
+- Custom error types for domain failures (e.g. `ContainmentApiError`)
+
+## Organization
+- Shared API types live in `frontend/lib/types.ts` aligned with backend Pydantic models
+- Barrel exports only when they reduce noise; avoid deep re-export chains
+- Co-locate small helper types with the component that owns them
+
+## Patterns
+- Use discriminated unions for verdict/severity states (`SAFE | SUSPICIOUS | BREACHED`)
+- Type guards for runtime API responses before rendering live dashboard data
+- Avoid type assertions; validate external JSON at the fetch boundary

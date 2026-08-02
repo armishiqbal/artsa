@@ -27,9 +27,29 @@ services:
     restart: always
     ports:
       - "8000:8000"
+    working_dir: /app/backend
     environment:
+      - PYTHONPATH=/app/backend
       - DATABASE_URL=postgresql+asyncpg://postgres:postgrespassword@postgres:5432/artsa_db
       - REDIS_URL=redis://redis:6379/0
+      - USE_CELERY=true
+    depends_on:
+      - postgres
+      - redis
+
+  celery-worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: artsa-infra-celery
+    restart: always
+    working_dir: /app/backend
+    command: ["python", "-m", "celery", "-A", "src.workers.celery_app", "worker", "--loglevel=info"]
+    environment:
+      - PYTHONPATH=/app/backend
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgrespassword@postgres:5432/artsa_db
+      - REDIS_URL=redis://redis:6379/0
+      - USE_CELERY=true
     depends_on:
       - postgres
       - redis

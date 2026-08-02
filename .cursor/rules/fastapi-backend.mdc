@@ -1,0 +1,37 @@
+---
+description: FastAPI API design and patterns for ARTSA backend (from awesome-cursorrules/fastapi, python-fastapi)
+globs: backend/**/*.py
+alwaysApply: false
+---
+# FastAPI Backend
+
+Sources: [fastapi.mdc](https://github.com/PatrickJS/awesome-cursorrules), [python-fastapi-cursorrules](https://github.com/PatrickJS/awesome-cursorrules)
+
+## Structure (this repo)
+```
+backend/src/
+  api/routes/       # thin HTTP handlers
+  api/middleware/   # auth, rate limit, logging
+  services/         # business logic
+  data/             # repositories, stores
+  containment/      # detection engine
+  core/models/      # Pydantic event/session models
+```
+
+## API design
+- Pydantic v2 models for request/response; declare `response_model=` on routes
+- Use `HTTPException` with correct status codes; never leak stack traces to clients
+- Async handlers for I/O; sync only for CPU-bound containment evaluation when appropriate
+- OpenAPI tags match router modules (`Ingestion`, `Sessions`, `Metrics`)
+
+## Dependencies
+- Inject via FastAPI `Depends()`: DB session, Redis, `EventProcessor`, `SessionTracker`
+- No global mutable state except documented singletons (telemetry bus, in-memory stores for dev)
+
+## Validation & errors
+- Validate at boundary; return 422 for schema errors, 401/403 for auth, 429 for rate limits
+- Log security events at WARNING+; never log secrets, tokens, or raw tool-call PII
+
+## Testing
+- pytest + `TestClient` for route integration; unit-test detectors and scoring in isolation
+- Fixtures in `backend/tests/conftest.py`; `ENVIRONMENT=testing` for in-memory repos

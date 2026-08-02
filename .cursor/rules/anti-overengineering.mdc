@@ -1,0 +1,15 @@
+---
+description: Prevent scope creep and unnecessary abstraction (from awesome-cursorrules/anti-overengineering)
+alwaysApply: true
+---
+# Anti-Over-Engineering
+
+Source: [anti-overengineering](https://github.com/PatrickJS/awesome-cursorrules)
+
+- Change only what the task requires; no drive-by refactors or unrelated file edits
+- Simplest correct solution first; add abstraction only after the second concrete use case
+- Do not add dependencies, feature flags, or config layers without explicit need
+- Do not rewrite entire files for small fixes; prefer focused diffs
+- Do not add error handling for impossible or extremely unlikely paths
+- When requirements are ambiguous, ask — don't invent features (especially new API endpoints)
+- Before finishing: verify every changed file serves the stated task

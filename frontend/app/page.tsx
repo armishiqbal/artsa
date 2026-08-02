@@ -1,161 +1,199 @@
 "use client";
 
-import React from "react";
-import { SeverityBadge } from "@/components/shared/SeverityBadge";
-import { RiskScore } from "@/components/shared/RiskScore";
-import { ShieldAlert, ShieldCheck, Activity, Terminal, AlertCircle, ArrowUpRight } from "lucide-react";
+import { useState } from "react";
+import { ShieldAlert, Activity, ShieldCheck, ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { StatCard } from "@/components/shared/StatCard";
+import { DashboardCard } from "@/components/shared/DashboardCard";
+import { LiveIndicator } from "@/components/shared/LiveIndicator";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ThreatMatrix } from "@/components/shared/ThreatMatrix";
+import { RiskTrendChart } from "@/components/charts/RiskTrendChart";
+import { StatCardsSkeleton, ChartSkeleton } from "@/components/shared/PageSkeleton";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
+import { useConnection } from "@/lib/context/ConnectionProvider";
+import { cn } from "@/lib/utils";
+
+const LAYER_LABELS: Record<string, string> = {
+  tool_validator: "Layer 1 · Tool Validator",
+  statistical_inspector: "Layer 2 · Statistical Inspector",
+  goal_drift_classifier: "Layer 3 · Goal Drift",
+  containment_enforcer: "Layer 4 · Containment Enforcer",
+};
 
 export default function CommandCenter() {
+  const { metrics, liveEvents, connected, loading } = useDashboardMetrics();
+  const { apiOnline, activeSessions } = useConnection();
+  const [defenseOpen, setDefenseOpen] = useState(false);
+
+  const counts = metrics?.severity_counts ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  const chartData = (metrics?.risk_trend ?? []).map((p, i) => ({
+    name: i + 1,
+    score: p.risk_score,
+  }));
+  const streamItems = liveEvents.length ? liveEvents.slice(-12) : [];
+
+  const connectionLabel = apiOnline
+    ? connected
+      ? `Live · ${activeSessions} session${activeSessions === 1 ? "" : "s"}`
+      : `Connected · ${activeSessions} session${activeSessions === 1 ? "" : "s"} (polling)`
+    : "Offline · API unreachable";
+
   return (
-    <div className="space-y-6">
-      {/* Top Header Banner */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-        <div>
-          <h1 className="text-xl font-bold font-mono text-white flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-cyan-400" />
-            AI Agent Containment Command Center
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Real-time tool call inspection, escape risk monitoring & containment enforcement (&lt;50ms latency).
-          </p>
+    <div className="space-y-8">
+      <PageHeader
+        title="Command Center"
+        description="Real-time tool call inspection, escape risk monitoring, and containment enforcement."
+        icon={<ShieldAlert className="h-5 w-5" />}
+        actions={<LiveIndicator connected={apiOnline} label={connectionLabel} />}
+      />
+
+      {loading ? (
+        <StatCardsSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Critical Breaches" value={counts.CRITICAL ?? 0} severity="CRITICAL" trend="live" />
+          <StatCard label="High Anomalies" value={counts.HIGH ?? 0} severity="HIGH" trend="live" />
+          <StatCard label="Medium Risks" value={counts.MEDIUM ?? 0} severity="MEDIUM" />
+          <StatCard label="Low Intent Drift" value={counts.LOW ?? 0} severity="LOW" />
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
-            Engine: Live Containment Active
-          </span>
-        </div>
+      )}
+
+      <DashboardCard
+        title="Risk Trend"
+        description={`${metrics?.active_sessions ?? 0} active sessions`}
+        className="w-full"
+        delay={0.05}
+        contentClassName="space-y-4"
+      >
+        {loading ? (
+          <ChartSkeleton />
+        ) : chartData.length > 0 ? (
+          <RiskTrendChart data={chartData} />
+        ) : (
+          <EmptyState
+            icon={Activity}
+            title="No risk data yet"
+            description="Ingest tool calls via POST /api/v1/ingest to populate the risk trend."
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link href="/wargame">Launch wargame</Link>
+              </Button>
+            }
+            className="py-12"
+          />
+        )}
+        {!loading && chartData.length > 0 && (
+          <div className="flex gap-4 font-mono text-[11px] text-muted-foreground">
+            <span>Avg: {metrics?.avg_risk_score ?? "—"}</span>
+            <span>Max: {metrics?.max_risk_score ?? "—"}</span>
+          </div>
+        )}
+      </DashboardCard>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <DashboardCard
+          title="Live Telemetry Stream"
+          description="Real-time events from WebSocket feed"
+          delay={0.1}
+          contentClassName="space-y-0"
+        >
+          <ScrollArea className="h-64 rounded-lg border border-border bg-muted/20">
+            <div className="space-y-0 p-2" aria-live="polite" aria-label="Live telemetry events">
+              {loading ? (
+                <div className="space-y-2 p-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-8 animate-pulse rounded bg-muted" />
+                  ))}
+                </div>
+              ) : streamItems.length === 0 ? (
+                <EmptyState
+                  icon={Activity}
+                  title="Awaiting telemetry"
+                  description="Events appear here when the ingest pipeline is active."
+                  className="border-0 bg-transparent py-8"
+                />
+              ) : (
+                streamItems.map((evt, i) => {
+                  const score = Number((evt as Record<string, unknown>).risk_score ?? 0);
+                  const tool = String((evt as Record<string, unknown>).tool_name ?? "event");
+                  const verdict = String((evt as Record<string, unknown>).verdict ?? "");
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between border-b border-border/50 px-2 py-2 font-mono text-xs last:border-0"
+                    >
+                      <span className="truncate text-muted-foreground">{tool}</span>
+                      <span
+                        className={cn(
+                          "shrink-0 tabular-nums",
+                          score >= 80 ? "text-severity-critical" : score >= 50 ? "text-severity-medium" : "text-severity-low"
+                        )}
+                      >
+                        {score || "—"} {verdict && `/ ${verdict}`}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </ScrollArea>
+        </DashboardCard>
+
+        <ThreatMatrix />
       </div>
 
-      {/* 4 Severity Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-[#0E1322] border border-rose-500/30 bg-gradient-to-br from-rose-500/5 to-transparent">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400">CRITICAL BREACHES</span>
-            <SeverityBadge severity="CRITICAL" />
+      <DashboardCard title="Defense Depth" delay={0.15} contentClassName="p-0">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-6 py-4 text-left"
+          onClick={() => setDefenseOpen((v) => !v)}
+          aria-expanded={defenseOpen}
+        >
+          <div>
+            <p className="text-sm font-medium">Multi-layer containment posture</p>
+            <p className="text-xs text-muted-foreground">Click to expand layer breakdown</p>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono text-rose-400">1</span>
-            <span className="text-[10px] text-rose-400 flex items-center">
-              +1 last 24h <ArrowUpRight className="w-3 h-3 ml-0.5" />
+          <div className="flex items-center gap-2">
+            <Badge variant="success" className="font-mono">
+              {metrics?.defense_score?.toFixed(1) ?? "—"}%
+            </Badge>
+            <ChevronDown
+              className={cn("h-4 w-4 text-muted-foreground transition-transform", defenseOpen && "rotate-180")}
+            />
+          </div>
+        </button>
+        {defenseOpen && metrics?.defense_layers && (
+          <div className="space-y-4 border-t border-border px-6 pb-6 pt-4">
+            {Object.entries(metrics.defense_layers).map(([key, val]) => (
+              <div key={key} className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{LAYER_LABELS[key] ?? key}</span>
+                  <span className="font-mono text-emerald-400">{val}%</span>
+                </div>
+                <Progress value={val} className="h-1.5" aria-label={`${key} at ${val}%`} />
+              </div>
+            ))}
+          </div>
+        )}
+      </DashboardCard>
+
+      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+        <ShieldCheck className="h-4 w-4 text-emerald-400" aria-hidden />
+        <span>{apiOnline ? "Containment engine operational" : "Backend offline — start API on port 8000"}</span>
+        {apiOnline && (
+          <>
+            <span className="hidden sm:inline">·</span>
+            <span className="font-mono text-xs">
+              WebSocket {connected ? "connected" : "polling"}
             </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-2">Sandbox escape attempts intercepted</p>
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#0E1322] border border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400">HIGH ANOMALIES</span>
-            <SeverityBadge severity="HIGH" />
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono text-orange-400">3</span>
-            <span className="text-[10px] text-orange-400 flex items-center">
-              +2 last 24h <ArrowUpRight className="w-3 h-3 ml-0.5" />
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-2">Credential dumps & reverse shell triggers</p>
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#0E1322] border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400">MEDIUM RISKS</span>
-            <SeverityBadge severity="MEDIUM" />
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono text-amber-400">8</span>
-            <span className="text-[10px] text-slate-400">Stable</span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-2">Statistical tool execution frequency spikes</p>
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#0E1322] border border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-transparent">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400">LOW INTENT DRIFT</span>
-            <SeverityBadge severity="LOW" />
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono text-blue-400">14</span>
-            <span className="text-[10px] text-slate-400">Monitored</span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-2">Minor trajectory variations logged</p>
-        </div>
-      </div>
-
-      {/* Main Grid: Defense Depth Meter + Attack Trend Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Defense Depth Meter Placeholder */}
-        <div className="lg:col-span-1 p-5 rounded-xl bg-[#0E1322] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h2 className="text-sm font-bold font-mono text-white flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              Defense Depth Meter
-            </h2>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-              Score: 94.2%
-            </span>
-          </div>
-          
-          <div className="space-y-3 font-mono text-xs">
-            <div>
-              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Layer 1: Realtime Tool Validator</span>
-                <span className="text-emerald-400">Active</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                <div className="h-full bg-emerald-400 w-[98%]"></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Layer 2: Statistical Anomaly Inspector</span>
-                <span className="text-emerald-400">Active</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                <div className="h-full bg-cyan-400 w-[92%]"></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Layer 3: Goal Drift Classifier</span>
-                <span className="text-emerald-400">Active</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                <div className="h-full bg-blue-400 w-[88%]"></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Layer 4: Automated Containment Enforcer</span>
-                <span className="text-emerald-400">Active</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                <div className="h-full bg-indigo-400 w-[95%]"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Attack Trend Chart Placeholder */}
-        <div className="lg:col-span-2 p-5 rounded-xl bg-[#0E1322] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h2 className="text-sm font-bold font-mono text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-cyan-400" />
-              Containment Risk & Escape Trend Stream
-            </h2>
-            <span className="text-[10px] font-mono text-slate-400">Last 24 Hours</span>
-          </div>
-
-          <div className="h-48 flex items-center justify-center border border-dashed border-slate-800 rounded-lg bg-slate-900/30">
-            <div className="text-center font-mono space-y-1">
-              <Activity className="w-6 h-6 text-cyan-400 mx-auto animate-pulse" />
-              <p className="text-xs text-slate-300">Live Telemetry Stream Connected</p>
-              <p className="text-[10px] text-slate-500">Avg Risk Score: 12.4 | Max Risk Score: 98.0</p>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

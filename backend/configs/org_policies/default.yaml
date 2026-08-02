@@ -1,0 +1,31 @@
+# Organization-specific containment rules (YAML-driven)
+# Add custom regex patterns via API or edit this file directly.
+
+rules:
+  - name: aws_metadata_access
+    pattern: "(?i)169\\.254\\.169\\.254|metadata\\.google"
+    event_type: CREDENTIAL_THEFT
+    severity: CRITICAL
+    risk_score: 92.0
+    description: Cloud metadata endpoint access attempt
+
+  - name: kubernetes_secrets
+    pattern: "(?i)/var/run/secrets/kubernetes|serviceaccount/token"
+    event_type: CREDENTIAL_THEFT
+    severity: HIGH
+    risk_score: 88.0
+    description: Kubernetes service account secret access
+
+  - name: prompt_injection_delimiter
+    pattern: "(?i)\\[system\\]|<<SYS>>|### Instruction:"
+    event_type: PROMPT_INJECTION
+    severity: HIGH
+    risk_score: 82.0
+    description: Delimiter-based prompt injection pattern
+
+  - name: base64_evasion
+    pattern: "(?i)(?:[A-Za-z0-9+/]{40,}={0,2})"
+    event_type: PROMPT_INJECTION
+    severity: MEDIUM
+    risk_score: 55.0
+    description: Suspicious base64-encoded payload in tool arguments

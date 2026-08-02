@@ -1,118 +1,246 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { BookOpen, ShieldAlert, Tag, Code, Search, Filter } from 'lucide-react';
-import { fetchFromBackend } from '@/lib/api';
+import { useEffect, useMemo, useState } from "react";
+import { BookOpen, Search, Plus, Loader2, Sparkles } from "lucide-react";
+import { fetchFromBackend } from "@/lib/api";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { DashboardCard } from "@/components/shared/DashboardCard";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default function AttackLibraryPage() {
-  const [data, setData] = useState<any>({ categories: [], templates: [] });
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [data, setData] = useState<{ categories: Array<{ code: string; name: string }>; templates: Array<Record<string, unknown>> }>({
+    categories: [],
+    templates: [],
+  });
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [semanticResults, setSemanticResults] = useState<Array<Record<string, unknown>> | null>(null);
+  const [semanticLoading, setSemanticLoading] = useState(false);
+  const [searchBackend, setSearchBackend] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({ name: "", category: "DPI", template: "" });
+
+  const reload = () =>
+    fetchFromBackend<{ categories: Array<{ code: string; name: string }>; templates: Array<Record<string, unknown>> }>(
+      "/api/v1/attack-library",
+      { silent: true }
+    ).then((d) => d && setData(d));
 
   useEffect(() => {
-    fetchFromBackend('/api/v1/attack-library')
-      .then(d => setData(d))
-      .catch(err => console.error(err));
+    reload();
   }, []);
 
-  const filteredTemplates = (data.templates || []).filter((t: any) => {
-    const matchCat = selectedCategory === 'ALL' || t.category === selectedCategory;
-    const matchSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        t.template.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const trimmedQuery = searchQuery.trim();
+  const useSemanticSearch = trimmedQuery.length >= 2;
+
+  useEffect(() => {
+    if (!useSemanticSearch) {
+      setSemanticResults(null);
+      setSearchBackend(null);
+      setSemanticLoading(false);
+      return;
+    }
+
+    setSemanticLoading(true);
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams({ q: trimmedQuery, limit: "24" });
+      if (selectedCategory !== "ALL") {
+        params.set("category", selectedCategory);
+      }
+      fetchFromBackend<{
+        results: Array<Record<string, unknown>>;
+        backend: string;
+        count: number;
+      }>(`/api/v1/attack-library/search?${params.toString()}`, { silent: true })
+        .then((res) => {
+          if (res) {
+            setSemanticResults(res.results ?? []);
+            setSearchBackend(res.backend ?? null);
+          }
+        })
+        .finally(() => setSemanticLoading(false));
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [trimmedQuery, selectedCategory, useSemanticSearch]);
+
+  const createTemplate = async () => {
+    if (!newTemplate.name || !newTemplate.template) return;
+    await fetchFromBackend("/api/v1/attack-library/templates", {
+      method: "POST",
+      body: JSON.stringify(newTemplate),
+    });
+    setNewTemplate({ name: "", category: "DPI", template: "" });
+    setShowCreate(false);
+    reload();
+  };
+
+  const filteredTemplates = useMemo(
+    () =>
+      (data.templates || []).filter((t) => {
+        const matchCat = selectedCategory === "ALL" || t.category === selectedCategory;
+        const q = searchQuery.toLowerCase();
+        if (!q) return matchCat;
+        const name = String(t.name ?? "").toLowerCase();
+        const template = String(t.template ?? "").toLowerCase();
+        return matchCat && (name.includes(q) || template.includes(q));
+      }),
+    [data.templates, selectedCategory, searchQuery]
+  );
+
+  const displayTemplates = useSemanticSearch ? (semanticResults ?? []) : filteredTemplates;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
-          <BookOpen className="w-6 h-6 text-sky-600" />
-          Adversarial Attack Library & Taxonomy
-        </h1>
-        <p className="text-sm text-slate-600 mt-1">
-          Explore vector representations, prompt injection templates, MITRE ATLAS techniques, and OWASP LLM Top 10 mappings.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title="Attack Library"
+        description="Adversarial templates with MITRE ATLAS and OWASP LLM mappings."
+        icon={<BookOpen className="h-5 w-5" />}
+        actions={
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowCreate(!showCreate)}>
+              <Plus className="h-4 w-4" />
+              New template
+            </Button>
+            <Badge variant="secondary">{data.templates?.length ?? 0} templates</Badge>
+          </div>
+        }
+      />
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+      {showCreate && (
+        <DashboardCard title="Create Template">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input placeholder="Name" value={newTemplate.name} onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })} />
+            <Input placeholder="Category (DPI, JBK…)" value={newTemplate.category} onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })} />
+            <textarea
+              className="md:col-span-2 min-h-24 w-full rounded-md border border-input bg-background p-3 font-mono text-xs"
+              placeholder="Attack template text…"
+              value={newTemplate.template}
+              onChange={(e) => setNewTemplate({ ...newTemplate, template: e.target.value })}
+            />
+          </div>
+          <Button size="sm" className="mt-3" onClick={createTemplate}>Save template</Button>
+        </DashboardCard>
+      )}
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedCategory('ALL')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-              selectedCategory === 'ALL'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-            }`}
+          <Button
+            variant={selectedCategory === "ALL" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedCategory("ALL")}
           >
-            All Categories ({data.templates?.length || 28})
-          </button>
-          {(data.categories || []).map((cat: any) => (
-            <button
+            All
+          </Button>
+          {(data.categories || []).map((cat) => (
+            <Button
               key={cat.code}
+              variant={selectedCategory === cat.code ? "default" : "outline"}
+              size="sm"
               onClick={() => setSelectedCategory(cat.code)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                selectedCategory === cat.code
-                  ? 'bg-sky-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
             >
-              {cat.code} — {cat.name}
-            </button>
+              {cat.code}
+            </Button>
           ))}
         </div>
-
-        <div className="relative w-full md:w-64">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search vectors..."
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            placeholder="Search vectors (semantic at 2+ chars)…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-sky-600"
+            className="pl-9 pr-9"
+            aria-label="Search attack templates"
           />
+          {semanticLoading && (
+            <Loader2
+              className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+              aria-hidden
+            />
+          )}
         </div>
       </div>
 
-      {/* Template Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredTemplates.length === 0 ? (
-          <div className="col-span-2 ui-panel p-8 text-center text-slate-500 text-xs">
-            No attack vectors matched your filter query.
+      {useSemanticSearch && (
+        <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
+          Semantic search
+          {searchBackend && (
+            <Badge variant="outline" className="font-mono text-[10px]">
+              {searchBackend}
+            </Badge>
+          )}
+          {!semanticLoading && (
+            <span>
+              · {displayTemplates.length} match{displayTemplates.length === 1 ? "" : "es"}
+            </span>
+          )}
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {displayTemplates.length === 0 ? (
+          <div className="col-span-full">
+            <EmptyState
+              icon={BookOpen}
+              title="No templates found"
+              description={
+                useSemanticSearch
+                  ? "Try a different query or switch category — semantic search ranks by embedding similarity."
+                  : "Adjust filters or create a custom template."
+              }
+            />
           </div>
         ) : (
-          filteredTemplates.map((t: any, idx: number) => (
-            <div key={t.id || idx} className="ui-card p-5 space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 uppercase">
-                    {t.category}
-                  </span>
-                  <h3 className="text-sm font-bold text-slate-900 mt-1.5">{t.name}</h3>
-                </div>
-                <div className="flex gap-1.5 text-[10px] font-semibold">
-                  {t.metadata?.owasp_llm && (
-                    <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
-                      {t.metadata.owasp_llm}
-                    </span>
-                  )}
-                  {t.metadata?.mitre_atlas && (
-                    <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                      {t.metadata.mitre_atlas}
-                    </span>
+          displayTemplates.map((t, idx) => (
+            <DashboardCard
+              key={String(t.id ?? idx)}
+              title={String(t.name)}
+              badge={
+                <div className="flex gap-1.5">
+                  <Badge variant="info">{String(t.category)}</Badge>
+                  {typeof t.score === "number" && (
+                    <Badge variant="secondary" className="font-mono text-[10px]">
+                      score {(t.score as number).toFixed(2)}
+                    </Badge>
                   )}
                 </div>
+              }
+              contentClassName="space-y-3"
+            >
+              <div className="flex flex-wrap gap-1.5">
+                {Boolean((t.metadata as Record<string, unknown>)?.owasp_llm) && (
+                  <Badge variant="critical" className="text-[10px]">
+                    {String((t.metadata as Record<string, unknown>).owasp_llm)}
+                  </Badge>
+                )}
+                {Boolean((t.metadata as Record<string, unknown>)?.mitre_atlas) && (
+                  <Badge variant="warning" className="text-[10px]">
+                    {String((t.metadata as Record<string, unknown>).mitre_atlas)}
+                  </Badge>
+                )}
               </div>
-
-              <div className="p-3.5 rounded-lg bg-slate-900 text-slate-200 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-                {t.template}
+              <pre className="max-h-32 overflow-auto rounded-lg border border-border bg-zinc-950 p-3 font-mono text-xs text-zinc-300">
+                {String(t.template)}
+              </pre>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>
+                  Severity:{" "}
+                  <strong className="text-severity-medium">
+                    {String((t.metadata as Record<string, unknown>)?.severity ?? "MEDIUM")}
+                  </strong>
+                </span>
+                <span>
+                  Success:{" "}
+                  <strong className="text-emerald-400">
+                    {(((t.metadata as Record<string, unknown>)?.success_rate as number) ?? 0.4) * 100}%
+                  </strong>
+                </span>
               </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-500 font-medium pt-1">
-                <span>Severity: <strong className="text-amber-700">{t.metadata?.severity || 'MEDIUM'}</strong></span>
-                <span>Success Rate: <strong className="text-emerald-700">{((t.metadata?.success_rate || 0.4) * 100).toFixed(0)}%</strong></span>
-              </div>
-            </div>
+            </DashboardCard>
           ))
         )}
       </div>

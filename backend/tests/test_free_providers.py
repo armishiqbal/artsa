@@ -10,7 +10,11 @@ from src.agents.provider_registry import (
     get_available_providers,
 )
 from src.models import TargetConfig
-from langchain_openai import ChatOpenAI
+
+
+def _get_chat_openai():
+    from langchain_openai import ChatOpenAI
+    return ChatOpenAI
 
 
 class DummyAgent(BaseAgent):
@@ -89,6 +93,7 @@ def test_dynamic_unknown_provider_with_base_url():
 def test_custom_decorator_registration():
     @register_provider("mock_custom_engine")
     def custom_builder(model, temperature, max_retries, api_key, base_url, extra):
+        ChatOpenAI = _get_chat_openai()
         return ChatOpenAI(
             model="custom-decorated-model",
             temperature=temperature,

@@ -1,254 +1,188 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  Cpu, 
-  CheckCircle2, 
-  Server, 
-  Lock, 
-  Globe, 
-  Plus, 
-  ShieldCheck, 
-  Search, 
-  Zap, 
-  Sliders, 
-  RefreshCw,
-  ExternalLink,
-  Activity
-} from "lucide-react";
+import { Cpu, Search, ShieldCheck, Key, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { DashboardCard } from "@/components/shared/DashboardCard";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-interface Provider {
+interface ProviderRow {
   id: string;
   name: string;
-  type: "cloud_api" | "cloud_free" | "local" | "custom";
-  description: string;
-  default_model: string;
-  status: "ACTIVE" | "READY" | "CONFIGURED";
-  latency_ms: number;
-  icon: string;
+  type: string;
+  model: string;
+  configured: boolean;
 }
 
+interface KeyRow {
+  id: string;
+  label: string;
+  category: string;
+  status: string;
+  configured: boolean;
+  preview: string | null;
+  required_for: string;
+}
 
-const DEFAULT_PROVIDERS: Provider[] = [
-  {
-    id: "openai",
-    name: "OpenAI Frontier",
-    type: "cloud_api",
-    description: "GPT-5.6, GPT-4o & SOL reasoning model backends via official API.",
-    default_model: "gpt-5.6-terra",
-    status: "ACTIVE",
-    latency_ms: 38,
-    icon: "⚡",
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic Claude",
-    type: "cloud_api",
-    description: "Claude Opus 5 & Fable 5 models for red-teaming evaluation.",
-    default_model: "claude-opus-5",
-    status: "ACTIVE",
-    latency_ms: 42,
-    icon: "🧠",
-  },
-  {
-    id: "groq",
-    name: "Groq LPU Acceleration",
-    type: "cloud_free",
-    description: "Ultra-fast Llama 3 70B & Mixtral inference (500+ tokens/sec).",
-    default_model: "llama3-70b-8192",
-    status: "READY",
-    latency_ms: 12,
-    icon: "🚀",
-  },
-  {
-    id: "ollama",
-    name: "Ollama / Local GLM",
-    type: "local",
-    description: "Uncensored local GGUF weights running on self-hosted GPU node.",
-    default_model: "glm-5.2-local",
-    status: "READY",
-    latency_ms: 8,
-    icon: "🖥️",
-  },
-  {
-    id: "deepseek",
-    name: "DeepSeek Reasoning Cluster",
-    type: "custom",
-    description: "Reasoning model cluster for automated red-team logic mutation.",
-    default_model: "deepseek-r1",
-    status: "CONFIGURED",
-    latency_ms: 65,
-    icon: "🔮",
-  },
-  {
-    id: "mistral",
-    name: "Mistral AI Cluster",
-    type: "cloud_api",
-    description: "Mistral NeMo & Large endpoints for multi-agent swarm testing.",
-    default_model: "mistral-large-2407",
-    status: "READY",
-    latency_ms: 45,
-    icon: "🌌",
-  },
-];
+const statusIcon = {
+  configured: CheckCircle2,
+  missing: XCircle,
+  placeholder: AlertCircle,
+};
+
+const statusVariant = {
+  configured: "success" as const,
+  missing: "secondary" as const,
+  placeholder: "warning" as const,
+};
 
 export default function ProvidersPage() {
-  const [providers, setProviders] = useState<Provider[]>(DEFAULT_PROVIDERS);
+  const [providers, setProviders] = useState<ProviderRow[]>([]);
+  const [keys, setKeys] = useState<KeyRow[]>([]);
+  const [summary, setSummary] = useState<{ llm_providers_configured: number; guardrails_configured: number } | null>(null);
+  const [guardrails, setGuardrails] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<string>("all");
-  const [loading, setLoading] = useState(false);
+  const [filterCat, setFilterCat] = useState("all");
 
   useEffect(() => {
-    setLoading(true);
-    fetchFromBackend("/api/v1/agents")
-      .then((data) => {
-        if (data && data.providers && data.providers.length > 0) {
-          setProviders(data.providers);
-        }
-      })
-      .catch((err) => console.log("Using default provider registry fallback", err))
-      .finally(() => setLoading(false));
+    fetchFromBackend<{ providers?: ProviderRow[]; guardrails?: Record<string, boolean> }>(
+      "/api/v1/config/providers",
+      { silent: true }
+    ).then((data) => {
+      if (data?.providers) setProviders(data.providers);
+      if (data?.guardrails) setGuardrails(data.guardrails);
+    });
+    fetchFromBackend<{ keys?: KeyRow[]; summary?: { llm_providers_configured: number; guardrails_configured: number } }>(
+      "/api/v1/config/keys",
+      { silent: true }
+    ).then((data) => {
+      if (data?.keys) setKeys(data.keys);
+      if (data?.summary) setSummary(data.summary);
+    });
   }, []);
 
-  const filteredProviders = providers.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.default_model.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterType === "all" || p.type === filterType;
-    return matchesSearch && matchesFilter;
+  const filteredKeys = keys.filter((k) => {
+    const q = searchQuery.toLowerCase();
+    const matchSearch = k.label.toLowerCase().includes(q) || k.id.toLowerCase().includes(q);
+    const matchCat = filterCat === "all" || k.category === filterCat;
+    return matchSearch && matchCat;
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <h1 className="text-xl font-bold font-mono text-white flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Cpu className="w-5 h-5" />
+    <div className="space-y-8">
+      <PageHeader
+        title="Provider & Key Registry"
+        description="LLM backends and guardrail integrations — configured via root .env (never exposed to browser)."
+        icon={<Cpu className="h-5 w-5" />}
+        actions={
+          summary && (
+            <div className="flex gap-2">
+              <Badge variant="success">{summary.llm_providers_configured} LLM keys</Badge>
+              <Badge variant="info">{summary.guardrails_configured} guardrails</Badge>
             </div>
-            LLM Provider & Runtime Model Registry
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Manage plug-and-play LLM backends across cloud APIs, ultra-fast LPU accelerators, and local GGUF nodes.
-          </p>
-        </div>
+          )
+        }
+      />
 
-        <button 
-          onClick={() => alert("Provider Registration Wizard: Enter custom endpoint base_url and API key.")}
-          className="px-3.5 py-2 rounded-lg bg-cyan-500 text-slate-950 font-bold font-mono text-xs hover:bg-cyan-400 transition flex items-center gap-2 shadow-lg shadow-cyan-500/20"
-        >
-          <Plus className="w-4 h-4" /> Add Custom Provider
-        </button>
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0E1322] p-3 rounded-xl border border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search provider or model..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
-          {["all", "cloud_api", "cloud_free", "local", "custom"].map((type) => (
-            <button
-              key={type}
-              onClick={() => setFilterType(type)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono capitalize transition ${
-                filterType === type
-                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-semibold"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-              }`}
-            >
-              {type.replace("_", " ")}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Provider Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredProviders.map((p) => (
-          <div
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {providers.map((p) => (
+          <DashboardCard
             key={p.id}
-            className="p-5 rounded-xl bg-[#0E1322] border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-4 group shadow-lg"
+            title={p.name}
+            badge={
+              <Badge variant={p.configured ? "success" : "secondary"} className="text-[10px]">
+                {p.configured ? "Ready" : "No key"}
+              </Badge>
+            }
           >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xl">{p.icon}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
-                    <Activity className="w-3 h-3 animate-pulse" /> {p.latency_ms}ms
-                  </span>
-                  <span
-                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase border ${
-                      p.type === "cloud_api"
-                        ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
-                        : p.type === "local"
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : p.type === "cloud_free"
-                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                        : "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                    }`}
-                  >
-                    {p.type.replace("_", " ")}
-                  </span>
-                </div>
-              </div>
-
-              <h3 className="text-sm font-bold font-mono text-white mt-3 group-hover:text-cyan-400 transition">
-                {p.name}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                {p.description}
-              </p>
-            </div>
-
-            <div className="pt-3 border-t border-slate-800 space-y-2 font-mono text-xs">
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Default Model:</span>
-                <span className="text-cyan-400 font-bold">{p.default_model}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Registry ID:</span>
-                <span className="text-slate-300">{p.id}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Containment Intercept:</span>
-                <span className="text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Enforced
-                </span>
-              </div>
-            </div>
-          </div>
+            <p className="font-mono text-xs text-primary">{p.model}</p>
+            <p className="mt-1 text-xs capitalize text-muted-foreground">{p.type.replace("_", " ")}</p>
+          </DashboardCard>
         ))}
       </div>
 
-      {/* Dynamic Endpoint Configuration Code Panel */}
-      <div className="p-6 rounded-xl bg-[#0E1322] border border-slate-800 space-y-4">
-        <h3 className="text-sm font-bold font-mono text-white flex items-center gap-2">
-          <Globe className="w-4 h-4 text-cyan-400" />
-          Adding Custom LLM Cluster Endpoints (Zero Code Required)
-        </h3>
-        <p className="text-xs text-slate-400 leading-relaxed">
-          ARTSA features an automatic endpoint resolver. You can point any agent to ANY custom provider or self-hosted LLM cluster simply by passing a provider configuration:
-        </p>
-
-        <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800 text-cyan-300 font-mono text-xs overflow-x-auto">
-{`target:
-  provider: "my_custom_llm_cluster"
-  model: "deepseek-r1-custom"
-  base_url: "https://my-private-llm.company.org/v1"
-  api_key: "sk-private-token"
-  eds_monitoring: true`}
+      <DashboardCard title="Guardrail Stack" badge={<ShieldCheck className="h-4 w-4 text-emerald-400" />}>
+        <div className="flex flex-wrap gap-3">
+          {Object.entries(guardrails).map(([name, active]) => (
+            <Badge key={name} variant={active ? "success" : "secondary"} className="gap-1 font-mono text-xs capitalize">
+              {active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+              {name.replace("_", " ")}
+            </Badge>
+          ))}
         </div>
-      </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Set <code className="text-foreground">LAKERA_API_KEY</code> and{" "}
+          <code className="text-foreground">AZURE_CONTENT_SAFETY_KEY</code> in <code className="text-foreground">.env</code>{" "}
+          then restart the backend.
+        </p>
+      </DashboardCard>
+
+      <DashboardCard title="API Key Status" badge={<Key className="h-4 w-4" />}>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative max-w-xs flex-1">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search keys…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {["all", "llm", "guardrail", "infra", "security"].map((cat) => (
+              <Button key={cat} variant={filterCat === cat ? "default" : "ghost"} size="sm" className="text-xs capitalize" onClick={() => setFilterCat(cat)}>
+                {cat}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th className="pb-2 pr-4">Key</th>
+                <th className="pb-2 pr-4">Status</th>
+                <th className="pb-2 pr-4">Preview</th>
+                <th className="pb-2">Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredKeys.map((k) => {
+                const Icon = statusIcon[k.status as keyof typeof statusIcon] ?? AlertCircle;
+                return (
+                  <tr key={k.id} className="border-b border-border/50">
+                    <td className="py-2.5 pr-4">
+                      <div className="font-medium">{k.label}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{k.id}</div>
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      <Badge variant={statusVariant[k.status as keyof typeof statusVariant] ?? "secondary"} className="gap-1 text-[10px] capitalize">
+                        <Icon className="h-3 w-3" />
+                        {k.status}
+                      </Badge>
+                    </td>
+                    <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">{k.preview ?? "—"}</td>
+                    <td className="py-2.5 text-xs text-muted-foreground">{k.required_for}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </DashboardCard>
+
+      <DashboardCard title="Setup" description="Keys are loaded from repo root .env">
+        <pre className="overflow-x-auto rounded-lg border border-border bg-zinc-950 p-4 font-mono text-xs text-emerald-400">
+{`# One-time setup
+cp .env.example .env
+# Edit .env with your keys, then:
+npm run setup:env    # merge new keys without losing existing values
+npm run dev          # start platform
+
+# Verify
+curl http://localhost:8000/api/v1/config/keys`}
+        </pre>
+      </DashboardCard>
     </div>
   );
 }

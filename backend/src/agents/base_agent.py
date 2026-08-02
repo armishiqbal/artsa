@@ -7,7 +7,6 @@ from abc import ABC
 from typing import Any, TypeVar
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)

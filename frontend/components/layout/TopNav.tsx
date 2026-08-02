@@ -1,28 +1,116 @@
 "use client";
 
-import { Activity, Bell, Shield } from "lucide-react";
+import { useState } from "react";
+import { Bell, Shield, Command, UserCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { LiveIndicator } from "@/components/shared/LiveIndicator";
+import { AlertsInbox } from "@/components/layout/AlertsInbox";
+import MobileNav from "@/components/layout/MobileNav";
+import { useAlerts } from "@/lib/hooks/useAlerts";
+import { useConnection } from "@/lib/context/ConnectionProvider";
+import Link from "next/link";
+import { useAuthRole } from "@/lib/hooks/useAuthRole";
+import { useAuthStore } from "@/lib/stores/auth";
+import { isOidcEnabled } from "@/lib/oidc";
+import { cn } from "@/lib/utils";
+
+const ROLE_VARIANT: Record<string, "default" | "secondary" | "info" | "warning" | "success"> = {
+  admin: "success",
+  analyst: "info",
+  redteam: "warning",
+  readonly: "secondary",
+};
 
 export default function TopNav() {
-  return (
-    <header className="h-16 border-b border-slate-800 bg-[#0E1322] px-6 flex items-center justify-between sticky top-0 z-30">
-      <div className="flex items-center gap-3">
-        <span className="flex h-2.5 w-2.5 relative">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-        </span>
-        <span className="text-xs font-mono text-slate-300">Live Containment Mesh: Active (<span className="text-emerald-400">&lt;50ms</span>)</span>
-      </div>
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const { alerts, loading, criticalCount } = useAlerts();
+  const { apiOnline, wsConnected, activeSessions } = useConnection();
+  const { identity, loading: authLoading } = useAuthRole();
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const hasBearer = useAuthStore((s) => Boolean(s.bearerToken));
+  const tenant = "default_org";
+  const showOidcLogin = isOidcEnabled() && !hasBearer;
 
-      <div className="flex items-center gap-4">
-        <button className="p-2 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/50 flex items-center gap-2 text-xs font-mono">
-          <Bell className="w-4 h-4 text-cyan-400" />
-          <span>Alerts (2)</span>
-        </button>
-        <div className="flex items-center gap-2 pl-3 border-l border-slate-800 text-xs font-mono text-slate-400">
-          <Shield className="w-4 h-4 text-emerald-400" />
-          <span>Tenant: default_org</span>
+  const statusLabel = apiOnline
+    ? wsConnected
+      ? `Live · ${activeSessions} session${activeSessions === 1 ? "" : "s"}`
+      : `Connected · ${activeSessions} session${activeSessions === 1 ? "" : "s"}`
+    : "Offline";
+
+  return (
+    <>
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
+        <div className="flex items-center gap-2 lg:hidden">
+          <MobileNav />
+          <span className="font-semibold tracking-tight">ARTSA</span>
         </div>
-      </div>
-    </header>
+
+        <div className="hidden items-center gap-3 sm:flex">
+          <LiveIndicator connected={apiOnline} label={statusLabel} className="hidden sm:inline-flex" />
+          <kbd className="hidden items-center gap-1 rounded border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground md:inline-flex">
+            <Command className="h-3 w-3" aria-hidden />
+            K
+          </kbd>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {showOidcLogin && (
+            <Button asChild variant="outline" size="sm" className="hidden text-xs sm:inline-flex">
+              <Link href="/login">Sign in</Link>
+            </Button>
+          )}
+          {hasBearer && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden text-xs text-muted-foreground sm:inline-flex"
+              onClick={() => {
+                clearAuth();
+                window.location.reload();
+              }}
+            >
+              Sign out
+            </Button>
+          )}
+          {!authLoading && (
+            <Badge
+              variant={ROLE_VARIANT[identity.role] ?? "secondary"}
+              className={cn("hidden gap-1 font-mono text-[10px] uppercase sm:inline-flex")}
+            >
+              <UserCircle2 className="h-3 w-3" aria-hidden />
+              {identity.role}
+            </Badge>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 font-mono text-xs"
+            aria-label="View alerts"
+            aria-expanded={inboxOpen}
+            onClick={() => setInboxOpen(true)}
+          >
+            <Bell className="h-3.5 w-3.5 text-primary" aria-hidden />
+            <span className="hidden sm:inline">Alerts</span>
+            {criticalCount > 0 && (
+              <Badge variant="critical" className="h-5 min-w-5 justify-center px-1.5 text-[10px]">
+                {criticalCount}
+              </Badge>
+            )}
+          </Button>
+          <div className="hidden items-center gap-2 border-l border-border pl-3 text-xs text-muted-foreground md:flex">
+            <Shield className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+            <span className="font-mono">{tenant}</span>
+          </div>
+        </div>
+      </header>
+
+      <AlertsInbox
+        open={inboxOpen}
+        onClose={() => setInboxOpen(false)}
+        alerts={alerts}
+        loading={loading}
+      />
+    </>
   );
 }

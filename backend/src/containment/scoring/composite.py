@@ -27,8 +27,9 @@ class CompositeScorer(BaseScorer):
         stat_score = max([e.risk_score for e in events if e.detector == "StatisticalDetector"], default=0.0)
         sem_score = max([e.risk_score for e in events if e.detector == "SemanticDetector"], default=0.0)
         drift_score = max([e.risk_score for e in events if e.detector == "GoalDriftDetector"], default=0.0)
+        traj_score = max([e.risk_score for e in events if e.detector == "TrajectoryDetector"], default=0.0)
 
-        overall = min(100.0, max(rule_score, stat_score, sem_score, drift_score))
+        overall = min(100.0, max(rule_score, stat_score, sem_score, drift_score, traj_score))
         depth = 3 if overall >= 70.0 else 1 if overall >= 40.0 else 0
         flags = [e.event_type for e in events]
 

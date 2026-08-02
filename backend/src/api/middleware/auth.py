@@ -1,21 +1,48 @@
 """API Key Authentication Middleware."""
 
-from fastapi import Request, HTTPException, status
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from src.core.auth_credentials import any_static_api_key_configured, extract_bearer_token, resolve_credentials
+from src.core.config import settings
+
+_PUBLIC_PATHS = {
+    "/api/v1/health",
+    "/v1/health",
+    "/api/v1/metrics/prometheus",
+    "/v1/metrics/prometheus",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+}
+
 
 class APIKeyAuthMiddleware(BaseHTTPMiddleware):
-    """Validates X-API-Key header against tenant credentials."""
+    """Validates X-API-Key or OIDC Bearer token when auth is required."""
 
     async def dispatch(self, request: Request, call_next):
-        # Exclude open health check and docs endpoints
-        if request.url.path in ["/api/v1/health", "/docs", "/openapi.json", "/redoc"]:
+        path = request.url.path
+        if path in _PUBLIC_PATHS:
             return await call_next(request)
 
         api_key = request.headers.get("X-API-Key")
-        # Accept valid dev keys or default fallback
-        if not api_key and not request.url.path.startswith("/api/v1"):
-            return await call_next(request)
+        bearer = extract_bearer_token(request.headers.get("Authorization"))
+
+        if settings.auth_required or any_static_api_key_configured() or settings.ARTSA_OIDC_ENABLED:
+            if settings.auth_required and not any_static_api_key_configured() and not settings.ARTSA_OIDC_ENABLED:
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "Server misconfigured: configure API keys or enable OIDC"},
+                )
+
+            role = resolve_credentials(api_key, bearer)
+            if role is None:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or missing credentials (X-API-Key or Bearer token)"},
+                )
+            request.state.role = role.value
+            request.state.auth_method = "api_key" if api_key else "oidc"
 
         return await call_next(request)

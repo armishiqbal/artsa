@@ -33,54 +33,46 @@ class TargetAgent(BaseAgent):
         self.config = config
 
     def _check_input_guardrails(self, text: str) -> tuple[bool, list[GuardrailResult]]:
-        """Simulate input guardrail checks."""
-        results = []
-        blocked = False
-        
-        if self.config.guardrails.input_content_filter:
-            # Simulate a basic heuristic check
-            passed = "banned_word" not in text.lower()
-            results.append(
-                GuardrailResult(
-                    layer=GuardrailLayer.INPUT_FILTER,
-                    passed=passed,
-                    details="Passed basic content filter" if passed else "Blocked by content filter",
-                )
-            )
-            if not passed:
-                blocked = True
+        """Run pluggable input guardrail adapters."""
+        from src.agents.guardrails.adapters import get_input_adapters
 
-        if self.config.guardrails.input_injection_detector and not blocked:
-            # Simulate prompt injection detection
-            passed = "ignore previous instructions" not in text.lower()
-            results.append(
-                GuardrailResult(
-                    layer=GuardrailLayer.SYSTEM_PROMPT,
-                    passed=passed,
-                    details="No injection detected" if passed else "Detected prompt injection attempt",
-                )
-            )
-            if not passed:
+        results: list[GuardrailResult] = []
+        blocked = False
+
+        if not self.config.guardrails.input_content_filter and not self.config.guardrails.input_injection_detector:
+            return True, results
+
+        for adapter in get_input_adapters():
+            if adapter.layer == GuardrailLayer.INPUT_FILTER and not self.config.guardrails.input_content_filter:
+                continue
+            if adapter.layer == GuardrailLayer.SYSTEM_PROMPT and not self.config.guardrails.input_injection_detector:
+                continue
+            from src.agents.guardrails.adapters import GuardrailContext
+
+            result = adapter.check(GuardrailContext(text=text, direction="input"))
+            results.append(result)
+            if not result.passed:
                 blocked = True
-                
+                break
+
         return not blocked, results
 
     def _check_output_guardrails(self, text: str) -> tuple[bool, list[GuardrailResult]]:
-        """Simulate output guardrail checks."""
-        results = []
+        """Run pluggable output guardrail adapters."""
+        from src.agents.guardrails.adapters import GuardrailContext, get_output_adapters
+
+        results: list[GuardrailResult] = []
         blocked = False
-        
-        if self.config.guardrails.output_toxicity_filter:
-            passed = True  # Mock
-            results.append(
-                GuardrailResult(
-                    layer=GuardrailLayer.OUTPUT_FILTER,
-                    passed=passed,
-                    details="Output passed toxicity check",
-                )
-            )
-            if not passed:
+
+        if not self.config.guardrails.output_toxicity_filter:
+            return True, results
+
+        for adapter in get_output_adapters():
+            result = adapter.check(GuardrailContext(text=text, direction="output"))
+            results.append(result)
+            if not result.passed:
                 blocked = True
+                break
 
         return not blocked, results
 
@@ -107,14 +99,21 @@ class TargetAgent(BaseAgent):
             )
             
         bypass_depth += len(input_results)
-        
-        # 2. RAG Retrieval (Mock)
+
+        # 2. RAG retrieval (embedding-based policy chunks)
         if self.config.rag.enabled:
+            from src.agents.rag.retriever import RAGRetriever
+
+            retriever = RAGRetriever(top_k=self.config.rag.retrieval_k)
+            chunks = retriever.retrieve(attack_prompt)
+            context = retriever.format_context(chunks)
+            if context:
+                attack_prompt = f"{context}\n\n[USER QUERY]\n{attack_prompt}"
             trace.append(
                 GuardrailResult(
                     layer=GuardrailLayer.RAG_RETRIEVAL,
                     passed=True,
-                    details="Mock RAG retrieval executed",
+                    details=f"Retrieved {len(chunks)} policy chunks (top score={chunks[0].score if chunks else 0})",
                 )
             )
             bypass_depth += 1

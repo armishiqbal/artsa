@@ -1,0 +1,30 @@
+---
+description: Clean code principles for maintainable changes (from awesome-cursorrules/clean-code)
+alwaysApply: true
+---
+# Clean Code
+
+Source: [clean-code.mdc](https://github.com/PatrickJS/awesome-cursorrules)
+
+## Names & constants
+- Replace magic numbers with named constants (risk thresholds 50/80, latency SLO 50ms)
+- Names reveal intent: `evaluate_event`, `severity_counts`, not `process2`
+
+## Functions
+- Single responsibility; extract when a function needs a comment to explain its purpose
+- Early returns and guard clauses over deep nesting
+
+## DRY & structure
+- One source of truth for API types (`lib/types.ts` ↔ Pydantic models)
+- Related code stays together: detector + test, route + integration test
+
+## Comments
+- Explain *why*, not *what*; document non-obvious security or latency constraints
+
+## Refactoring
+- Leave touched files cleaner; don't drive-by refactor unrelated modules
+- Fix technical debt only when it blocks the current task
+
+## Tests
+- Bug fixes include a regression test when feasible
+- Test edge cases: empty ingest batch, missing campaign data, WebSocket disconnect

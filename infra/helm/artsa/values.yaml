@@ -1,0 +1,107 @@
+# Default values for ARTSA Helm chart.
+# Override for your cluster — use managed Postgres/Redis in production.
+
+replicaCount:
+  api: 1
+  frontend: 1
+  celery: 1
+
+image:
+  api:
+    repository: artsa-api
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: artsa-frontend
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+
+service:
+  api:
+    type: ClusterIP
+    port: 8000
+  frontend:
+    type: ClusterIP
+    port: 3000
+
+ingress:
+  enabled: false
+  className: nginx
+  host: artsa.local
+  tls: false
+
+env:
+  ENVIRONMENT: production
+  USE_SQLITE: "false"
+  USE_CELERY: "true"
+  USE_REDIS_RATE_LIMIT: "true"
+  USE_CHROMA_RAG: "true"
+  SEED_RAG_ON_START: "true"
+  SEED_ATTACK_LIBRARY_ON_START: "true"
+  WARM_BENCHMARK_ON_START: "true"
+  SCHEDULED_ABLATION_INTERVAL_SEC: "3600"
+  # Set via secrets in production:
+  DATABASE_URL: postgresql+asyncpg://postgres:postgrespassword@artsa-postgres:5432/artsa_db
+  REDIS_URL: redis://artsa-redis:6379/0
+  ARTSA_CORS_ORIGINS: "*"
+
+frontend:
+  env:
+    NEXT_PUBLIC_API_URL: http://artsa-api:8000
+
+resources:
+  api:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  frontend:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  celery:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+persistence:
+  chroma:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+
+postgresql:
+  enabled: true
+  image: postgres:16-alpine
+  auth:
+    database: artsa_db
+    username: postgres
+    password: postgrespassword
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+
+secrets:
+  create: false
+  # When create=true, populate via --set-file or sealed-secrets (never commit real values):
+  artsaApiKey: ""
+  openaiApiKey: ""
+  databaseUrl: ""
+  redisUrl: ""
+  oidcClientSecret: ""
+
+monitoring:
+  prometheusAnnotations:
+    enabled: true
+  serviceMonitor:
+    enabled: false
+    path: /api/v1/metrics/prometheus
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}

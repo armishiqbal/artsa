@@ -43,7 +43,39 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgrespassword@postgres:5432/artsa_db
+      - SYNC_DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/artsa_db
       - REDIS_URL=redis://redis:6379/0
+      - USE_SQLITE=false
+      - USE_CELERY=true
+      - USE_REDIS_RATE_LIMIT=true
+      - USE_CHROMA_RAG=true
+      - CHROMA_PERSIST_DIR=/app/backend/data/chroma
+      - SEED_RAG_ON_START=true
+      - SEED_ATTACK_LIBRARY_ON_START=true
+      - WARM_BENCHMARK_ON_START=true
+      - SCHEDULED_ABLATION_INTERVAL_SEC=3600
+      - ENVIRONMENT=production
+    volumes:
+      - chroma_data:/app/backend/data/chroma
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: artsa-celery-worker
+    restart: always
+    working_dir: /app/backend
+    command: ["python", "-m", "celery", "-A", "src.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    environment:
+      - PYTHONPATH=/app/backend
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgrespassword@postgres:5432/artsa_db
+      - REDIS_URL=redis://redis:6379/0
+      - USE_CELERY=true
       - ENVIRONMENT=production
     depends_on:
       postgres:
@@ -67,3 +99,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  chroma_data:

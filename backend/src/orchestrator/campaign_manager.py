@@ -91,7 +91,7 @@ class CampaignManager:
             / self.history_stats[cat]["attempts"]
         )
 
-    def run(self) -> CampaignSummary:
+    def run(self, on_round_complete=None) -> CampaignSummary:
         """Run the campaign with evolutionary attack learning."""
         self.fsm.start()
         self.results_store.save_campaign_config(self.config)
@@ -241,6 +241,8 @@ class CampaignManager:
                 self.reporter.print_round_result(result)
 
                 progress.advance(task)
+                if on_round_complete:
+                    on_round_complete(round_idx, self.config.max_rounds)
 
                 if round_idx < self.config.max_rounds:
                     time.sleep(delay)

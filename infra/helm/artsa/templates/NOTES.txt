@@ -1,0 +1,24 @@
+ARTSA has been deployed.
+
+API:      {{ include "artsa.name" . }}-api:{{ .Values.service.api.port }}
+Frontend: {{ include "artsa.name" . }}-frontend:{{ .Values.service.frontend.port }}
+
+Prometheus scrape: /api/v1/metrics/prometheus
+
+{{- if .Values.secrets.create }}
+
+Secrets mounted from: {{ include "artsa.name" . }}-secrets
+{{- else }}
+
+WARNING: secrets.create=false — set API keys via external Secret or --set secrets.create=true
+Example:
+  helm upgrade --install artsa . \
+    --set secrets.create=true \
+    --set secrets.artsaApiKey=$ARTSA_API_KEY \
+    --set secrets.openaiApiKey=$OPENAI_API_KEY
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+Ingress: http://{{ .Values.ingress.host }}
+{{- end }}

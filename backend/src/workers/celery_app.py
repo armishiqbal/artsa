@@ -15,4 +15,5 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    include=["src.workers.tasks.process_events"],
 )

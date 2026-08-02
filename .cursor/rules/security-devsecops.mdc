@@ -1,0 +1,36 @@
+---
+description: DevSecOps and secure coding for AI containment platform (from awesome-cursorrules/security-devsecops-ssdls-appsec)
+globs: "**/*.{py,ts,tsx}"
+alwaysApply: true
+---
+# Security — DevSecOps & AppSec
+
+Source: [security-devsecops-ssdls-appsec](https://github.com/PatrickJS/awesome-cursorrules)
+
+## Secrets & config
+- Never hardcode API keys, JWT secrets, or provider tokens
+- No `.env` or credentials in git; use environment variables
+- Never log secrets, session tokens, or full tool-call payloads containing PII
+
+## Input & output
+- Validate all ingest payloads via Pydantic; sanitize displayed user/agent content in UI (XSS)
+- Parameterized queries / ORM only — no string-built SQL
+- Treat red-team attack templates as untrusted content in the UI (escape, don't `dangerouslySetInnerHTML`)
+
+## Auth & authorization
+- Enforce tenant scoping via `X-API-Key` / auth middleware on containment API
+- Least privilege for agent tool policies and org YAML rules
+- Rate-limit ingest and campaign endpoints
+
+## Dependencies
+- Pin versions in `pyproject.toml` / `package.json`
+- Prefer well-maintained packages; note new deps in PR description
+
+## AI-specific
+- LLM judge outputs are untrusted — validate structured JSON before persisting
+- Containment verdicts must not auto-execute destructive actions without explicit action enum (`KILL`, `QUARANTINE`)
+- Benchmark datasets must not contain real customer data
+
+## Compliance alignment
+- Map findings to OWASP LLM Top 10 and MITRE ATLAS where applicable
+- Document security controls in API/export surfaces for audit trails

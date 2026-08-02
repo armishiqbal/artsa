@@ -1,0 +1,32 @@
+---
+description: Python style, typing, and testing for ARTSA backend (from awesome-cursorrules/python, adapted — no Flask)
+globs: backend/**/*.py
+alwaysApply: false
+---
+# Python Standards
+
+Source: [python.mdc](https://github.com/PatrickJS/awesome-cursorrules) — Flask sections removed
+
+## Style
+- PEP 8: `snake_case` functions/vars, `PascalCase` classes, `UPPER_SNAKE` constants
+- Type hints on all public function signatures and return values
+- Absolute imports from `src.*`; backend root on `PYTHONPATH` via pytest config
+- Max line length 100 (match `ruff` in `pyproject.toml`)
+
+## Typing
+- Prefer `X | None` over `Optional[X]` (Python 3.11+)
+- Use `Protocol` for repository interfaces and provider adapters
+- Pydantic models for external boundaries; dataclasses for internal benchmark metrics
+
+## Project layout
+- Source in `backend/src/`; tests in `backend/tests/` mirroring module paths
+- Config in `backend/configs/` YAML; secrets via environment variables only
+
+## Testing
+- pytest; async tests with `pytest-asyncio`
+- `conftest.py` fixtures for sample events, campaigns, temp data dirs
+- No live LLM calls in unit tests — mock `provider_registry` or use heuristic judge mode
+
+## Documentation
+- Google-style docstrings on public classes and non-obvious functions
+- Module-level docstring for packages under `containment/`, `benchmark/`, `data/`
