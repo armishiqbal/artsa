@@ -104,12 +104,13 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_credentials=True,
+        # allow_credentials is not permitted alongside a wildcard origin list.
+        allow_credentials="*" not in settings.cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )
     app.add_middleware(SecurityHeadersMiddleware)
-    app.add_middleware(RateLimitMiddleware, requests_per_minute=10000)
+    app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.ARTSA_RATE_LIMIT_RPM)
     app.add_middleware(RBACMiddleware)
     app.add_middleware(APIKeyAuthMiddleware)
     app.add_middleware(StructlogLoggingMiddleware)

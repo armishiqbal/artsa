@@ -43,8 +43,9 @@ function LoginInner() {
       <div className="mx-auto max-w-md py-16">
         <DashboardCard title="Sign in" description="OIDC SSO is not enabled for this deployment.">
           <p className="text-sm text-muted-foreground">
-            Configure <code className="font-mono text-xs">NEXT_PUBLIC_OIDC_ENABLED=true</code> or use an
-            API key via <code className="font-mono text-xs">NEXT_PUBLIC_ARTSA_API_KEY</code>.
+            Configure <code className="font-mono text-xs">NEXT_PUBLIC_OIDC_ENABLED=true</code> or set a
+            server-side <code className="font-mono text-xs">ARTSA_API_KEY</code> (see{" "}
+            <code className="font-mono text-xs">.env.local.example</code>) so the API proxy can authenticate.
           </p>
         </DashboardCard>
       </div>

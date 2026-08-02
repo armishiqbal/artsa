@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchFromBackend } from "@/lib/api";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { useAuthStore } from "@/lib/stores/auth";
@@ -17,6 +17,8 @@ export interface DashboardMetrics {
   active_sessions: number;
 }
 
+const POLL_INTERVAL_MS = 10_000;
+
 export function useDashboardMetrics() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [liveEvents, setLiveEvents] = useState<Array<Record<string, unknown>>>([]);
@@ -25,10 +27,15 @@ export function useDashboardMetrics() {
   const bearerToken = useAuthStore((s) => s.bearerToken);
   const wsUrl = useMemo(() => buildWebSocketUrl(), [bearerToken]);
 
+  // Timestamp of the most recent dashboard fetch, used to dedupe
+  // telemetry-triggered refreshes against the 10s polling cadence.
+  const lastRefreshAtRef = useRef(0);
+
   const onWsOpen = useCallback(() => setWsConnected(true), [setWsConnected]);
   const onWsClose = useCallback(() => setWsConnected(false), [setWsConnected]);
 
   const refreshMetrics = useCallback(async () => {
+    lastRefreshAtRef.current = Date.now();
     const data = await fetchFromBackend<DashboardMetrics>("/api/v1/metrics/dashboard", { silent: true });
     if (data) {
       setMetrics(data);
@@ -44,12 +51,19 @@ export function useDashboardMetrics() {
         setLiveEvents(message.events || []);
       } else if (message.type === "telemetry" && message.event) {
         setLiveEvents((prev) => [...prev.slice(-49), message.event!]);
-        void refreshMetrics();
+        // Telemetry streams far more often than the polling cadence — only
+        // trigger a follow-up fetch when the last one is outside the 10s
+        // window instead of fetching on every message.
+        if (Date.now() - lastRefreshAtRef.current >= POLL_INTERVAL_MS) {
+          void refreshMetrics();
+        }
       }
     },
     [refreshMetrics]
   );
 
+  // WebSocket with exponential backoff reconnect (1s, 2s, 4s … max 30s) and
+  // full cleanup on unmount, provided by useReconnectingWebSocket.
   const connected = useReconnectingWebSocket(wsUrl, handleWsMessage, {
     onOpen: onWsOpen,
     onClose: onWsClose,
@@ -57,7 +71,7 @@ export function useDashboardMetrics() {
 
   useEffect(() => {
     refreshMetrics();
-    const interval = setInterval(refreshMetrics, 10_000);
+    const interval = setInterval(refreshMetrics, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refreshMetrics]);
 

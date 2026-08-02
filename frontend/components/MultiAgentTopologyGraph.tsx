@@ -10,39 +10,15 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface TopologyNode {
-  id: string;
-  name: string;
-  type: "agent" | "tool" | "datastore" | "mcp_bridge";
-  trust: "low" | "medium" | "high";
-  status: "SAFE" | "COMPROMISED" | "EVALUATING";
-  x: number;
-  y: number;
-}
-
-interface TopologyEdge {
-  id: string;
-  source: string;
-  target: string;
-  label: string;
-  payload: string;
-  status: "COMPROMISED" | "SAFE";
-}
-
-interface TopologyApiNode {
-  id: string;
-  label: string;
-  type?: string;
-  risk_score?: number;
-  status?: string;
-}
-
-interface TopologyApiEdge {
-  source: string;
-  target: string;
-  type?: string;
-}
+import TopologyGraphView from "@/components/topology/TopologyGraphView";
+import TopologyTableView from "@/components/topology/TopologyTableView";
+import { computeNodePosition } from "@/components/topology/layout";
+import type {
+  TopologyApiEdge,
+  TopologyApiNode,
+  TopologyEdge,
+  TopologyNode,
+} from "@/components/topology/types";
 
 export default function MultiAgentTopologyGraph() {
   const router = useRouter();
@@ -64,8 +40,7 @@ export default function MultiAgentTopologyGraph() {
           type: (n.type === "tool" ? "tool" : "agent") as TopologyNode["type"],
           trust: Number(n.risk_score) >= 70 ? "low" : Number(n.risk_score) >= 40 ? "medium" : "high",
           status: n.status === "BREACHED" ? "COMPROMISED" : "SAFE",
-          x: 120 + (i % 4) * 160,
-          y: 150 + Math.floor(i / 4) * 120,
+          ...computeNodePosition(i),
         }));
         const liveEdges: TopologyEdge[] = (data.edges || []).map((e, i) => ({
           id: `live-e${i}`,
@@ -154,102 +129,16 @@ export default function MultiAgentTopologyGraph() {
         </div>
 
         {viewMode === "graph" ? (
-          <div className="relative h-[420px] overflow-hidden rounded-xl border border-border bg-zinc-950 p-4">
-            <svg className="h-full w-full" role="img" aria-label="Multi-agent topology graph">
-              <defs>
-                <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--severity-critical))" />
-                </marker>
-                <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--severity-low))" />
-                </marker>
-              </defs>
-              {edges.map((e) => {
-                const sNode = nodes.find((n) => n.id === e.source);
-                const tNode = nodes.find((n) => n.id === e.target);
-                if (!sNode || !tNode) return null;
-                const isComp = e.status === "COMPROMISED";
-                const isSel = selectedEdge?.id === e.id;
-                return (
-                  <g key={e.id} onClick={() => setSelectedEdge(e)} className="cursor-pointer">
-                    <line
-                      x1={sNode.x}
-                      y1={sNode.y}
-                      x2={tNode.x}
-                      y2={tNode.y}
-                      stroke={isComp ? "hsl(var(--severity-critical))" : "hsl(var(--severity-low))"}
-                      strokeWidth={isSel ? 3 : 2}
-                      strokeDasharray={isComp ? "6,3" : "none"}
-                      markerEnd={isComp ? "url(#arrow-red)" : "url(#arrow-green)"}
-                    />
-                    <text x={(sNode.x + tNode.x) / 2} y={(sNode.y + tNode.y) / 2 - 8} fill="hsl(var(--muted-foreground))" fontSize="10" textAnchor="middle">
-                      {e.label}
-                    </text>
-                  </g>
-                );
-              })}
-              {nodes.map((n) => {
-                const isComp = n.status === "COMPROMISED";
-                const isSel = selectedNode?.id === n.id;
-                return (
-                  <g
-                    key={n.id}
-                    transform={`translate(${n.x}, ${n.y})`}
-                    onClick={() => setSelectedNode(n)}
-                    className="cursor-pointer"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${n.name}, status ${n.status}`}
-                    onKeyDown={(ev) => ev.key === "Enter" && setSelectedNode(n)}
-                  >
-                    <circle
-                      r={24}
-                      fill="hsl(var(--card))"
-                      stroke={isSel ? "hsl(var(--primary))" : isComp ? "hsl(var(--severity-critical))" : "hsl(var(--severity-low))"}
-                      strokeWidth={isSel ? 3 : 2}
-                    />
-                    <text y={4} fill="hsl(var(--foreground))" fontSize="11" textAnchor="middle">
-                      {n.type === "agent" ? "🤖" : n.type === "mcp_bridge" ? "🔌" : n.type === "tool" ? "⚡" : "🗄️"}
-                    </text>
-                    <text y={40} fill="hsl(var(--foreground))" fontSize="10" fontWeight="bold" textAnchor="middle">
-                      {n.name.length > 18 ? `${n.name.slice(0, 16)}…` : n.name}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
+          <TopologyGraphView
+            nodes={nodes}
+            edges={edges}
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            onSelectNode={setSelectedNode}
+            onSelectEdge={setSelectedEdge}
+          />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-border bg-muted/30">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Node</th>
-                  <th className="px-3 py-2 font-medium">Type</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Trust</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nodes.map((n) => (
-                  <tr
-                    key={n.id}
-                    className="cursor-pointer border-b border-border/50 hover:bg-muted/20"
-                    onClick={() => setSelectedNode(n)}
-                  >
-                    <td className="px-3 py-2 font-mono">{n.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{n.type}</td>
-                    <td className="px-3 py-2">
-                      <Badge variant={n.status === "COMPROMISED" ? "critical" : "success"} className="text-[10px]">
-                        {n.status}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{n.trust}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TopologyTableView nodes={nodes} onSelectNode={setSelectedNode} />
         )}
       </DashboardCard>
 

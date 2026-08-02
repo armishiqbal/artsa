@@ -5,8 +5,7 @@
 import { toast } from "@/lib/stores/toast";
 import { getBearerToken } from "@/lib/stores/auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_KEY = process.env.NEXT_PUBLIC_ARTSA_API_KEY || "";
+const API_BASE_URL = "/api/backend";
 
 function buildHeaders(extra?: HeadersInit): HeadersInit {
   const headers: Record<string, string> = {
@@ -15,8 +14,6 @@ function buildHeaders(extra?: HeadersInit): HeadersInit {
   const bearer = getBearerToken();
   if (bearer) {
     headers["Authorization"] = `Bearer ${bearer}`;
-  } else if (API_KEY) {
-    headers["X-API-Key"] = API_KEY;
   }
   return { ...headers, ...(extra as Record<string, string> | undefined) };
 }

@@ -44,8 +44,8 @@ export const useAuthStore = create<AuthStore>()(
       setBearerToken: (token) =>
         set({
           bearerToken: token,
-          refreshToken: token ? undefined : null,
-          expiresAt: token ? null : null,
+          refreshToken: null,
+          expiresAt: null,
         }),
       setSession: (session) =>
         set({

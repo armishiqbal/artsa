@@ -1,7 +1,5 @@
 import { getBearerToken } from "@/lib/stores/auth";
 
-const API_KEY = process.env.NEXT_PUBLIC_ARTSA_API_KEY || "";
-
 /** Build authenticated WebSocket URL (credentials via query params). */
 export function buildWebSocketUrl(path = "/api/v1/websocket"): string {
   const configured = process.env.NEXT_PUBLIC_WS_URL;
@@ -18,8 +16,6 @@ export function buildWebSocketUrl(path = "/api/v1/websocket"): string {
   const bearer = getBearerToken();
   if (bearer) {
     url.searchParams.set("access_token", bearer);
-  } else if (API_KEY) {
-    url.searchParams.set("api_key", API_KEY);
   }
 
   return url.toString();

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve repo root (.env lives here) and backend dir
@@ -27,6 +27,16 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def _reject_insecure_defaults(self) -> Settings:
+        """Fail fast if production runs with the default secret key."""
+        if self.ENVIRONMENT == "production" and self.SECRET_KEY == "change-me-in-production":
+            raise ValueError(
+                "SECRET_KEY must be set to a strong random value in production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
+            )
+        return self
 
     # ── Core ──────────────────────────────────────────────────────────────
     ENVIRONMENT: str = "development"
@@ -63,6 +73,7 @@ class Settings(BaseSettings):
     ARTSA_OIDC_READONLY_GROUPS: str = "artsa-readonly"
     ARTSA_OIDC_DEFAULT_ROLE: Optional[str] = None
     ARTSA_CORS_ORIGINS: str = "*"
+    ARTSA_RATE_LIMIT_RPM: int = 600
     WARM_BENCHMARK_ON_START: bool = False
     SEED_ATTACK_LIBRARY_ON_START: bool = False
     SCHEDULED_ABLATION_INTERVAL_SEC: int = 0  # 0=disabled; e.g. 3600 for hourly refresh

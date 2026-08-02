@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { Swords, Play, Terminal, Cpu, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { fetchFromBackend } from "@/lib/api";
 import { useProviders } from "@/lib/hooks/useProviders";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
+import { useCampaignRun } from "@/lib/hooks/useCampaignRun";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { toast } from "@/lib/stores/toast";
 
 const STEPS = ["Target", "Profile", "Launch"] as const;
 
@@ -27,16 +26,13 @@ const ATTACK_PROFILES = [
 export default function WargamePage() {
   const { providers, loading: providersLoading } = useProviders();
   const { capabilities, loading: authLoading } = useAuthRole();
+  const { isRunning, logs, campaignId, completed, launch } = useCampaignRun();
   const [step, setStep] = useState(0);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [modelName, setModelName] = useState("");
   const [attackProfile, setAttackProfile] = useState("quick_scan");
   const [rounds, setRounds] = useState(5);
   const [baseUrl, setBaseUrl] = useState("");
-  const [isRunning, setIsRunning] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [campaignId, setCampaignId] = useState<string | null>(null);
-  const [completed, setCompleted] = useState(false);
 
   const provider = providers.find((p) => p.id === selectedProvider);
 
@@ -52,75 +48,15 @@ export default function WargamePage() {
     if (found) setModelName(found.model);
   };
 
-  const handleLaunch = async () => {
+  const handleLaunch = () => {
     if (!selectedProvider) return;
-    setIsRunning(true);
-    setCompleted(false);
-    setLogs([`[SYSTEM] Initializing wargame for ${selectedProvider}…`]);
-
-    try {
-      const data = await fetchFromBackend<{ campaign_id?: string; error?: string }>(
-        "/api/v1/campaigns/run",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            name: `Wargame: ${selectedProvider.toUpperCase()} (${modelName})`,
-            provider: selectedProvider,
-            model: modelName,
-            attack_profile: attackProfile,
-            max_rounds: Number(rounds),
-            base_url: baseUrl || undefined,
-          }),
-        }
-      );
-
-      if (data?.campaign_id) {
-        const cId = data.campaign_id;
-        setCampaignId(cId);
-        setLogs((prev) => [
-          ...prev,
-          `[GATEWAY] Campaign spawned: ${cId}`,
-          `[WARGAME] Dispatching to ${selectedProvider} (${modelName})…`,
-        ]);
-
-        const interval = setInterval(async () => {
-          const statusData = await fetchFromBackend<{
-            status: string;
-            rounds_completed?: number;
-            error?: string;
-          }>(`/api/v1/campaigns/${cId}`, { silent: true });
-
-          if (statusData) {
-            setLogs((prev) => [
-              ...prev,
-              `[TELEMETRY] ${statusData.status} · ${statusData.rounds_completed || 0}/${rounds} rounds`,
-            ]);
-            if (statusData.status === "COMPLETED" || statusData.status === "FAILED") {
-              clearInterval(interval);
-              setIsRunning(false);
-              if (statusData.status === "COMPLETED") {
-                setCompleted(true);
-                toast("Campaign completed", {
-                  description: "View results in Reports or Replay.",
-                  variant: "success",
-                });
-              }
-              setLogs((prev) => [
-                ...prev,
-                statusData.status === "COMPLETED"
-                  ? `[COMPLETE] Campaign finished successfully.`
-                  : `[ERROR] ${statusData.error || "Campaign failed"}`,
-              ]);
-            }
-          }
-        }, 1500);
-      } else {
-        setIsRunning(false);
-      }
-    } catch (e: unknown) {
-      setLogs((prev) => [...prev, `[ERROR] ${e instanceof Error ? e.message : "Failed to start"}`]);
-      setIsRunning(false);
-    }
+    void launch({
+      provider: selectedProvider,
+      modelName,
+      attackProfile,
+      rounds,
+      baseUrl,
+    });
   };
 
   const canAdvanceStep0 = !!selectedProvider;

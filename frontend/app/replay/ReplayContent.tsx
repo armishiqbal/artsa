@@ -5,6 +5,7 @@ import { Shield, GitCompare, Microscope, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { fetchFromBackend } from "@/lib/api";
+import { formatPayload, formatResponse } from "@/lib/replayFormat";
 import type { Session, ToolCallEvent } from "@/lib/types";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
@@ -15,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 interface TimelineEntry {
@@ -28,17 +28,6 @@ interface TimelineEntry {
     flags: string[];
     bypass_depth?: number;
   } | null;
-}
-
-function formatPayload(args: Record<string, unknown>): string {
-  if (typeof args.payload === "string") return args.payload;
-  return JSON.stringify(args, null, 2);
-}
-
-function formatResponse(response: Record<string, unknown> | null | undefined): string {
-  if (!response) return "No defender response captured.";
-  if (typeof response.text === "string") return response.text;
-  return JSON.stringify(response, null, 2);
 }
 
 export default function RoundReplayPage() {
@@ -299,34 +288,14 @@ export default function RoundReplayPage() {
           }
         />
       ) : (
-        <>
-          <div className="lg:hidden">
-            <Tabs defaultValue="attacker">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="attacker">Attacker</TabsTrigger>
-                <TabsTrigger value="defender">Defender</TabsTrigger>
-                <TabsTrigger value="judge">Judge</TabsTrigger>
-              </TabsList>
-              <TabsContent value="attacker" className="mt-4">
-                {paneAttacker}
-              </TabsContent>
-              <TabsContent value="defender" className="mt-4">
-                {paneDefender}
-              </TabsContent>
-              <TabsContent value="judge" className="mt-4">
-                {paneJudge}
-              </TabsContent>
-            </Tabs>
-          </div>
-          <div className="hidden grid-cols-1 gap-6 lg:grid lg:grid-cols-3">
-            {paneAttacker}
-            {paneDefender}
-            {paneJudge}
-          </div>
-        </>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {paneAttacker}
+          {paneDefender}
+          {paneJudge}
+        </div>
       )}
 
-      <AutopsyReplayModal isOpen={autopsyOpen} onClose={() => setAutopsyOpen(false)} />
+      <AutopsyReplayModal isOpen={autopsyOpen} onClose={() => setAutopsyOpen(false)} sessionId={selectedSessionId} />
     </div>
   );
 }

@@ -28,6 +28,7 @@ class RunCampaignRequest(BaseModel):
     attack_profile: str = "quick_scan"
     max_rounds: int = Field(default=10, ge=1, le=100)
     base_url: str | None = None
+    use_llm_judge: bool | None = None  # None = respect configs/default_config.yaml
 
 
 def _resolve_provider_api_key(provider: str) -> str | None:
@@ -80,7 +81,8 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest) -> No
             attack_profile=profile_cfg,
             max_rounds=req.max_rounds,
         )
-        app_config["artsa"]["judge"]["use_llm"] = True
+        if req.use_llm_judge is not None:
+            app_config["artsa"]["judge"]["use_llm"] = req.use_llm_judge
         manager = CampaignManager(config=camp_cfg, app_config=app_config)
         summary = manager.run(on_round_complete=on_round_complete)
         job_store.complete(campaign_id, summary.model_dump(mode="json"))

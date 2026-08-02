@@ -19,11 +19,16 @@ ENV/
 .env.local
 .env.*.local
 *.env
+# Env backups / variants (never commit real secrets)
+*.env.*
+!*.env.example
+!*.env.local.example
 
 # Node & Next.js
 node_modules/
 .next/
 out/
+*.tsbuildinfo
 
 # Data directories & Vector DBs
 data/

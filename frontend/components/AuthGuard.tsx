@@ -7,7 +7,6 @@ import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { hydrateAuthStore } from "@/lib/stores/auth";
 
 const PUBLIC_PATHS = new Set(["/login", "/auth/callback"]);
-const HAS_STATIC_API_KEY = Boolean(process.env.NEXT_PUBLIC_ARTSA_API_KEY);
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -15,7 +14,8 @@ interface AuthGuardProps {
 
 /**
  * Redirects unauthenticated users to /login when the backend requires auth or OIDC is enabled.
- * Skips guard for public routes and when a static API key is configured.
+ * Skips guard for public routes. Auth state is sourced from the backend identity
+ * endpoint — the client never holds an API key (injected server-side by the proxy).
  */
 export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
@@ -29,7 +29,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || loading || PUBLIC_PATHS.has(pathname) || HAS_STATIC_API_KEY) return;
+    if (!hydrated || loading || PUBLIC_PATHS.has(pathname)) return;
 
     const authEnforced = identity.auth_required || identity.oidc_enabled;
     if (authEnforced && !identity.authenticated) {
@@ -38,7 +38,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [hydrated, loading, identity, pathname, router]);
 
-  if (!hydrated || (loading && !PUBLIC_PATHS.has(pathname) && !HAS_STATIC_API_KEY)) {
+  if (!hydrated || (loading && !PUBLIC_PATHS.has(pathname))) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
@@ -48,7 +48,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (
     !PUBLIC_PATHS.has(pathname) &&
-    !HAS_STATIC_API_KEY &&
     (identity.auth_required || identity.oidc_enabled) &&
     !identity.authenticated
   ) {
