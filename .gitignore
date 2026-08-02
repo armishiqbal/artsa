@@ -32,6 +32,8 @@ out/
 
 # Data directories & Vector DBs
 data/
+# Allow the backend persistence source module (Python package, not runtime data)
+!backend/src/data/
 *.db
 *.sqlite
 

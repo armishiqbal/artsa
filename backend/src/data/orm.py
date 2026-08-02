@@ -1,0 +1,114 @@
+"""SQLAlchemy ORM models for persistence layer."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from sqlalchemy import DateTime, Float, Integer, JSON, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
+
+from src.data.db import Base
+
+
+class ToolCallEventORM(Base):
+    __tablename__ = "tool_call_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id: Mapped[str] = mapped_column(String(36), index=True)
+    agent_id: Mapped[str] = mapped_column(String(255))
+    tool_name: Mapped[str] = mapped_column(String(255))
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    trace_id: Mapped[str] = mapped_column(String(255))
+    response: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    latency_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant")
+
+
+class SessionORM(Base):
+    __tablename__ = "agent_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    agent_id: Mapped[str] = mapped_column(String(255))
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant")
+    status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    tool_call_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_risk_score: Mapped[float] = mapped_column(Float, default=0.0)
+    containment_breaches: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class EventEvaluationORM(Base):
+    __tablename__ = "event_evaluations"
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(36), index=True)
+    risk_score: Mapped[float] = mapped_column(Float, default=0.0)
+    verdict: Mapped[str] = mapped_column(String(32), default="SAFE")
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    recommended_action: Mapped[str] = mapped_column(String(32), default="NONE")
+    flags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    security_event_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CampaignJobORM(Base):
+    __tablename__ = "campaign_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(32), default="PENDING")
+    provider: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(128))
+    attack_profile: Mapped[str] = mapped_column(String(64))
+    max_rounds: Mapped[int] = mapped_column(Integer, default=10)
+    rounds_completed: Mapped[int] = mapped_column(Integer, default=0)
+    request_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    summary_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class AgentORM(Base):
+    __tablename__ = "agents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant")
+    name: Mapped[str] = mapped_column(String(255))
+    agent_type: Mapped[str] = mapped_column(String(64), default="general")
+    provider: Mapped[str] = mapped_column(String(64), default="")
+    model: Mapped[str] = mapped_column(String(128), default="")
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(32), default="HEALTHY")
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    total_sessions: Mapped[int] = mapped_column(Integer, default=0)
+    total_breaches: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AgentBaselineORM(Base):
+    __tablename__ = "agent_baselines"
+
+    agent_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    baseline: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
