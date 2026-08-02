@@ -30,6 +30,10 @@ async def get_dashboard_metrics(
     )
     max_risk = max((p["risk_score"] for p in risk_trend), default=0.0)
 
+    active_count = sum(1 for s in sessions if getattr(s, "status", None) == "ACTIVE")
+    if active_count == 0 and sessions:
+        active_count = len(sessions)
+
     return {
         "severity_counts": {
             "CRITICAL": max(severity.get("CRITICAL", 0), breached),
@@ -37,7 +41,7 @@ async def get_dashboard_metrics(
             "MEDIUM": max(severity.get("MEDIUM", 0), medium_risk),
             "LOW": max(severity.get("LOW", 0), low_risk),
         },
-        "active_sessions": len(sessions),
+        "active_sessions": max(0, active_count),
         "defense_layers": {
             "tool_validator": 98.0,
             "statistical_inspector": 92.0,

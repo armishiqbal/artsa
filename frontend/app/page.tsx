@@ -6,7 +6,6 @@ import Link from "next/link";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { DashboardCard } from "@/components/shared/DashboardCard";
-import { LiveIndicator } from "@/components/shared/LiveIndicator";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ThreatMatrix } from "@/components/shared/ThreatMatrix";
 import { RiskTrendChart } from "@/components/charts/RiskTrendChart";
@@ -17,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
 import { useConnection } from "@/lib/context/ConnectionProvider";
+import { clampSessionCount } from "@/lib/connectionStatus";
 import { cn } from "@/lib/utils";
 
 const LAYER_LABELS: Record<string, string> = {
@@ -27,8 +27,9 @@ const LAYER_LABELS: Record<string, string> = {
 };
 
 export default function CommandCenter() {
-  const { metrics, liveEvents, connected, loading } = useDashboardMetrics();
-  const { apiOnline, activeSessions } = useConnection();
+  const { metrics, liveEvents, loading } = useDashboardMetrics();
+  const { apiOnline, wsConnected, apiGatewayStatus } = useConnection();
+  const activeSessions = clampSessionCount(metrics?.active_sessions);
   const [defenseOpen, setDefenseOpen] = useState(false);
 
   const counts = metrics?.severity_counts ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
@@ -38,27 +39,20 @@ export default function CommandCenter() {
   }));
   const streamItems = liveEvents.length ? liveEvents.slice(-12) : [];
 
-  const connectionLabel = apiOnline
-    ? connected
-      ? `Live · ${activeSessions} session${activeSessions === 1 ? "" : "s"}`
-      : `Connected · ${activeSessions} session${activeSessions === 1 ? "" : "s"} (polling)`
-    : "Offline · API unreachable";
-
   return (
     <div className="space-y-8">
       <PageHeader
         title="Command Center"
         description="Real-time tool call inspection, escape risk monitoring, and containment enforcement."
         icon={<ShieldAlert className="h-5 w-5" />}
-        actions={<LiveIndicator connected={apiOnline} label={connectionLabel} />}
       />
 
       {loading ? (
         <StatCardsSkeleton />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Critical Breaches" value={counts.CRITICAL ?? 0} severity="CRITICAL" trend="live" />
-          <StatCard label="High Anomalies" value={counts.HIGH ?? 0} severity="HIGH" trend="live" />
+          <StatCard label="Critical Breaches" value={counts.CRITICAL ?? 0} severity="CRITICAL" />
+          <StatCard label="High Anomalies" value={counts.HIGH ?? 0} severity="HIGH" />
           <StatCard label="Medium Risks" value={counts.MEDIUM ?? 0} severity="MEDIUM" />
           <StatCard label="Low Intent Drift" value={counts.LOW ?? 0} severity="LOW" />
         </div>
@@ -66,7 +60,7 @@ export default function CommandCenter() {
 
       <DashboardCard
         title="Risk Trend"
-        description={`${metrics?.active_sessions ?? 0} active sessions`}
+        description={`${activeSessions} active session${activeSessions === 1 ? "" : "s"}`}
         className="w-full"
         delay={0.05}
         contentClassName="space-y-4"
@@ -185,13 +179,17 @@ export default function CommandCenter() {
 
       <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
         <ShieldCheck className="h-4 w-4 text-emerald-400" aria-hidden />
-        <span>{apiOnline ? "Containment engine operational" : "Backend offline — start API on port 8000"}</span>
+        <span>
+          {apiOnline
+            ? apiGatewayStatus === "fully_connected"
+              ? "Unified API fully connected"
+              : "Containment engine operational"
+            : "Backend offline — start API on port 8000"}
+        </span>
         {apiOnline && (
           <>
             <span className="hidden sm:inline">·</span>
-            <span className="font-mono text-xs">
-              WebSocket {connected ? "connected" : "polling"}
-            </span>
+            <span className="font-mono text-xs">Telemetry {wsConnected ? "stream" : "polling"}</span>
           </>
         )}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchFromBackend } from "@/lib/api";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { useAuthStore } from "@/lib/stores/auth";
@@ -23,7 +23,10 @@ export function useDashboardMetrics() {
   const [loading, setLoading] = useState(true);
   const { setWsConnected, refresh } = useConnection();
   const bearerToken = useAuthStore((s) => s.bearerToken);
-  const wsUrl = buildWebSocketUrl();
+  const wsUrl = useMemo(() => buildWebSocketUrl(), [bearerToken]);
+
+  const onWsOpen = useCallback(() => setWsConnected(true), [setWsConnected]);
+  const onWsClose = useCallback(() => setWsConnected(false), [setWsConnected]);
 
   const refreshMetrics = useCallback(async () => {
     const data = await fetchFromBackend<DashboardMetrics>("/api/v1/metrics/dashboard", { silent: true });
@@ -48,8 +51,8 @@ export function useDashboardMetrics() {
   );
 
   const connected = useReconnectingWebSocket(wsUrl, handleWsMessage, {
-    onOpen: () => setWsConnected(true),
-    onClose: () => setWsConnected(false),
+    onOpen: onWsOpen,
+    onClose: onWsClose,
   });
 
   useEffect(() => {
@@ -57,10 +60,6 @@ export function useDashboardMetrics() {
     const interval = setInterval(refreshMetrics, 10_000);
     return () => clearInterval(interval);
   }, [refreshMetrics]);
-
-  useEffect(() => {
-    setWsConnected(connected);
-  }, [connected, setWsConnected]);
 
   return { metrics, liveEvents, connected, loading, refreshMetrics };
 }

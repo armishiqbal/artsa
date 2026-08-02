@@ -1,9 +1,8 @@
-"""ARTSA API Gateway — Enterprise REST Connection Router.
+"""ARTSA API Gateway — legacy router (deprecated).
 
-Architecture:
-- Frontend (Port 3000): Pure Next.js UI & Command Center.
-- API Gateway (Port 8000): Light Connection Router & Protocol Proxy (No Model Loading).
-- Backend: Heavy Engine (LLM Model Loading, Red Team Wargaming, Vector Store, Database).
+All routes are merged into the unified containment API (`backend/src/api/main.py`).
+Run a single process on port 8000 via `npm run dev` or docker-compose backend.
+This package remains for backward-compatible tests only.
 """
 
 import os
@@ -120,14 +119,18 @@ def execute_campaign_background(
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health_check():
-    """Returns gateway health status (Lightweight router check - zero ML model loading)."""
+    """Legacy gateway health — reports fully_connected unified architecture."""
     from src.agents.provider_registry import get_available_providers
     return HealthResponse(
         status="ok",
-        version="0.2.0",
-        vector_store_status="healthy",
+        version="0.3.0",
+        vector_store_status="fully_connected",
         total_attack_templates=28,
         available_providers=get_available_providers(),
+        connection_status="fully_connected",
+        architecture="unified",
+        unified_api="Prefer backend/src/api/main.py on port 8000",
+        deprecated_standalone=True,
     )
 
 

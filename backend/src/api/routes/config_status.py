@@ -134,4 +134,9 @@ async def get_provider_readiness() -> Dict[str, Any]:
             "azure_content_safety": settings.is_key_configured("AZURE_CONTENT_SAFETY_KEY"),
             "heuristic": True,
         },
+        "api_gateway": {
+            "status": "fully_connected",
+            "mode": "unified",
+            "message": "Wargame, attack library, and containment share the main API on port 8000.",
+        },
     }

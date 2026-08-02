@@ -45,16 +45,23 @@ export default function ProvidersPage() {
   const [keys, setKeys] = useState<KeyRow[]>([]);
   const [summary, setSummary] = useState<{ llm_providers_configured: number; guardrails_configured: number } | null>(null);
   const [guardrails, setGuardrails] = useState<Record<string, boolean>>({});
+  const [gatewayMessage, setGatewayMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCat, setFilterCat] = useState("all");
 
   useEffect(() => {
-    fetchFromBackend<{ providers?: ProviderRow[]; guardrails?: Record<string, boolean> }>(
-      "/api/v1/config/providers",
-      { silent: true }
-    ).then((data) => {
+    fetchFromBackend<{
+      providers?: ProviderRow[];
+      guardrails?: Record<string, boolean>;
+      api_gateway?: { status?: string; message?: string };
+    }>("/api/v1/config/providers", { silent: true }).then((data) => {
       if (data?.providers) setProviders(data.providers);
       if (data?.guardrails) setGuardrails(data.guardrails);
+      if (data?.api_gateway?.status === "fully_connected") {
+        setGatewayMessage(data.api_gateway.message ?? "Unified API on port 8000");
+      } else {
+        setGatewayMessage(null);
+      }
     });
     fetchFromBackend<{ keys?: KeyRow[]; summary?: { llm_providers_configured: number; guardrails_configured: number } }>(
       "/api/v1/config/keys",
@@ -87,6 +94,19 @@ export default function ProvidersPage() {
           )
         }
       />
+
+      {gatewayMessage && (
+        <DashboardCard
+          title="API gateway"
+          badge={
+            <Badge variant="success" className="text-[10px]">
+              Fully connected
+            </Badge>
+          }
+        >
+          <p className="text-sm text-muted-foreground">{gatewayMessage}</p>
+        </DashboardCard>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {providers.map((p) => (

@@ -9,6 +9,7 @@ import { AlertsInbox } from "@/components/layout/AlertsInbox";
 import MobileNav from "@/components/layout/MobileNav";
 import { useAlerts } from "@/lib/hooks/useAlerts";
 import { useConnection } from "@/lib/context/ConnectionProvider";
+import { formatTopNavConnectionLabel } from "@/lib/connectionStatus";
 import Link from "next/link";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { useAuthStore } from "@/lib/stores/auth";
@@ -25,18 +26,14 @@ const ROLE_VARIANT: Record<string, "default" | "secondary" | "info" | "warning" 
 export default function TopNav() {
   const [inboxOpen, setInboxOpen] = useState(false);
   const { alerts, loading, criticalCount } = useAlerts();
-  const { apiOnline, wsConnected, activeSessions } = useConnection();
+  const { apiOnline, wsConnected, apiGatewayStatus } = useConnection();
   const { identity, loading: authLoading } = useAuthRole();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const hasBearer = useAuthStore((s) => Boolean(s.bearerToken));
   const tenant = "default_org";
   const showOidcLogin = isOidcEnabled() && !hasBearer;
 
-  const statusLabel = apiOnline
-    ? wsConnected
-      ? `Live · ${activeSessions} session${activeSessions === 1 ? "" : "s"}`
-      : `Connected · ${activeSessions} session${activeSessions === 1 ? "" : "s"}`
-    : "Offline";
+  const statusLabel = formatTopNavConnectionLabel(apiOnline, wsConnected, apiGatewayStatus);
 
   return (
     <>

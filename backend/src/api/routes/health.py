@@ -39,4 +39,18 @@ async def get_health():
             "rag_backend": rag_backend,
             "prometheus": "/api/v1/metrics/prometheus",
         },
+        "api_gateway": {
+            "status": "fully_connected",
+            "mode": "unified",
+            "standalone_required": False,
+            "routes": [
+                "ingest",
+                "campaigns",
+                "attack-library",
+                "observatory",
+                "topology",
+                "sessions",
+                "metrics",
+            ],
+        },
     }

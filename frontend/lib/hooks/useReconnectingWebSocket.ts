@@ -22,7 +22,11 @@ export function useReconnectingWebSocket(
   const { enabled = true, maxDelayMs = 30_000, baseDelayMs = 1_000, onOpen, onClose } = options;
   const [connected, setConnected] = useState(false);
   const onMessageRef = useRef(onMessage);
+  const onOpenRef = useRef(onOpen);
+  const onCloseRef = useRef(onClose);
   onMessageRef.current = onMessage;
+  onOpenRef.current = onOpen;
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!enabled) {
@@ -55,13 +59,13 @@ export function useReconnectingWebSocket(
         if (cancelled) return;
         attempt = 0;
         setConnected(true);
-        onOpen?.();
+        onOpenRef.current?.();
       };
 
       ws.onclose = () => {
         if (cancelled) return;
         setConnected(false);
-        onClose?.();
+        onCloseRef.current?.();
         scheduleReconnect();
       };
 
@@ -86,7 +90,7 @@ export function useReconnectingWebSocket(
       ws?.close();
       setConnected(false);
     };
-  }, [url, enabled, maxDelayMs, baseDelayMs, onOpen, onClose]);
+  }, [url, enabled, maxDelayMs, baseDelayMs]);
 
   return connected;
 }

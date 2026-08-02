@@ -1,5 +1,5 @@
 /**
- * Utility helper to handle end-to-end connection between Next.js Frontend and API Gateway Backend.
+ * HTTP client for the unified ARTSA API (containment + wargame + library on port 8000).
  */
 
 import { toast } from "@/lib/stores/toast";

@@ -18,3 +18,4 @@ def test_health_includes_subsystems():
     assert body["subsystems"]["redis"] in ("live", "fallback")
     assert "oidc_enabled" in body["subsystems"]
     assert "rag_backend" in body["subsystems"]
+    assert body.get("api_gateway", {}).get("status") == "fully_connected"

@@ -12,6 +12,10 @@ class HealthResponse(BaseModel):
     vector_store_status: str = "connected"
     total_attack_templates: int = 0
     available_providers: List[str] = Field(default_factory=list)
+    connection_status: str = "fully_connected"
+    architecture: str = "unified"
+    unified_api: str = "Use backend/src/api/main.py — all gateway routes merged on port 8000"
+    deprecated_standalone: bool = True
 
 
 class ProviderInfo(BaseModel):
