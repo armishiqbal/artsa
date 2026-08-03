@@ -1,14 +1,31 @@
-import sys
+"""ARTSA backend entry point — starts the live FastAPI server.
+
+NOTE: This file used to run a one-shot campaign (scripts/run_campaign) and then
+exit, which looked like the backend "stopping". The campaign CLI still exists:
+    python scripts/run_campaign.py
+
+Server defaults match the container (port 8000). Override via env:
+    ARTSA_HOST=0.0.0.0 ARTSA_PORT=8000 ARTSA_RELOAD=true python run.py
+"""
+
 import os
+import sys
 from pathlib import Path
 
-# Setup paths
+import uvicorn
+
 BACKEND_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from scripts.run_campaign import run_campaign
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv()
+
+HOST = os.getenv("ARTSA_HOST", "127.0.0.1")
+PORT = int(os.getenv("ARTSA_PORT", "8000"))
+RELOAD = os.getenv("ARTSA_RELOAD", "true").lower() in ("1", "true", "yes")
 
 if __name__ == "__main__":
-    print("🧠 Starting ARTSA Backend Red-Teaming Engine...")
-    run_campaign()
+    print(f"🧠 Starting ARTSA Backend API on http://{HOST}:{PORT} ...")
+    uvicorn.run("src.api.main:app", host=HOST, port=PORT, reload=RELOAD)
