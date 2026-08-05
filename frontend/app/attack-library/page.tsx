@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BookOpen, Search, Plus, Loader2, Sparkles } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -11,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function AttackLibraryPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<{ categories: Array<{ code: string; name: string }>; templates: Array<Record<string, unknown>> }>({
     categories: [],
     templates: [],
@@ -32,6 +34,13 @@ export default function AttackLibraryPage() {
   useEffect(() => {
     reload();
   }, []);
+
+  useEffect(() => {
+    const category = searchParams.get("category");
+    if (category) {
+      setSelectedCategory(category.toUpperCase());
+    }
+  }, [searchParams]);
 
   const trimmedQuery = searchQuery.trim();
   const useSemanticSearch = trimmedQuery.length >= 2;

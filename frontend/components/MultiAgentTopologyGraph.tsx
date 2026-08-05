@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Zap, Network } from "lucide-react";
 import Link from "next/link";
 import { fetchFromBackend } from "@/lib/api";
+import { SIMULATED_TOPOLOGY } from "@/lib/simulatedData";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ export default function MultiAgentTopologyGraph() {
   const [edges, setEdges] = useState<TopologyEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"graph" | "table">("graph");
+  const [simulated, setSimulated] = useState(false);
 
   useEffect(() => {
     fetchFromBackend<{ nodes?: TopologyApiNode[]; edges?: TopologyApiEdge[] }>("/api/v1/topology", {
@@ -55,10 +57,31 @@ export default function MultiAgentTopologyGraph() {
         setSelectedNode(liveNodes[0] ?? null);
         setSelectedEdge(liveEdges[0] ?? null);
       } else {
-        setNodes([]);
-        setEdges([]);
-        setSelectedNode(null);
-        setSelectedEdge(null);
+        // No live sessions — demonstrate the lateral-movement graph with the
+        // realistic simulation baseline.
+        const simNodes: TopologyNode[] = SIMULATED_TOPOLOGY.nodes.map((n, i) => ({
+          id: n.id,
+          name: n.label,
+          type: (n.type === "tool" || n.type === "mcp_bridge" || n.type === "datastore"
+            ? n.type
+            : "agent") as TopologyNode["type"],
+          trust: Number(n.risk_score ?? 0) >= 70 ? "low" : Number(n.risk_score ?? 0) >= 40 ? "medium" : "high",
+          status: n.status === "BREACHED" ? "COMPROMISED" : "SAFE",
+          ...computeNodePosition(i),
+        }));
+        const simEdges: TopologyEdge[] = SIMULATED_TOPOLOGY.edges.map((e, i) => ({
+          id: `sim-e${i}`,
+          source: e.source,
+          target: e.target,
+          label: String(e.type ?? "call"),
+          payload: String(e.type ?? "tool_call"),
+          status: (e.type === "lateral_movement" ? "COMPROMISED" : "SAFE") as TopologyEdge["status"],
+        }));
+        setNodes(simNodes);
+        setEdges(simEdges);
+        setSelectedNode(simNodes[0] ?? null);
+        setSelectedEdge(simEdges[0] ?? null);
+        setSimulated(true);
       }
       setLoading(false);
     });
@@ -103,7 +126,13 @@ export default function MultiAgentTopologyGraph() {
         description="Agent-mediated lateral movement visualization"
         badge={
           <div className="flex gap-2">
-            <Badge variant="success">Live</Badge>
+            {simulated ? (
+              <Badge variant="secondary" className="font-mono text-[10px] uppercase">
+                Simulated
+              </Badge>
+            ) : (
+              <Badge variant="success">Live</Badge>
+            )}
             <Badge variant="critical">
               {compromisedCount}/{nodes.length} compromised
             </Badge>

@@ -1,16 +1,29 @@
-"""In-memory alert store populated from live ingest events."""
+"""Alert store with in-memory hot path + durable DB persistence.
+
+Alerts and webhook rules are kept in-process for instant reads (WebSocket
+inbox, alert routes) AND persisted to the database so they survive restarts.
+Persistence runs through AlertRepository / AlertRuleRepository; the async
+``persist_*`` helpers are called by the API routes that own a DB session.
+"""
 
 from __future__ import annotations
 
 import uuid
 from typing import List, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.models.alerts import Alert, AlertRule
+from src.data.repositories.alerts import AlertRepository, AlertRuleRepository
 
 _alerts_store: List[Alert] = []
 _webhook_rules: List[AlertRule] = []
 _MAX_ALERTS = 500
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# In-memory hot path (instant reads, WebSocket inbox, sync call sites)
+# ─────────────────────────────────────────────────────────────────────────────
 
 def list_alerts(
     severity: Optional[str] = None,
@@ -85,3 +98,55 @@ def get_webhook_rules() -> List[AlertRule]:
 def add_webhook_rule(rule: AlertRule) -> AlertRule:
     _webhook_rules.append(rule)
     return rule
+
+
+def seed_webhook_rules(rules: List[AlertRule]) -> None:
+    """Load persisted rules into memory (called on startup / after writes)."""
+    _webhook_rules[:] = rules
+
+
+def load_persisted_alerts(alerts: List[Alert]) -> None:
+    """Load persisted alerts into the in-memory hot path (startup)."""
+    _alerts_store[:] = alerts[:_MAX_ALERTS]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Durable persistence helpers (called by async API routes with a DB session)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def persist_alert(db: AsyncSession, alert: Alert) -> Alert:
+    """Persist an alert to the database (no-op safe if DB is unavailable)."""
+    try:
+        repo = AlertRepository(db)
+        return await repo.create_alert(alert)
+    except Exception:
+        return alert
+
+
+async def persist_alert_delivered(db: AsyncSession, alert_id: uuid.UUID) -> None:
+    try:
+        repo = AlertRepository(db)
+        await repo.mark_delivered(alert_id)
+    except Exception:
+        pass
+
+
+async def persist_webhook_rule(db: AsyncSession, rule: AlertRule) -> AlertRule:
+    try:
+        repo = AlertRuleRepository(db)
+        stored = await repo.upsert_rule(rule)
+        seed_webhook_rules(await repo.list_rules())
+        return stored
+    except Exception:
+        return rule
+
+
+async def load_persisted_state(db: AsyncSession) -> None:
+    """Load alerts + webhook rules from the DB into memory. Call at startup."""
+    try:
+        alert_repo = AlertRepository(db)
+        rule_repo = AlertRuleRepository(db)
+        load_persisted_alerts(await alert_repo.list_alerts())
+        seed_webhook_rules(await rule_repo.list_rules())
+    except Exception:
+        pass

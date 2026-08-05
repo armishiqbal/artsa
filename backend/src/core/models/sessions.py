@@ -14,7 +14,7 @@ class Session(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     agent_id: str
     tenant_id: str = "default_tenant"
-    status: Literal["ACTIVE", "CLOSED", "BREACHED"] = "ACTIVE"
+    status: Literal["ACTIVE", "CLOSED", "BREACHED", "QUARANTINED"] = "ACTIVE"
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     ended_at: Optional[datetime] = None
     tool_call_count: int = 0

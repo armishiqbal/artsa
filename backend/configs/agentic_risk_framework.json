@@ -1,0 +1,143 @@
+[
+  {
+    "id": "agent-goal-hijack",
+    "rank": 1,
+    "name": "Agent Goal Hijack",
+    "description": "An attacker hijacks the agent's objective by injecting instructions into prompts, RAG context, or retrieved content so the agent acts against the operator's intent.",
+    "attack_categories": ["DPI", "IPI"],
+    "defense_layers": ["statistical_inspector", "goal_drift_classifier"],
+    "detectors": ["Prompt Injection Detector", "Goal Drift Detector"],
+    "flags": ["PROMPT_INJECTION", "GOAL_DRIFT"],
+    "mitigations": [
+      "Treat model output as untrusted data before it reaches prompts.",
+      "Enforce allow-listed tool arguments and sandbox all tool execution.",
+      "Harden system prompts against delimiter escape and instruction override."
+    ]
+  },
+  {
+    "id": "tool-misuse-exploitation",
+    "rank": 2,
+    "name": "Tool Misuse & Exploitation",
+    "description": "The agent calls sensitive tools (read/write files, shell, DB) with malicious or over-broad arguments such as path traversal or destructive SQL.",
+    "attack_categories": ["TPA", "PEX"],
+    "defense_layers": ["tool_validator", "containment_enforcer"],
+    "detectors": ["Tool Validator", "Statistical Inspector"],
+    "flags": ["SANDBOX_ESCAPE", "PRIVILEGE_ESCALATION"],
+    "mitigations": [
+      "Validate tool names and arguments against an allow-list.",
+      "Sandbox high-risk tools (execute_command, read_file) with privilege boundaries."
+    ]
+  },
+  {
+    "id": "identity-privilege-abuse",
+    "rank": 3,
+    "name": "Identity & Privilege Abuse",
+    "description": "An agent abuses its identity or escalates privileges — impersonating users, touching cross-tenant resources, or invoking administrative functions.",
+    "attack_categories": ["PEX", "TPA"],
+    "defense_layers": ["tool_validator", "containment_enforcer"],
+    "detectors": ["Containment Enforcer", "Tool Validator"],
+    "flags": ["PRIVILEGE_ESCALATION"],
+    "mitigations": [
+      "Apply least-privilege IAM roles per agent.",
+      "Reject cross-tenant resource access unless explicitly authorized."
+    ]
+  },
+  {
+    "id": "agentic-supply-chain",
+    "rank": 4,
+    "name": "Agentic Supply Chain Vulnerabilities",
+    "description": "Poisoned tools, MCP bridges, plugins, or model weights inject malicious behavior into the agent's toolchain before runtime.",
+    "attack_categories": ["IPI", "TPA"],
+    "defense_layers": ["tool_validator"],
+    "detectors": ["Tool Validator", "Prompt Injection Detector"],
+    "flags": ["PROMPT_INJECTION", "SANDBOX_ESCAPE"],
+    "mitigations": [
+      "Verify MCP tool definitions and sign/scan agent dependencies.",
+      "Treat tool descriptions as untrusted and inspect them for injection."
+    ]
+  },
+  {
+    "id": "unexpected-code-execution",
+    "rank": 5,
+    "name": "Unexpected Code Execution (RCE)",
+    "description": "The agent executes unintended code — reverse shells, sandbox escapes, or metadata-service access — enabling host compromise and egress.",
+    "attack_categories": ["TPA", "PEX"],
+    "defense_layers": ["containment_enforcer", "tool_validator"],
+    "detectors": ["Containment Enforcer", "Statistical Inspector"],
+    "flags": ["REVERSE_SHELL", "SANDBOX_ESCAPE", "EGRESS_TUNNEL"],
+    "mitigations": [
+      "Deny shell/exec tools by default; route them through a sandbox.",
+      "Block metadata service endpoints (169.254.169.254) and internal egress."
+    ]
+  },
+  {
+    "id": "memory-context-poisoning",
+    "rank": 6,
+    "name": "Memory & Context Poisoning",
+    "description": "Persistent memory, conversation history, or RAG indexes are poisoned with malicious content that later steers the agent across sessions.",
+    "attack_categories": ["IPI", "DEX"],
+    "defense_layers": ["statistical_inspector", "goal_drift_classifier"],
+    "detectors": ["Prompt Injection Detector", "Statistical Inspector"],
+    "flags": ["PROMPT_INJECTION", "GOAL_DRIFT"],
+    "mitigations": [
+      "Scan retrieved context before injection into the prompt window.",
+      "Bound and audit long-term memory write operations."
+    ]
+  },
+  {
+    "id": "insecure-inter-agent-communication",
+    "rank": 7,
+    "name": "Insecure Inter-Agent Communication",
+    "description": "Agents communicate over insecure channels — unauthenticated tool calls between agents, or data exfiltration across tenant boundaries via messaging tools.",
+    "attack_categories": ["DEX", "TPA"],
+    "defense_layers": ["containment_enforcer"],
+    "detectors": ["Containment Enforcer", "Statistical Inspector"],
+    "flags": ["EGRESS_TUNNEL", "CREDENTIAL_THEFT"],
+    "mitigations": [
+      "Authenticate and authorize every inter-agent message.",
+      "Apply egress policy to messaging tools (slack_send, send_email)."
+    ]
+  },
+  {
+    "id": "cascading-failures",
+    "rank": 8,
+    "name": "Cascading Failures",
+    "description": "A single compromised agent triggers lateral movement and cascading quarantine storms, taking down the whole swarm (denial of service by design).",
+    "attack_categories": ["DOS", "OPM"],
+    "defense_layers": ["containment_enforcer", "goal_drift_classifier"],
+    "detectors": ["Goal Drift Detector", "Containment Enforcer"],
+    "flags": ["GOAL_DRIFT", "EGRESS_TUNNEL"],
+    "mitigations": [
+      "Model agent trust graphs and contain lateral movement.",
+      "Rate-limit containment actions to avoid quarantine storms."
+    ]
+  },
+  {
+    "id": "human-agent-trust-exploitation",
+    "rank": 9,
+    "name": "Human-Agent Trust Exploitation",
+    "description": "Social engineering attacks exploit the human's trust in the agent — the agent is used to deliver phishing, credential theft, or manipulative messaging.",
+    "attack_categories": ["MSE", "JBK"],
+    "defense_layers": ["statistical_inspector"],
+    "detectors": ["Statistical Inspector", "Prompt Injection Detector"],
+    "flags": ["JAILBREAK", "PROMPT_INJECTION"],
+    "mitigations": [
+      "Flag multi-turn social engineering patterns in agent output.",
+      "Block delivery tools from sending sensitive or credential data."
+    ]
+  },
+  {
+    "id": "rogue-agents",
+    "rank": 10,
+    "name": "Rogue Agents",
+    "description": "Unauthorized or shadow agents run outside governance — extracting sensitive data, diverging from policy, or operating beyond their approved scope.",
+    "attack_categories": ["DEX", "SPE", "OPM"],
+    "defense_layers": ["containment_enforcer", "tool_validator"],
+    "detectors": ["Containment Enforcer", "Tool Validator"],
+    "flags": ["CREDENTIAL_THEFT", "PRIVILEGE_ESCALATION"],
+    "mitigations": [
+      "Enforce agent registry and capability-based RBAC.",
+      "Quarantine agents that violate org policy or exceed tool scope."
+    ]
+  }
+]

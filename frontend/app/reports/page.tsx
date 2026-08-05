@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { FileText, Download, ChevronRight, Loader2 } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
+import { SIMULATED_CAMPAIGNS } from "@/lib/simulatedData";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { SimulatedBadge } from "@/components/shared/SimulatedBadge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,12 +19,21 @@ export default function ReportsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<Record<string, unknown> | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportMd, setExportMd] = useState<string | null>(null);
+  const [simulated, setSimulated] = useState(false);
 
   useEffect(() => {
     fetchFromBackend<{ campaigns?: Array<Record<string, unknown>> }>("/api/v1/campaigns", { silent: true }).then((data) => {
       const list = data?.campaigns || [];
-      setCampaigns(list);
-      if (list.length) setSelectedCampaign(list[0]);
+      if (list.length) {
+        setCampaigns(list);
+        setSelectedCampaign(list[0]);
+      } else {
+        // No live campaigns — demonstrate report generation with the
+        // realistic simulation baseline.
+        setCampaigns(SIMULATED_CAMPAIGNS as unknown as Array<Record<string, unknown>>);
+        setSelectedCampaign(SIMULATED_CAMPAIGNS[0] as unknown as Record<string, unknown>);
+        setSimulated(true);
+      }
     });
   }, []);
 
@@ -54,7 +65,12 @@ export default function ReportsPage() {
         title="Assessment Reports"
         description="Executive wargame summaries and EU AI Act / NIST compliance exports."
         icon={<FileText className="h-5 w-5" />}
-        actions={<Badge variant="secondary">{campaigns.length} campaigns</Badge>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {simulated && <SimulatedBadge />}
+            <Badge variant="secondary">{campaigns.length} campaigns</Badge>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

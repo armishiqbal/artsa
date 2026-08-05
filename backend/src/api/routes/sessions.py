@@ -3,7 +3,7 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
@@ -18,6 +18,7 @@ from src.data.repositories.evaluations import EvaluationRepository
 from src.data.repositories.events import EventRepository
 from src.data.repositories.sessions import SessionRepository
 from src.services.session_tracker import SessionTracker
+from src.services.telemetry_bus import telemetry_bus
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,9 @@ router = APIRouter(tags=["Sessions"])
 
 
 class SessionActionRequest(BaseModel):
-    action: str = Field(..., description="Action to enforce on agent session")
+    action: Literal["KILL", "QUARANTINE", "THROTTLE", "ALERT"] = Field(
+        ..., description="Action to enforce on agent session"
+    )
 
 
 class TimelineEntry(BaseModel):
@@ -106,18 +109,42 @@ async def enforce_session_action(
     tracker: SessionTracker = Depends(get_session_tracker),
 ):
     """Enforce a containment action (KILL, THROTTLE, QUARANTINE) on an active session."""
-    session = tracker.get_session(session_id)
+    session = tracker.get_session(session_id) or memory_store.get_session(session_id)
+    if not session:
+        repo = SessionRepository(db)
+        session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found")
 
-    if payload.action in ["KILL", "QUARANTINE"]:
-        session.status = "BREACHED"
-    logger.info("Enforced action %s on session %s", payload.action, session_id)
+    # Ensure tracker has the session for in-memory follow-up ingest checks
+    if not tracker.get_session(session_id):
+        tracker.active_sessions[str(session_id)] = session
+
+    tracker.apply_action(session_id, payload.action)
+    repo = SessionRepository(db)
+    updated = await repo.apply_action(session_id, payload.action)
+    final = updated or tracker.get_session(session_id) or session
+
+    telemetry_bus.publish(
+        {
+            "type": "session_action",
+            "session_id": str(session_id),
+            "agent_id": final.agent_id,
+            "action": payload.action,
+            "session_status": final.status,
+            "risk_score": final.max_risk_score,
+            "verdict": "BREACHED" if payload.action == "KILL" else "SUSPICIOUS",
+            "severity": "CRITICAL" if payload.action == "KILL" else "HIGH",
+            "flags": ["manual_containment"],
+        }
+    )
+
+    logger.info("Enforced action %s on session %s → %s", payload.action, session_id, final.status)
 
     return {
         "session_id": str(session_id),
         "enforced_action": payload.action,
-        "status": session.status,
+        "status": final.status,
     }
 
 

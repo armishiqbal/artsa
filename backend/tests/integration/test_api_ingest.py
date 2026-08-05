@@ -28,4 +28,10 @@ def test_api_ingest_event():
     data = response.json()
     assert "ingested" in data
     assert "session_id" in data
+    assert "verdict" in data
+    assert "recommended_action" in data["verdict"]
+    assert "risk_score" in data
+    assert "overall_score" in data["risk_score"]
+    assert "evaluations" in data
+    assert len(data["evaluations"]) == 1
 

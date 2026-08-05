@@ -7,12 +7,7 @@ import { RiskScore } from "@/components/shared/RiskScore";
 import { cn } from "@/lib/utils";
 import type { TopologyThreat } from "@/lib/hooks/useTopologyThreats";
 
-function severityFromScore(score: number): "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" {
-  if (score >= 80) return "CRITICAL";
-  if (score >= 60) return "HIGH";
-  if (score >= 40) return "MEDIUM";
-  return "LOW";
-}
+import { severityFromScore } from "@/lib/severity";
 
 interface ThreatRowProps {
   threat: TopologyThreat;

@@ -1,0 +1,27 @@
+{
+  "name": "@artsa/sdk",
+  "version": "0.3.0",
+  "description": "ARTSA TypeScript SDK — fail-closed tool containment for Node agents",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --experimental-vm-modules node_modules/vitest/dist/cli.js run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vitest": "^3.2.7"
+  }
+}

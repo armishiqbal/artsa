@@ -104,5 +104,44 @@ class SessionRepository(BaseRepository[SessionORM]):
             row.status = "BREACHED"
         await self.session.commit()
 
+    async def apply_action(self, session_id: UUID, action: str) -> Optional[Session]:
+        """Persist KILL / QUARANTINE / THROTTLE to memory + DB."""
+        from datetime import datetime, timezone
+
+        action_u = action.upper()
+        status_map = {
+            "KILL": "BREACHED",
+            "QUARANTINE": "QUARANTINED",
+            "THROTTLE": None,
+        }
+        if action_u not in status_map:
+            return None
+
+        cached = memory_store.get_session(session_id)
+        ended = action_u == "KILL"
+        new_status = status_map[action_u]
+        if cached and new_status:
+            memory_store.apply_session_status(session_id, new_status, ended=ended)
+        elif cached and action_u == "THROTTLE":
+            cached.max_risk_score = max(cached.max_risk_score, 50.0)
+
+        if self._use_memory:
+            return memory_store.get_session(session_id)
+
+        result = await self.session.execute(select(SessionORM).where(SessionORM.id == session_id))
+        row = result.scalar_one_or_none()
+        if not row:
+            return memory_store.get_session(session_id)
+
+        if new_status:
+            row.status = new_status
+            if ended:
+                row.ended_at = datetime.now(timezone.utc)
+                row.containment_breaches = (row.containment_breaches or 0) + 1
+        elif action_u == "THROTTLE":
+            row.max_risk_score = max(row.max_risk_score or 0.0, 50.0)
+        await self.session.commit()
+        return self._to_domain(row)
+
     async def increment_breach_count(self, session_id: UUID) -> None:
         await self.update_risk_score(session_id, 100.0, breached=True)

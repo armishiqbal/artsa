@@ -7,10 +7,12 @@ import Link from "next/link";
 import { fetchFromBackend } from "@/lib/api";
 import { formatPayload, formatResponse } from "@/lib/replayFormat";
 import type { Session, ToolCallEvent } from "@/lib/types";
+import { SIMULATED_SESSIONS, SIMULATED_TIMELINES } from "@/lib/simulatedData";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RiskScore } from "@/components/shared/RiskScore";
+import { SimulatedBadge } from "@/components/shared/SimulatedBadge";
 import AutopsyReplayModal from "@/components/AutopsyReplayModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,12 +46,18 @@ export default function RoundReplayPage() {
   const [forensics, setForensics] = useState<Record<string, unknown> | null>(null);
   const [forensicsLoading, setForensicsLoading] = useState(false);
   const [autopsyOpen, setAutopsyOpen] = useState(false);
+  const [simulated, setSimulated] = useState(false);
 
   useEffect(() => {
     fetchFromBackend<Session[]>("/api/v1/sessions?limit=20", { silent: true }).then((data) => {
       if (Array.isArray(data) && data.length) {
         setSessions(data);
         if (!sessionParam) setSelectedSessionId(data[0].id);
+      } else {
+        // No live sessions — surface the realistic demonstration feed.
+        setSessions(SIMULATED_SESSIONS);
+        setSimulated(true);
+        if (!sessionParam) setSelectedSessionId(SIMULATED_SESSIONS[0].id);
       }
       setLoadingSessions(false);
     });
@@ -73,6 +81,9 @@ export default function RoundReplayPage() {
       if (Array.isArray(data) && data.length) {
         setTimeline(data);
         setSelectedIndex(data.length - 1);
+      } else if (SIMULATED_TIMELINES[selectedSessionId]) {
+        setTimeline(SIMULATED_TIMELINES[selectedSessionId] as TimelineEntry[]);
+        setSelectedIndex(SIMULATED_TIMELINES[selectedSessionId].length - 1);
       } else {
         setTimeline([]);
         setSelectedIndex(0);
@@ -178,6 +189,7 @@ export default function RoundReplayPage() {
         icon={<Shield className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {simulated && <SimulatedBadge />}
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setAutopsyOpen(true)} disabled={!timeline.length}>
               Autopsy mode
             </Button>

@@ -80,7 +80,7 @@ export default function XRayPage() {
     <div className="space-y-8">
       <PageHeader
         title="Defense X-Ray"
-        description="Layer-by-layer guardrail penetration analysis and bypass depth diagnostics."
+        description="Layer-by-layer guardrail penetration analysis — blocked prompt injections, tool misuse events, and policy violations mapped to bypass depth."
         icon={<Layers className="h-5 w-5" />}
         actions={
           <Button variant="outline" size="sm" className="gap-2" onClick={() => void load()}>

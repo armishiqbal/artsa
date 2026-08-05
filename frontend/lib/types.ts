@@ -39,7 +39,7 @@ export interface Session {
   id: string;
   agent_id: string;
   tenant_id: string;
-  status: "ACTIVE" | "CLOSED" | "BREACHED";
+  status: "ACTIVE" | "CLOSED" | "BREACHED" | "QUARANTINED";
   started_at: string;
   ended_at?: string | null;
   tool_call_count: number;
@@ -104,4 +104,26 @@ export interface AlertRule {
   channel: "WEBHOOK" | "SLACK" | "PAGERDUTY" | "EMAIL";
   target_url: string;
   enabled: boolean;
+}
+
+export interface AgenticRisk {
+  id: string;
+  rank: number;
+  name: string;
+  description: string;
+  attack_categories: string[];
+  defense_layers: string[];
+  detectors: string[];
+  mitigations: string[];
+  live_events: number;
+  blocked_events: number;
+  breached_events: number;
+  max_risk_score: number;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+}
+
+export interface RiskFrameworkResponse {
+  framework: AgenticRisk[];
+  total_events: number;
+  generated_at: string | null;
 }

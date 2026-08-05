@@ -56,6 +56,25 @@ def update_session_risk(session_id: uuid.UUID, risk_score: float, breached: bool
         session.status = "BREACHED"
 
 
+def apply_session_status(
+    session_id: uuid.UUID,
+    status: str,
+    *,
+    ended: bool = False,
+) -> Optional[Session]:
+    from datetime import datetime, timezone
+
+    session = get_session(session_id)
+    if not session:
+        return None
+    session.status = status  # type: ignore[assignment]
+    if ended:
+        session.ended_at = datetime.now(timezone.utc)
+        if status == "BREACHED":
+            session.containment_breaches += 1
+    return session
+
+
 def store_evaluation(event_id: str, evaluation: Dict[str, Any]) -> None:
     _evaluations[event_id] = evaluation
 

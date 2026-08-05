@@ -46,7 +46,14 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    from src.data.orm import CampaignJobORM, EventEvaluationORM, SessionORM, ToolCallEventORM  # noqa: F401
+    from src.data.orm import (  # noqa: F401
+        AlertORM,
+        AlertRuleORM,
+        CampaignJobORM,
+        EventEvaluationORM,
+        SessionORM,
+        ToolCallEventORM,
+    )
 
     engine = get_engine()
     async with engine.begin() as conn:

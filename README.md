@@ -78,3 +78,10 @@ npm run dev
 ## 📄 License & Contact
 
 ARTSA is open-source under the **MIT License**. For questions or enterprise security setup, contact the platform team.
+
+## Secure your AI app
+
+See **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** for all integration patterns (HTTP ingest, Python SDK, LangChain, OpenAI tools, MCP proxy, OpenTelemetry, CI red team).
+
+Production go-live: **[docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md)** · sample agent: `python examples/production_agent.py`
+

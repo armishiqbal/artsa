@@ -10,6 +10,8 @@ from src.core.config import settings
 _PUBLIC_PATHS = {
     "/api/v1/health",
     "/v1/health",
+    "/api/v1/ready",
+    "/v1/ready",
     "/api/v1/metrics/prometheus",
     "/v1/metrics/prometheus",
     "/docs",

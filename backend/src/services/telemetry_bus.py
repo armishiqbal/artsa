@@ -62,5 +62,11 @@ class TelemetryBus:
                 )
         return points
 
+    def clear(self) -> None:
+        """Reset history and severity counters (testing)."""
+        self._history.clear()
+        for key in self._severity_counts:
+            self._severity_counts[key] = 0
+
 
 telemetry_bus = TelemetryBus()

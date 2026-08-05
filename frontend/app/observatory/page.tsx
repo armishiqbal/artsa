@@ -6,10 +6,12 @@ import { Activity, Calendar, Flame, CheckCircle2, AlertTriangle, Layers, Loader2
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import { fetchFromBackend } from "@/lib/api";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
+import { SIMULATED_OBSERVATORY } from "@/lib/simulatedData";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageLoadingSkeleton } from "@/components/shared/PageSkeleton";
+import { SimulatedBadge } from "@/components/shared/SimulatedBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -62,11 +64,19 @@ export default function ObservatoryPage() {
   const [data, setData] = useState<ObservatoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [ablationRunning, setAblationRunning] = useState(false);
+  const [simulated, setSimulated] = useState(false);
   const { capabilities } = useAuthRole();
 
   const loadObservatory = () =>
     fetchFromBackend("/api/v1/observatory", { silent: true }).then((res) => {
-      if (res) setData(res as ObservatoryData);
+      if (res && typeof res === "object" && "total_rounds" in (res as Record<string, unknown>)) {
+        setData(res as ObservatoryData);
+      } else {
+        // No live observatory data — demonstrate the same charts with the
+        // realistic simulation baseline.
+        setData(SIMULATED_OBSERVATORY as unknown as ObservatoryData);
+        setSimulated(true);
+      }
       setLoading(false);
     });
 
@@ -118,9 +128,12 @@ export default function ObservatoryPage() {
         description="Security regression tracking, Red Queen co-evolution metrics, and CI benchmark gates."
         icon={<Activity className="h-5 w-5" />}
         actions={
-          <Badge variant="secondary" className="font-mono">
-            {data?.total_rounds ?? 0} rounds
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            {simulated && <SimulatedBadge />}
+            <Badge variant="secondary" className="font-mono">
+              {data?.total_rounds ?? 0} rounds
+            </Badge>
+          </div>
         }
       />
 

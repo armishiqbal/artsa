@@ -1,24 +1,38 @@
 """Event Ingestion Pipeline Endpoint."""
 
 import time
-from datetime import datetime, timezone
-from typing import List, Union, Dict, Any
+from datetime import UTC, datetime
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.api.dependencies import get_current_tenant, get_db, get_redis, get_event_processor, get_session_tracker, rate_limit_dependency
+
+from src.api.dependencies import (
+    get_current_tenant,
+    get_db,
+    get_event_processor,
+    get_redis,
+    get_session_tracker,
+    rate_limit_dependency,
+)
+from src.core.config import settings
 from src.core.models.events import ToolCallEvent
+from src.core.models.ingest import IngestResponse
 from src.core.models.sessions import Session
+from src.core.severity import severity_from_score
 from src.data import memory_store
 from src.data.repositories.evaluations import EvaluationRepository
 from src.data.repositories.events import EventRepository
 from src.data.repositories.sessions import SessionRepository
+from src.services.alert_store import persist_alert, record_alert_from_evaluation
 from src.services.event_processor import EventProcessor
 from src.services.session_tracker import SessionTracker
-from src.core.config import settings
-from src.services.alert_store import record_alert_from_evaluation
 from src.services.telemetry_bus import telemetry_bus
 
 router = APIRouter(tags=["Ingestion"])
+
+_CONTAINED_STATUSES = frozenset({"BREACHED", "QUARANTINED", "CLOSED"})
+_ENFORCE_ACTIONS = frozenset({"KILL", "QUARANTINE"})
 
 
 def _maybe_enqueue_celery(event: ToolCallEvent) -> None:
@@ -34,19 +48,19 @@ def _maybe_enqueue_celery(event: ToolCallEvent) -> None:
         logging.getLogger(__name__).debug("Celery enqueue skipped: %s", exc)
 
 
-@router.post("/ingest", status_code=status.HTTP_201_CREATED)
+@router.post("/ingest", status_code=status.HTTP_201_CREATED, response_model=IngestResponse)
 async def ingest_events(
-    payload: Union[ToolCallEvent, List[ToolCallEvent]],
+    payload: ToolCallEvent | list[ToolCallEvent],
     tenant_id: str = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
     processor: EventProcessor = Depends(get_event_processor),
     tracker: SessionTracker = Depends(get_session_tracker),
     _: None = Depends(rate_limit_dependency),
-) -> Dict[str, Any]:
-    """Ingest tool call event(s), write to database, publish to Redis stream, and evaluate risk."""
+) -> dict[str, Any]:
+    """Ingest tool call event(s), evaluate risk, and return verdicts for enforcement."""
     ingest_start = time.perf_counter()
-    events: List[ToolCallEvent] = payload if isinstance(payload, list) else [payload]
+    events: list[ToolCallEvent] = payload if isinstance(payload, list) else [payload]
 
     if not events:
         raise HTTPException(status_code=400, detail="Empty event payload")
@@ -54,9 +68,27 @@ async def ingest_events(
     event_repo = EventRepository(db)
     session_repo = SessionRepository(db)
     eval_repo = EvaluationRepository(db)
+
+    # Fail closed: reject tool calls for already contained sessions
+    if settings.ARTSA_BLOCK_CONTAINED_SESSIONS:
+        for event in events:
+            existing = tracker.get_session(event.session_id) or memory_store.get_session(event.session_id)
+            if existing and existing.status in _CONTAINED_STATUSES:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "message": "Session is contained — further tool calls rejected",
+                        "session_id": str(event.session_id),
+                        "session_status": existing.status,
+                    },
+                )
+
     await event_repo.bulk_insert(events)
 
-    # Publish each event to Redis Stream "events:incoming" and update session tracker
+    evaluations: list[dict[str, Any]] = []
+    auto_enforced: str | None = None
+    session_status: str | None = None
+
     for event in events:
         redis.xadd("events:incoming", {
             "id": str(event.id),
@@ -65,8 +97,7 @@ async def ingest_events(
             "tool_name": event.tool_name,
             "arguments": str(event.arguments),
         })
-        
-        # Ensure session exists in tracker
+
         if not tracker.get_session(event.session_id):
             session = Session(id=event.session_id, agent_id=event.agent_id, tenant_id=tenant_id)
             tracker.active_sessions[str(event.session_id)] = session
@@ -92,11 +123,22 @@ async def ingest_events(
             breached=verdict.verdict == "BREACHED",
         )
 
+        enforced = False
+        action = verdict.recommended_action
+        if settings.ARTSA_AUTO_ENFORCE and action in _ENFORCE_ACTIONS:
+            tracker.apply_action(event.session_id, action)
+            await session_repo.apply_action(event.session_id, action)
+            enforced = True
+            auto_enforced = action
+
         evaluation = {
+            "event_id": str(event.id),
+            "tool_name": event.tool_name,
             "risk_score": risk_score.overall_score,
             "verdict": verdict.verdict,
             "confidence": verdict.confidence,
             "recommended_action": verdict.recommended_action,
+            "reasoning": verdict.reasoning,
             "flags": risk_score.flags,
             "rule_based_score": risk_score.rule_based_score,
             "statistical_score": risk_score.statistical_score,
@@ -104,18 +146,16 @@ async def ingest_events(
             "goal_drift_score": risk_score.goal_drift_score,
             "bypass_depth": risk_score.bypass_depth,
             "security_event_count": len(sec_events),
+            "enforced": enforced,
         }
         await eval_repo.upsert(str(event.id), event.session_id, evaluation)
+        evaluations.append(evaluation)
 
         _maybe_enqueue_celery(event)
 
-        severity = "LOW"
-        if risk_score.overall_score >= 80:
-            severity = "CRITICAL"
-        elif risk_score.overall_score >= 60:
-            severity = "HIGH"
-        elif risk_score.overall_score >= 40:
-            severity = "MEDIUM"
+        severity = severity_from_score(risk_score.overall_score)
+        sess = tracker.get_session(event.session_id)
+        session_status = sess.status if sess else session_status
 
         telemetry_bus.publish(
             {
@@ -130,10 +170,12 @@ async def ingest_events(
                 "severity": severity,
                 "flags": risk_score.flags,
                 "security_event_count": len(sec_events),
+                "enforced": enforced,
+                "session_status": session_status,
             }
         )
 
-        record_alert_from_evaluation(
+        alert = record_alert_from_evaluation(
             session_id=event.session_id,
             agent_id=event.agent_id,
             tool_name=event.tool_name,
@@ -141,13 +183,26 @@ async def ingest_events(
             verdict=verdict.verdict,
             recommended_action=verdict.recommended_action,
         )
+        if alert is not None:
+            await persist_alert(db, alert)
 
     first_event = events[0]
+    first_eval = evaluations[0]
     from src.services.prometheus_metrics import record_ingest
 
     record_ingest((time.perf_counter() - ingest_start) * 1000)
     return {
         "ingested": len(events),
         "session_id": str(first_event.session_id),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
+        "risk_score": {"overall_score": first_eval["risk_score"], "flags": first_eval["flags"]},
+        "verdict": {
+            "verdict": first_eval["verdict"],
+            "confidence": first_eval["confidence"],
+            "recommended_action": first_eval["recommended_action"],
+            "reasoning": first_eval["reasoning"],
+        },
+        "evaluations": evaluations,
+        "session_status": session_status,
+        "auto_enforced_action": auto_enforced,
     }

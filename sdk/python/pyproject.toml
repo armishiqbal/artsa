@@ -5,16 +5,34 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "artsa-sdk"
 version = "0.3.0"
-description = "ARTSA Python SDK — Live Tool Execution Instrumentation & Containment Monitoring"
+description = "ARTSA Python SDK — fail-closed live tool containment for AI agents"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "ARTSA Platform Security Team"}]
+keywords = ["ai-security", "llm", "agent", "containment", "artsa"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
 
 dependencies = [
     "requests>=2.31.0",
     "pydantic>=2.7.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/artsa-platform/artsa"
+Documentation = "https://github.com/artsa-platform/artsa/blob/main/docs/INTEGRATION_GUIDE.md"
+Repository = "https://github.com/artsa-platform/artsa"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]

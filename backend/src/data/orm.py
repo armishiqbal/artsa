@@ -6,10 +6,37 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import DateTime, Float, Integer, JSON, String, Text
+from sqlalchemy import DateTime, Float, Integer, JSON, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.data.db import Base
+
+
+class AlertORM(Base):
+    __tablename__ = "alerts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(36), index=True)
+    agent_id: Mapped[str] = mapped_column(String(255))
+    severity: Mapped[str] = mapped_column(String(16))
+    title: Mapped[str] = mapped_column(String(512))
+    message: Mapped[str] = mapped_column(Text)
+    channel: Mapped[str] = mapped_column(String(32), default="WEBHOOK")
+    triggered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    delivered: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class AlertRuleORM(Base):
+    __tablename__ = "alert_rules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant")
+    risk_threshold: Mapped[float] = mapped_column(Float, default=70.0)
+    channel: Mapped[str] = mapped_column(String(32), default="WEBHOOK")
+    target_url: Mapped[str] = mapped_column(String(1024))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class ToolCallEventORM(Base):

@@ -40,10 +40,13 @@ env:
   SEED_ATTACK_LIBRARY_ON_START: "true"
   WARM_BENCHMARK_ON_START: "true"
   SCHEDULED_ABLATION_INTERVAL_SEC: "3600"
+  ARTSA_AUTO_ENFORCE: "true"
+  ARTSA_BLOCK_CONTAINED_SESSIONS: "true"
+  # Must be explicit in production (never *). Override per environment.
+  ARTSA_CORS_ORIGINS: "https://artsa.example.com"
   # Set via secrets in production:
   DATABASE_URL: postgresql+asyncpg://postgres:postgrespassword@artsa-postgres:5432/artsa_db
   REDIS_URL: redis://artsa-redis:6379/0
-  ARTSA_CORS_ORIGINS: "*"
 
 frontend:
   env:
@@ -90,6 +93,7 @@ redis:
 secrets:
   create: false
   # When create=true, populate via --set-file or sealed-secrets (never commit real values):
+  secretKey: ""
   artsaApiKey: ""
   openaiApiKey: ""
   databaseUrl: ""

@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { riskScoreBadgeVariant } from "@/lib/severity";
 
 interface RiskScoreProps {
   score: number;
@@ -9,8 +10,7 @@ interface RiskScoreProps {
 }
 
 export function RiskScore({ score, className }: RiskScoreProps) {
-  const variant =
-    score >= 80 ? "critical" : score >= 50 ? "warning" : "success";
+  const variant = riskScoreBadgeVariant(score);
 
   return (
     <Badge variant={variant} className={cn("gap-1 font-mono tabular-nums", className)}>

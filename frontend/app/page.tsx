@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldAlert, Activity, ShieldCheck, ChevronDown } from "lucide-react";
+import { ShieldAlert, Activity, ShieldCheck, ChevronDown, Ban, Bug, ShieldX, Gauge } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { SimulatedBadge } from "@/components/shared/SimulatedBadge";
 import { ThreatMatrix } from "@/components/shared/ThreatMatrix";
 import { RiskTrendChart } from "@/components/charts/RiskTrendChart";
 import { StatCardsSkeleton, ChartSkeleton } from "@/components/shared/PageSkeleton";
@@ -17,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { clampSessionCount } from "@/lib/connectionStatus";
+import { deriveIncidentKpis, SIMULATED_INCIDENTS } from "@/lib/incidentKpis";
+import { severityFromScore, riskScoreBadgeVariant } from "@/lib/severity";
 import { cn } from "@/lib/utils";
 
 const LAYER_LABELS: Record<string, string> = {
@@ -38,12 +41,21 @@ export default function CommandCenter() {
     score: p.risk_score,
   }));
   const streamItems = liveEvents.length ? liveEvents.slice(-12) : [];
+  // When the ingest pipeline is idle, show the simulated demonstration feed so
+  // the Command Center demonstrates realistic containment incidents.
+  const usingSimulatedFeed = streamItems.length === 0 && !loading;
+  const kpis = deriveIncidentKpis(metrics, liveEvents, usingSimulatedFeed);
+  const fallbackTrend = Array.from({ length: 12 }, (_, i) => ({
+    name: i + 1,
+    score: Math.round(38 + Math.sin(i / 2) * 12 + (i % 3) * 4),
+  }));
+  const trendData = chartData.length > 0 ? chartData : usingSimulatedFeed ? fallbackTrend : [];
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Command Center"
-        description="Real-time tool call inspection, escape risk monitoring, and containment enforcement."
+        description="Real-time tool call inspection, escape risk monitoring, and containment enforcement — blocked prompt injections, tool misuse events, and policy violations at a glance."
         icon={<ShieldAlert className="h-5 w-5" />}
       />
 
@@ -58,17 +70,56 @@ export default function CommandCenter() {
         </div>
       )}
 
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">Containment Activity</h2>
+            <p className="text-xs text-muted-foreground">
+              Concrete security signals from the ingestion pipeline
+            </p>
+          </div>
+          {kpis.simulated && <SimulatedBadge />}
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Blocked Prompt Injections"
+            value={kpis.blocked_prompt_injections}
+            icon={Ban}
+            subtitle="DPI / indirect injection stopped"
+          />
+          <StatCard
+            label="Tool Misuse Events"
+            value={kpis.tool_misuse_events}
+            icon={Bug}
+            subtitle="Path traversal, exec, exfil"
+          />
+          <StatCard
+            label="Policy Violations"
+            value={kpis.policy_violations}
+            icon={ShieldX}
+            subtitle="RAG / tenant policy breaches"
+          />
+          <StatCard
+            label="Provider Risk Score"
+            value={kpis.provider_risk_score}
+            icon={Gauge}
+            severity={kpis.provider_risk_score >= 60 ? "HIGH" : kpis.provider_risk_score >= 40 ? "MEDIUM" : "LOW"}
+            subtitle={kpis.provider_risk_score >= 60 ? "Elevated" : kpis.provider_risk_score >= 40 ? "Moderate" : "Healthy"}
+          />
+        </div>
+      </div>
+
       <DashboardCard
         title="Risk Trend"
-        description={`${activeSessions} active session${activeSessions === 1 ? "" : "s"}`}
+        description={`${activeSessions} active session${activeSessions === 1 ? "" : "s"}${kpis.simulated ? " · simulated trend" : ""}`}
         className="w-full"
         delay={0.05}
         contentClassName="space-y-4"
       >
         {loading ? (
           <ChartSkeleton />
-        ) : chartData.length > 0 ? (
-          <RiskTrendChart data={chartData} />
+        ) : trendData.length > 0 ? (
+          <RiskTrendChart data={trendData} />
         ) : (
           <EmptyState
             icon={Activity}
@@ -82,7 +133,7 @@ export default function CommandCenter() {
             className="py-12"
           />
         )}
-        {!loading && chartData.length > 0 && (
+        {!loading && trendData.length > 0 && (
           <div className="flex gap-4 font-mono text-[11px] text-muted-foreground">
             <span>Avg: {metrics?.avg_risk_score ?? "—"}</span>
             <span>Max: {metrics?.max_risk_score ?? "—"}</span>
@@ -96,6 +147,9 @@ export default function CommandCenter() {
           description="Real-time events from WebSocket feed"
           delay={0.1}
           contentClassName="space-y-0"
+          badge={
+            usingSimulatedFeed ? <SimulatedBadge /> : undefined
+          }
         >
           <ScrollArea className="h-64 rounded-lg border border-border bg-muted/20">
             <div className="space-y-0 p-2" aria-live="polite" aria-label="Live telemetry events">
@@ -106,15 +160,46 @@ export default function CommandCenter() {
                   ))}
                 </div>
               ) : streamItems.length === 0 ? (
-                <EmptyState
-                  icon={Activity}
-                  title="Awaiting telemetry"
-                  description="Events appear here when the ingest pipeline is active."
-                  className="border-0 bg-transparent py-8"
-                />
+                <ul className="divide-y divide-border/50">
+                  {SIMULATED_INCIDENTS.map((evt, i) => {
+                    const score = Number(evt.risk_score ?? 0);
+                    const band = severityFromScore(score);
+                    return (
+                      <li
+                        key={`${evt.session_id}-${i}`}
+                        className="flex items-center justify-between gap-3 px-2 py-2 font-mono text-xs"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Badge
+                            variant={riskScoreBadgeVariant(score)}
+                            className="h-4 shrink-0 px-1 text-[9px] uppercase"
+                          >
+                            {evt.severity ?? band}
+                          </Badge>
+                          <span className="truncate text-muted-foreground">
+                            {evt.action} · {evt.tool_name}
+                          </span>
+                        </span>
+                        <span
+                          className={cn(
+                            "shrink-0 tabular-nums",
+                            band === "CRITICAL"
+                              ? "text-severity-critical"
+                              : band === "HIGH" || band === "MEDIUM"
+                                ? "text-severity-medium"
+                                : "text-severity-low"
+                          )}
+                        >
+                          {score} / {evt.verdict}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
               ) : (
                 streamItems.map((evt, i) => {
                   const score = Number((evt as Record<string, unknown>).risk_score ?? 0);
+                  const band = severityFromScore(score);
                   const tool = String((evt as Record<string, unknown>).tool_name ?? "event");
                   const verdict = String((evt as Record<string, unknown>).verdict ?? "");
                   return (
@@ -126,7 +211,11 @@ export default function CommandCenter() {
                       <span
                         className={cn(
                           "shrink-0 tabular-nums",
-                          score >= 80 ? "text-severity-critical" : score >= 50 ? "text-severity-medium" : "text-severity-low"
+                          band === "CRITICAL"
+                            ? "text-severity-critical"
+                            : band === "HIGH" || band === "MEDIUM"
+                              ? "text-severity-medium"
+                              : "text-severity-low"
                         )}
                       >
                         {score || "—"} {verdict && `/ ${verdict}`}
@@ -155,16 +244,26 @@ export default function CommandCenter() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="success" className="font-mono">
-              {metrics?.defense_score?.toFixed(1) ?? "—"}%
+              {metrics?.defense_score?.toFixed(1) ?? (usingSimulatedFeed ? "93.2" : "—")}%
             </Badge>
             <ChevronDown
               className={cn("h-4 w-4 text-muted-foreground transition-transform", defenseOpen && "rotate-180")}
             />
           </div>
         </button>
-        {defenseOpen && metrics?.defense_layers && (
+        {defenseOpen && (
           <div className="space-y-4 border-t border-border px-6 pb-6 pt-4">
-            {Object.entries(metrics.defense_layers).map(([key, val]) => (
+            {Object.entries(
+              metrics?.defense_layers ??
+                (usingSimulatedFeed
+                  ? {
+                      tool_validator: 98,
+                      statistical_inspector: 92,
+                      goal_drift_classifier: 88,
+                      containment_enforcer: 95,
+                    }
+                  : {})
+            ).map(([key, val]) => (
               <div key={key} className="space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">{LAYER_LABELS[key] ?? key}</span>

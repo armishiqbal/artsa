@@ -9,6 +9,7 @@ from src.containment.detectors.semantic import SemanticDetector
 from src.containment.detectors.statistical import StatisticalDetector
 from src.containment.detectors.trajectory import TrajectoryDetector
 from src.containment.scoring.composite import CompositeScorer
+from src.core.severity import CRITICAL_RISK_THRESHOLD, SUSPICIOUS_RISK_THRESHOLD
 from src.core.models.events import SecurityEvent, ToolCallEvent
 from src.core.models.scores import ContainmentVerdict, RiskScore
 
@@ -72,14 +73,14 @@ class ContainmentEngine:
     def _build_verdict(
         self, event: ToolCallEvent, risk_score: RiskScore, security_events: List[SecurityEvent]
     ) -> ContainmentVerdict:
-        if risk_score.overall_score >= 80.0:
+        if risk_score.overall_score >= CRITICAL_RISK_THRESHOLD:
             verdict_type = "BREACHED"
             action = "KILL"
             reasoning = (
                 f"Critical containment breach detected (Risk Score: {risk_score.overall_score:.1f}). "
                 f"Flags: {risk_score.flags}"
             )
-        elif risk_score.overall_score >= 50.0:
+        elif risk_score.overall_score >= SUSPICIOUS_RISK_THRESHOLD:
             verdict_type = "SUSPICIOUS"
             action = "QUARANTINE"
             reasoning = (

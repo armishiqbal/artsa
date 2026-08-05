@@ -30,8 +30,9 @@ def test_eds_engine_critical_escape_attempt():
     )
 
     res = eds.monitor_tool_call(req)
-    assert res.containment_risk_score >= 70.0
+    assert res.containment_risk_score >= 80.0
     assert res.risk_level == "CRITICAL"
     assert res.action == "TERMINATE"
+    assert res.recommended_action == "KILL"
     assert "Sensitive Credential Harvesting" in res.detected_anomalies
     assert res.latency_ms < 50.0

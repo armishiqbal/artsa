@@ -67,7 +67,7 @@ export default function WargamePage() {
       <div className="space-y-8">
         <PageHeader
           title="Wargame Simulation"
-          description="Configure target providers, attack profiles, and execute autonomous red-team campaigns."
+          description="Configure target providers, attack profiles, and execute autonomous red-team campaigns — prompt injection, jailbreak, and system prompt extraction."
           icon={<Swords className="h-5 w-5" />}
         />
         <EmptyState
@@ -83,7 +83,7 @@ export default function WargamePage() {
     <div className="space-y-8">
       <PageHeader
         title="Wargame Simulation"
-        description="Configure target providers, attack profiles, and execute autonomous red-team campaigns."
+        description="Configure target providers, attack profiles, and execute autonomous red-team campaigns — prompt injection, jailbreak, and system prompt extraction."
         icon={<Swords className="h-5 w-5" />}
         actions={
           isRunning ? (

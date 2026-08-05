@@ -56,3 +56,26 @@ class SessionTracker:
                 session.containment_breaches += 1
                 session.status = "BREACHED"
         return session
+
+    def apply_action(self, session_id: uuid.UUID, action: str) -> Optional[Session]:
+        """Apply containment action to an in-memory session."""
+        from datetime import datetime, timezone
+
+        session = self.get_session(session_id)
+        if not session:
+            return None
+        action_u = action.upper()
+        if action_u == "KILL":
+            session.status = "BREACHED"
+            session.ended_at = datetime.now(timezone.utc)
+            session.containment_breaches += 1
+        elif action_u == "QUARANTINE":
+            session.status = "QUARANTINED"
+        elif action_u == "THROTTLE":
+            # Soft control — keep ACTIVE but mark elevated risk floor
+            session.max_risk_score = max(session.max_risk_score, 50.0)
+        return session
+
+    def is_contained(self, session_id: uuid.UUID) -> bool:
+        session = self.get_session(session_id)
+        return bool(session and session.status in ("BREACHED", "QUARANTINED", "CLOSED"))

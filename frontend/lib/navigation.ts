@@ -9,6 +9,7 @@ import {
   FileText,
   Users,
   Shield,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,6 +48,7 @@ export const navSections: NavSection[] = [
     label: "Analysis",
     items: [
       { name: "Defense X-Ray", href: "/xray", icon: ScanLine },
+      { name: "Agentic Risks", href: "/risks", icon: ShieldAlert },
       { name: "Reports", href: "/reports", icon: FileText },
       { name: "Providers", href: "/providers", icon: Users },
     ],

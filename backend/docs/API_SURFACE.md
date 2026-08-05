@@ -13,7 +13,7 @@ npm run dev
 | Prefix | Purpose |
 |--------|---------|
 | `/health` | Health check |
-| `/ingest` | Tool call ingestion + containment eval |
+| `/ingest` | Tool call ingestion + containment eval (**returns verdict for enforcement**) |
 | `/sessions/*` | Session list, timeline (with evaluations), actions |
 | `/agents/*` | Agent registry |
 | `/alerts/*` | Security alerts + webhooks |
@@ -26,6 +26,11 @@ npm run dev
 | **`/campaigns/*`** | Wargame run, list, status (unified) |
 | **`/attack-library`** | Templates + CRUD for custom vectors |
 | **`/forensics/analyze`** | Trajectory forensics |
+| **`/risks`** | Agentic AI Top 10 + live telemetry |
+| **`/mcp/proxy`** | MCP JSON-RPC inspection (tool poisoning) |
+| **`/otel/v1/traces`** | OpenTelemetry / OpenInference drift ingest |
+| **`/agents/eds/monitor`** | Sub-50ms escape detection fast path |
+| **`/agents/trajectory/evaluate`** | Multi-step tool trajectory anomaly scoring |
 | **`/compliance/export`** | EU AI Act / NIST export |
 
 ## Persistence
@@ -44,6 +49,12 @@ Target agent uses pluggable adapters in `backend/src/agents/guardrails/`:
 ## Frontend
 
 `NEXT_PUBLIC_API_URL` defaults to `http://localhost:8000` — single URL for all pages.
+
+## Application integration
+
+See **[docs/INTEGRATION_GUIDE.md](../../docs/INTEGRATION_GUIDE.md)** for every way to wire ARTSA into an AI agent (HTTP ingest, Python SDK, LangChain, OpenAI tools, MCP, OTEL, CI).
+
+Production checklist: **[docs/PRODUCTION_CHECKLIST.md](../../docs/PRODUCTION_CHECKLIST.md)**.
 
 ## SLO
 

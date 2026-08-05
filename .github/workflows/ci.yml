@@ -33,18 +33,40 @@ jobs:
       - name: Install ruff
         run: pip install ruff
 
-      - name: Ruff check (lint)
+      - name: Risk framework JSON sync
+        run: bash scripts/check_risk_framework_sync.sh
+
+      - name: Ruff check (production modules — hard gate)
+        run: |
+          ruff check \
+            backend/src/api/routes/risks.py \
+            backend/src/api/routes/enterprise.py \
+            backend/src/core/severity.py \
+            backend/src/core/models/ingest.py \
+            backend/src/core/models/risks.py \
+            backend/src/services/mcp_proxy.py \
+            backend/src/services/otel_ingest.py \
+            backend/src/data/agentic_risk_framework.py
+
+      - name: Ruff format (production modules — hard gate)
+        run: |
+          ruff format --check \
+            backend/src/api/routes/risks.py \
+            backend/src/api/routes/enterprise.py \
+            backend/src/core/severity.py \
+            backend/src/services/mcp_proxy.py
+
+      - name: Ruff check (broader — advisory)
         run: |
           ruff check \
             backend/src/api/routes/campaigns.py \
             backend/src/api/routes/attack_library.py \
             backend/src/api/routes/forensics.py \
+            backend/src/api/routes/ingest.py \
+            backend/src/api/routes/health.py \
             backend/src/agents/guardrails/ \
             backend/src/api/main.py \
             backend/src/api/dependencies.py || true
-
-      - name: Ruff format (formatting)
-        run: ruff format --check backend/src/api/routes/campaigns.py backend/src/api/routes/attack_library.py backend/src/api/routes/forensics.py || true
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 2: Unit & Integration Tests (Backend)

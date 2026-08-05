@@ -30,12 +30,35 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _reject_insecure_defaults(self) -> Settings:
-        """Fail fast if production runs with the default secret key."""
-        if self.ENVIRONMENT == "production" and self.SECRET_KEY == "change-me-in-production":
+        """Fail fast on insecure production configuration."""
+        if self.ENVIRONMENT != "production":
+            return self
+
+        if self.SECRET_KEY == "change-me-in-production" or len(self.SECRET_KEY) < 32:
             raise ValueError(
-                "SECRET_KEY must be set to a strong random value in production. "
+                "SECRET_KEY must be a strong random value (≥32 chars) in production. "
                 'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
             )
+
+        has_api_key = any(
+            self.is_key_configured(name)
+            for name in (
+                "ARTSA_API_KEY",
+                "ARTSA_ANALYST_API_KEY",
+                "ARTSA_REDTEAM_API_KEY",
+                "ARTSA_READONLY_API_KEY",
+            )
+        )
+        if not has_api_key and not self.ARTSA_OIDC_ENABLED:
+            raise ValueError(
+                "Production requires ARTSA_API_KEY (or role keys) or ARTSA_OIDC_ENABLED=true"
+            )
+
+        if (self.ARTSA_CORS_ORIGINS or "*").strip() == "*":
+            raise ValueError(
+                "ARTSA_CORS_ORIGINS must be an explicit allow-list in production (not *)"
+            )
+
         return self
 
     # ── Core ──────────────────────────────────────────────────────────────
@@ -58,6 +81,10 @@ class Settings(BaseSettings):
     ARTSA_ANALYST_API_KEY: Optional[str] = None
     ARTSA_REDTEAM_API_KEY: Optional[str] = None
     ARTSA_READONLY_API_KEY: Optional[str] = None
+    # When true, ingest auto-marks sessions BREACHED/QUARANTINED on KILL/QUARANTINE verdicts
+    ARTSA_AUTO_ENFORCE: bool = True
+    # Reject further ingest for already contained sessions (fail closed at API)
+    ARTSA_BLOCK_CONTAINED_SESSIONS: bool = True
     USE_CHROMA_RAG: bool = False
     USE_PINECONE_RAG: bool = False
     PINECONE_INDEX_NAME: str = "artsa-policy-kb"
