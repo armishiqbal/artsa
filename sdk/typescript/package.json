@@ -1,26 +1,36 @@
 {
   "name": "@artsa/sdk",
   "version": "0.3.0",
-  "description": "ARTSA TypeScript SDK — fail-closed tool containment for Node agents",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "description": "ARTSA TypeScript SDK — detection-gated LLM proxy client for OpenAI/Anthropic-compatible stacks (LangChain, Vercel AI SDK, Node.js agents)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --experimental-vm-modules node_modules/vitest/dist/cli.js run"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
-  "engines": {
-    "node": ">=18"
-  },
+  "keywords": [
+    "artsa",
+    "llm-security",
+    "ai-security",
+    "guardrails",
+    "prompt-injection",
+    "containment"
+  ],
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "typescript": "^5.4.5",
     "vitest": "^3.2.7"
   }

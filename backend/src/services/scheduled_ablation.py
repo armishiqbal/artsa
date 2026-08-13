@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.core.config import settings
@@ -39,7 +39,7 @@ def run_scheduled_ablation_sync() -> None:
     set_cached_ablation(ablation.to_ablation_dict(report))
     record_benchmark_run()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _meta["last_run_at"] = now.isoformat()
     _meta["runs_total"] = int(_meta["runs_total"]) + 1
     if settings.SCHEDULED_ABLATION_INTERVAL_SEC > 0:
@@ -63,7 +63,7 @@ async def start_scheduled_ablation() -> None:
     if interval <= 0 or settings.is_testing:
         return
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _meta["next_run_at"] = (now + timedelta(seconds=interval)).isoformat()
     asyncio.create_task(scheduled_ablation_loop(interval))
     logger.info("Scheduled ablation enabled (every %ds)", interval)

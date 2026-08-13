@@ -7,10 +7,10 @@ export interface ToolCallEvent {
   session_id: string;
   agent_id: string;
   tool_name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
   timestamp: string;
   trace_id: string;
-  response?: Record<string, any> | null;
+  response?: Record<string, unknown> | null;
   latency_ms?: number | null;
 }
 
@@ -30,7 +30,7 @@ export interface SecurityEvent {
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   risk_score: number; // 0-100
   description: string;
-  evidence: Record<string, any>;
+  evidence: Record<string, unknown>;
   timestamp: string;
   detector: string;
 }

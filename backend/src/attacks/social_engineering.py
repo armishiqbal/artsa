@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import random
-
 from src.attacks.base_attack import BaseAttack
 from src.attacks.chain import AttackChain
 from src.models import AttackCategory, AttackPayload, AttackTemplate

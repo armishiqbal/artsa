@@ -1,3 +1,5 @@
-import { NextResponse } from "next/server";
+import { handleTokenExchange } from "../tokenHandler";
 
-export { POST } from "../token/route";
+export async function POST(request: Request) {
+  return handleTokenExchange(request);
+}

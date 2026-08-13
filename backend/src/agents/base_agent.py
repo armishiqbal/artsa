@@ -49,7 +49,7 @@ class BaseAgent(ABC):
 
     def _init_llm(self) -> BaseChatModel:
         """Initialize the LangChain LLM based on provider using the dynamic provider registry."""
-        from src.agents.provider_registry import create_llm_instance
+        from src.services.provider_registry import create_llm_instance
 
         return create_llm_instance(
             provider=self.provider,

@@ -6,7 +6,7 @@ import json
 import logging
 import uuid
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -87,12 +87,12 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest) -> No
         summary = manager.run(on_round_complete=on_round_complete)
         job_store.complete(campaign_id, summary.model_dump(mode="json"))
     except Exception as exc:
-        logger.exception("Campaign %s failed: %s", campaign_id, exc)
+        logger.exception("Campaign %s failed", campaign_id)
         job_store.fail(campaign_id, str(exc))
 
 
 @router.get("/campaigns")
-async def list_campaigns() -> Dict[str, Any]:
+async def list_campaigns() -> dict[str, Any]:
     results_dir = BACKEND_DIR / "data" / "results"
     campaigns = []
 
@@ -135,14 +135,14 @@ async def list_campaigns() -> Dict[str, Any]:
                         "summary": summary_data,
                     }
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to load campaign detail for %s: %s", cid, exc)
 
     return {"campaigns": campaigns}
 
 
 @router.post("/campaigns/run")
-async def start_campaign(req: RunCampaignRequest, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+async def start_campaign(req: RunCampaignRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
     campaign_id = str(uuid.uuid4())
     campaign_job_store.create(
         campaign_id,
@@ -162,7 +162,7 @@ async def start_campaign(req: RunCampaignRequest, background_tasks: BackgroundTa
 
 
 @router.get("/campaigns/{campaign_id}")
-async def get_campaign_detail(campaign_id: str) -> Dict[str, Any]:
+async def get_campaign_detail(campaign_id: str) -> dict[str, Any]:
     job = campaign_job_store.get(campaign_id)
     if job:
         return {

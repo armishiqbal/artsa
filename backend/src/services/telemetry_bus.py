@@ -4,25 +4,25 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from datetime import datetime, timezone
-from typing import Any, Deque, Dict, List, Set
+from datetime import UTC, datetime
+from typing import Any
 
 
 class TelemetryBus:
     """In-process pub/sub for containment events and dashboard metrics."""
 
     def __init__(self, history_size: int = 500) -> None:
-        self._subscribers: Set[asyncio.Queue] = set()
-        self._history: Deque[Dict[str, Any]] = deque(maxlen=history_size)
-        self._severity_counts: Dict[str, int] = {
+        self._subscribers: set[asyncio.Queue] = set()
+        self._history: deque[dict[str, Any]] = deque(maxlen=history_size)
+        self._severity_counts: dict[str, int] = {
             "CRITICAL": 0,
             "HIGH": 0,
             "MEDIUM": 0,
             "LOW": 0,
         }
 
-    def publish(self, event: Dict[str, Any]) -> None:
-        event.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+    def publish(self, event: dict[str, Any]) -> None:
+        event.setdefault("timestamp", datetime.now(UTC).isoformat())
         self._history.append(event)
 
         severity = event.get("severity")
@@ -43,13 +43,13 @@ class TelemetryBus:
     def unsubscribe(self, queue: asyncio.Queue) -> None:
         self._subscribers.discard(queue)
 
-    def get_history(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_history(self, limit: int = 100) -> list[dict[str, Any]]:
         return list(self._history)[-limit:]
 
-    def get_severity_counts(self) -> Dict[str, int]:
+    def get_severity_counts(self) -> dict[str, int]:
         return dict(self._severity_counts)
 
-    def get_risk_trend(self, limit: int = 24) -> List[Dict[str, Any]]:
+    def get_risk_trend(self, limit: int = 24) -> list[dict[str, Any]]:
         points = []
         for evt in list(self._history)[-limit:]:
             if "risk_score" in evt:

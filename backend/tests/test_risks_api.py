@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import create_app
 from src.services.telemetry_bus import telemetry_bus
+from tests.conftest import unwrap_response
 
 
 def _client() -> TestClient:
@@ -26,7 +27,7 @@ def test_risk_framework_returns_all_ten_risks() -> None:
     with _client() as client:
         resp = client.get("/api/v1/risks")
         assert resp.status_code == 200
-        payload: Dict[str, Any] = resp.json()
+        payload: dict[str, Any] = unwrap_response(resp)
         framework = payload["framework"]
         assert len(framework) == 10
         names = [row["name"] for row in framework]
@@ -71,7 +72,7 @@ def test_risk_counts_reflect_telemetry_flags() -> None:
         }
     )
     with _client() as client:
-        payload: Dict[str, Any] = client.get("/api/v1/risks").json()
+        payload: dict[str, Any] = unwrap_response(client.get("/api/v1/risks"))
         by_id = {row["id"]: row for row in payload["framework"]}
 
     hijack = by_id["agent-goal-hijack"]
@@ -100,7 +101,7 @@ def test_breached_verdict_not_counted_as_blocked() -> None:
         }
     )
     with _client() as client:
-        payload: Dict[str, Any] = client.get("/api/v1/risks").json()
+        payload: dict[str, Any] = unwrap_response(client.get("/api/v1/risks"))
         hijack = next(r for r in payload["framework"] if r["id"] == "agent-goal-hijack")
     assert hijack["live_events"] >= 1
     assert hijack["blocked_events"] == 0

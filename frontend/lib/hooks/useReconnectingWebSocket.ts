@@ -8,18 +8,32 @@ interface ReconnectingWebSocketOptions {
   baseDelayMs?: number;
   onOpen?: () => void;
   onClose?: () => void;
+  /**
+   * Async URL factory — called before every connect attempt (initial and each
+   * reconnect). Use it to mint a fresh short-lived WS ticket per attempt so a
+   * single-use ticket is never reused across reconnects.
+   */
+  resolveUrl?: () => Promise<string>;
 }
 
 /**
  * WebSocket hook with exponential backoff reconnect.
- * Reconnects when `url` changes (e.g. after SSO token refresh).
+ * Reconnects when `url` changes (e.g. after SSO token refresh) or, when
+ * `resolveUrl` is provided, re-resolves the URL before every connect attempt.
  */
 export function useReconnectingWebSocket(
-  url: string,
+  url: string = "",
   onMessage: (payload: unknown) => void,
   options: ReconnectingWebSocketOptions = {}
 ) {
-  const { enabled = true, maxDelayMs = 30_000, baseDelayMs = 1_000, onOpen, onClose } = options;
+  const {
+    enabled = true,
+    maxDelayMs = 30_000,
+    baseDelayMs = 1_000,
+    onOpen,
+    onClose,
+    resolveUrl,
+  } = options;
   const [connected, setConnected] = useState(false);
   const onMessageRef = useRef(onMessage);
   const onOpenRef = useRef(onOpen);
@@ -46,10 +60,22 @@ export function useReconnectingWebSocket(
       retryTimer = setTimeout(connect, delay);
     };
 
-    const connect = () => {
+    const connect = async () => {
       if (cancelled) return;
+
+      let targetUrl = url;
+      if (resolveUrl) {
+        try {
+          targetUrl = await resolveUrl();
+        } catch {
+          scheduleReconnect();
+          return;
+        }
+        if (cancelled) return;
+      }
+
       try {
-        ws = new WebSocket(url);
+        ws = new WebSocket(targetUrl);
       } catch {
         scheduleReconnect();
         return;
@@ -90,7 +116,7 @@ export function useReconnectingWebSocket(
       ws?.close();
       setConnected(false);
     };
-  }, [url, enabled, maxDelayMs, baseDelayMs]);
+  }, [url, resolveUrl, enabled, maxDelayMs, baseDelayMs]);
 
   return connected;
 }

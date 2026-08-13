@@ -1,6 +1,6 @@
 """Topology graph API — live agent/session graph from ingest pipeline."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, Depends
 
@@ -13,10 +13,10 @@ router = APIRouter(tags=["Topology"])
 @router.get("/topology")
 async def get_topology_graph(
     tracker: SessionTracker = Depends(get_session_tracker),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build live multi-agent topology from session tracker state."""
-    nodes: List[Dict[str, Any]] = []
-    edges: List[Dict[str, Any]] = []
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
     seen_agents: set[str] = set()
 
     for session in tracker.active_sessions.values():

@@ -32,6 +32,12 @@ class IngestEvaluation(BaseModel):
     statistical_score: float = 0.0
     semantic_score: float = 0.0
     goal_drift_score: float = 0.0
+    injection_score: float = 0.0
+    trajectory_score: float = 0.0
+    tool_output_score: float = 0.0
+    canary_score: float = 0.0
+    sql_injection_score: float = 0.0
+    mcp_destructive_score: float = 0.0
     bypass_depth: int = 0
     security_event_count: int = 0
     enforced: bool = False

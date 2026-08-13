@@ -20,8 +20,26 @@ describe("cn (className merge)", () => {
 });
 
 describe("navigation", () => {
-  it("defines the three top-level sections in order", () => {
-    expect(navSections.map((s) => s.label)).toEqual(["Operations", "Red Team", "Analysis"]);
+  it("defines the product-lifecycle sections in order", () => {
+    expect(navSections.map((s) => s.label)).toEqual([
+      "Get Started",
+      "Protect",
+      "Test",
+      "Investigate",
+      "Admin",
+    ]);
+  });
+
+  it("marks the Admin section as admin-only", () => {
+    const admin = navSections.find((s) => s.label === "Admin");
+    expect(admin?.adminOnly).toBe(true);
+    expect(admin?.items.map((i) => i.href)).toEqual([
+      "/admin",
+      "/admin/providers",
+      "/admin/policies",
+      "/admin/alerts",
+      "/admin/system",
+    ]);
   });
 
   it("gives every nav item a name, href and a renderable icon", () => {
@@ -40,8 +58,8 @@ describe("navigation", () => {
     const byHref = new Map<string, NavItem>(
       navSections.flatMap((s) => s.items).map((i) => [i.href, i])
     );
-    expect(byHref.get("/policies")?.capability).toBe("can_manage_policies");
-    expect(byHref.get("/wargame")?.capability).toBe("can_run_campaigns");
+    expect(byHref.get("/admin/policies")?.capability).toBe("can_manage_policies");
+    expect(byHref.get("/campaigns")?.capability).toBe("can_run_campaigns");
     expect(byHref.get("/replay")?.capability).toBeUndefined();
   });
 });

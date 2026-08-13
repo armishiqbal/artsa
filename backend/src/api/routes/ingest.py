@@ -1,5 +1,6 @@
 """Event Ingestion Pipeline Endpoint."""
 
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -34,18 +35,34 @@ router = APIRouter(tags=["Ingestion"])
 _CONTAINED_STATUSES = frozenset({"BREACHED", "QUARANTINED", "CLOSED"})
 _ENFORCE_ACTIONS = frozenset({"KILL", "QUARANTINE"})
 
+logger = logging.getLogger(__name__)
+
+# Set once so a misconfigured Celery stack is reported loudly but not spammed
+# on every ingested event.
+_celery_import_warned = False
+
 
 def _maybe_enqueue_celery(event: ToolCallEvent) -> None:
+    global _celery_import_warned
     if not settings.USE_CELERY:
         return
     try:
         from src.workers.tasks.process_events import process_tool_call_event
 
+        _celery_import_warned = False
         process_tool_call_event.delay(event.model_dump(mode="json"))
+    except ImportError as exc:
+        if not _celery_import_warned:
+            _celery_import_warned = True
+            logger.warning(
+                "USE_CELERY=true but the Celery worker stack is not importable (%s). "
+                "Events will be processed synchronously instead. Install 'celery' "
+                "(e.g. `pip install celery`) and ensure src.workers is on the path "
+                "to enable async enqueue.",
+                exc,
+            )
     except Exception as exc:
-        import logging
-
-        logging.getLogger(__name__).debug("Celery enqueue skipped: %s", exc)
+        logger.debug("Celery enqueue skipped: %s", exc)
 
 
 @router.post("/ingest", status_code=status.HTTP_201_CREATED, response_model=IngestResponse)
@@ -144,6 +161,12 @@ async def ingest_events(
             "statistical_score": risk_score.statistical_score,
             "semantic_score": risk_score.semantic_score,
             "goal_drift_score": risk_score.goal_drift_score,
+            "injection_score": risk_score.injection_score,
+            "trajectory_score": risk_score.trajectory_score,
+            "tool_output_score": risk_score.tool_output_score,
+            "canary_score": risk_score.canary_score,
+            "sql_injection_score": risk_score.sql_injection_score,
+            "mcp_destructive_score": risk_score.mcp_destructive_score,
             "bypass_depth": risk_score.bypass_depth,
             "security_event_count": len(sec_events),
             "enforced": enforced,
@@ -170,6 +193,11 @@ async def ingest_events(
                 "severity": severity,
                 "flags": risk_score.flags,
                 "security_event_count": len(sec_events),
+                "detectors": [e.detector for e in sec_events],
+                "security_events": [
+                    {"detector": e.detector, "risk_score": e.risk_score, "severity": e.severity}
+                    for e in sec_events
+                ],
                 "enforced": enforced,
                 "session_status": session_status,
             }

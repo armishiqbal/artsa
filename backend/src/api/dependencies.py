@@ -1,6 +1,6 @@
 """FastAPI Dependency Injection Providers."""
 
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 from fastapi import Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +57,7 @@ def get_session_tracker() -> SessionTracker:
     return _tracker
 
 
-async def get_current_tenant(x_tenant_id: Optional[str] = Header(None, alias="X-Tenant-ID")) -> str:
+async def get_current_tenant(x_tenant_id: str | None = Header(None, alias="X-Tenant-ID")) -> str:
     return x_tenant_id or settings.ARTSA_TENANT_ID or "default_org"
 
 

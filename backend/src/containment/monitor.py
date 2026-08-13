@@ -1,7 +1,6 @@
 """Realtime Monitor Implementation."""
 
 import logging
-from typing import Callable, List, Optional, Tuple
 
 from src.containment.engine import ContainmentEngine
 from src.core.models.events import SecurityEvent, ToolCallEvent
@@ -16,6 +15,6 @@ class RealtimeMonitor:
     def __init__(self) -> None:
         self.engine = ContainmentEngine()
 
-    def process_event(self, event: ToolCallEvent) -> Tuple[RiskScore, ContainmentVerdict, List[SecurityEvent]]:
+    def process_event(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
         """Process event and return risk evaluation."""
         return self.engine.evaluate_event(event)

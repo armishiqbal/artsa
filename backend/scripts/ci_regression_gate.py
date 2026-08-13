@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 
 # Floors aligned with observatory regression gates (see observatory._regression_status)
-RECALL_FLOOR_AT_80 = 0.40
+RECALL_FLOOR_AT_80 = 0.85
 FPR_CEILING_AT_50 = 0.15
 LATENCY_CEILING_MS = 50.0
 BASELINE_RECALL_FLOOR = 0.40

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
-from typing import Iterable, List, Optional
+from collections.abc import Iterable
 
 import httpx
 
@@ -29,7 +29,7 @@ AVAILABLE_EMBEDDING_MODELS = {
 }
 
 
-def _pad_or_truncate(vector: List[float], dimensions: int) -> List[float]:
+def _pad_or_truncate(vector: list[float], dimensions: int) -> list[float]:
     if len(vector) >= dimensions:
         return vector[:dimensions]
     return vector + [0.0] * (dimensions - len(vector))
@@ -40,14 +40,14 @@ class HighAccuracy1024EmbeddingFunction:
 
     TARGET_DIMENSIONS = 1024
 
-    def __init__(self, model_name: Optional[str] = None) -> None:
+    def __init__(self, model_name: str | None = None) -> None:
         self.model_name = model_name or settings.resolve_embedding_model()
         meta = AVAILABLE_EMBEDDING_MODELS.get(self.model_name, {})
         self.dimensions = self.TARGET_DIMENSIONS
         self._api_dimensions = int(meta.get("dimensions", self.TARGET_DIMENSIONS))
         self._openai_base = (settings.OPENAI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         if self.model_name == "hash-1024":
             return self._hash_embed(text)
         if self.model_name.startswith("text-embedding"):
@@ -58,10 +58,10 @@ class HighAccuracy1024EmbeddingFunction:
                 return self._hash_embed(text)
         return self._hash_embed(text)
 
-    def embed_batch(self, texts: Iterable[str]) -> List[List[float]]:
+    def embed_batch(self, texts: Iterable[str]) -> list[list[float]]:
         return [self.embed(text) for text in texts]
 
-    def _openai_embed(self, text: str) -> List[float]:
+    def _openai_embed(self, text: str) -> list[float]:
         api_key = settings.OPENAI_API_KEY
         if not api_key or not settings.is_key_configured("OPENAI_API_KEY"):
             raise RuntimeError("OpenAI API key not configured")
@@ -83,7 +83,7 @@ class HighAccuracy1024EmbeddingFunction:
         norm = math.sqrt(sum(v * v for v in normalized)) or 1.0
         return [v / norm for v in normalized]
 
-    def _hash_embed(self, text: str) -> List[float]:
+    def _hash_embed(self, text: str) -> list[float]:
         digest = hashlib.sha256(text.lower().encode("utf-8")).digest()
         values: list[float] = []
         while len(values) < self.dimensions:
@@ -96,7 +96,7 @@ class HighAccuracy1024EmbeddingFunction:
         return [v / norm for v in values]
 
 
-def cosine_similarity(a: List[float], b: List[float]) -> float:
+def cosine_similarity(a: list[float], b: list[float]) -> float:
     if not a or not b:
         return 0.0
     length = min(len(a), len(b))

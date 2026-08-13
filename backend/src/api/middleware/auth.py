@@ -4,16 +4,24 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from src.core.auth_credentials import any_static_api_key_configured, extract_bearer_token, resolve_credentials
+from src.core.auth_credentials import (
+    any_static_api_key_configured,
+    extract_bearer_token,
+    resolve_credentials,
+)
 from src.core.config import settings
 
 _PUBLIC_PATHS = {
+    "/health",
+    "/ready",
     "/api/v1/health",
     "/v1/health",
     "/api/v1/ready",
     "/v1/ready",
     "/api/v1/metrics/prometheus",
     "/v1/metrics/prometheus",
+    "/api/v1/config/me",
+    "/v1/config/me",
     "/docs",
     "/openapi.json",
     "/redoc",

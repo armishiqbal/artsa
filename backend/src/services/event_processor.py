@@ -1,11 +1,11 @@
 """Event Processor Service with route to containment engine and session metrics updater."""
 
-import uuid
 import logging
-from typing import List, Tuple
+import uuid
+
 from src.containment.monitor import RealtimeMonitor
-from src.core.models.events import ToolCallEvent, SecurityEvent
-from src.core.models.scores import RiskScore, ContainmentVerdict
+from src.core.models.events import SecurityEvent, ToolCallEvent
+from src.core.models.scores import ContainmentVerdict, RiskScore
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +16,11 @@ class EventProcessor:
     def __init__(self) -> None:
         self.monitor = RealtimeMonitor()
 
-    def process_event(self, event: ToolCallEvent) -> Tuple[RiskScore, ContainmentVerdict, List[SecurityEvent]]:
+    def process_event(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
         """Route tool call event to containment evaluation engine."""
         return self.monitor.process_event(event)
 
-    def process(self, event: ToolCallEvent) -> Tuple[RiskScore, ContainmentVerdict, List[SecurityEvent]]:
+    def process(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
         """Alias for process_event."""
         return self.process_event(event)
 

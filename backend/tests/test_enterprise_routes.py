@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from src.api.main import create_app
+from tests.conftest import unwrap_response
 
 
 def _client() -> TestClient:
@@ -21,7 +22,7 @@ def test_mcp_proxy_blocks_injection() -> None:
             },
         )
         assert resp.status_code == 200
-        body = resp.json()
+        body = unwrap_response(resp)
         assert body["is_safe"] is False
         assert body["action_taken"] == "BLOCKED"
 
@@ -33,7 +34,7 @@ def test_mcp_proxy_blocks_disallowed_method() -> None:
             json={"method": "admin/shutdown", "params": {}},
         )
         assert resp.status_code == 200
-        body = resp.json()
+        body = unwrap_response(resp)
         assert body["is_safe"] is False
         assert body["action_taken"] == "BLOCKED"
         assert any("Disallowed" in p for p in body["detected_patterns"])
@@ -54,6 +55,6 @@ def test_otel_trace_ingest() -> None:
             },
         )
         assert resp.status_code == 200
-        body = resp.json()
+        body = unwrap_response(resp)
         assert body["spans_processed"] == 1
         assert "max_drift_score" in body

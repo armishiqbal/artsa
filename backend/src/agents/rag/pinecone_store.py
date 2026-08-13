@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from src.agents.rag.knowledge_base import DEFAULT_KNOWLEDGE_CHUNKS
 from src.core.config import settings
@@ -63,7 +63,7 @@ class PineconePolicyStore:
         self._index.upsert(vectors=vectors, namespace=self._namespace)
         return len(vectors)
 
-    def query(self, query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def query(self, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
         if not query_text.strip():
             return []
 
@@ -75,7 +75,7 @@ class PineconePolicyStore:
             include_metadata=True,
         )
 
-        chunks: List[Dict[str, Any]] = []
+        chunks: list[dict[str, Any]] = []
         for match in result.get("matches", []):
             meta = match.get("metadata") or {}
             chunks.append(

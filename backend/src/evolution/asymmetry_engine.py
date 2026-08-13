@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
+
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -25,8 +26,8 @@ class AsymmetryEvaluationEngine:
 
     def evaluate_asymmetry(
         self,
-        restricted_results: List[Dict[str, Any]],
-        unrestricted_results: List[Dict[str, Any]],
+        restricted_results: list[dict[str, Any]],
+        unrestricted_results: list[dict[str, Any]],
         restricted_model: str = "GPT-5.6-Sol",
         unrestricted_model: str = "Kimi-K3",
     ) -> AsymmetryTestResult:

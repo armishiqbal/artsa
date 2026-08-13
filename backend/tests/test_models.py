@@ -14,12 +14,10 @@ from src.models import (
     GuardrailLayer,
     GuardrailResult,
     JudgeScore,
-    RoundResult,
     Severity,
     TargetResponse,
     Verdict,
 )
-
 
 # ── AttackPayload ──────────────────────────────────────────────────────
 

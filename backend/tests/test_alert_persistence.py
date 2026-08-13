@@ -3,13 +3,26 @@
 import asyncio
 import uuid
 
+import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from src.core.config import settings
 from src.core.models.alerts import Alert, AlertRule
 from src.data.db import Base
 from src.data.orm import AlertORM, AlertRuleORM  # noqa: F401  (register tables on metadata)
 from src.data.repositories.alerts import AlertRepository, AlertRuleRepository
 from src.services import alert_store
+
+
+@pytest.fixture(autouse=True)
+def _real_db_mode(monkeypatch):
+    """These tests assert real persistence against an in-memory SQLite engine,
+    so the repository testing-mode short-circuits must be disabled."""
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    yield
+    # Reset module-level hot store so other test modules start clean.
+    alert_store.load_persisted_alerts([])
+    alert_store.seed_webhook_rules([])
 
 
 async def _make_session():

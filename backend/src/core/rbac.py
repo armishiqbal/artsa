@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import FrozenSet, Optional
 
 from src.core.config import settings
 
@@ -16,7 +15,7 @@ class Role(str, Enum):
 
 
 # HTTP method + path prefix permissions
-_ROLE_PERMISSIONS: dict[Role, FrozenSet[str]] = {
+_ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
     Role.ADMIN: frozenset({"*"}),
     Role.ANALYST: frozenset(
         {
@@ -38,7 +37,7 @@ _ROLE_PERMISSIONS: dict[Role, FrozenSet[str]] = {
 }
 
 
-def resolve_role(api_key: Optional[str]) -> Optional[Role]:
+def resolve_role(api_key: str | None) -> Role | None:
     """Map API key to role. Returns None if key invalid when auth is enforced."""
     if not api_key:
         return None
@@ -98,5 +97,6 @@ def role_capabilities(role: Role) -> dict[str, bool]:
         "can_run_benchmark": is_allowed(role, "POST", "/api/v1/benchmark/run"),
         "can_run_ablation": is_allowed(role, "POST", "/api/v1/benchmark/ablation"),
         "can_manage_policies": is_allowed(role, "PUT", "/api/v1/policies"),
+        "can_manage_providers": is_allowed(role, "POST", "/api/v1/providers"),
         "read_only": role == Role.READONLY,
     }

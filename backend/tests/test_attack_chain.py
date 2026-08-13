@@ -3,7 +3,7 @@
 import pytest
 
 from src.attacks.chain import AttackChain
-from src.models import AttackCategory, AttackTemplate, AttackMetadata, Severity
+from src.models import AttackCategory, AttackMetadata, AttackTemplate, Severity
 
 
 def _make_template(template_text: str, name: str = "Test Chain") -> AttackTemplate:

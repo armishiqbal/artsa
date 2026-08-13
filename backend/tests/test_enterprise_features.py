@@ -1,17 +1,9 @@
 """Unit tests for Enterprise Security Extensions (MCP Proxy, OTEL Ingestion, Compliance Exporter)."""
 
-import pytest
-import sys
-from pathlib import Path
 
-# Add api-gateway directory to sys.path
-GATEWAY_DIR = Path(__file__).resolve().parent.parent.parent / "api-gateway"
-if str(GATEWAY_DIR) not in sys.path:
-    sys.path.insert(0, str(GATEWAY_DIR))
-
-from mcp_proxy import MCPProxyInterceptor, MCPJsonRpcRequest
-from otel_ingest import OTELTraceIngestor, OTELTracePayload, OTELSpan
 from src.reporting.compliance_exporter import ComplianceReportExporter
+from src.services.mcp_proxy import MCPJsonRpcRequest, MCPProxyInterceptor
+from src.services.otel_ingest import OTELSpan, OTELTraceIngestor, OTELTracePayload
 
 
 def test_mcp_proxy_interceptor():

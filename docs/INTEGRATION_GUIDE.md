@@ -209,6 +209,39 @@ await client.guardToolCall({ sessionId, agentId, toolName, arguments: args });
 
 ---
 
+## 5c. Provider Management API — add ANY API key / provider / model
+
+Users can register their own LLM API keys at runtime (no env edits, no
+redeploys). Keys are encrypted at rest with the platform `SECRET_KEY` and
+never returned by the API (masked only).
+
+```bash
+# 1. See every supported API (all options)
+GET  /api/v1/providers/catalog
+
+# 2. Add your own key — any provider type, custom base URL, default model
+curl -X POST http://localhost:8000/api/v1/providers \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-groq","api_key":"gsk-...","provider_type":"groq",
+       "base_url":"https://api.groq.com/openai/v1",
+       "default_model":"llama-3.3-70b-versatile"}'
+
+# 3. Verify the key works (sends a tiny request)
+POST /api/v1/providers/my-groq/test
+
+# 4. Use it through the containment proxy — just send the provider name
+curl http://localhost:8000/v1/proxy/chat/completions \
+  -H "X-ARTSA-Provider: my-groq" \
+  -d '{"model":"llama-3.3-70b-versatile","messages":[...]}'
+```
+
+- Provider record → `X-ARTSA-Provider` header (any name you choose).
+- **Any model** — send it in the payload; if omitted, the provider's
+  `default_model` is used.
+- **Any endpoint** — a custom OpenAI-compatible `base_url` is fully
+  supported (private gateways, proxies, local servers).
+- Providers can be updated (same `name`) or removed (`DELETE`).
+
 ## 6. MCP proxy (Model Context Protocol)
 
 Sit ARTSA **in front of** MCP `tools/call` / `tools/list` traffic:

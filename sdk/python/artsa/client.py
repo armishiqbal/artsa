@@ -54,6 +54,22 @@ class ArtsaClient:
         self.max_retries = max(0, max_retries)
         self.retry_backoff_sec = retry_backoff_sec
 
+    @staticmethod
+    def _unwrap(body: Dict[str, Any]) -> Dict[str, Any]:
+        """Transparently unwrap the ARTSA response envelope when present.
+
+        When ARTSA_RESPONSE_ENVELOPE=true:
+          {"success": true, "data": <payload>, "meta": {...}}
+          {"success": false, "error": {...}, "meta": {...}}
+
+        When off (or for legacy flat responses), the body is returned as-is.
+        """
+        if isinstance(body, dict) and "success" in body and "data" in body:
+            if body.get("success"):
+                return body.get("data", body) or {}
+            return body.get("error", body) or {}
+        return body
+
     def _headers(self) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -111,7 +127,7 @@ class ArtsaClient:
                         "session_status": detail.get("session_status", "BREACHED"),
                     }
                 res.raise_for_status()
-                return res.json()
+                return self._unwrap(res.json())
             except Exception as e:
                 last_error = e
                 if attempt < self.max_retries:

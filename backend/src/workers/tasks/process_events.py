@@ -1,8 +1,8 @@
 """Celery async task consuming Redis stream events."""
 
-import json
 import logging
-from typing import Any, Dict
+from typing import Any
+
 from src.core.models.events import ToolCallEvent
 from src.services.event_processor import EventProcessor
 from src.workers.celery_app import celery_app
@@ -12,7 +12,7 @@ _processor = EventProcessor()
 
 
 @celery_app.task(name="tasks.process_tool_call_event")
-def process_tool_call_event(event_dict: Dict[str, Any]) -> Dict[str, Any]:
+def process_tool_call_event(event_dict: dict[str, Any]) -> dict[str, Any]:
     """Process incoming Redis Stream tool call event."""
     try:
         event = ToolCallEvent(**event_dict)

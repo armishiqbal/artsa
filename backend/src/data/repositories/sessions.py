@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from datetime import UTC
 from uuid import UUID
 
 from sqlalchemy import select
@@ -57,7 +57,7 @@ class SessionRepository(BaseRepository[SessionORM]):
         await self.session.commit()
         return session
 
-    async def get_session(self, session_id: UUID) -> Optional[Session]:
+    async def get_session(self, session_id: UUID) -> Session | None:
         cached = memory_store.get_session(session_id)
         if cached:
             return cached
@@ -71,11 +71,11 @@ class SessionRepository(BaseRepository[SessionORM]):
 
     async def list_sessions(
         self,
-        tenant_id: Optional[str] = None,
-        status: Optional[str] = None,
+        tenant_id: str | None = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Session]:
+    ) -> list[Session]:
         cached = memory_store.list_sessions(tenant_id=tenant_id, status=status, limit=limit, offset=offset)
         if cached or self._use_memory:
             return cached
@@ -104,9 +104,9 @@ class SessionRepository(BaseRepository[SessionORM]):
             row.status = "BREACHED"
         await self.session.commit()
 
-    async def apply_action(self, session_id: UUID, action: str) -> Optional[Session]:
+    async def apply_action(self, session_id: UUID, action: str) -> Session | None:
         """Persist KILL / QUARANTINE / THROTTLE to memory + DB."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         action_u = action.upper()
         status_map = {
@@ -136,7 +136,7 @@ class SessionRepository(BaseRepository[SessionORM]):
         if new_status:
             row.status = new_status
             if ended:
-                row.ended_at = datetime.now(timezone.utc)
+                row.ended_at = datetime.now(UTC)
                 row.containment_breaches = (row.containment_breaches or 0) + 1
         elif action_u == "THROTTLE":
             row.max_risk_score = max(row.max_risk_score or 0.0, 50.0)

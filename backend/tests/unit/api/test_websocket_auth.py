@@ -1,6 +1,7 @@
 """WebSocket authentication tests."""
 
 import pytest
+from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 from src.api.main import app
@@ -11,6 +12,8 @@ client = TestClient(app)
 
 def test_websocket_connects_in_testing():
     with client.websocket_connect("/api/v1/websocket") as ws:
+        hello = ws.receive_json()
+        assert hello["type"] == "hello"
         data = ws.receive_json()
         assert data["type"] == "history"
 
@@ -20,9 +23,8 @@ def test_websocket_rejects_without_key_when_required(monkeypatch):
     monkeypatch.setattr(settings, "ENVIRONMENT", "development")
     monkeypatch.setattr(settings, "ARTSA_REQUIRE_AUTH", False)
 
-    with pytest.raises(Exception):
-        with client.websocket_connect("/api/v1/websocket"):
-            pass
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect("/api/v1/websocket"):
+        pass
 
 
 def test_websocket_accepts_query_api_key(monkeypatch):
@@ -30,5 +32,65 @@ def test_websocket_accepts_query_api_key(monkeypatch):
     monkeypatch.setattr(settings, "ENVIRONMENT", "development")
 
     with client.websocket_connect("/api/v1/websocket?api_key=ws-test-secret-key-12345") as ws:
+        hello = ws.receive_json()
+        assert hello["type"] == "hello"
         data = ws.receive_json()
         assert data["type"] == "history"
+
+
+# ── WebSocket ticket flow (single-use HMAC ticket) ───────────────────────────
+
+def _ticket_from_post(res) -> str:
+    """Extract the ticket, unwrapping the response envelope when enabled."""
+    body = res.json()
+    return (body.get("data", body))["ticket"]
+
+
+def test_websocket_ticket_endpoint_mints_ticket():
+    res = client.post("/api/v1/websocket/ticket")
+    assert res.status_code == 200
+    ticket = _ticket_from_post(res)
+    assert ticket and "." in ticket
+
+
+def test_websocket_connects_with_ticket():
+    res = client.post("/api/v1/websocket/ticket")
+    ticket = _ticket_from_post(res)
+
+    with client.websocket_connect(f"/api/v1/websocket?ticket={ticket}") as ws:
+        hello = ws.receive_json()
+        assert hello["type"] == "hello"
+        data = ws.receive_json()
+        assert data["type"] == "history"
+
+
+def test_websocket_ticket_is_single_use(monkeypatch):
+    # Enforce auth so the WS endpoint actually rejects invalid/replayed tickets.
+    monkeypatch.setattr(settings, "ARTSA_API_KEY", "ws-test-secret-key-12345")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+
+    res = client.post(
+        "/api/v1/websocket/ticket",
+        headers={"X-API-Key": "ws-test-secret-key-12345"},
+    )
+    ticket = _ticket_from_post(res)
+
+    with client.websocket_connect(f"/api/v1/websocket?ticket={ticket}") as ws:
+        assert ws.receive_json()["type"] == "hello"
+        ws.receive_json()
+
+    # Reusing the same ticket must be rejected as a replay.
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect(
+        f"/api/v1/websocket?ticket={ticket}"
+    ):
+        pass
+
+
+def test_websocket_rejects_tampered_ticket(monkeypatch):
+    monkeypatch.setattr(settings, "ARTSA_API_KEY", "ws-test-secret-key-12345")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect(
+        "/api/v1/websocket?ticket=eyJyb2xlIjoiYWRtaW4ifQ.tampered"
+    ):
+        pass

@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 const actionCommands = [
-  { name: "Launch Wargame Campaign", href: "/wargame", category: "Actions", icon: Play },
+  { name: "Launch Wargame Campaign", href: "/campaigns", category: "Actions", icon: Play },
   { name: "View Reports", href: "/reports", category: "Actions", icon: FileText },
   { name: "Open Session Replay", href: "/replay", category: "Actions", icon: Shield },
-  { name: "Configure Providers", href: "/providers", category: "Actions", icon: Command },
+  { name: "Configure Providers", href: "/admin/providers", category: "Actions", icon: Command },
 ];
 
 export default function CommandPalette() {

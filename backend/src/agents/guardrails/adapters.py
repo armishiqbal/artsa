@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Protocol
+from typing import Protocol
 
 from src.models import GuardrailLayer, GuardrailResult
 
@@ -178,9 +178,9 @@ class AzureContentSafetyAdapter:
             )
 
 
-def get_input_adapters() -> List[GuardrailAdapter]:
+def get_input_adapters() -> list[GuardrailAdapter]:
     return [HeuristicInputFilter(), HeuristicInjectionDetector(), LakeraGuardAdapter()]
 
 
-def get_output_adapters() -> List[GuardrailAdapter]:
+def get_output_adapters() -> list[GuardrailAdapter]:
     return [HeuristicOutputFilter(), AzureContentSafetyAdapter()]

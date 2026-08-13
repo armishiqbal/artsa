@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ShieldAlert, Zap } from "lucide-react";
 import { useTopologyThreats } from "@/lib/hooks/useTopologyThreats";
-import { SIMULATED_INCIDENTS } from "@/lib/incidentKpis";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ThreatRow } from "@/components/shared/ThreatRow";
@@ -15,26 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { severityFromScore } from "@/lib/severity";
 
-/** Demonstration sessions shown when the topology backend has no threats yet. */
-const SIMULATED_THREATS = SIMULATED_INCIDENTS.map((incident, i) => ({
-  agent_id: incident.agent_id,
-  session_id: incident.session_id,
-  risk_score: incident.risk_score,
-  status: incident.verdict === "BLOCKED" ? "QUARANTINED" : "ACTIVE",
-  breaches: incident.security_event_count,
-  __rank: i,
-}));
-
 export function ThreatMatrix() {
   const router = useRouter();
   const { threats, loading } = useTopologyThreats();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("ALL");
 
-  // Never leave the matrix hollow: fall back to the realistic simulated feed
-  // when the topology backend reports no live sessions.
-  const usingSimulated = !loading && threats.length === 0;
-  const displayedThreats = usingSimulated ? SIMULATED_THREATS : threats;
+  const displayedThreats = threats;
 
   const filtered = useMemo(() => {
     return displayedThreats.filter((t) => {
@@ -54,7 +40,7 @@ export function ThreatMatrix() {
       description="High-risk sessions from topology — click to open forensic replay"
       badge={
         <Badge variant={displayedThreats.length ? "success" : "secondary"} className="font-mono text-[10px]">
-          {loading ? "…" : `${displayedThreats.length} ${usingSimulated ? "simulated" : "active"}`}
+          {loading ? "…" : `${displayedThreats.length} active`}
         </Badge>
       }
     >
@@ -95,19 +81,15 @@ export function ThreatMatrix() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={ShieldAlert}
-          title={usingSimulated ? "No simulated threats match" : "No active threats"}
-          description={
-            usingSimulated
-              ? "Adjust filters to see more of the demonstration session feed."
-              : "Ingest tool calls via POST /api/v1/ingest or launch a wargame campaign to populate live sessions."
-          }
+          title="No active threats"
+          description="Ingest tool calls via POST /api/v1/ingest or launch a wargame campaign to populate live sessions."
           action={
             <div className="flex flex-wrap justify-center gap-2">
               <Button asChild size="sm">
-                <Link href="/wargame">Launch wargame</Link>
+                <Link href="/campaigns">Launch wargame</Link>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => router.push("/providers")}>
-                Configure providers
+              <Button variant="outline" size="sm" onClick={() => router.push("/admin/providers")}>
+                Manage providers
               </Button>
             </div>
           }
@@ -122,7 +104,7 @@ export function ThreatMatrix() {
 
       {displayedThreats.length > 0 && (
         <div className="mt-4 flex justify-end">
-          <Button variant="outline" size="sm" className="gap-2 font-mono text-xs" onClick={() => router.push("/topology")}>
+          <Button variant="outline" size="sm" className="gap-2 font-mono text-xs" onClick={() => router.push("/dashboard/topology")}>
             <Zap className="h-3.5 w-3.5" aria-hidden />
             View topology graph
           </Button>

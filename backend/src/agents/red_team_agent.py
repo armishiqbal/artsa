@@ -7,8 +7,8 @@ import random
 from typing import Any
 
 from src.agents.base_agent import BaseAgent
-from src.attacks.base_attack import BaseAttack
 from src.attacks import ATTACK_REGISTRY, PayloadMutator
+from src.attacks.base_attack import BaseAttack
 from src.data.attack_library import AttackLibrary
 from src.evolution.engine import EvolutionEngine
 from src.models import (
@@ -17,7 +17,6 @@ from src.models import (
     AttackProfile,
     JudgeScore,
     TargetConfig,
-    Verdict,
 )
 
 logger = logging.getLogger(__name__)
@@ -250,7 +249,7 @@ Rewrite the attack to bypass the target's defenses. Use a COMPLETELY DIFFERENT a
 Return ONLY the rewritten attack prompt, nothing else. No explanations, no markdown."""
 
         try:
-            rewritten_text, usage = self.invoke(rewrite_prompt)
+            rewritten_text, _usage = self.invoke(rewrite_prompt)
 
             import uuid
             rewritten = AttackPayload(

@@ -3,7 +3,7 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
@@ -33,13 +33,13 @@ class SessionActionRequest(BaseModel):
 
 class TimelineEntry(BaseModel):
     event: ToolCallEvent
-    evaluation: Optional[Dict[str, Any]] = None
+    evaluation: dict[str, Any] | None = None
 
 
-@router.get("/sessions", response_model=List[Session])
+@router.get("/sessions", response_model=list[Session])
 async def list_sessions(
-    tenant_id: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
+    tenant_id: str | None = Query(None),
+    status: str | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -76,7 +76,7 @@ async def get_session_details(
     return session
 
 
-@router.get("/sessions/{session_id}/timeline", response_model=List[TimelineEntry])
+@router.get("/sessions/{session_id}/timeline", response_model=list[TimelineEntry])
 async def get_session_timeline(
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

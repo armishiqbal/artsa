@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 from src.agents.judge_agent import JudgeAgent
-from src.models import AttackPayload, AttackCategory, JudgeScore, TargetResponse, Verdict
+from src.models import AttackCategory, AttackPayload, JudgeScore, TargetResponse, Verdict
 
 
 @dataclass
@@ -16,7 +16,7 @@ class JudgeValidationResult:
     agreement_rate: float
     avg_score_delta: float
     inter_run_variance: float
-    mismatches: List[Dict[str, Any]] = field(default_factory=list)
+    mismatches: list[dict[str, Any]] = field(default_factory=list)
 
 
 class JudgeValidator:
@@ -27,7 +27,7 @@ class JudgeValidator:
 
     def validate(
         self,
-        labeled_samples: List[Dict[str, Any]],
+        labeled_samples: list[dict[str, Any]],
         runs_per_sample: int = 2,
     ) -> JudgeValidationResult:
         agreements = 0

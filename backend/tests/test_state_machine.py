@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.orchestrator.state_machine import CampaignStateMachine
 from src.models import CampaignState
+from src.orchestrator.state_machine import CampaignStateMachine
 
 
 class TestCampaignStateMachine:

@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.core.config import settings
 
-_cache: Dict[str, Any] = {"payload": None, "expires_at": 0.0, "last_hit": False}
-_ablation_cache: Dict[str, Any] = {"payload": None, "expires_at": 0.0}
+_cache: dict[str, Any] = {"payload": None, "expires_at": 0.0, "last_hit": False}
+_ablation_cache: dict[str, Any] = {"payload": None, "expires_at": 0.0}
 
 
-def get_cached_benchmark() -> Optional[Dict[str, Any]]:
+def get_cached_benchmark() -> dict[str, Any] | None:
     if _cache["payload"] is not None and time.time() < _cache["expires_at"]:
         _cache["last_hit"] = True
         return _cache["payload"]
@@ -19,7 +19,7 @@ def get_cached_benchmark() -> Optional[Dict[str, Any]]:
     return None
 
 
-def set_cached_benchmark(payload: Dict[str, Any]) -> None:
+def set_cached_benchmark(payload: dict[str, Any]) -> None:
     _cache["payload"] = payload
     _cache["expires_at"] = time.time() + settings.BENCHMARK_CACHE_TTL_SEC
     _cache["last_hit"] = False
@@ -34,13 +34,13 @@ def invalidate_benchmark_cache() -> None:
     _cache["expires_at"] = 0.0
 
 
-def get_cached_ablation() -> Optional[Dict[str, Any]]:
+def get_cached_ablation() -> dict[str, Any] | None:
     if _ablation_cache["payload"] is not None and time.time() < _ablation_cache["expires_at"]:
         return _ablation_cache["payload"]
     return None
 
 
-def set_cached_ablation(payload: Dict[str, Any]) -> None:
+def set_cached_ablation(payload: dict[str, Any]) -> None:
     _ablation_cache["payload"] = payload
     _ablation_cache["expires_at"] = time.time() + settings.BENCHMARK_CACHE_TTL_SEC
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.core.config import settings
 from src.core.rbac import Role
@@ -11,16 +11,16 @@ from src.core.rbac import Role
 logger = logging.getLogger(__name__)
 
 _jwks_client = None
-_jwks_url_cache: Optional[str] = None
+_jwks_url_cache: str | None = None
 
 
-def _split_groups(raw: Optional[str]) -> frozenset[str]:
+def _split_groups(raw: str | None) -> frozenset[str]:
     if not raw:
         return frozenset()
     return frozenset(g.strip() for g in raw.split(",") if g.strip())
 
 
-def role_from_claims(claims: Dict[str, Any]) -> Optional[Role]:
+def role_from_claims(claims: dict[str, Any]) -> Role | None:
     """Map OIDC claims to ARTSA role using configured group lists."""
     claim_name = settings.ARTSA_OIDC_ROLE_CLAIM
     groups_raw = claims.get(claim_name)
@@ -87,7 +87,7 @@ def _get_jwks_client():
     return _jwks_client
 
 
-def verify_oidc_token(token: str) -> Optional[Dict[str, Any]]:
+def verify_oidc_token(token: str) -> dict[str, Any] | None:
     """Validate JWT signature/audience/issuer; return claims or None."""
     if not settings.ARTSA_OIDC_ENABLED:
         return None
@@ -113,7 +113,7 @@ def verify_oidc_token(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def resolve_role_from_oidc(token: str) -> Optional[Role]:
+def resolve_role_from_oidc(token: str) -> Role | None:
     claims = verify_oidc_token(token)
     if not claims:
         return None

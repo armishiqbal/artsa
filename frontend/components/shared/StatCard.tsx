@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { LucideIcon, TrendingUp } from "lucide-react";
+import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
+import { Sparkline } from "@/components/shared/Sparkline";
 import { cn } from "@/lib/utils";
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -15,6 +16,9 @@ interface StatCardProps {
   subtitle?: string;
   icon?: LucideIcon;
   trend?: string;
+  trendDirection?: "up" | "down";
+  sparklineData?: number[];
+  sparklineVariant?: "primary" | "success" | "warning" | "critical";
   className?: string;
 }
 
@@ -32,7 +36,21 @@ const severityValue: Record<Severity, string> = {
   LOW: "text-severity-low",
 };
 
-export function StatCard({ label, value, severity, subtitle, icon: Icon, trend, className }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  severity,
+  subtitle,
+  icon: Icon,
+  trend,
+  trendDirection = "up",
+  sparklineData,
+  sparklineVariant = "primary",
+  className,
+}: StatCardProps) {
+  const TrendIcon = trendDirection === "up" ? TrendingUp : TrendingDown;
+  const trendColor = trendDirection === "up" ? "text-status-success" : "text-severity-critical";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -41,7 +59,7 @@ export function StatCard({ label, value, severity, subtitle, icon: Icon, trend, 
     >
       <Card
         className={cn(
-          "gradient-border overflow-hidden bg-gradient-to-br to-transparent transition-colors hover:bg-card/90",
+          "gradient-border overflow-hidden bg-gradient-to-br to-transparent transition-all hover:bg-card/90 hover:shadow-glow-sm",
           severity && severityAccent[severity],
           className
         )}
@@ -49,19 +67,37 @@ export function StatCard({ label, value, severity, subtitle, icon: Icon, trend, 
         <CardContent className="p-5">
           <div className="flex items-start justify-between gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-            {severity && <SeverityBadge severity={severity} />}
-            {Icon && !severity && (
-              <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <div className="flex items-center gap-2">
+              {severity && <SeverityBadge severity={severity} />}
+              {Icon && !severity && (
+                <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+              )}
+            </div>
+          </div>
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <p
+              className={cn(
+                "font-mono text-3xl font-semibold tabular-nums leading-none",
+                severity && severityValue[severity]
+              )}
+            >
+              {value}
+            </p>
+            {sparklineData && sparklineData.length >= 2 && (
+              <Sparkline
+                data={sparklineData}
+                width={72}
+                height={28}
+                variant={sparklineVariant}
+                className="mb-0.5"
+              />
             )}
           </div>
-          <p className={cn("mt-3 font-mono text-3xl font-semibold tabular-nums", severity && severityValue[severity])}>
-            {value}
-          </p>
           {(subtitle || trend) && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               {trend && (
                 <>
-                  <TrendingUp className="h-3 w-3 text-emerald-400" aria-hidden />
+                  <TrendIcon className={cn("h-3 w-3", trendColor)} aria-hidden />
                   <span>{trend}</span>
                 </>
               )}

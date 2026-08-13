@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field
 
-from src.models import AttackPayload, TargetConfig, JudgeScore, Verdict
+from src.models import AttackPayload, TargetConfig
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +15,10 @@ class BlueDefenseState(BaseModel):
     """Current defensive configuration deployed by Blue Team."""
 
     generation: int = 1
-    system_prompt_rules: List[str] = Field(default_factory=list)
-    active_input_filters: List[str] = Field(default_factory=list)
-    active_output_filters: List[str] = Field(default_factory=list)
-    hardened_tools: List[str] = Field(default_factory=list)
+    system_prompt_rules: list[str] = Field(default_factory=list)
+    active_input_filters: list[str] = Field(default_factory=list)
+    active_output_filters: list[str] = Field(default_factory=list)
+    hardened_tools: list[str] = Field(default_factory=list)
 
 
 class RedQueenCoEvolutionEngine:
@@ -31,7 +31,7 @@ class RedQueenCoEvolutionEngine:
             system_prompt_rules=[initial_target_config.system_prompt],
         )
 
-    def adapt_blue_defenses(self, successful_attacks: List[AttackPayload]) -> TargetConfig:
+    def adapt_blue_defenses(self, successful_attacks: list[AttackPayload]) -> TargetConfig:
         """Blue Team deploys dynamic countermeasures in response to successful Red Team attacks."""
         if not successful_attacks:
             return self.target_config

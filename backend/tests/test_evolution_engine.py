@@ -1,8 +1,7 @@
 """Tests for the EvolutionEngine — NO mocking, real instances only."""
 
-import pytest
 
-from src.evolution.engine import EvolutionEngine, Individual
+from src.evolution.engine import EvolutionEngine
 from src.models import (
     AttackCategory,
     AttackPayload,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from src.api.main import create_app
+from tests.conftest import unwrap_response
 
 
 def _client() -> TestClient:
@@ -22,7 +23,7 @@ def test_eds_monitor_endpoint() -> None:
             },
         )
         assert resp.status_code == 200
-        body = resp.json()
+        body = unwrap_response(resp)
         assert body["risk_level"] == "LOW"
         assert body["action"] == "ALLOW"
         assert body["recommended_action"] == "NONE"
@@ -40,7 +41,7 @@ def test_eds_monitor_blocks_shell() -> None:
             },
         )
         assert resp.status_code == 200
-        body = resp.json()
+        body = unwrap_response(resp)
         assert body["risk_level"] in {"HIGH", "CRITICAL"}
         assert body["recommended_action"] in {"QUARANTINE", "KILL"}
 
@@ -58,6 +59,6 @@ def test_trajectory_evaluate_endpoint() -> None:
             },
         )
         assert resp.status_code == 200
-        body = resp.json()
+        body = unwrap_response(resp)
         assert body["total_steps"] == 2
         assert body["trajectory_verdict"] in {"SUSPICIOUS", "EXPLOIT"}

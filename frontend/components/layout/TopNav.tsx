@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Shield, Command, UserCircle2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Command, UserCircle2, Building2, ChevronDown, Check } from "lucide-react";
+import { LogoIcon } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LiveIndicator } from "@/components/shared/LiveIndicator";
@@ -10,6 +11,7 @@ import MobileNav from "@/components/layout/MobileNav";
 import { useAlerts } from "@/lib/hooks/useAlerts";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { formatTopNavConnectionLabel } from "@/lib/connectionStatus";
+import { fetchFromBackend } from "@/lib/api";
 import Link from "next/link";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { useAuthStore } from "@/lib/stores/auth";
@@ -30,8 +32,35 @@ export default function TopNav() {
   const { identity, loading: authLoading } = useAuthRole();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const hasBearer = useAuthStore((s) => Boolean(s.bearerToken));
-  const tenant = "default_org";
   const showOidcLogin = isOidcEnabled() && !hasBearer;
+
+  // Tenant selector
+  const [tenants, setTenants] = useState<{ id: string; name: string; slug: string; plan: string }[]>([]);
+  const [currentTenant, setCurrentTenant] = useState("default_tenant");
+  const [tenantOpen, setTenantOpen] = useState(false);
+  const tenantRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchFromBackend<{ tenants?: { id: string; name: string; slug: string; plan: string }[]; current?: string }>(
+      "/api/v1/settings/tenants",
+      { silent: true }
+    ).then((d) => {
+      if (d?.tenants) setTenants(d.tenants);
+      if (d?.current) setCurrentTenant(d.current);
+    });
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tenantRef.current && !tenantRef.current.contains(e.target as Node)) {
+        setTenantOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const currentTenantName = tenants.find((t) => t.id === currentTenant)?.name ?? "Default Org";
 
   const statusLabel = formatTopNavConnectionLabel(apiOnline, wsConnected, apiGatewayStatus);
 
@@ -95,9 +124,41 @@ export default function TopNav() {
               </Badge>
             )}
           </Button>
-          <div className="hidden items-center gap-2 border-l border-border pl-3 text-xs text-muted-foreground md:flex">
-            <Shield className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
-            <span className="font-mono">{tenant}</span>
+          <div className="hidden items-center gap-2 border-l border-border pl-3 text-xs text-muted-foreground md:flex" ref={tenantRef}>
+            <LogoIcon size={14} className="text-status-success" aria-hidden />
+            <div className="relative">
+              <button
+                onClick={() => setTenantOpen(!tenantOpen)}
+                className="flex items-center gap-1 font-mono text-xs hover:text-foreground transition-colors"
+              >
+                {currentTenantName}
+                <ChevronDown className={cn("h-3 w-3 transition-transform", tenantOpen && "rotate-180")} />
+              </button>
+              {tenantOpen && tenants.length > 0 && (
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border border-border bg-card shadow-lg z-50 py-1">
+                  {tenants.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setCurrentTenant(t.id);
+                        setTenantOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-accent",
+                        t.id === currentTenant && "bg-primary/5 text-primary"
+                      )}
+                    >
+                      <Building2 className="h-4 w-4 shrink-0" />
+                      <div className="text-left min-w-0">
+                        <p className="font-medium truncate">{t.name}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize">{t.plan}</p>
+                      </div>
+                      {t.id === currentTenant && <Check className="h-4 w-4 ml-auto shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

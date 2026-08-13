@@ -1,21 +1,69 @@
 /**
  * HTTP client for the unified ARTSA API (containment + wargame + library on port 8000).
+ *
+ * Response envelope migration (A6):
+ *   When the backend has ARTSA_RESPONSE_ENVELOPE=true, all JSON responses are
+ *   wrapped as {"success":bool, "data":<payload>, "meta":{...}}.
+ *   This client transparently unwraps so callers always receive the inner payload.
  */
 
 import { toast } from "@/lib/stores/toast";
-import { getBearerToken } from "@/lib/stores/auth";
+import { getApiKey, getBearerToken } from "@/lib/stores/auth";
 
 const API_BASE_URL = "/api/backend";
+
+const DEFAULT_API_BASE_URL = "http://localhost:8000";
+
+/** Port of the configured backend base URL, used in connectivity error messages.
+ * Falls back to 8000 when the base URL is unset or unparseable. */
+function backendPort(): string {
+  const base = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL;
+  try {
+    const { port, protocol } = new URL(base);
+    return port || (protocol === "https:" ? "443" : "80");
+  } catch {
+    return "8000";
+  }
+}
 
 function buildHeaders(extra?: HeadersInit): HeadersInit {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  const bearer = getBearerToken();
-  if (bearer) {
-    headers["Authorization"] = `Bearer ${bearer}`;
+  const apiKey = getApiKey();
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
+  } else {
+    const bearer = getBearerToken();
+    if (bearer) {
+      headers["Authorization"] = `Bearer ${bearer}`;
+    }
   }
   return { ...headers, ...(extra as Record<string, string> | undefined) };
+}
+
+/**
+ * Unwrap a JSON response body from the standardised ARTSA envelope.
+ *
+ * When ARTSA_RESPONSE_ENVELOPE=true:
+ *   Successful: {"success":true, "data":<original>, "meta":{...}}
+ *   Error:      {"success":false, "error":{...}, "meta":{...}}
+ *
+ * When the flag is off or the endpoint is excluded (health/ready/proxy/ws):
+ *   The raw payload is returned as-is.
+ *
+ * This function handles both shapes transparently.
+ */
+function unwrapEnvelope(body: unknown): unknown {
+  if (body && typeof body === "object" && "success" in body && "data" in body) {
+    const envelope = body as { success: boolean; data?: unknown; error?: unknown };
+    if (envelope.success) {
+      return envelope.data ?? body;
+    }
+    // Error path: surface the error object so callers can inspect it
+    return envelope.error ?? body;
+  }
+  return body;
 }
 
 export interface FetchOptions extends RequestInit {
@@ -38,19 +86,32 @@ export async function fetchFromBackend<T = unknown>(
 
     if (!res.ok) {
       if (!silent) {
+        // Attempt to extract error detail from envelope or raw body
+        let errorMsg = `${endpoint} returned ${res.status}`;
+        try {
+          const errorBody = await res.json();
+          const unwrapped = unwrapEnvelope(errorBody);
+          if (typeof unwrapped === "object" && unwrapped !== null) {
+            const err = unwrapped as Record<string, unknown>;
+            errorMsg = String(err.message ?? err.detail ?? errorMsg);
+          }
+        } catch {
+          // can't parse — use status-only message
+        }
         toast("Request failed", {
-          description: `${endpoint} returned ${res.status}`,
+          description: errorMsg,
           variant: "error",
         });
       }
       return null;
     }
 
-    return (await res.json()) as T;
+    const raw = await res.json();
+    return unwrapEnvelope(raw) as T;
   } catch (err) {
     if (!silent) {
       toast("Backend unreachable", {
-        description: "Ensure the API is running on port 8000.",
+        description: `Ensure the API is running on port ${backendPort()}.`,
         variant: "error",
       });
     }

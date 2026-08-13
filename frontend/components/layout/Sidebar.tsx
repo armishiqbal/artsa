@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Shield } from "lucide-react";
+import Logo from "@/components/shared/Logo";
 import { navSections } from "@/lib/navigation";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { cn } from "@/lib/utils";
@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { capabilities } = useAuthRole();
+  const { identity, capabilities } = useAuthRole();
 
   const visibleSections = navSections
+    .filter((section) => !section.adminOnly || identity.role === "admin")
     .map((section) => ({
       ...section,
       items: section.items.filter(
@@ -27,8 +28,8 @@ export default function Sidebar() {
   return (
     <aside className="sticky top-0 z-40 hidden h-screen w-64 flex-col border-r border-border bg-card/50 backdrop-blur-xl lg:flex">
       <div className="flex items-center gap-3 border-b border-border p-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
-          <Shield className="h-5 w-5" aria-hidden />
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg brand-bg-subtle brand-border">
+          <Logo iconOnly iconSize={20} />
         </div>
         <div>
           <div className="flex items-center gap-2">
@@ -87,7 +88,7 @@ export default function Sidebar() {
       <div className="p-4">
         <div className="rounded-lg border border-border bg-muted/30 p-3">
           <p className="text-xs font-medium text-foreground">Containment SLO</p>
-          <p className="mt-1 font-mono text-[11px] text-emerald-400">&lt;50ms ingest latency</p>
+          <p className="mt-1 font-mono text-[11px] text-status-success">&lt;50ms ingest latency</p>
         </div>
       </div>
     </aside>

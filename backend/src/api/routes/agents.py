@@ -1,6 +1,5 @@
 """Agents Management and Baseline Endpoints."""
 
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +10,7 @@ from src.data.repositories.agents import AgentsRepository
 
 router = APIRouter(tags=["Agents"])
 
-_BUILTIN_AGENTS: List[Agent] = [
+_BUILTIN_AGENTS: list[Agent] = [
     Agent(
         id="agent-support-01",
         tenant_id="default_tenant",
@@ -54,7 +53,7 @@ async def _seed_builtin_agents(session: AsyncSession) -> None:
             await repo.upsert_agent(agent)
 
 
-@router.get("/agents", response_model=List[Agent])
+@router.get("/agents", response_model=list[Agent])
 async def list_agents(session: AsyncSession = Depends(get_db)):
     """List registered AI agents."""
     repo = AgentsRepository(session)

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Protocol
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
 
 class PolicyVectorStore(Protocol):
-    def query(self, query_text: str, top_k: int = 5) -> List[Dict[str, Any]]: ...
+    def query(self, query_text: str, top_k: int = 5) -> list[dict[str, Any]]: ...
 
 
 def try_create_policy_store() -> PolicyVectorStore | None:

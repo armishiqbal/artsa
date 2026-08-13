@@ -2,8 +2,6 @@
 
 import base64
 
-import pytest
-
 from src.attacks.payload_mutator import PayloadMutator
 
 

@@ -1,8 +1,11 @@
 """Unit tests for all session API routes."""
 
 import uuid
+
 from fastapi.testclient import TestClient
+
 from src.api.main import app
+from tests.conftest import unwrap_response
 
 client = TestClient(app)
 
@@ -10,7 +13,7 @@ client = TestClient(app)
 def test_list_sessions():
     response = client.get("/v1/sessions")
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    assert isinstance(unwrap_response(response), list)
 
 
 def test_get_session_details():
@@ -29,7 +32,7 @@ def test_get_session_details():
     # Fetch session timeline
     response = client.get(f"/v1/sessions/{session_id}/timeline")
     assert response.status_code == 200
-    timeline = response.json()
+    timeline = unwrap_response(response)
     assert len(timeline) >= 1
     assert timeline[0]["event"]["session_id"] == session_id
     assert "evaluation" in timeline[0]
@@ -50,6 +53,6 @@ def test_enforce_session_action():
 
     response = client.post(f"/v1/sessions/{session_id}/action", json={"action": "KILL"})
     assert response.status_code == 200
-    data = response.json()
+    data = unwrap_response(response)
     assert data["enforced_action"] == "KILL"
     assert data["status"] == "BREACHED"

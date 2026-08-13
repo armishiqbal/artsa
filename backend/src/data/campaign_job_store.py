@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -13,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from src.core.config import settings
 from src.data.orm import CampaignJobORM
 
-_memory_jobs: Dict[str, Dict[str, Any]] = {}
+_memory_jobs: dict[str, dict[str, Any]] = {}
 
 
 def _sync_database_url() -> str:
@@ -49,7 +48,7 @@ class CampaignJobStore:
         max_rounds: int,
         request_json: dict[str, Any],
     ) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = {
             "id": campaign_id,
             "name": name,
@@ -91,7 +90,7 @@ class CampaignJobStore:
     def update_progress(self, campaign_id: str, rounds_completed: int) -> None:
         if campaign_id in _memory_jobs:
             _memory_jobs[campaign_id]["rounds_completed"] = rounds_completed
-            _memory_jobs[campaign_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
+            _memory_jobs[campaign_id]["updated_at"] = datetime.now(UTC).isoformat()
 
         if not self._factory:
             return
@@ -100,7 +99,7 @@ class CampaignJobStore:
             row = session.get(CampaignJobORM, campaign_id)
             if row:
                 row.rounds_completed = rounds_completed
-                row.updated_at = datetime.now(timezone.utc)
+                row.updated_at = datetime.now(UTC)
                 session.commit()
 
     def complete(self, campaign_id: str, summary: dict[str, Any]) -> None:
@@ -120,7 +119,7 @@ class CampaignJobStore:
                 row.status = "COMPLETED"
                 row.summary_json = summary
                 row.rounds_completed = int(summary.get("completed_rounds", row.rounds_completed))
-                row.updated_at = datetime.now(timezone.utc)
+                row.updated_at = datetime.now(UTC)
                 session.commit()
 
     def fail(self, campaign_id: str, error: str) -> None:
@@ -136,10 +135,10 @@ class CampaignJobStore:
             if row:
                 row.status = "FAILED"
                 row.error = error
-                row.updated_at = datetime.now(timezone.utc)
+                row.updated_at = datetime.now(UTC)
                 session.commit()
 
-    def get(self, campaign_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, campaign_id: str) -> dict[str, Any] | None:
         if campaign_id in _memory_jobs:
             return dict(_memory_jobs[campaign_id])
 
@@ -150,7 +149,7 @@ class CampaignJobStore:
             row = session.get(CampaignJobORM, campaign_id)
             return self._to_dict(row) if row else None
 
-    def list_jobs(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_jobs(self, limit: int = 50) -> list[dict[str, Any]]:
         jobs = list(_memory_jobs.values())
 
         if self._factory:
@@ -165,7 +164,7 @@ class CampaignJobStore:
         return jobs[:limit]
 
     @staticmethod
-    def _to_dict(row: CampaignJobORM) -> Dict[str, Any]:
+    def _to_dict(row: CampaignJobORM) -> dict[str, Any]:
         return {
             "id": row.id,
             "name": row.name,

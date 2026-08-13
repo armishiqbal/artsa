@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel
 
-from src.models import CampaignConfig, TargetConfig, AttackProfile, CampaignSummary
+from src.models import AttackProfile, CampaignConfig, CampaignSummary, TargetConfig
 from src.orchestrator.campaign_manager import CampaignManager
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class ArtsaSDKResult(BaseModel):
     successful_attacks: int
     avg_attack_score: float
     avg_bypass_depth: float
-    summary: Optional[Dict[str, Any]] = None
+    summary: dict[str, Any] | None = None
 
 
 def test(
@@ -30,8 +31,8 @@ def test(
     policy: str = "quick_scan",
     rounds: int = 5,
     max_allowed_score: float = 3.0,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
 ) -> ArtsaSDKResult:
     """Run an automated ARTSA security assessment test against a target model or agent.
 

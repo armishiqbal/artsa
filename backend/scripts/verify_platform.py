@@ -4,32 +4,64 @@
 from __future__ import annotations
 
 import json
-import sys
 import uuid
 from pathlib import Path
-from urllib import request, error
+from urllib import error, request
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BASE = "http://127.0.0.1:8000"
 
 
+def load_api_key() -> str | None:
+    """Read the admin API key from the repo-root .env (ARTSA_API_KEY)."""
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return None
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line.startswith("ARTSA_API_KEY="):
+            value = line.split("=", 1)[1].strip()
+            return value.strip('"').strip("'")
+    return None
+
+
+API_KEY = load_api_key()
+
+
+def _headers(extra: dict | None = None) -> dict:
+    headers: dict = {"Content-Type": "application/json"}
+    if API_KEY:
+        headers["X-API-Key"] = API_KEY
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def unwrap(body) -> dict:
+    """Unwrap the standardised ARTSA response envelope ({"success","data","meta"})."""
+    if isinstance(body, dict) and "data" in body:
+        return body["data"]
+    return body
+
+
 def get(path: str) -> tuple[int, dict]:
-    with request.urlopen(BASE + path, timeout=10) as r:
-        return r.status, json.loads(r.read())
+    req = request.Request(BASE + path, headers=_headers())
+    with request.urlopen(req, timeout=10) as r:
+        return r.status, unwrap(json.loads(r.read()))
 
 
 def post(path: str, body: dict) -> tuple[int, dict]:
     payload = json.dumps(body).encode()
-    req = request.Request(BASE + path, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    req = request.Request(BASE + path, data=payload, headers=_headers(), method="POST")
     with request.urlopen(req, timeout=15) as r:
-        return r.status, json.loads(r.read())
+        return r.status, unwrap(json.loads(r.read()))
 
 
 def main() -> int:
     failures: list[str] = []
 
     try:
-        code, health = get("/api/v1/health")
+        code, _health = get("/api/v1/health")
         if code != 200:
             failures.append(f"health returned {code}")
     except error.URLError as e:

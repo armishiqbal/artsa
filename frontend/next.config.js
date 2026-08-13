@@ -1,12 +1,27 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  async rewrites() {
+
+  async redirects() {
     return [
-      {
-        source: '/api/v1/:path*',
-        destination: 'http://localhost:8000/api/v1/:path*',
-      },
+      // Legacy routes → new enterprise URL scheme (301 permanent)
+      // Note: Root (/) redirect is handled by app/page.tsx via next/navigation redirect
+      { source: "/topology", destination: "/dashboard/topology", permanent: true },
+      { source: "/wargame", destination: "/campaigns", permanent: true },
+      { source: "/playground", destination: "/sandbox", permanent: true },
+      { source: "/attack-library", destination: "/library", permanent: true },
+      { source: "/policies", destination: "/admin/policies", permanent: true },
+      { source: "/providers", destination: "/admin/providers", permanent: true },
+
+      // Deep legacy paths (e.g., /wargame/anything → /campaigns/anything)
+      { source: "/wargame/:path*", destination: "/campaigns/:path*", permanent: true },
+      { source: "/playground/:path*", destination: "/sandbox/:path*", permanent: true },
+      { source: "/attack-library/:path*", destination: "/library/:path*", permanent: true },
+      { source: "/policies/:path*", destination: "/admin/policies/:path*", permanent: true },
+      { source: "/providers/:path*", destination: "/admin/providers/:path*", permanent: true },
+      { source: "/topology/:path*", destination: "/dashboard/topology/:path*", permanent: true },
+      // NOTE: /settings/* is intentionally NOT redirected — real App Router
+      // pages exist at /settings/{integrations,audit-log,team,notifications}.
     ];
   },
 };

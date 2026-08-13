@@ -1,6 +1,5 @@
 """Unit tests for Supabase / PostgreSQL DatabaseManager and ORM persistence."""
 
-import pytest
 from src.data.database import DatabaseManager
 
 

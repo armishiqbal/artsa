@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Dict
 
 _lock = threading.Lock()
 _ingest_total = 0
@@ -39,7 +38,7 @@ def record_benchmark_run() -> None:
         _benchmark_runs += 1
 
 
-def render_prometheus(active_sessions: int = 0, severity: Dict[str, int] | None = None) -> str:
+def render_prometheus(active_sessions: int = 0, severity: dict[str, int] | None = None) -> str:
     """Render metrics in Prometheus text exposition format."""
     with _lock:
         ingest_total = _ingest_total

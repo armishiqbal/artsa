@@ -6,14 +6,10 @@ import logging
 import time
 from typing import Any
 
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
 from rich.console import Console
-
-from src.reporting.cli_reporter import CLIReporter
-from src.reporting.markdown_report import MarkdownReportGenerator
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
 from src.agents import JudgeAgent, RedTeamAgent, TargetAgent
-from src.attacks.chain import AttackChain
 from src.attacks.social_engineering import SocialEngineeringAttack
 from src.data import AttackLibrary, ResultsStore, VectorStoreManager
 from src.models import (
@@ -25,6 +21,8 @@ from src.models import (
     Verdict,
 )
 from src.orchestrator.state_machine import CampaignStateMachine
+from src.reporting.cli_reporter import CLIReporter
+from src.reporting.markdown_report import MarkdownReportGenerator
 
 logger = logging.getLogger(__name__)
 console = Console()

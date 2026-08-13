@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from src.agents.base_agent import BaseAgent
 from src.models import (

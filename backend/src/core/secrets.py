@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Optional
 
-
-def mask_secret(value: Optional[str], visible: int = 4) -> Optional[str]:
+def mask_secret(value: str | None, visible: int = 4) -> str | None:
     """Return a masked representation suitable for UI display."""
     if not value or not value.strip():
         return None
@@ -15,7 +13,7 @@ def mask_secret(value: Optional[str], visible: int = 4) -> Optional[str]:
     return f"{v[:visible]}…{v[-visible:]}"
 
 
-def key_status(value: Optional[str]) -> str:
+def key_status(value: str | None) -> str:
     """Return configured | missing | placeholder."""
     if not value or not str(value).strip():
         return "missing"

@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, ShieldAlert, AlertTriangle, Layers } from "lucide-react";
+import { ShieldCheck, ShieldAlert, AlertTriangle } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,7 @@ export default function GuardrailPenetrationXRay({ bypassDepth }: GuardrailPenet
                     "flex h-9 w-9 items-center justify-center rounded-lg",
                     isStopPoint && bypassDepth > 0 && "bg-destructive/15 text-destructive",
                     isPenetrated && !isStopPoint && "bg-severity-medium/15 text-severity-medium",
-                    !isPenetrated && "bg-emerald-500/15 text-emerald-400"
+                    !isPenetrated && "bg-status-success/15 text-status-success"
                   )}
                 >
                   {isStopPoint && bypassDepth > 0 ? (

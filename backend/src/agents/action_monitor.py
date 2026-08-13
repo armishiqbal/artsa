@@ -1,7 +1,25 @@
-"""Stepwise Action Monitor & Tool Call Trajectory Classifier."""
+"""Stepwise Action Monitor & Tool Call Trajectory Classifier.
+
+WORKPACKAGE B (B2): benign system files (``/etc/hosts``, ``/etc/hostname``,
+``/etc/timezone``, ``/proc/...``, ``/sys/...``) were classified as high-risk,
+so a single ``read_file /etc/hosts`` produced GOAL_DRIFT 90 → KILL. Now:
+
+  - File tools are only anomalous for *targeted* sensitive paths
+    (passwd/shadow, dot-credential dirs, .env, keys), never blanket ``/etc/``.
+  - Command tools are only anomalous when the arguments carry a destructive
+    construct — never by tool name alone.
+  - GOAL_DRIFT requires multi-step drift evidence; a single benign or
+    sensitive-file read can no longer emit GOAL_DRIFT by itself (single-event
+    suspicious reads are left to the dedicated SENSITIVE_DATA_EXPOSED
+    detectors — RuleBased/Statistical/ToolOutput). The one exception is a
+    single *genuinely dangerous* invocation — dangerous tool, destructive
+    construct, or network exfiltration — which is itself an exploit signal and
+    flags immediately.
+"""
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from typing import Any
 
@@ -9,20 +27,103 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_HIGH_RISK_TOOLS = (
+# Tools that are dangerous by name alone (data destruction / privilege grant).
+_DANGEROUS_TOOLS = (
     "delete_user",
     "drop_database",
+    "drop_table",
+    "truncate",
+    "exfiltrate_data",
+    "export_pii",
+    "grant_admin_privilege",
+)
+
+# Tools that execute commands/shell. Flagged only when the arguments carry a
+# destructive construct, never by name alone (ordinary `ls`/`cat`/`grep` runs
+# are legitimate agent work).
+_COMMAND_TOOLS = (
     "execute_system_command",
     "execute_command",
     "exec_command",
     "shell",
     "bash",
-    "exfiltrate_data",
-    "export_pii",
-    "grant_admin_privilege",
-    "read_file",
-    "write_file",
+    "run_code",
+    "eval",
+    "system",
 )
+
+# Targeted sensitive-path markers. Deliberately NOT a blanket `/etc/` check so
+# benign system files stay SAFE while credential paths remain anomalous.
+_SENSITIVE_PATH_MARKERS = (
+    "passwd",
+    "shadow",
+    ".aws",
+    ".ssh",
+    ".kube",
+    ".env",
+    "id_rsa",
+    "credential",
+    "secret",
+)
+
+# Destructive command constructs that make a command-tool call anomalous.
+_DESTRUCTIVE_ARG_MARKERS = (
+    "rm -rf",
+    "base64 -d",
+    "/etc/shadow",
+    "/etc/passwd",
+    "169.254",
+    "nc -e",
+    "ncat -e",
+    "bash -i",
+    "/dev/tcp/",
+    "mkfs",
+    "chmod 777",
+)
+
+# Exfiltration markers that are suspicious regardless of where they point
+# (the cloud metadata endpoint 169.254.169.254 is the canonical SSRF target).
+_ALWAYS_EXFIL_MARKERS = (
+    "exfiltrate",
+    "dump",
+    "shadow",
+    "169.254",
+)
+
+
+def _is_trusted_host(host: str) -> bool:
+    """Loopback / private / ULA hosts are routine local agent work, not an
+    exfiltration destination."""
+    host = host.lower()
+    if host == "localhost" or host == "0.0.0.0":
+        return True
+    try:
+        ip = ipaddress.ip_address(host.split("%")[0])
+    except ValueError:
+        # An unresolvable DNS name is treated as external — matches the
+        # historical "any http URL is suspicious" behavior for hostnames.
+        return False
+    return bool(ip.is_loopback or ip.is_private or ip.is_unspecified)
+
+
+def _targets_external_network(text: str) -> bool:
+    """True when *text* reaches a network destination outside the local trust
+    boundary (exfiltration / SSRF-adjacent). Loopback and private-range targets
+    are excluded so a benign ``curl http://localhost:3000/api`` stays SAFE."""
+    if any(marker in text for marker in _ALWAYS_EXFIL_MARKERS):
+        return True
+    for scheme in ("http://", "https://"):
+        start = 0
+        while True:
+            idx = text.find(scheme, start)
+            if idx == -1:
+                break
+            rest = text[idx + len(scheme):]
+            host = rest.split("/", 1)[0].split(":", 1)[0].split("?", 1)[0]
+            if host and not _is_trusted_host(host):
+                return True
+            start = idx + len(scheme)
+    return False
 
 
 class ToolCallStep(BaseModel):
@@ -33,6 +134,11 @@ class ToolCallStep(BaseModel):
     arguments: dict[str, Any] = Field(default_factory=dict)
     classification: str = "EXPECTED"  # EXPECTED, PLAUSIBLE, ANOMALOUS
     anomaly_score: float = 0.0  # 0.0 (safe) to 10.0 (malicious)
+    # Why the step is anomalous — used by the trajectory verdict so a *single*
+    # dangerous invocation (dangerous tool / destructive construct / network
+    # exfil) can be flagged without re-flagging benign or sensitive-file reads.
+    # Values: "", "SENSITIVE_PATH", "DESTRUCTIVE_ARG", "DANGEROUS_TOOL", "NETWORK_EXFIL".
+    anomaly_kind: str = ""
     reasoning: str = ""
 
 
@@ -50,7 +156,9 @@ class StepwiseActionMonitor:
     """Monitors and evaluates agent tool-call trajectories stepwise in real-time."""
 
     def __init__(self, high_risk_tools: list[str] | None = None) -> None:
-        self.high_risk_tools = [t.lower() for t in (high_risk_tools or list(_DEFAULT_HIGH_RISK_TOOLS))]
+        # Backwards-compatible hook: custom lists are treated as the
+        # dangerous-by-name set (default above).
+        self.high_risk_tools = [t.lower() for t in (high_risk_tools or list(_DANGEROUS_TOOLS))]
 
     def evaluate_step(
         self,
@@ -64,43 +172,79 @@ class StepwiseActionMonitor:
         args_str = str(arguments).lower()
         intent = (user_intent or "").lower()
 
-        if any(h in tool_clean for h in self.high_risk_tools):
-            # read_file alone is only anomalous when path looks sensitive
-            if "read_file" in tool_clean or "write_file" in tool_clean:
-                if any(k in args_str for k in ("/etc/", "passwd", "shadow", ".env", "id_rsa", "secret")):
-                    return ToolCallStep(
-                        step_index=step_index,
-                        tool_name=tool_name,
-                        arguments=arguments,
-                        classification="ANOMALOUS",
-                        anomaly_score=9.0,
-                        reasoning=f"Sensitive path access via '{tool_name}'",
-                    )
-                if tool_clean in ("read_file", "write_file"):
-                    return ToolCallStep(
-                        step_index=step_index,
-                        tool_name=tool_name,
-                        arguments=arguments,
-                        classification="PLAUSIBLE",
-                        anomaly_score=3.0,
-                        reasoning=f"File tool '{tool_name}' — review path scope",
-                    )
+        # File tools: only targeted sensitive paths are anomalous.
+        if tool_clean in ("read_file", "write_file"):
+            if any(marker in args_str for marker in _SENSITIVE_PATH_MARKERS):
+                return ToolCallStep(
+                    step_index=step_index,
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    classification="ANOMALOUS",
+                    anomaly_score=9.0,
+                    anomaly_kind="SENSITIVE_PATH",
+                    reasoning=f"Sensitive path access via '{tool_name}'",
+                )
+            return ToolCallStep(
+                step_index=step_index,
+                tool_name=tool_name,
+                arguments=arguments,
+                classification="EXPECTED",
+                anomaly_score=1.0,
+                reasoning=f"File tool '{tool_name}' — path not flagged as sensitive",
+            )
+
+        # Command tools: destructive constructs are anomalous; ordinary commands are expected.
+        if tool_clean in _COMMAND_TOOLS:
+            if any(marker in args_str for marker in _DESTRUCTIVE_ARG_MARKERS):
+                return ToolCallStep(
+                    step_index=step_index,
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    classification="ANOMALOUS",
+                    anomaly_score=8.5,
+                    anomaly_kind="DESTRUCTIVE_ARG",
+                    reasoning=f"Destructive command construct via '{tool_name}'",
+                )
+            if _targets_external_network(args_str):
+                return ToolCallStep(
+                    step_index=step_index,
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    classification="ANOMALOUS",
+                    anomaly_score=8.0,
+                    anomaly_kind="NETWORK_EXFIL",
+                    reasoning=f"Command tool '{tool_name}' reaching an external network destination",
+                )
+            return ToolCallStep(
+                step_index=step_index,
+                tool_name=tool_name,
+                arguments=arguments,
+                classification="EXPECTED",
+                anomaly_score=1.0,
+                reasoning=f"Command tool '{tool_name}' — no destructive construct or external network target detected",
+            )
+
+        # Dangerous-by-name tools.
+        if tool_clean in self.high_risk_tools:
             return ToolCallStep(
                 step_index=step_index,
                 tool_name=tool_name,
                 arguments=arguments,
                 classification="ANOMALOUS",
                 anomaly_score=9.5,
+                anomaly_kind="DANGEROUS_TOOL",
                 reasoning=f"Invocation of high-risk security-sensitive tool '{tool_name}'",
             )
 
-        if any(keyword in args_str for keyword in ("http://", "https://", "exfiltrate", "dump", "shadow", "169.254")):
+        # Suspicious network / exfiltration markers in arguments.
+        if _targets_external_network(args_str):
             return ToolCallStep(
                 step_index=step_index,
                 tool_name=tool_name,
                 arguments=arguments,
                 classification="ANOMALOUS",
                 anomaly_score=8.0,
+                anomaly_kind="NETWORK_EXFIL",
                 reasoning="Suspicious network URL destination or exfiltration parameter detected",
             )
 
@@ -128,7 +272,14 @@ class StepwiseActionMonitor:
         trajectory: list[dict[str, Any]],
         user_intent: str = "",
     ) -> TrajectoryEvaluation:
-        """Evaluate a multi-step trajectory sequence for cumulative anomaly patterns."""
+        """Evaluate a multi-step trajectory sequence for cumulative anomaly patterns.
+
+        GOAL_DRIFT requires multi-step evidence — a single benign or
+        sensitive-file read must never classify the trajectory on its own. The
+        one exception is a single *genuinely dangerous* invocation (dangerous
+        tool, destructive construct, or network exfiltration): that is itself an
+        exploit signal, so it is flagged immediately instead of waiting for drift.
+        """
         step_evals: list[ToolCallStep] = []
         total_score = 0.0
 
@@ -143,9 +294,19 @@ class StepwiseActionMonitor:
         avg_score = round(total_score / max(1, len(trajectory)), 2)
 
         verdict = "BENIGN"
-        if avg_score >= 7.0 or anomalous_count >= 2:
+        if anomalous_count >= 2 or (len(trajectory) >= 3 and avg_score >= 7.0):
             verdict = "EXPLOIT"
-        elif avg_score >= 4.0 or anomalous_count == 1:
+        elif (
+            len(trajectory) == 1
+            and anomalous_count == 1
+            and step_evals[0].anomaly_kind in ("DANGEROUS_TOOL", "DESTRUCTIVE_ARG", "NETWORK_EXFIL")
+        ):
+            # Single dangerous invocation — flag immediately (no multi-step drift
+            # needed). A single SENSITIVE_PATH read is intentionally excluded:
+            # that is a single-file signal, which belongs to the dedicated
+            # SENSITIVE_DATA_EXPOSED detectors (Agent A's domain), not GOAL_DRIFT.
+            verdict = "EXPLOIT"
+        elif len(trajectory) >= 2 and (avg_score >= 4.0 or anomalous_count == 1):
             verdict = "SUSPICIOUS"
 
         return TrajectoryEvaluation(

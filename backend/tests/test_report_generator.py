@@ -1,21 +1,17 @@
 """Tests for MarkdownReportGenerator."""
 
-import pytest
 from pathlib import Path
 
-from src.reporting.markdown_report import MarkdownReportGenerator
 from src.models import (
-    CampaignConfig,
-    CampaignSummary,
-    CampaignState,
-    RoundResult,
-    AttackPayload,
     AttackCategory,
-    TargetResponse,
+    AttackPayload,
     JudgeScore,
-    Verdict,
+    RoundResult,
     Severity,
+    TargetResponse,
+    Verdict,
 )
+from src.reporting.markdown_report import MarkdownReportGenerator
 
 
 def _make_round(n: int) -> RoundResult:

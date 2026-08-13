@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +11,6 @@ from src.models import (
     CampaignConfig,
     CampaignSummary,
     RoundResult,
-    Severity,
-    Verdict,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,7 +27,7 @@ class MarkdownReportGenerator:
         evolution_summary: dict[str, Any] | None = None,
     ) -> str:
         """Produce the full Markdown report content."""
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         sections = [
             self._header(summary, config, now),
             self._executive_summary(summary),

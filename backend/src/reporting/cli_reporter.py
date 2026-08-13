@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
-from src.models import CampaignSummary, RoundResult, Verdict, Severity
+from src.models import CampaignSummary, RoundResult, Severity, Verdict
 
 console = Console()
 
@@ -18,13 +17,13 @@ class CLIReporter:
     """Produces rich, colorful terminal output for wargame campaigns."""
 
     # ─── Verdict colors ──────────────────────────────────────────────
-    VERDICT_STYLE = {
+    VERDICT_STYLE: ClassVar[dict[Verdict, tuple[str, str]]] = {
         Verdict.SUCCESS: ("green", "🟢"),
         Verdict.PARTIAL: ("yellow", "🟡"),
         Verdict.BLOCKED: ("red", "🔴"),
     }
 
-    SEVERITY_STYLE = {
+    SEVERITY_STYLE: ClassVar[dict[Severity, str]] = {
         Severity.LOW: "dim",
         Severity.MEDIUM: "cyan",
         Severity.HIGH: "yellow",
@@ -167,7 +166,7 @@ class CLIReporter:
         for i, finding in enumerate(findings, 1):
             sev = finding.score.severity
             sev_style = self.SEVERITY_STYLE.get(sev, "white")
-            verdict_color, verdict_icon = self.VERDICT_STYLE.get(
+            verdict_color, _verdict_icon = self.VERDICT_STYLE.get(
                 finding.score.verdict, ("white", "⚪")
             )
 

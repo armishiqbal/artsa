@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Dict, List
+from typing import Any
+
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class ForensicAnalysisResult(BaseModel):
 class LocalForensicAnalyzer:
     """Offline log analyzer evaluating long-horizon trajectories and goal drift without third-party API censoring."""
 
-    def analyze_trajectory_logs(self, trajectory_events: List[Dict[str, Any]]) -> ForensicAnalysisResult:
+    def analyze_trajectory_logs(self, trajectory_events: list[dict[str, Any]]) -> ForensicAnalysisResult:
         """Parse multi-turn trajectory events locally."""
         total = len(trajectory_events)
         recon_turns = 0
@@ -32,7 +32,7 @@ class LocalForensicAnalyzer:
 
         for idx, event in enumerate(trajectory_events):
             tool = event.get("tool_name", "")
-            action = event.get("action", "")
+            event.get("action", "")
 
             # Detect recon vs escalation
             if tool in ["search_docs", "list_files", "whoami"]:

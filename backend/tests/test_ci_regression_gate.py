@@ -14,6 +14,7 @@ def test_ci_regression_gate_passes():
         env={**dict(__import__("os").environ), "PYTHONPATH": str(BACKEND), "ENVIRONMENT": "testing"},
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Regression gate passed" in result.stdout

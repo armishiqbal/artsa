@@ -50,16 +50,28 @@ class MCPInspectionResult(BaseModel):
 
 
 class MCPProxyInterceptor:
-    """Inline inspector for Model Context Protocol (MCP) with method/tool allow-lists."""
+    """Inline inspector for Model Context Protocol (MCP) with method/tool allow-lists.
 
-    INJECTION_PATTERNS: ClassVar[list[tuple[str, str]]] = [
-        (r"(?i)system override", "System Persona Override"),
-        (r"(?i)ignore previous instructions", "Instruction Hijack"),
-        (r"(?i)exfiltrate", "Data Exfiltration Intent"),
-        (r"(?i)delete_user|drop_table|rm -rf", "Unauthorized System Command"),
-        (r"(?i)base64", "Base64 Obfuscation Attempt"),
-        (r"(?i)169\.254\.169\.254", "Cloud Metadata Probe"),
-        (r"(?i)/etc/passwd|/etc/shadow", "Sensitive Path Access"),
+    WORKPACKAGE B (B6): previously each injection pattern added +3 and blocking
+    required threat_score >= 4, so a *single* dangerous signal (delete_user,
+    /etc/passwd, rm -rf) always passed. Now CRITICAL patterns each carry a
+    hard-deny score >= 8 — one hit ⇒ BLOCKED. Corroborating patterns (base64)
+    still add +3 and only block in combination.
+    """
+
+    # (regex, label, threat_score) — a single CRITICAL match hard-denies.
+    CRITICAL_PATTERNS: ClassVar[list[tuple[str, str, float]]] = [
+        (r"(?i)system override", "System Persona Override", 8.0),
+        (r"(?i)ignore previous instructions", "Instruction Hijack", 8.0),
+        (r"(?i)exfiltrate", "Data Exfiltration Intent", 8.0),
+        (r"(?i)delete_user|drop_table|rm -rf", "Unauthorized System Command", 9.0),
+        (r"(?i)169\.254\.169\.254", "Cloud Metadata Probe", 9.0),
+        (r"(?i)/etc/passwd|/etc/shadow", "Sensitive Path Access", 9.0),
+    ]
+
+    # (regex, label, additive_score) — corroborating signals, +3 each.
+    ADDITIVE_PATTERNS: ClassVar[list[tuple[str, str, float]]] = [
+        (r"(?i)base64", "Base64 Obfuscation Attempt", 3.0),
     ]
 
     def __init__(
@@ -105,10 +117,16 @@ class MCPProxyInterceptor:
             threat_score = max(threat_score, 9.0)
 
         params_str = str(params)
-        for pattern, label in self.INJECTION_PATTERNS:
+        # CRITICAL patterns: a single match hard-denies (threat >= 8).
+        for pattern, label, score in self.CRITICAL_PATTERNS:
             if re.search(pattern, params_str):
                 detected.append(label)
-                threat_score += 3.0
+                threat_score = max(threat_score, score)
+        # Corroborating patterns: each adds +3; alone they do not block.
+        for pattern, label, score in self.ADDITIVE_PATTERNS:
+            if re.search(pattern, params_str):
+                detected.append(label)
+                threat_score += score
 
         threat_score = min(threat_score, 10.0)
         hard_deny = any(d.startswith(_DENY_PREFIXES) for d in detected)

@@ -100,6 +100,9 @@ jobs:
           python -m pytest tests/ \
             --tb=short \
             -v
+          # Gateway tests (LLM proxy, providers) are part of the main suite
+          # (tests/test_llm_proxy.py, tests/test_providers_api.py); the legacy
+          # api-gateway/ package was removed.
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 2b: Postgres Integration Tests
@@ -165,6 +168,8 @@ jobs:
         run: |
           cd frontend
           npm ci || npm install
+          npm run lint
+          npm run typecheck
           npm run test
           npm run build
 

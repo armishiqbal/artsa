@@ -1,7 +1,8 @@
 """Session Tracker Service with Adjacency List Session Graph."""
 
 import uuid
-from typing import Dict, List, Optional
+from datetime import UTC
+
 from src.core.models.events import ToolCallEvent
 from src.core.models.sessions import Session
 
@@ -10,8 +11,8 @@ class SessionTracker:
     """Tracks session execution states and adjacency graph of agent tool invocations."""
 
     def __init__(self) -> None:
-        self.active_sessions: Dict[str, Session] = {}
-        self.session_events: Dict[str, List[ToolCallEvent]] = {}
+        self.active_sessions: dict[str, Session] = {}
+        self.session_events: dict[str, list[ToolCallEvent]] = {}
 
     def start_session(self, agent_id: str, tenant_id: str = "default_tenant") -> Session:
         """Start a new agent execution session."""
@@ -20,7 +21,7 @@ class SessionTracker:
         self.session_events[str(session.id)] = []
         return session
 
-    def get_session(self, session_id: uuid.UUID) -> Optional[Session]:
+    def get_session(self, session_id: uuid.UUID) -> Session | None:
         """Fetch session by ID."""
         return self.active_sessions.get(str(session_id))
 
@@ -35,10 +36,10 @@ class SessionTracker:
         if session:
             session.tool_call_count += 1
 
-    def get_session_graph(self, session_id: uuid.UUID) -> Dict[str, List[str]]:
+    def get_session_graph(self, session_id: uuid.UUID) -> dict[str, list[str]]:
         """Build adjacency list graph of agent -> tool calls for session trajectory."""
         events = self.session_events.get(str(session_id), [])
-        graph: Dict[str, List[str]] = {}
+        graph: dict[str, list[str]] = {}
         for evt in events:
             agent = evt.agent_id
             if agent not in graph:
@@ -46,7 +47,7 @@ class SessionTracker:
             graph[agent].append(evt.tool_name)
         return graph
 
-    def update_session(self, session_id: uuid.UUID, risk_score: float, is_breached: bool = False) -> Optional[Session]:
+    def update_session(self, session_id: uuid.UUID, risk_score: float, is_breached: bool = False) -> Session | None:
         """Update session risk metrics and status."""
         session = self.get_session(session_id)
         if session:
@@ -57,9 +58,9 @@ class SessionTracker:
                 session.status = "BREACHED"
         return session
 
-    def apply_action(self, session_id: uuid.UUID, action: str) -> Optional[Session]:
+    def apply_action(self, session_id: uuid.UUID, action: str) -> Session | None:
         """Apply containment action to an in-memory session."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         session = self.get_session(session_id)
         if not session:
@@ -67,7 +68,7 @@ class SessionTracker:
         action_u = action.upper()
         if action_u == "KILL":
             session.status = "BREACHED"
-            session.ended_at = datetime.now(timezone.utc)
+            session.ended_at = datetime.now(UTC)
             session.containment_breaches += 1
         elif action_u == "QUARANTINE":
             session.status = "QUARANTINED"

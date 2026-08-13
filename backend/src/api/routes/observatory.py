@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -27,7 +27,7 @@ def _results_store() -> ResultsStore:
     return ResultsStore(data_dir=str(Path("./data/results")))
 
 
-def _get_benchmark_report() -> Dict[str, Any]:
+def _get_benchmark_report() -> dict[str, Any]:
     cached = get_cached_benchmark()
     if cached is not None:
         return cached
@@ -39,13 +39,13 @@ def _get_benchmark_report() -> Dict[str, Any]:
 
 
 @router.get("/observatory")
-async def get_observatory_data() -> Dict[str, Any]:
+async def get_observatory_data() -> dict[str, Any]:
     """Return live observatory metrics from ResultsStore and cached benchmark."""
     store = _results_store()
     campaign_ids = store.list_campaign_ids()
 
-    heatmap: List[Dict[str, Any]] = []
-    red_queen_generations: List[Dict[str, Any]] = []
+    heatmap: list[dict[str, Any]] = []
+    red_queen_generations: list[dict[str, Any]] = []
     total_rounds = 0
 
     for cid in campaign_ids:
@@ -68,7 +68,7 @@ async def get_observatory_data() -> Dict[str, Any]:
         day_counts[entry["date"]] += 1
         day_scores[entry["date"]].append(entry["score"])
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     heatmap_cells = []
     for offset in range(30):
         day = (today - timedelta(days=29 - offset)).isoformat()
@@ -128,7 +128,7 @@ async def get_observatory_data() -> Dict[str, Any]:
     }
 
 
-def _regression_status(benchmark: Dict[str, Any]) -> Dict[str, Any]:
+def _regression_status(benchmark: dict[str, Any]) -> dict[str, Any]:
     thresholds = {t["threshold"]: t for t in benchmark.get("thresholds", [])}
     t80 = thresholds.get(80.0, {})
     t50 = thresholds.get(50.0, {})

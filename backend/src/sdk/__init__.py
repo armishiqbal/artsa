@@ -1,5 +1,5 @@
 """ARTSA Shift-Left Developer SDK."""
 
-from src.sdk.client import test, ArtsaSDKResult
+from src.sdk.client import ArtsaSDKResult, test
 
-__all__ = ["test", "ArtsaSDKResult"]
+__all__ = ["ArtsaSDKResult", "test"]

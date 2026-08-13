@@ -5,6 +5,7 @@ import { X, Bell, ExternalLink } from "lucide-react";
 import type { Alert } from "@/lib/types";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { verdictSummary } from "@/lib/verdict";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,6 +33,15 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
   const openReplay = (sessionId: string) => {
     onClose();
     router.push(`/replay?session=${sessionId}`);
+  };
+
+  // Representative score per severity band so alerts get the same plain-language
+  // "what we did" line as the rest of the product (see lib/verdict).
+  const scoreForSeverity: Record<Alert["severity"], number> = {
+    CRITICAL: 90,
+    HIGH: 70,
+    MEDIUM: 45,
+    LOW: 20,
   };
 
   return (
@@ -93,6 +103,13 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium">{alert.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{alert.message}</p>
+                        <p className="mt-1.5 text-xs text-foreground">
+                          {
+                            verdictSummary({
+                              riskScore: scoreForSeverity[alert.severity],
+                            }).whatWeDid
+                          }
+                        </p>
                         <p className="mt-2 font-mono text-[10px] text-muted-foreground">
                           {alert.agent_id} · {new Date(alert.triggered_at).toLocaleString()}
                         </p>

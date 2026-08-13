@@ -1,6 +1,11 @@
 """Startup benchmark cache warm tests."""
 
-from src.services.benchmark_cache import get_cached_ablation, get_cached_benchmark, invalidate_ablation_cache, invalidate_benchmark_cache
+from src.services.benchmark_cache import (
+    get_cached_ablation,
+    get_cached_benchmark,
+    invalidate_ablation_cache,
+    invalidate_benchmark_cache,
+)
 from src.services.startup_warmup import warm_benchmark_caches_sync
 
 

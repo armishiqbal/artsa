@@ -1,6 +1,6 @@
 """Benchmark evaluation API."""
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -14,7 +14,7 @@ router = APIRouter(tags=["Benchmark"])
 
 
 @router.post("/benchmark/run")
-async def run_benchmark() -> Dict[str, Any]:
+async def run_benchmark() -> dict[str, Any]:
     """Run labeled dataset benchmark and return precision/recall/FPR at 50/80 thresholds."""
     harness = BenchmarkHarness()
     report = harness.run()
@@ -25,7 +25,7 @@ async def run_benchmark() -> Dict[str, Any]:
 
 
 @router.post("/benchmark/ablation")
-async def run_detector_ablation() -> Dict[str, Any]:
+async def run_detector_ablation() -> dict[str, Any]:
     """Run detector ablation study — disable each detector and measure recall impact."""
     harness = AblationHarness()
     report = harness.run_ablation()
@@ -36,7 +36,7 @@ async def run_detector_ablation() -> Dict[str, Any]:
 
 
 @router.post("/benchmark/judge-validation")
-async def run_judge_validation() -> Dict[str, Any]:
+async def run_judge_validation() -> dict[str, Any]:
     """Compare heuristic judge vs human labels on validation set."""
     samples = [
         {

@@ -20,13 +20,13 @@ describe("RiskScore", () => {
   it("applies the critical variant for scores >= 80", () => {
     render(<RiskScore score={92.4} />);
     const badge = screen.getByText("92.4").closest("div");
-    expect(badge).toHaveClass("bg-red-500/15");
+    expect(badge).toHaveClass("bg-destructive/15");
   });
 
   it("applies the success variant for low scores", () => {
     render(<RiskScore score={12.0} />);
     const badge = screen.getByText("12.0").closest("div");
-    expect(badge).toHaveClass("bg-emerald-500/15");
+    expect(badge).toHaveClass("bg-status-success/15");
   });
 });
 
@@ -45,7 +45,7 @@ describe("SeverityBadge", () => {
 
   it("maps LOW to the info variant", () => {
     render(<SeverityBadge severity="LOW" />);
-    expect(screen.getByLabelText("Severity: LOW")).toHaveClass("bg-indigo-500/15");
+    expect(screen.getByLabelText("Severity: LOW")).toHaveClass("bg-severity-info/15");
   });
 });
 

@@ -2,11 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   CATEGORY_LABELS,
   DEFENSE_LAYER_LABELS,
-  shouldUseSimulatedRiskDemo,
-  withSimulatedRiskCounts,
+  frameworkFromMetadata,
 } from "@/lib/agenticRisks";
-import { severityFromScore } from "@/lib/severity";
-import type { AgenticRisk, RiskFrameworkResponse } from "@/lib/types";
+import type { AgenticRisk } from "@/lib/types";
 
 const SAMPLE_ROW: AgenticRisk = {
   id: "agent-goal-hijack",
@@ -24,59 +22,33 @@ const SAMPLE_ROW: AgenticRisk = {
   severity: "LOW",
 };
 
-describe("agentic risk framework helpers", () => {
-  it("uses simulated demo when pipeline is idle or has no flag matches", () => {
-    expect(shouldUseSimulatedRiskDemo(null)).toBe(true);
-    expect(
-      shouldUseSimulatedRiskDemo({
-        framework: [SAMPLE_ROW],
-        total_events: 0,
-        generated_at: null,
-      })
-    ).toBe(true);
-    expect(
-      shouldUseSimulatedRiskDemo({
-        framework: [{ ...SAMPLE_ROW, live_events: 0 }],
-        total_events: 12,
-        generated_at: null,
-      })
-    ).toBe(true);
-    expect(
-      shouldUseSimulatedRiskDemo({
-        framework: [{ ...SAMPLE_ROW, live_events: 3 }],
-        total_events: 3,
-        generated_at: null,
-      })
-    ).toBe(false);
-  });
-
-  it("overlays demonstration counters onto API rows", () => {
-    const api: RiskFrameworkResponse = {
-      framework: [SAMPLE_ROW],
-      total_events: 0,
-      generated_at: null,
-    };
-    const demo = withSimulatedRiskCounts(api);
-    expect(demo.total_events).toBe(161);
-    expect(demo.framework[0].live_events).toBeGreaterThan(0);
-    expect(demo.framework[0].blocked_events).toBeLessThanOrEqual(demo.framework[0].live_events);
-    expect(demo.framework[0].severity).toBe(severityFromScore(demo.framework[0].max_risk_score));
+describe("agentic risk framework helpers (real data only)", () => {
+  it("builds zero-count framework rows from static metadata", () => {
+    const meta = [
+      {
+        id: SAMPLE_ROW.id,
+        rank: SAMPLE_ROW.rank,
+        name: SAMPLE_ROW.name,
+        description: SAMPLE_ROW.description,
+        attack_categories: SAMPLE_ROW.attack_categories,
+        defense_layers: SAMPLE_ROW.defense_layers,
+        detectors: SAMPLE_ROW.detectors,
+        mitigations: SAMPLE_ROW.mitigations,
+      },
+    ];
+    const response = frameworkFromMetadata(meta);
+    expect(response.total_events).toBe(0);
+    expect(response.framework[0].live_events).toBe(0);
+    expect(response.framework[0].blocked_events).toBe(0);
+    expect(response.framework[0].severity).toBe("LOW");
   });
 
   it("maps every referenced category and defense layer to a label", () => {
-    const api: RiskFrameworkResponse = {
-      framework: [SAMPLE_ROW],
-      total_events: 0,
-      generated_at: null,
-    };
-    const demo = withSimulatedRiskCounts(api);
-    for (const risk of demo.framework) {
-      for (const cat of risk.attack_categories) {
-        expect(CATEGORY_LABELS[cat]).toBeDefined();
-      }
-      for (const layer of risk.defense_layers) {
-        expect(DEFENSE_LAYER_LABELS[layer]).toBeDefined();
-      }
+    for (const cat of SAMPLE_ROW.attack_categories) {
+      expect(CATEGORY_LABELS[cat]).toBeDefined();
+    }
+    for (const layer of SAMPLE_ROW.defense_layers) {
+      expect(DEFENSE_LAYER_LABELS[layer]).toBeDefined();
     }
   });
 });

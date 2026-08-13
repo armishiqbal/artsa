@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # =============================================================================
 # Enums
@@ -171,7 +170,7 @@ class RoundResult(BaseModel):
     attack: AttackPayload
     response: TargetResponse
     score: JudgeScore
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     duration_ms: float = 0.0
 
 
@@ -235,7 +234,7 @@ class CampaignConfig(BaseModel):
     max_rounds: int = 50
     max_tokens: int = 500_000
     max_cost_usd: float = 10.0
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class CampaignSummary(BaseModel):

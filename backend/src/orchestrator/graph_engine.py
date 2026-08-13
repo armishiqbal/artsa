@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Set
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-from src.models import AttackPayload, TargetResponse, Verdict
+from src.models import AttackPayload
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class SwarmNode(BaseModel):
     name: str
     type: str  # "agent", "tool", "datastore", "mcp_bridge"
     trust_level: str = "medium"  # "low", "medium", "high"
-    allowed_tools: List[str] = Field(default_factory=list)
+    allowed_tools: list[str] = Field(default_factory=list)
     system_prompt: str = ""
 
 
@@ -34,17 +35,17 @@ class LateralMovementResult(BaseModel):
     """Result of an Agent-Mediated Lateral Movement (AILM) simulation run."""
 
     entry_node_id: str
-    compromised_node_ids: List[str] = Field(default_factory=list)
+    compromised_node_ids: list[str] = Field(default_factory=list)
     contagion_score: float = 0.0  # Compromised / Total
     max_penetrated_trust_level: str = "low"
-    propagation_trace: List[Dict[str, Any]] = Field(default_factory=list)
+    propagation_trace: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class LateralMovementGraphEngine(BaseModel):
     """Graph Engine modeling Agentic Swarms and simulating lateral movement attack propagation."""
 
-    nodes: Dict[str, SwarmNode] = Field(default_factory=dict)
-    edges: List[SwarmEdge] = Field(default_factory=list)
+    nodes: dict[str, SwarmNode] = Field(default_factory=dict)
+    edges: list[SwarmEdge] = Field(default_factory=list)
 
     def add_node(self, node: SwarmNode) -> None:
         self.nodes[node.id] = node
@@ -53,7 +54,7 @@ class LateralMovementGraphEngine(BaseModel):
         if source_id in self.nodes and target_id in self.nodes:
             self.edges.append(SwarmEdge(source_id=source_id, target_id=target_id, channel_type=channel_type))
 
-    def get_neighbors(self, node_id: str) -> List[str]:
+    def get_neighbors(self, node_id: str) -> list[str]:
         return [e.target_id for e in self.edges if e.source_id == node_id]
 
     def simulate_contagion(
@@ -66,9 +67,9 @@ class LateralMovementGraphEngine(BaseModel):
         if entry_node_id not in self.nodes:
             raise ValueError(f"Entry node {entry_node_id} not found in swarm graph topology.")
 
-        compromised: Set[str] = {entry_node_id}
-        trace: List[Dict[str, Any]] = []
-        queue: List[tuple[str, str, int]] = [(entry_node_id, initial_attack.prompt, 0)]
+        compromised: set[str] = {entry_node_id}
+        trace: list[dict[str, Any]] = []
+        queue: list[tuple[str, str, int]] = [(entry_node_id, initial_attack.prompt, 0)]
         max_trust = self.nodes[entry_node_id].trust_level
 
         trust_order = {"low": 1, "medium": 2, "high": 3}

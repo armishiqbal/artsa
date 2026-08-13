@@ -1,13 +1,11 @@
 """Tests for ResultsStore — JSON file-based storage."""
 
-import pytest
 
 from src.data.results_store import ResultsStore
 from src.models import (
     AttackCategory,
     AttackPayload,
     CampaignConfig,
-    CampaignState,
     JudgeScore,
     RoundResult,
     Severity,

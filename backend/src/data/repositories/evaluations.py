@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -21,7 +21,7 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
         super().__init__(session, EventEvaluationORM)
         self._use_memory = settings.is_testing
 
-    def _to_dict(self, row: EventEvaluationORM) -> Dict[str, Any]:
+    def _to_dict(self, row: EventEvaluationORM) -> dict[str, Any]:
         return {
             "risk_score": row.risk_score,
             "verdict": row.verdict,
@@ -35,7 +35,7 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
         self,
         event_id: str,
         session_id: str,
-        evaluation: Dict[str, Any],
+        evaluation: dict[str, Any],
     ) -> EventEvaluationORM:
         return EventEvaluationORM(
             event_id=event_id,
@@ -52,7 +52,7 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
         self,
         event_id: str,
         session_id: UUID,
-        evaluation: Dict[str, Any],
+        evaluation: dict[str, Any],
     ) -> None:
         memory_store.store_evaluation(event_id, evaluation)
         if self._use_memory:
@@ -74,7 +74,7 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
             self.session.add(self._to_orm(event_id, sid, evaluation))
         await self.session.commit()
 
-    async def get_by_session(self, session_id: UUID) -> Dict[str, Dict[str, Any]]:
+    async def get_by_session(self, session_id: UUID) -> dict[str, dict[str, Any]]:
         if self._use_memory:
             return memory_store.get_evaluations_for_session(session_id)
 
@@ -87,7 +87,7 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
 
         return memory_store.get_evaluations_for_session(session_id)
 
-    async def get_by_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+    async def get_by_event(self, event_id: str) -> dict[str, Any] | None:
         cached = memory_store.get_evaluation(event_id)
         if cached:
             return cached
@@ -100,7 +100,7 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
         row = result.scalar_one_or_none()
         return self._to_dict(row) if row else None
 
-    async def bulk_get_for_events(self, event_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    async def bulk_get_for_events(self, event_ids: list[str]) -> dict[str, dict[str, Any]]:
         if not event_ids:
             return {}
         if self._use_memory:

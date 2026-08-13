@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shield, Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn, KeyRound } from "lucide-react";
+import { LogoIcon } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { isOidcEnabled, startOidcLogin } from "@/lib/oidc";
 import { useAuthStore } from "@/lib/stores/auth";
@@ -13,17 +15,37 @@ const RETURN_TO_KEY = "artsa_return_to";
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const bearerToken = useAuthStore((s) => s.bearerToken);
+  const apiKey = useAuthStore((s) => s.apiKey);
+  const setApiKey = useAuthStore((s) => s.setApiKey);
+  const [keyInput, setKeyInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const returnTo = searchParams.get("returnTo") || "/";
 
   useEffect(() => {
-    if (bearerToken) {
+    if (apiKey) {
       const dest = returnTo.startsWith("/") ? returnTo : "/";
       router.replace(dest);
     }
-  }, [bearerToken, router, returnTo]);
+  }, [apiKey, router, returnTo]);
+
+  const handleKeyLogin = async () => {
+    const key = keyInput.trim();
+    if (!key) {
+      setError("Enter your ARTSA API key to continue.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      setApiKey(key);
+      // AuthGuard refreshes identity from /config/me on the next render.
+      router.replace(returnTo.startsWith("/") ? returnTo : "/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign in");
+      setLoading(false);
+    }
+  };
 
   const handleSsoLogin = async () => {
     setLoading(true);
@@ -38,43 +60,59 @@ function LoginInner() {
     }
   };
 
-  if (!isOidcEnabled()) {
-    return (
-      <div className="mx-auto max-w-md py-16">
-        <DashboardCard title="Sign in" description="OIDC SSO is not enabled for this deployment.">
-          <p className="text-sm text-muted-foreground">
-            Configure <code className="font-mono text-xs">NEXT_PUBLIC_OIDC_ENABLED=true</code> or set a
-            server-side <code className="font-mono text-xs">ARTSA_API_KEY</code> (see{" "}
-            <code className="font-mono text-xs">.env.local.example</code>) so the API proxy can authenticate.
-          </p>
-        </DashboardCard>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto flex max-w-md flex-col items-center py-16">
-      <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-        <Shield className="h-7 w-7" aria-hidden />
+      <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl brand-bg-subtle brand-border brand-glow-sm">
+        <LogoIcon size={32} aria-hidden />
       </div>
       <h1 className="text-xl font-semibold tracking-tight">Sign in to ARTSA</h1>
       <p className="mt-2 text-center text-sm text-muted-foreground">
-        Use your organization SSO to access the containment platform.
+        Authenticate with a role API key or your organization SSO.
       </p>
 
-      <Button className="mt-8 w-full gap-2" size="lg" onClick={handleSsoLogin} disabled={loading}>
-        {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Redirecting…
-          </>
-        ) : (
-          <>
-            <LogIn className="h-4 w-4" aria-hidden />
-            Continue with SSO
-          </>
+      <div className="mt-8 w-full">
+        <DashboardCard title="API key" description="Use your admin, analyst, red-team or read-only key.">
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <KeyRound
+                className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                type="password"
+                placeholder="artsa-admin-… or artsa-analyst-…"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleKeyLogin();
+                }}
+                className="pl-9"
+                aria-label="API key"
+              />
+            </div>
+            <Button size="lg" onClick={handleKeyLogin} disabled={loading} className="gap-2">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <LogIn className="h-4 w-4" aria-hidden />
+              )}
+              Sign in with API key
+            </Button>
+          </div>
+        </DashboardCard>
+
+        {isOidcEnabled() && (
+          <div className="mt-4 text-center">
+            <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+              or continue with
+            </p>
+            <Button variant="outline" size="lg" className="w-full gap-2" onClick={handleSsoLogin} disabled={loading}>
+              <LogIn className="h-4 w-4" aria-hidden />
+              Organization SSO
+            </Button>
+          </div>
         )}
-      </Button>
+      </div>
 
       {error && <p className="mt-4 text-sm text-severity-critical">{error}</p>}
     </div>

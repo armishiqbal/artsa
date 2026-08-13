@@ -8,16 +8,18 @@ Persistence runs through AlertRepository / AlertRuleRepository; the async
 
 from __future__ import annotations
 
+import logging
 import uuid
-from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.models.alerts import Alert, AlertRule
 from src.data.repositories.alerts import AlertRepository, AlertRuleRepository
 
-_alerts_store: List[Alert] = []
-_webhook_rules: List[AlertRule] = []
+logger = logging.getLogger(__name__)
+
+_alerts_store: list[Alert] = []
+_webhook_rules: list[AlertRule] = []
 _MAX_ALERTS = 500
 
 
@@ -26,9 +28,9 @@ _MAX_ALERTS = 500
 # ─────────────────────────────────────────────────────────────────────────────
 
 def list_alerts(
-    severity: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> List[Alert]:
+    severity: str | None = None,
+    session_id: str | None = None,
+) -> list[Alert]:
     results = _alerts_store
     if severity:
         results = [a for a in results if a.severity == severity]
@@ -42,11 +44,11 @@ def append_alert(alert: Alert) -> Alert:
     del _alerts_store[_MAX_ALERTS:]
 
     try:
-        from src.services.webhook_dispatcher import dispatch_alert_webhooks
+        from src.services.alert_dispatcher import dispatch_alert
 
-        dispatch_alert_webhooks(alert)
-    except Exception:
-        pass
+        dispatch_alert(alert)
+    except Exception as exc:
+        logger.warning("Alert dispatch failed for %s: %s", alert.id, exc)
 
     return alert
 
@@ -66,7 +68,7 @@ def record_alert_from_evaluation(
     risk_score: float,
     verdict: str,
     recommended_action: str,
-) -> Optional[Alert]:
+) -> Alert | None:
     """Create an alert when risk crosses HIGH/CRITICAL thresholds."""
     if risk_score < 60:
         return None
@@ -91,7 +93,7 @@ def record_alert_from_evaluation(
     return append_alert(alert)
 
 
-def get_webhook_rules() -> List[AlertRule]:
+def get_webhook_rules() -> list[AlertRule]:
     return _webhook_rules
 
 
@@ -100,12 +102,12 @@ def add_webhook_rule(rule: AlertRule) -> AlertRule:
     return rule
 
 
-def seed_webhook_rules(rules: List[AlertRule]) -> None:
+def seed_webhook_rules(rules: list[AlertRule]) -> None:
     """Load persisted rules into memory (called on startup / after writes)."""
     _webhook_rules[:] = rules
 
 
-def load_persisted_alerts(alerts: List[Alert]) -> None:
+def load_persisted_alerts(alerts: list[Alert]) -> None:
     """Load persisted alerts into the in-memory hot path (startup)."""
     _alerts_store[:] = alerts[:_MAX_ALERTS]
 
@@ -127,8 +129,8 @@ async def persist_alert_delivered(db: AsyncSession, alert_id: uuid.UUID) -> None
     try:
         repo = AlertRepository(db)
         await repo.mark_delivered(alert_id)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to mark alert %s delivered: %s", alert_id, exc)
 
 
 async def persist_webhook_rule(db: AsyncSession, rule: AlertRule) -> AlertRule:
@@ -148,5 +150,5 @@ async def load_persisted_state(db: AsyncSession) -> None:
         rule_repo = AlertRuleRepository(db)
         load_persisted_alerts(await alert_repo.list_alerts())
         seed_webhook_rules(await rule_repo.list_rules())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to load persisted alert state: %s", exc)

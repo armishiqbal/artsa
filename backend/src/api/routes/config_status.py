@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 
@@ -14,7 +14,7 @@ from src.core.secrets import key_status, mask_secret
 router = APIRouter(tags=["Configuration"])
 
 # Registry of all supported keys with metadata for UI / ops
-KEY_REGISTRY: List[Dict[str, str]] = [
+KEY_REGISTRY: list[dict[str, str]] = [
     # LLM providers
     {"id": "OPENAI_API_KEY", "label": "OpenAI", "category": "llm", "required_for": "Wargame judge & GPT targets"},
     {"id": "ANTHROPIC_API_KEY", "label": "Anthropic", "category": "llm", "required_for": "Claude targets"},
@@ -42,7 +42,7 @@ KEY_REGISTRY: List[Dict[str, str]] = [
 ]
 
 
-def _build_key_entry(entry: Dict[str, str]) -> Dict[str, Any]:
+def _build_key_entry(entry: dict[str, str]) -> dict[str, Any]:
     key_id = entry["id"]
     raw = getattr(settings, key_id, None)
     status = key_status(str(raw) if raw else None)
@@ -55,9 +55,9 @@ def _build_key_entry(entry: Dict[str, str]) -> Dict[str, Any]:
 
 
 @router.get("/config/me")
-async def get_current_identity(request: Request) -> Dict[str, Any]:
+async def get_current_identity(request: Request) -> dict[str, Any]:
     """Return resolved role and capabilities for the current credentials (no secrets)."""
-    api_key: Optional[str] = request.headers.get("X-API-Key")
+    api_key: str | None = request.headers.get("X-API-Key")
     bearer = extract_bearer_token(request.headers.get("Authorization"))
     role = resolve_credentials(api_key, bearer)
 
@@ -67,6 +67,8 @@ async def get_current_identity(request: Request) -> Dict[str, Any]:
             "role": None,
             "capabilities": {},
             "auth_method": None,
+            "auth_required": settings.auth_required,
+            "oidc_enabled": settings.ARTSA_OIDC_ENABLED,
         }
 
     effective_role = role or Role.ADMIN
@@ -83,10 +85,10 @@ async def get_current_identity(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/config/keys")
-async def get_key_status() -> Dict[str, Any]:
+async def get_key_status() -> dict[str, Any]:
     """Return configuration status for all registered keys (no raw secrets)."""
     keys = [_build_key_entry(e) for e in KEY_REGISTRY]
-    by_category: Dict[str, List[Dict[str, Any]]] = {}
+    by_category: dict[str, list[dict[str, Any]]] = {}
     for k in keys:
         by_category.setdefault(k["category"], []).append(k)
 
@@ -111,9 +113,9 @@ async def get_key_status() -> Dict[str, Any]:
 
 
 @router.get("/config/providers")
-async def get_provider_readiness() -> Dict[str, Any]:
+async def get_provider_readiness() -> dict[str, Any]:
     """Return LLM provider readiness based on configured keys."""
-    from src.agents.provider_registry import get_available_providers
+    from src.services.provider_registry import get_available_providers
 
     providers = [
         {"id": "openai", "name": "OpenAI", "type": "cloud_api", "model": settings.ARTSA_DEFAULT_MODEL, "configured": settings.is_key_configured("OPENAI_API_KEY")},

@@ -4,9 +4,9 @@ describe("navigation", () => {
   it("exports all primary routes", async () => {
     const { navSections } = await import("@/lib/navigation");
     const hrefs = navSections.flatMap((s) => s.items.map((i) => i.href));
-    expect(hrefs).toContain("/");
-    expect(hrefs).toContain("/wargame");
-    expect(hrefs).toContain("/policies");
+    expect(hrefs).toContain("/dashboard");
+    expect(hrefs).toContain("/campaigns");
+    expect(hrefs).toContain("/admin/policies");
     expect(hrefs).toContain("/replay");
   });
 });

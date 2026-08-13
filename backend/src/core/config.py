@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -65,7 +64,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     ARTSA_LOG_LEVEL: str = "INFO"
     SECRET_KEY: str = Field(default="change-me-in-production", min_length=16)
-    ARTSA_API_KEY: Optional[str] = None
+    ARTSA_API_KEY: str | None = None
     ARTSA_TENANT_ID: str = "default_org"
     ARTSA_DATA_DIR: str = "./data"
 
@@ -78,9 +77,9 @@ class Settings(BaseSettings):
     USE_REDIS_RATE_LIMIT: bool = True
     BENCHMARK_CACHE_TTL_SEC: int = 300
     ARTSA_REQUIRE_AUTH: bool = False
-    ARTSA_ANALYST_API_KEY: Optional[str] = None
-    ARTSA_REDTEAM_API_KEY: Optional[str] = None
-    ARTSA_READONLY_API_KEY: Optional[str] = None
+    ARTSA_ANALYST_API_KEY: str | None = None
+    ARTSA_REDTEAM_API_KEY: str | None = None
+    ARTSA_READONLY_API_KEY: str | None = None
     # When true, ingest auto-marks sessions BREACHED/QUARANTINED on KILL/QUARANTINE verdicts
     ARTSA_AUTO_ENFORCE: bool = True
     # Reject further ingest for already contained sessions (fail closed at API)
@@ -90,65 +89,105 @@ class Settings(BaseSettings):
     PINECONE_INDEX_NAME: str = "artsa-policy-kb"
     PINECONE_NAMESPACE: str = "policy"
     ARTSA_OIDC_ENABLED: bool = False
-    ARTSA_OIDC_ISSUER: Optional[str] = None
-    ARTSA_OIDC_AUDIENCE: Optional[str] = None
-    ARTSA_OIDC_JWKS_URL: Optional[str] = None
+    ARTSA_OIDC_ISSUER: str | None = None
+    ARTSA_OIDC_AUDIENCE: str | None = None
+    ARTSA_OIDC_JWKS_URL: str | None = None
     ARTSA_OIDC_ROLE_CLAIM: str = "groups"
     ARTSA_OIDC_ADMIN_GROUPS: str = "artsa-admin"
     ARTSA_OIDC_ANALYST_GROUPS: str = "artsa-analyst"
     ARTSA_OIDC_REDTEAM_GROUPS: str = "artsa-redteam"
     ARTSA_OIDC_READONLY_GROUPS: str = "artsa-readonly"
-    ARTSA_OIDC_DEFAULT_ROLE: Optional[str] = None
+    ARTSA_OIDC_DEFAULT_ROLE: str | None = None
     ARTSA_CORS_ORIGINS: str = "*"
     ARTSA_RATE_LIMIT_RPM: int = 600
+    # Short-lived, single-use WebSocket auth tickets. ARTSA_WS_TICKET_SECRET
+    # signs the ticket; falls back to SECRET_KEY when unset.
+    ARTSA_WS_TICKET_SECRET: str | None = None
+    ARTSA_WS_TICKET_TTL_SEC: int = 30
+    # Wrap all JSON responses in {"success","data","meta"}. DEFAULT OFF: the
+    # frontend, SDKs and tests still consume the flat contract. Flip to true
+    # only after api.ts / SDKs / tests are migrated (see docs/AGENT_CONTRACT.md).
+    ARTSA_RESPONSE_ENVELOPE: bool = True
     WARM_BENCHMARK_ON_START: bool = False
     SEED_ATTACK_LIBRARY_ON_START: bool = False
     SCHEDULED_ABLATION_INTERVAL_SEC: int = 0  # 0=disabled; e.g. 3600 for hourly refresh
 
     # ── Supabase (optional managed Postgres) ────────────────────────────
-    SUPABASE_URL: Optional[str] = None
-    SUPABASE_PUBLISHABLE_KEY: Optional[str] = None
-    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    SUPABASE_URL: str | None = None
+    SUPABASE_PUBLISHABLE_KEY: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
 
     # ── Vector stores ───────────────────────────────────────────────────
-    PINECONE_API_KEY: Optional[str] = None
-    PINECONE_ENVIRONMENT: Optional[str] = None
+    PINECONE_API_KEY: str | None = None
+    PINECONE_ENVIRONMENT: str | None = None
     CHROMA_PERSIST_DIR: str = "./data/chroma"
 
     # ── LLM providers (cloud) ───────────────────────────────────────────
-    OPENAI_API_KEY: Optional[str] = None
-    OPENAI_BASE_URL: Optional[str] = None
-    ANTHROPIC_API_KEY: Optional[str] = None
-    GROQ_API_KEY: Optional[str] = None
-    MISTRAL_API_KEY: Optional[str] = None
-    DEEPSEEK_API_KEY: Optional[str] = None
-    OPENROUTER_API_KEY: Optional[str] = None
-    TOGETHER_API_KEY: Optional[str] = None
-    FIREWORKS_API_KEY: Optional[str] = None
-    HUGGINGFACE_API_KEY: Optional[str] = None
-    HF_TOKEN: Optional[str] = None
-    COHERE_API_KEY: Optional[str] = None
-    GOOGLE_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: str | None = None
+    OPENAI_BASE_URL: str | None = None
+    ANTHROPIC_API_KEY: str | None = None
+    GROQ_API_KEY: str | None = None
+    MISTRAL_API_KEY: str | None = None
+    DEEPSEEK_API_KEY: str | None = None
+    OPENROUTER_API_KEY: str | None = None
+    TOGETHER_API_KEY: str | None = None
+    FIREWORKS_API_KEY: str | None = None
+    HUGGINGFACE_API_KEY: str | None = None
+    HF_TOKEN: str | None = None
+    COHERE_API_KEY: str | None = None
+    GOOGLE_API_KEY: str | None = None
 
     # ── Local / self-hosted LLM endpoints ───────────────────────────────
-    OLLAMA_API_KEY: Optional[str] = None
-    OLLAMA_BASE_URL: Optional[str] = "http://localhost:11434/v1"
-    VLLM_API_KEY: Optional[str] = None
-    VLLM_BASE_URL: Optional[str] = "http://localhost:8000/v1"
-    LMSTUDIO_API_KEY: Optional[str] = None
-    LMSTUDIO_BASE_URL: Optional[str] = "http://localhost:1234/v1"
-    JAN_API_KEY: Optional[str] = None
-    JAN_BASE_URL: Optional[str] = "http://localhost:1337/v1"
-    LOCAL_API_KEY: Optional[str] = None
-    LOCAL_BASE_URL: Optional[str] = None
+    OLLAMA_API_KEY: str | None = None
+    OLLAMA_BASE_URL: str | None = "http://localhost:11434/v1"
+    VLLM_API_KEY: str | None = None
+    VLLM_BASE_URL: str | None = "http://localhost:8000/v1"
+    LMSTUDIO_API_KEY: str | None = None
+    LMSTUDIO_BASE_URL: str | None = "http://localhost:1234/v1"
+    JAN_API_KEY: str | None = None
+    JAN_BASE_URL: str | None = "http://localhost:1337/v1"
+    LOCAL_API_KEY: str | None = None
+    LOCAL_BASE_URL: str | None = None
 
     # ── Guardrail / safety stacks ───────────────────────────────────────
-    LAKERA_API_KEY: Optional[str] = None
-    LAKERA_BASE_URL: Optional[str] = "https://api.lakera.ai/v2"
-    AZURE_CONTENT_SAFETY_KEY: Optional[str] = None
-    AZURE_CONTENT_SAFETY_ENDPOINT: Optional[str] = None
-    NVIDIA_API_KEY: Optional[str] = None
-    NEMO_GUARDRAILS_URL: Optional[str] = None
+    LAKERA_API_KEY: str | None = None
+    LAKERA_BASE_URL: str | None = "https://api.lakera.ai/v2"
+    AZURE_CONTENT_SAFETY_KEY: str | None = None
+    AZURE_CONTENT_SAFETY_ENDPOINT: str | None = None
+    NVIDIA_API_KEY: str | None = None
+    NEMO_GUARDRAILS_URL: str | None = None
+
+    # ── LLM reverse proxy gateway (OpenAI/Anthropic compatible) ───────
+    # Developers point their client base_url at http://localhost:8000/v1/proxy
+    # and every prompt is scored by the containment engine before forwarding.
+    ARTSA_PROXY_ENABLED: bool = True
+    ARTSA_PROXY_DEFAULT_PROVIDER: str = "openai"
+    ARTSA_PROXY_TARGET_BASE_URL: str | None = None
+    ARTSA_PROXY_API_KEY: str | None = None
+    # allow | sanitize | block — how SUSPICIOUS prompts are handled
+    ARTSA_PROXY_MODE: str = "sanitize"
+    # BREACHED verdicts always block; SUSPICIOUS blocks at/above this score
+    ARTSA_PROXY_BLOCK_THRESHOLD: float = 60.0
+    ARTSA_PROXY_TIMEOUT_SEC: float = 120.0
+    # Behaviour when the containment scanner itself errors:
+    #   fail_closed -> block the request (secure default, prioritises safety)
+    #   fail_open   -> allow the request (prioritises availability)
+    ARTSA_PROXY_FAIL_MODE: str = "fail_closed"
+
+    # ── SIEM / SOAR alert channels ───────────────────────────────────────
+    # Environment-level integration creds. Per-tenant rules can be configured
+    # through the alerts API with channel-specific config values instead.
+    ARTSA_ALERT_RISK_THRESHOLD: float = 60.0
+    SLACK_WEBHOOK_URL: str | None = None
+    PAGERDUTY_ROUTING_KEY: str | None = None
+    PAGERDUTY_SERVICE_URL: str = "https://events.pagerduty.com/v2/enqueue"
+    SPLUNK_HEC_URL: str | None = None
+    SPLUNK_HEC_TOKEN: str | None = None
+    DATADOG_API_KEY: str | None = None
+    DATADOG_SITE: str = "datadoghq.com"
+    SENTINEL_WORKSPACE_ID: str | None = None
+    SENTINEL_WORKSPACE_KEY: str | None = None
+    SENTINEL_LOG_TYPE: str = "ARTSA_Security"
 
     # ── Defaults ────────────────────────────────────────────────────────
     ARTSA_DEFAULT_PROVIDER: str = "openai"
@@ -177,6 +216,11 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT == "testing"
 
     @property
+    def ws_ticket_secret(self) -> str:
+        """Secret used to sign WebSocket auth tickets (falls back to SECRET_KEY)."""
+        return self.ARTSA_WS_TICKET_SECRET or self.SECRET_KEY
+
+    @property
     def auth_required(self) -> bool:
         """Require X-API-Key on all non-public routes."""
         if self.ARTSA_REQUIRE_AUTH:
@@ -199,7 +243,7 @@ class Settings(BaseSettings):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
 
-    def provider_key(self, provider: str) -> Optional[str]:
+    def provider_key(self, provider: str) -> str | None:
         """Resolve API key for a named provider."""
         mapping = {
             "openai": self.OPENAI_API_KEY,
@@ -225,9 +269,7 @@ class Settings(BaseSettings):
         val = getattr(self, key_name, None)
         if val is None:
             return False
-        if isinstance(val, str) and val.strip() in ("", "mock-key", "mock-key-for-testing", "change-me-in-production"):
-            return False
-        return True
+        return not (isinstance(val, str) and val.strip() in ("", "mock-key", "mock-key-for-testing", "change-me-in-production"))
 
 
 settings = Settings()

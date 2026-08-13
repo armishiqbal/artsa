@@ -22,9 +22,10 @@ from src.api.middleware.auth import APIKeyAuthMiddleware
 from src.api.middleware.logging import StructlogLoggingMiddleware
 from src.api.middleware.rate_limit import RateLimitMiddleware
 from src.api.middleware.rbac_middleware import RBACMiddleware
+from src.api.middleware.response_envelope import ResponseEnvelopeMiddleware
 from src.api.middleware.security_headers import SecurityHeadersMiddleware
-from src.api.routes.agents import router as agents_router
 from src.api.routes.agent_runtime import router as agent_runtime_router
+from src.api.routes.agents import router as agents_router
 from src.api.routes.alerts import router as alerts_router
 from src.api.routes.attack_library import router as attack_library_router
 from src.api.routes.benchmark import router as benchmark_router
@@ -36,10 +37,14 @@ from src.api.routes.health import router as health_router
 from src.api.routes.ingest import router as ingest_router
 from src.api.routes.metrics import router as metrics_router
 from src.api.routes.observatory import router as observatory_router
+from src.api.routes.playground import router as playground_router
 from src.api.routes.policies import router as policies_router
 from src.api.routes.prometheus import router as prometheus_router
+from src.api.routes.providers import router as providers_router
+from src.api.routes.proxy import router as proxy_router
 from src.api.routes.risks import router as risks_router
 from src.api.routes.sessions import router as sessions_router
+from src.api.routes.settings import router as settings_router
 from src.api.routes.topology import router as topology_router
 from src.api.routes.websocket import router as ws_router
 from src.core.config import settings
@@ -65,8 +70,12 @@ ROUTERS = [
     risks_router,
     config_status_router,
     prometheus_router,
+    providers_router,
     enterprise_router,
     agent_runtime_router,
+    settings_router,
+    proxy_router,
+    playground_router,
 ]
 
 
@@ -90,6 +99,15 @@ async def lifespan(app: FastAPI):
             logger.info("Persisted alerts and webhook rules loaded")
         except Exception as exc:
             logger.warning("Alert state load skipped: %s", exc)
+
+        # Load user-registered LLM providers (keys decrypted into memory).
+        try:
+            from src.services.provider_registry import provider_registry
+
+            await provider_registry.refresh()
+            logger.info("Provider registry loaded: %s", provider_registry.names())
+        except Exception as exc:
+            logger.warning("Provider registry load skipped: %s", exc)
 
         if settings.WARM_BENCHMARK_ON_START:
             import asyncio
@@ -132,10 +150,18 @@ def create_app() -> FastAPI:
     app.add_middleware(RBACMiddleware)
     app.add_middleware(APIKeyAuthMiddleware)
     app.add_middleware(StructlogLoggingMiddleware)
+    # Opt-in response envelope — see src/core/config.py ARTSA_RESPONSE_ENVELOPE.
+    if settings.ARTSA_RESPONSE_ENVELOPE:
+        app.add_middleware(ResponseEnvelopeMiddleware)
 
     for prefix in ("/v1", "/api/v1"):
         for router in ROUTERS:
             app.include_router(router, prefix=prefix)
+
+    # Root-level liveness/readiness probes (documented at `/health` in the README
+    # and used by external monitors). The health router is also mounted under
+    # /v1 and /api/v1; this makes the bare `/health` and `/ready` paths work.
+    app.include_router(health_router)
 
     return app
 

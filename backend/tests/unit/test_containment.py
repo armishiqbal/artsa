@@ -1,6 +1,7 @@
 """Unit tests for containment detectors and scoring engine."""
 
 import uuid
+
 from src.containment.engine import ContainmentEngine
 from src.core.models.events import ToolCallEvent
 
@@ -28,7 +29,7 @@ def test_rule_based_detector_safe_command():
         tool_name="search_docs",
         arguments={"query": "security guidelines"},
     )
-    score, verdict, sec_events = engine.evaluate_event(evt)
+    score, verdict, _sec_events = engine.evaluate_event(evt)
     assert score.overall_score < 50.0
     assert verdict.verdict == "SAFE"
     assert verdict.recommended_action == "NONE"

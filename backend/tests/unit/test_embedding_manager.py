@@ -1,8 +1,6 @@
 """Tests for embedding model resolution and hash fallback."""
 
-import pytest
 
-from src.core.config import settings
 from src.data.embedding_manager import HighAccuracy1024EmbeddingFunction, cosine_similarity
 
 

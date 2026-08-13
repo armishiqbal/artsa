@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-import re
 import uuid
+from abc import ABC, abstractmethod
 
 from src.models import AttackCategory, AttackPayload, AttackTemplate
 

@@ -4,35 +4,85 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 5.5%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 5.5%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 6% 12%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 5% 14%;
-    --muted-foreground: 240 5% 64%;
-    --accent: 240 6% 14%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 72% 51%;
+    /* ── Cyber Ember palette (v0.4) ─────────────────────────────────────
+       Deep navy-black surfaces + warm amber primary. Distinctive, ops-room
+       feel. Any brand change MUST keep these HSL references; update tokens
+       here only — never hardcode hex values in components.            */
+    --background: 222 24% 4.5%;
+    --foreground: 30 18% 96%;
+    --card: 222 22% 6.5%;
+    --card-foreground: 30 18% 96%;
+    --popover: 222 22% 6.5%;
+    --popover-foreground: 30 18% 96%;
+    --primary: 27 95% 53%;
+    --primary-foreground: 25 45% 8%;
+    --secondary: 222 14% 12%;
+    --secondary-foreground: 30 15% 92%;
+    --muted: 222 12% 13%;
+    --muted-foreground: 222 10% 58%;
+    --accent: 222 14% 14%;
+    --accent-foreground: 30 15% 92%;
+    --destructive: 0 78% 56%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 16%;
-    --input: 240 6% 16%;
-    --ring: 239 84% 67%;
-    --radius: 0.625rem;
-    --chart-1: 239 84% 67%;
-    --chart-2: 160 84% 39%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 72% 51%;
-    --chart-5: 280 65% 60%;
-    --severity-critical: 0 72% 51%;
-    --severity-high: 25 95% 53%;
+    --border: 222 12% 15%;
+    --input: 222 12% 15%;
+    --ring: 27 95% 53%;
+    --radius: 0.75rem;
+    --chart-1: 27 95% 53%;
+    --chart-2: 170 72% 42%;
+    --chart-3: 262 68% 64%;
+    --chart-4: 0 78% 56%;
+    --chart-5: 45 92% 50%;
+    --severity-critical: 0 78% 56%;
+    --severity-high: 15 90% 55%;
     --severity-medium: 38 92% 50%;
-    --severity-low: 142 71% 45%;
+    --severity-low: 142 65% 45%;
+
+    /* ── Brand (amber) ───────────────────────────────────────────── */
+    --brand: 27 95% 53%;
+    --brand-foreground: 25 45% 8%;
+    --brand-subtle: 27 90% 12%;
+    --brand-muted: 27 90% 18%;
+    --brand-ring: 27 95% 53%;
+
+    /* ── Destructive / status ────────────────────────────────────── */
+    --destructive-subtle: 0 78% 15%;
+    --destructive-border: 0 78% 35%;
+
+    /* ── Severity (subtle + border companions) ───────────────────── */
+    --severity-critical-subtle: 0 78% 15%;
+    --severity-critical-border: 0 78% 35%;
+    --severity-high-subtle: 15 90% 14%;
+    --severity-high-border: 15 90% 35%;
+    --severity-medium-subtle: 38 92% 14%;
+    --severity-medium-border: 38 92% 32%;
+    --severity-low-subtle: 142 65% 14%;
+    --severity-low-border: 142 65% 32%;
+    --severity-info: 210 80% 60%;
+    --severity-info-subtle: 210 80% 14%;
+    --severity-info-border: 210 80% 35%;
+
+    /* ── Status ──────────────────────────────────────────────────── */
+    --status-success: 142 65% 45%;
+    --status-success-subtle: 142 65% 14%;
+    --status-success-border: 142 65% 32%;
+    --status-warning: 38 92% 50%;
+    --status-warning-subtle: 38 92% 14%;
+    --status-warning-border: 38 92% 32%;
+    --status-error: 0 78% 56%;
+    --status-error-subtle: 0 78% 15%;
+    --status-error-border: 0 78% 35%;
+
+    /* ── Chart series (6 & 7 for richer multi-series charts) ─────── */
+    --chart-6: 330 65% 55%;
+    --chart-7: 200 70% 45%;
+
+    /* ── Elevation shadows ───────────────────────────────────────── */
+    --shadow-glow: 0 0 32px -8px hsl(27 95% 53% / 0.22);
+    --shadow-glow-sm: 0 0 16px -6px hsl(27 95% 53% / 0.2);
+    --shadow-glow-lg: 0 0 48px -12px hsl(27 95% 53% / 0.3);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.25), 0 1px 2px -1px rgb(0 0 0 / 0.25);
+    --shadow-elevated: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.35);
   }
 
   * {
@@ -77,5 +127,81 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+  }
+
+  /* Brand signature gradient — logo accents, hero banners, active nav states. */
+  .brand-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(28 92% 46%) 55%, hsl(15 90% 50%) 100%);
+  }
+
+  /* Subtle amber glow for security-critical widgets (live stream, threat matrix). */
+  .ember-glow {
+    box-shadow: 0 0 32px -8px hsl(27 95% 53% / 0.22);
+  }
+
+  /* ── Brand utilities (login, sidebar, design-system pages) ─────────────── */
+  .brand-text {
+    color: hsl(var(--brand));
+  }
+
+  .brand-text-gradient {
+    background: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(28 92% 46%) 55%, hsl(15 90% 50%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .brand-text-muted {
+    color: hsl(var(--brand-muted));
+  }
+
+  .brand-bg-subtle {
+    background-color: hsl(var(--brand) / 0.10);
+  }
+
+  .brand-border {
+    border-color: hsl(var(--brand) / 0.25);
+  }
+
+  .brand-glow-sm {
+    box-shadow: 0 0 16px -6px hsl(var(--brand) / 0.35);
+  }
+
+  .brand-gradient-border {
+    position: relative;
+  }
+
+  .brand-gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(var(--brand) / 0.6), transparent 50%, hsl(var(--brand) / 0.15));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .brand-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .brand-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, hsl(var(--brand) / 0.12), transparent);
+    animation: brand-shimmer 2.4s infinite;
+  }
+
+  @keyframes brand-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
   }
 }

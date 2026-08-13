@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, Shield, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { LogoIcon } from "@/components/shared/Logo";
 import { navSections } from "@/lib/navigation";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { cn } from "@/lib/utils";
@@ -15,9 +16,10 @@ import { Separator } from "@/components/ui/separator";
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const { capabilities } = useAuthRole();
+  const { identity, capabilities } = useAuthRole();
 
   const visibleSections = navSections
+    .filter((section) => !section.adminOnly || identity.role === "admin")
     .map((section) => ({
       ...section,
       items: section.items.filter(
@@ -74,7 +76,7 @@ export default function MobileNav() {
             >
               <div className="flex items-center justify-between border-b border-border p-4">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" aria-hidden />
+                  <LogoIcon size={20} className="text-primary" aria-hidden />
                   <span className="font-semibold">ARTSA</span>
                   <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-mono">
                     v0.3
@@ -122,7 +124,7 @@ export default function MobileNav() {
               <div className="p-4">
                 <div className="rounded-lg border border-border bg-muted/30 p-3">
                   <p className="text-xs font-medium">Containment SLO</p>
-                  <p className="mt-1 font-mono text-[11px] text-emerald-400">&lt;50ms ingest latency</p>
+                  <p className="mt-1 font-mono text-[11px] text-status-success">&lt;50ms ingest latency</p>
                 </div>
               </div>
             </motion.aside>

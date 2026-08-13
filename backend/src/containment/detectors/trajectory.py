@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from typing import Deque, Dict, Optional
 
 from src.agents.action_monitor import StepwiseActionMonitor
 from src.containment.detectors.base import BaseDetector
@@ -16,9 +15,9 @@ class TrajectoryDetector(BaseDetector):
     def __init__(self) -> None:
         super().__init__(name="TrajectoryDetector")
         self._monitor = StepwiseActionMonitor()
-        self._trajectories: Dict[str, Deque[dict]] = defaultdict(lambda: deque(maxlen=50))
+        self._trajectories: dict[str, deque[dict]] = defaultdict(lambda: deque(maxlen=50))
 
-    def detect(self, event: ToolCallEvent) -> Optional[SecurityEvent]:
+    def detect(self, event: ToolCallEvent) -> SecurityEvent | None:
         sid = str(event.session_id)
         self._trajectories[sid].append(
             {"tool_name": event.tool_name, "arguments": event.arguments}

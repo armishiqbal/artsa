@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Dict, List
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from src.attacks.base_attack import BaseAttack
-from src.models import AttackCategory, AttackPayload, AttackMetadata, Severity
+from src.models import AttackCategory, AttackPayload, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class MCPToolDefinition(BaseModel):
 
     name: str
     description: str
-    input_schema: Dict[str, Any] = Field(default_factory=dict)
+    input_schema: dict[str, Any] = Field(default_factory=dict)
 
 
 class MCPServerSimulator(BaseModel):
@@ -26,7 +26,7 @@ class MCPServerSimulator(BaseModel):
 
     server_id: str = "mcp-test-server"
     name: str = "Enterprise Search MCP Server"
-    tools: List[MCPToolDefinition] = Field(default_factory=list)
+    tools: list[MCPToolDefinition] = Field(default_factory=list)
 
     def inject_poisoned_tool(
         self,

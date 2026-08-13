@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { FileText, Download, ChevronRight, Loader2 } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
-import { SIMULATED_CAMPAIGNS } from "@/lib/simulatedData";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { SimulatedBadge } from "@/components/shared/SimulatedBadge";
+import ModelComparison from "@/components/ModelComparison";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,7 +18,6 @@ export default function ReportsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<Record<string, unknown> | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportMd, setExportMd] = useState<string | null>(null);
-  const [simulated, setSimulated] = useState(false);
 
   useEffect(() => {
     fetchFromBackend<{ campaigns?: Array<Record<string, unknown>> }>("/api/v1/campaigns", { silent: true }).then((data) => {
@@ -27,12 +25,6 @@ export default function ReportsPage() {
       if (list.length) {
         setCampaigns(list);
         setSelectedCampaign(list[0]);
-      } else {
-        // No live campaigns — demonstrate report generation with the
-        // realistic simulation baseline.
-        setCampaigns(SIMULATED_CAMPAIGNS as unknown as Array<Record<string, unknown>>);
-        setSelectedCampaign(SIMULATED_CAMPAIGNS[0] as unknown as Record<string, unknown>);
-        setSimulated(true);
       }
     });
   }, []);
@@ -59,6 +51,31 @@ export default function ReportsPage() {
     setExporting(false);
   };
 
+  // One-click boardroom-ready PDF (OWASP LLM Top 10, NIST, EU AI Act, ISO 42001).
+  // Goes through the BFF proxy directly since it returns a binary PDF, not JSON.
+  const exportPdf = async () => {
+    if (!summary) return;
+    setExporting(true);
+    try {
+      const res = await fetch("/api/backend/api/v1/compliance/export?format=pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(summary),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `artsa-compliance-${selectedCampaign?.id ?? "report"}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -67,7 +84,6 @@ export default function ReportsPage() {
         icon={<FileText className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {simulated && <SimulatedBadge />}
             <Badge variant="secondary">{campaigns.length} campaigns</Badge>
           </div>
         }
@@ -83,7 +99,7 @@ export default function ReportsPage() {
                 description="Run a wargame to generate assessment reports."
                 action={
                   <Button asChild size="sm">
-                    <Link href="/wargame">Launch wargame</Link>
+                    <Link href="/campaigns">Launch wargame</Link>
                   </Button>
                 }
                 className="m-4 border-0"
@@ -117,7 +133,11 @@ export default function ReportsPage() {
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-2" onClick={exportCompliance} disabled={!summary || exporting}>
                     {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    Export compliance
+                    Export Markdown
+                  </Button>
+                  <Button size="sm" className="gap-2" onClick={exportPdf} disabled={!summary || exporting}>
+                    {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                    Export PDF
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => window.print()}>Print</Button>
                 </div>
@@ -139,10 +159,24 @@ export default function ReportsPage() {
               )}
             </>
           ) : (
-            <EmptyState icon={FileText} title="Select a campaign" description="Choose a campaign or launch a wargame." action={<Button asChild size="sm"><Link href="/wargame">Launch wargame</Link></Button>} />
+            <EmptyState icon={FileText} title="Select a campaign" description="Choose a campaign or launch a wargame." action={<Button asChild size="sm"><Link href="/campaigns">Launch wargame</Link></Button>} />
           )}
         </DashboardCard>
       </div>
+
+      {/* Model comparison section */}
+      <ModelComparison
+        campaigns={campaigns.map((c) => ({
+          id: String(c.id),
+          name: String(c.name),
+          provider: String(c.provider ?? "—"),
+          model: String(c.model ?? "—"),
+          status: String(c.status),
+          rounds_completed: Number(c.rounds_completed ?? 0),
+          total_rounds: Number(c.total_rounds ?? 0),
+          summary: c.summary as Record<string, unknown> | undefined,
+        }))}
+      />
     </div>
   );
 }

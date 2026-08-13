@@ -53,6 +53,12 @@ include = ["src*"]
 target-version = "py311"
 line-length = 100
 
+[tool.ruff.lint]
+# B008: FastAPI's Depends()/Body() in argument defaults is the framework idiom.
+# BLE001: defensive `except Exception` around startup/refresh paths is an
+#         intentional codebase convention (fail-soft, log-and-continue).
+ignore = ["B008", "BLE001"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

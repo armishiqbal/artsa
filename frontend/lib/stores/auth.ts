@@ -11,8 +11,10 @@ interface AuthStore {
   bearerToken: string | null;
   refreshToken: string | null;
   expiresAt: number | null;
+  apiKey: string | null;
   setBearerToken: (token: string | null) => void;
   setSession: (session: AuthSession) => void;
+  setApiKey: (key: string | null) => void;
   clearAuth: () => void;
 }
 
@@ -41,6 +43,7 @@ export const useAuthStore = create<AuthStore>()(
       bearerToken: null,
       refreshToken: null,
       expiresAt: null,
+      apiKey: null,
       setBearerToken: (token) =>
         set({
           bearerToken: token,
@@ -53,11 +56,19 @@ export const useAuthStore = create<AuthStore>()(
           refreshToken: session.refresh_token ?? null,
           expiresAt: computeExpiresAt(session.expires_in),
         }),
+      setApiKey: (key) =>
+        set({
+          apiKey: key,
+          bearerToken: null,
+          refreshToken: null,
+          expiresAt: null,
+        }),
       clearAuth: () =>
         set({
           bearerToken: null,
           refreshToken: null,
           expiresAt: null,
+          apiKey: null,
         }),
     }),
     {
@@ -68,6 +79,7 @@ export const useAuthStore = create<AuthStore>()(
         bearerToken: state.bearerToken,
         refreshToken: state.refreshToken,
         expiresAt: state.expiresAt,
+        apiKey: state.apiKey,
       }),
     }
   )
@@ -77,6 +89,12 @@ export const useAuthStore = create<AuthStore>()(
 export function getBearerToken(): string | null {
   if (typeof window === "undefined") return null;
   return useAuthStore.getState().bearerToken;
+}
+
+/** Read the role API key outside React (e.g. api.ts). */
+export function getApiKey(): string | null {
+  if (typeof window === "undefined") return null;
+  return useAuthStore.getState().apiKey;
 }
 
 export function getRefreshToken(): string | null {
@@ -89,11 +107,21 @@ export function getTokenExpiresAt(): number | null {
   return useAuthStore.getState().expiresAt;
 }
 
-/** Rehydrate persisted auth state on the client after mount. */
+// Single-flight guard: hydrateAuthStore() runs from both AuthHydrator and
+// AuthGuard on mount. The module flag covers a second caller arriving while
+// rehydration is still in flight; hasHydrated() covers re-mounts after the
+// store already finished rehydrating (e.g. HMR).
+let hydrationStarted = false;
+
+/** Rehydrate persisted auth state on the client after mount. Idempotent — safe
+ * to call from multiple components; only the first invocation rehydrates, so
+ * the first /config/me request never races a second rehydrate. */
 export function hydrateAuthStore(): void {
-  if (typeof window !== "undefined") {
-    useAuthStore.persist.rehydrate();
+  if (typeof window === "undefined" || hydrationStarted || useAuthStore.persist.hasHydrated()) {
+    return;
   }
+  hydrationStarted = true;
+  void useAuthStore.persist.rehydrate();
 }
 
 /** True when access token expires within the given buffer (default 5 min). */

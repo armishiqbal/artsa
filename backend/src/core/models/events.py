@@ -1,9 +1,10 @@
 """Pydantic v2 Event Models."""
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, Literal, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from datetime import UTC, datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ToolCallEvent(BaseModel):
@@ -15,11 +16,11 @@ class ToolCallEvent(BaseModel):
     session_id: uuid.UUID
     agent_id: str
     tool_name: str
-    arguments: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     trace_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    response: Optional[Dict[str, Any]] = None
-    latency_ms: Optional[float] = None
+    response: dict[str, Any] | None = None
+    latency_ms: float | None = None
 
 
 class SecurityEvent(BaseModel):
@@ -32,17 +33,23 @@ class SecurityEvent(BaseModel):
     agent_id: str
     event_type: Literal[
         "PROMPT_INJECTION",
+        "TOOL_PROMPT_INJECTION",
         "JAILBREAK",
         "CREDENTIAL_THEFT",
         "REVERSE_SHELL",
         "EGRESS_TUNNEL",
         "PRIVILEGE_ESCALATION",
         "GOAL_DRIFT",
-        "SANDBOX_ESCAPE"
+        "SANDBOX_ESCAPE",
+        "CANARY_TRIGGERED",
+        "SENSITIVE_DATA_EXPOSED",
+        "SQL_INJECTION",
+        "MCP_DESTRUCTIVE_TOOL",
+        "CODE_EXECUTION_ABUSE",
     ]
     severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     risk_score: float = Field(ge=0.0, le=100.0)
     description: str
-    evidence: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    evidence: dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     detector: str

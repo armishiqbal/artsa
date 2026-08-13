@@ -37,9 +37,9 @@ function AuthCallbackInner() {
     exchangeCodeForToken(code, redirectUri, verifier)
       .then((tokens) => {
         setSession(tokens);
-        const returnTo = sessionStorage.getItem("artsa_return_to") || "/";
+        const returnTo = sessionStorage.getItem("artsa_return_to") || "/dashboard";
         sessionStorage.removeItem("artsa_return_to");
-        router.replace(returnTo.startsWith("/") ? returnTo : "/");
+        router.replace(returnTo.startsWith("/") ? returnTo : "/dashboard");
       })
       .catch((err: Error) => {
         setMessage(err.message || "Token exchange failed");

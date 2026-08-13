@@ -1,15 +1,10 @@
 """Tests for dynamic LLM provider registry and free/open-weight model providers."""
 
-import os
-import pytest
 from src.agents.base_agent import BaseAgent
-from src.agents.target_agent import TargetAgent
-from src.agents.provider_registry import (
-    create_llm_instance,
-    register_provider,
+from src.services.provider_registry import (
     get_available_providers,
+    register_provider,
 )
-from src.models import TargetConfig
 
 
 def _get_chat_openai():
@@ -19,7 +14,6 @@ def _get_chat_openai():
 
 class DummyAgent(BaseAgent):
     """Concrete BaseAgent subclass for provider testing."""
-    pass
 
 
 def test_groq_provider_init():
@@ -108,3 +102,14 @@ def test_custom_decorator_registration():
     )
     assert agent.llm.model_name == "custom-decorated-model"
     assert "decorated-endpoint" in str(agent.llm.openai_api_base)
+
+
+def test_legacy_agent_registry_path_is_a_re_export():
+    """The old src.agents.provider_registry import path still resolves to the
+    same objects in src.services.provider_registry (backward-compat shim)."""
+    import src.agents.provider_registry as legacy
+    import src.services.provider_registry as current
+
+    assert legacy.create_llm_instance is current.create_llm_instance
+    assert legacy.get_available_providers is current.get_available_providers
+    assert legacy.register_provider is current.register_provider

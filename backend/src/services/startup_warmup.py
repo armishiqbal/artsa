@@ -14,7 +14,12 @@ def warm_benchmark_caches_sync() -> None:
     """Run benchmark + ablation harness and populate caches (blocking — run in thread)."""
     from src.benchmark.ablation import AblationHarness
     from src.benchmark.harness import BenchmarkHarness
-    from src.services.benchmark_cache import get_cached_ablation, get_cached_benchmark, set_cached_ablation, set_cached_benchmark
+    from src.services.benchmark_cache import (
+        get_cached_ablation,
+        get_cached_benchmark,
+        set_cached_ablation,
+        set_cached_benchmark,
+    )
     from src.services.prometheus_metrics import record_benchmark_run
 
     if get_cached_benchmark() is None:

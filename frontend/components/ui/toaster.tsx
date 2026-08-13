@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 
 const variantStyles: Record<ToastVariant, string> = {
   default: "border-border bg-card",
-  success: "border-emerald-500/30 bg-emerald-500/10",
+  success: "border-status-success/30 bg-status-success/10",
   error: "border-destructive/30 bg-destructive/10",
-  warning: "border-amber-500/30 bg-amber-500/10",
+  warning: "border-status-warning/30 bg-status-warning/10",
 };
 
 const variantIcon: Record<ToastVariant, typeof CheckCircle2> = {

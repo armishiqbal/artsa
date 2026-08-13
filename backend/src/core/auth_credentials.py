@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from src.core.config import settings
 from src.core.rbac import Role, resolve_role
 
 
-def extract_bearer_token(authorization_header: Optional[str]) -> Optional[str]:
+def extract_bearer_token(authorization_header: str | None) -> str | None:
     if not authorization_header:
         return None
     prefix = "bearer "
@@ -31,9 +29,9 @@ def any_static_api_key_configured() -> bool:
 
 
 def resolve_credentials(
-    api_key: Optional[str],
-    bearer_token: Optional[str] = None,
-) -> Optional[Role]:
+    api_key: str | None,
+    bearer_token: str | None = None,
+) -> Role | None:
     """Resolve role from X-API-Key and/or Authorization Bearer JWT."""
     if api_key:
         role = resolve_role(api_key)

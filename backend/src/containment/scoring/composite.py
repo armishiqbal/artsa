@@ -1,16 +1,64 @@
-"""Composite Scorer Implementation."""
+"""Composite Scorer Implementation.
+
+WORKPACKAGE B (B3): the previous implementation was a pure MAX of detector
+scores — ingest showed ``rule_based/statistical/semantic/goal_drift = 0.0``
+while ``overall = 90``, so the headline was not explainable from the
+sub-scores. Now the headline is derived from a calibrated weighted combination
+of every detector sub-score (the "blend"), floored by the single strongest
+signal so a lone critical hit is never diluted below its verdict band, and
+raised by a small compounding bonus when multiple strong detectors agree.
+
+    overall = clamp( max(blend, strongest_single) + compounding_bonus, 0, 100 )
+
+Verdict bands are unchanged: >= 80 KILL, >= 50 QUARANTINE, else SAFE.
+"""
 
 import uuid
-from typing import List
+
 from src.containment.scoring.base import BaseScorer
 from src.core.models.events import SecurityEvent
 from src.core.models.scores import RiskScore
 
+# Calibrated weights across all detector families (sums to 1.00). Deterministic
+# signature detectors (rule, prompt-injection) weight more than statistical
+# signals that need corroboration.
+SUBSCORE_WEIGHTS: dict[str, float] = {
+    "rule_based_score": 0.25,
+    "injection_score": 0.15,
+    "semantic_score": 0.15,
+    "statistical_score": 0.10,
+    "goal_drift_score": 0.10,
+    "trajectory_score": 0.10,
+    "tool_output_score": 0.05,
+    "sql_injection_score": 0.05,
+    "mcp_destructive_score": 0.03,
+    "canary_score": 0.02,
+}
+
+# Detectors whose sub-score counts as "strong" for the compounding bonus.
+COMPOUNDING_FLOOR = 60.0
+COMPOUNDING_MAX_BONUS = 15.0
+COMPOUNDING_PER_DETECTOR = 3.0
+
+# Map SecurityEvent.detector -> RiskScore field name.
+_DETECTOR_TO_FIELD = {
+    "RuleBasedDetector": "rule_based_score",
+    "StatisticalDetector": "statistical_score",
+    "SemanticDetector": "semantic_score",
+    "GoalDriftDetector": "goal_drift_score",
+    "TrajectoryDetector": "trajectory_score",
+    "PromptInjectionDetector": "injection_score",
+    "ToolOutputScanner": "tool_output_score",
+    "CanaryTokenDetector": "canary_score",
+    "SqlInjectionDetector": "sql_injection_score",
+    "McpDestructiveToolDetector": "mcp_destructive_score",
+}
+
 
 class CompositeScorer(BaseScorer):
-    """Combines rule-based, statistical, semantic, and goal drift scores into overall risk index."""
+    """Combines all detector sub-scores into an explainable overall risk index."""
 
-    def calculate_score(self, events: List[SecurityEvent]) -> RiskScore:
+    def calculate_score(self, events: list[SecurityEvent]) -> RiskScore:
         if not events:
             return RiskScore(
                 session_id=uuid.uuid4(),
@@ -23,25 +71,42 @@ class CompositeScorer(BaseScorer):
                 flags=[],
             )
 
-        rule_score = max([e.risk_score for e in events if e.detector == "RuleBasedDetector"], default=0.0)
-        stat_score = max([e.risk_score for e in events if e.detector == "StatisticalDetector"], default=0.0)
-        sem_score = max([e.risk_score for e in events if e.detector == "SemanticDetector"], default=0.0)
-        drift_score = max([e.risk_score for e in events if e.detector == "GoalDriftDetector"], default=0.0)
-        traj_score = max([e.risk_score for e in events if e.detector == "TrajectoryDetector"], default=0.0)
+        # Per-detector sub-scores (max of events attributed to each detector).
+        subscores = {field: 0.0 for field in SUBSCORE_WEIGHTS}
+        for event in events:
+            field = _DETECTOR_TO_FIELD.get(event.detector)
+            if field is not None:
+                subscores[field] = max(subscores[field], event.risk_score)
 
-        overall = min(100.0, max(rule_score, stat_score, sem_score, drift_score, traj_score))
+        blend = sum(weight * subscores[field] for field, weight in SUBSCORE_WEIGHTS.items())
+        max_single = max(subscores.values())
+
+        # Compounding: multiple strong (>= 60) detectors raise the headline so
+        # corroborating signals move the verdict, not just the loudest one.
+        strong = [score for score in subscores.values() if score >= COMPOUNDING_FLOOR]
+        bonus = 0.0
+        if len(strong) >= 2:
+            bonus = min(COMPOUNDING_MAX_BONUS, len(strong) * COMPOUNDING_PER_DETECTOR)
+
+        overall = min(100.0, max(blend, max_single) + bonus)
         depth = 3 if overall >= 70.0 else 1 if overall >= 40.0 else 0
-        flags = [e.event_type for e in events]
+        flags = list(dict.fromkeys(e.event_type for e in events))
 
         session_id = events[0].session_id
 
         return RiskScore(
             session_id=session_id,
             overall_score=overall,
-            rule_based_score=rule_score,
-            statistical_score=stat_score,
-            semantic_score=sem_score,
-            goal_drift_score=drift_score,
+            rule_based_score=subscores["rule_based_score"],
+            statistical_score=subscores["statistical_score"],
+            semantic_score=subscores["semantic_score"],
+            goal_drift_score=subscores["goal_drift_score"],
+            injection_score=subscores["injection_score"],
+            trajectory_score=subscores["trajectory_score"],
+            tool_output_score=subscores["tool_output_score"],
+            canary_score=subscores["canary_score"],
+            sql_injection_score=subscores["sql_injection_score"],
+            mcp_destructive_score=subscores["mcp_destructive_score"],
             bypass_depth=depth,
             flags=flags,
         )

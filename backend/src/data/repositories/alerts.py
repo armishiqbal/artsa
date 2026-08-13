@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,10 +54,10 @@ class AlertRepository(BaseRepository[AlertORM]):
 
     async def list_alerts(
         self,
-        severity: Optional[str] = None,
-        session_id: Optional[str] = None,
+        severity: str | None = None,
+        session_id: str | None = None,
         limit: int = 500,
-    ) -> List[Alert]:
+    ) -> list[Alert]:
         if settings.is_testing:
             return []
         query = select(AlertORM)
@@ -110,7 +108,7 @@ class AlertRuleRepository(BaseRepository[AlertRuleORM]):
             enabled=rule.enabled,
         )
 
-    async def list_rules(self) -> List[AlertRule]:
+    async def list_rules(self) -> list[AlertRule]:
         result = await self.session.execute(
             select(AlertRuleORM).order_by(AlertRuleORM.risk_threshold)
         )
@@ -129,11 +127,10 @@ class AlertRuleRepository(BaseRepository[AlertRuleORM]):
             row.target_url = rule.target_url
             row.enabled = rule.enabled
             row.tenant_id = rule.tenant_id
+            row.config = rule.config
         await self.session.commit()
         return rule
 
 
 # Re-export for import convenience.
-__all__ = ["AlertRepository", "AlertRuleRepository"]
-ence.
 __all__ = ["AlertRepository", "AlertRuleRepository"]

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,20 +57,20 @@ class AgentsRepository(BaseRepository[AgentORM]):
         await self.session.commit()
         return agent
 
-    async def list_agents(self, tenant_id: str) -> List[Agent]:
+    async def list_agents(self, tenant_id: str) -> list[Agent]:
         """List registered agents for a tenant, ordered by id for stable output."""
         result = await self.session.execute(
             select(AgentORM).where(AgentORM.tenant_id == tenant_id).order_by(AgentORM.id)
         )
         return [self._to_domain(row) for row in result.scalars().all()]
 
-    async def get_agent(self, agent_id: str) -> Optional[Agent]:
+    async def get_agent(self, agent_id: str) -> Agent | None:
         """Fetch a single agent by id, or None when not found."""
         result = await self.session.execute(select(AgentORM).where(AgentORM.id == agent_id))
         row = result.scalar_one_or_none()
         return self._to_domain(row) if row else None
 
-    def _baseline_to_json(self, baseline: AgentBaseline) -> Dict[str, Any]:
+    def _baseline_to_json(self, baseline: AgentBaseline) -> dict[str, Any]:
         return {
             "tool_frequency": dict(baseline.tool_frequency),
             "common_file_paths": list(baseline.common_file_paths),
@@ -84,10 +84,10 @@ class AgentsRepository(BaseRepository[AgentORM]):
             tool_frequency=dict(data.get("tool_frequency") or {}),
             common_file_paths=list(data.get("common_file_paths") or []),
             avg_session_duration=float(data.get("avg_session_duration", 0.0)),
-            updated_at=row.updated_at or datetime.now(timezone.utc),
+            updated_at=row.updated_at or datetime.now(UTC),
         )
 
-    async def get_baseline(self, agent_id: str) -> Optional[AgentBaseline]:
+    async def get_baseline(self, agent_id: str) -> AgentBaseline | None:
         """Fetch the learned baseline for an agent, or None when absent."""
         result = await self.session.execute(
             select(AgentBaselineORM).where(AgentBaselineORM.agent_id == agent_id)

@@ -144,7 +144,7 @@ GUARDRAIL TRACE:
 Return your evaluation as a valid JSON object following the scoring rubric exactly.
 Do NOT wrap the JSON in markdown code blocks. Return ONLY the raw JSON."""
 
-        raw_response, usage = self.invoke(eval_prompt)
+        raw_response, _usage = self.invoke(eval_prompt)
 
         # Parse the JSON response
         score = self._parse_llm_response(raw_response)

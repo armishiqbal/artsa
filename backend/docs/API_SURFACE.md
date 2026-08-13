@@ -63,5 +63,4 @@ Production checklist: **[docs/PRODUCTION_CHECKLIST.md](../../docs/PRODUCTION_CHE
 
 ## Legacy
 
-- `api-gateway/gateway.py` — deprecated; routes merged into main API
-- `backend/src/web/` — deprecated dashboard
+- The legacy `backend/src/web/` dashboard was removed in favor of the Next.js command center (`frontend/`).

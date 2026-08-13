@@ -10,6 +10,7 @@ export interface AuthCapabilities {
   can_run_benchmark: boolean;
   can_run_ablation: boolean;
   can_manage_policies: boolean;
+  can_manage_providers: boolean;
   read_only: boolean;
 }
 
@@ -22,26 +23,31 @@ export interface AuthIdentity {
   oidc_enabled?: boolean;
 }
 
-const ADMIN_CAPABILITIES: AuthCapabilities = {
-  can_ingest: true,
-  can_run_campaigns: true,
-  can_run_benchmark: true,
-  can_run_ablation: true,
-  can_manage_policies: true,
+const NO_CAPABILITIES: AuthCapabilities = {
+  can_ingest: false,
+  can_run_campaigns: false,
+  can_run_benchmark: false,
+  can_run_ablation: false,
+  can_manage_policies: false,
+  can_manage_providers: false,
   read_only: false,
 };
 
+// Least-privilege default: never flash admin UI before /config/me resolves.
+// The real identity (role + capabilities) replaces this once loaded.
 const DEFAULT_IDENTITY: AuthIdentity = {
-  authenticated: true,
-  role: "admin",
-  capabilities: ADMIN_CAPABILITIES,
+  authenticated: false,
+  role: "unauthenticated",
+  capabilities: NO_CAPABILITIES,
   auth_required: false,
+  oidc_enabled: false,
 };
 
 export function useAuthRole() {
   const [identity, setIdentity] = useState<AuthIdentity>(DEFAULT_IDENTITY);
   const [loading, setLoading] = useState(true);
   const bearerToken = useAuthStore((s) => s.bearerToken);
+  const apiKey = useAuthStore((s) => s.apiKey);
 
   const refresh = () =>
     fetchFromBackend<AuthIdentity>("/api/v1/config/me", { silent: true }).then((res) => {
@@ -51,7 +57,7 @@ export function useAuthRole() {
 
   useEffect(() => {
     refresh();
-  }, [bearerToken]);
+  }, [bearerToken, apiKey]);
 
   return { identity, loading, capabilities: identity.capabilities, refresh };
 }

@@ -1,9 +1,11 @@
 """Smoke tests for config and forensics API routes."""
 
 import uuid
+
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from tests.conftest import unwrap_response
 
 client = TestClient(app)
 
@@ -11,7 +13,7 @@ client = TestClient(app)
 def test_config_keys_endpoint():
     response = client.get("/api/v1/config/keys")
     assert response.status_code == 200
-    data = response.json()
+    data = unwrap_response(response)
     assert "keys" in data
     assert "summary" in data
 
@@ -19,7 +21,7 @@ def test_config_keys_endpoint():
 def test_config_providers_endpoint():
     response = client.get("/api/v1/config/providers")
     assert response.status_code == 200
-    data = response.json()
+    data = unwrap_response(response)
     assert "providers" in data
     assert "guardrails" in data
 
@@ -30,7 +32,7 @@ def test_forensics_analyze():
         json={"events": [{"tool_name": "exec_command", "arguments": {"cmd": "ls"}}]},
     )
     assert response.status_code == 200
-    data = response.json()
+    data = unwrap_response(response)
     assert data["total_events"] == 1
     assert "forensic_summary" in data
 
@@ -41,7 +43,7 @@ def test_compliance_export():
         json={"name": "test", "total_rounds": 3, "avg_defense_quality": 8.0},
     )
     assert response.status_code == 200
-    assert "report_markdown" in response.json()
+    assert "report_markdown" in unwrap_response(response)
 
 
 def test_ingest_timeline_with_evaluation():
@@ -58,7 +60,7 @@ def test_ingest_timeline_with_evaluation():
 
     timeline = client.get(f"/api/v1/sessions/{session_id}/timeline")
     assert timeline.status_code == 200
-    entries = timeline.json()
+    entries = unwrap_response(timeline)
     assert len(entries) >= 1
     assert entries[0]["evaluation"] is not None
     assert entries[0]["evaluation"]["risk_score"] > 0

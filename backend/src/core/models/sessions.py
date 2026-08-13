@@ -1,9 +1,10 @@
 """Pydantic v2 Session Models."""
 
 import uuid
-from datetime import datetime, timezone
-from typing import Literal, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from datetime import UTC, datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Session(BaseModel):
@@ -15,8 +16,8 @@ class Session(BaseModel):
     agent_id: str
     tenant_id: str = "default_tenant"
     status: Literal["ACTIVE", "CLOSED", "BREACHED", "QUARANTINED"] = "ACTIVE"
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    ended_at: Optional[datetime] = None
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    ended_at: datetime | None = None
     tool_call_count: int = 0
     max_risk_score: float = 0.0
     containment_breaches: int = 0

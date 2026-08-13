@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import random
-import codecs
+from typing import ClassVar
 
 
 class PayloadMutator:
@@ -16,7 +16,7 @@ class PayloadMutator:
     """
 
     # Synonym mappings for common action words
-    SYNONYMS: dict[str, list[str]] = {
+    SYNONYMS: ClassVar[dict[str, list[str]]] = {
         "ignore": ["disregard", "bypass", "skip", "override", "forget"],
         "reveal": ["show", "display", "output", "present", "expose"],
         "instructions": ["directives", "guidelines", "rules", "configuration", "parameters"],
@@ -28,7 +28,7 @@ class PayloadMutator:
     }
 
     # Unicode lookalike characters (Cyrillic/Greek substitutions)
-    UNICODE_MAP: dict[str, str] = {
+    UNICODE_MAP: ClassVar[dict[str, str]] = {
         "a": "\u0430",  # Cyrillic а
         "e": "\u0435",  # Cyrillic е
         "o": "\u043e",  # Cyrillic о
@@ -39,13 +39,13 @@ class PayloadMutator:
     }
 
     # Leetspeak mappings
-    LEET_MAP: dict[str, str] = {
+    LEET_MAP: ClassVar[dict[str, str]] = {
         "a": "4", "e": "3", "i": "1", "o": "0",
         "s": "5", "t": "7", "l": "1", "g": "9",
     }
 
     # All available mutation methods
-    MUTATIONS: list[str] = [
+    MUTATIONS: ClassVar[list[str]] = [
         "base64_encode",
         "unicode_substitute",
         "leetspeak",

@@ -4,11 +4,15 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from src.core.auth_credentials import any_static_api_key_configured, extract_bearer_token, resolve_credentials
+from src.core.auth_credentials import (
+    any_static_api_key_configured,
+    extract_bearer_token,
+    resolve_credentials,
+)
 from src.core.config import settings
 from src.core.rbac import is_allowed, normalize_path
 
-_PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc", "/metrics/prometheus"}
+_PUBLIC_PATHS = {"/health", "/ready", "/config/me", "/docs", "/openapi.json", "/redoc", "/metrics/prometheus"}
 
 
 class RBACMiddleware(BaseHTTPMiddleware):

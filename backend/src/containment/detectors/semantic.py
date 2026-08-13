@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
-from src.core.config import settings
 from src.containment.detectors.base import BaseDetector
+from src.core.config import settings
 from src.core.models.events import SecurityEvent, ToolCallEvent
 from src.data.embedding_manager import HighAccuracy1024EmbeddingFunction, cosine_similarity
 
@@ -33,7 +31,7 @@ class SemanticDetector(BaseDetector):
             self._embedder.embed(phrase) for phrase in MALICIOUS_PHRASES
         ]
 
-    def detect(self, event: ToolCallEvent) -> Optional[SecurityEvent]:
+    def detect(self, event: ToolCallEvent) -> SecurityEvent | None:
         arg_str = str(event.arguments)
         if len(arg_str) < 12:
             return None

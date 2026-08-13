@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { loadRiskFrameworkWithDemoFallback } from "@/lib/agenticRisks";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { loadRiskFramework } from "@/lib/agenticRisks";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { useAuthStore } from "@/lib/stores/auth";
 import type { RiskFrameworkResponse } from "@/lib/types";
@@ -13,18 +13,22 @@ const POLL_INTERVAL_MS = 10_000;
 export function useRiskFramework() {
   const [data, setData] = useState<RiskFrameworkResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [simulated, setSimulated] = useState(false);
   const { setWsConnected } = useConnection();
   const bearerToken = useAuthStore((s) => s.bearerToken);
-  const wsUrl = useMemo(() => buildWebSocketUrl(), [bearerToken]);
+  const apiKey = useAuthStore((s) => s.apiKey);
+  // Async URL factory — mints a fresh single-use WS ticket per connect attempt.
+  // Auth state is in the deps so a token refresh triggers a WS reconnect.
+  const resolveWsUrl = useCallback(
+    () => buildWebSocketUrl(undefined, { bearerToken, apiKey }),
+    [bearerToken, apiKey]
+  );
   const lastRefreshAtRef = useRef(0);
 
   const refresh = useCallback(async () => {
     lastRefreshAtRef.current = Date.now();
-    const { data: next, simulated: demo } = await loadRiskFrameworkWithDemoFallback();
+    const next = await loadRiskFramework();
     if (next) {
       setData(next);
-      setSimulated(demo);
     }
     setLoading(false);
   }, []);
@@ -44,9 +48,10 @@ export function useRiskFramework() {
     [refresh]
   );
 
-  useReconnectingWebSocket(wsUrl, handleWsMessage, {
+  useReconnectingWebSocket("", handleWsMessage, {
     onOpen: onWsOpen,
     onClose: onWsClose,
+    resolveUrl: resolveWsUrl,
   });
 
   useEffect(() => {
@@ -55,5 +60,5 @@ export function useRiskFramework() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  return { data, loading, simulated, refresh };
+  return { data, loading, refresh };
 }

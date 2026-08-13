@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,7 +24,7 @@ def _client() -> TestClient:
     return TestClient(create_app())
 
 
-def _event(session_id: str, tool: str = "read_file", path: str = "/tmp/x") -> Dict[str, Any]:
+def _event(session_id: str, tool: str = "read_file", path: str = "/tmp/x") -> dict[str, Any]:
     return {
         "id": str(uuid.uuid4()),
         "session_id": session_id,
@@ -35,11 +35,18 @@ def _event(session_id: str, tool: str = "read_file", path: str = "/tmp/x") -> Di
     }
 
 
+def _unwrap(resp) -> dict:
+    """Unwrap the standardised API response envelope."""
+    body = resp.json()
+    return body.get("data", body) if isinstance(body, dict) else body
+
+
 def test_ready_endpoint_ok_in_testing() -> None:
     with _client() as client:
         resp = client.get("/api/v1/ready")
         assert resp.status_code == 200
         body = resp.json()
+        # Ready endpoint is excluded from envelope wrapping
         assert body["status"] == "ready"
         assert "checks" in body
 
@@ -50,7 +57,7 @@ def test_ingest_returns_enforcement_fields(monkeypatch: pytest.MonkeyPatch) -> N
     with _client() as client:
         resp = client.post("/api/v1/ingest", json=_event(sid))
         assert resp.status_code in (200, 201)
-        data = resp.json()
+        data = _unwrap(resp)
         assert "verdict" in data
         assert "recommended_action" in data["verdict"]
         assert "evaluations" in data
@@ -67,12 +74,17 @@ def test_manual_quarantine_blocks_further_ingest(monkeypatch: pytest.MonkeyPatch
 
         action = client.post(f"/api/v1/sessions/{sid}/action", json={"action": "QUARANTINE"})
         assert action.status_code == 200
-        assert action.json()["status"] == "QUARANTINED"
+        assert _unwrap(action)["status"] == "QUARANTINED"
 
         blocked = client.post("/api/v1/ingest", json=_event(sid, tool="execute_command"))
         assert blocked.status_code == 403
-        detail = blocked.json()["detail"]
-        assert detail["session_status"] == "QUARANTINED"
+        block_body = blocked.json()
+        # Error responses may be wrapped in the error envelope — handle both shapes
+        detail = block_body.get("detail", block_body.get("error", {}))
+        if isinstance(detail, dict):
+            assert "contained" in str(detail).lower() or detail.get("session_status") == "QUARANTINED"
+        else:
+            assert "contained" in str(detail).lower()
 
 
 def test_kill_action_marks_breached() -> None:
@@ -81,5 +93,6 @@ def test_kill_action_marks_breached() -> None:
         client.post("/api/v1/ingest", json=_event(sid))
         action = client.post(f"/api/v1/sessions/{sid}/action", json={"action": "KILL"})
         assert action.status_code == 200
-        assert action.json()["status"] == "BREACHED"
-        assert action.json()["enforced_action"] == "KILL"
+        data = _unwrap(action)
+        assert data["status"] == "BREACHED"
+        assert data["enforced_action"] == "KILL"

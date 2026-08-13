@@ -1,6 +1,6 @@
 """Goal drift detector."""
 
-from typing import Optional
+
 from src.containment.detectors.base import BaseDetector
 from src.core.models.events import SecurityEvent, ToolCallEvent
 
@@ -11,7 +11,7 @@ class GoalDriftDetector(BaseDetector):
     def __init__(self) -> None:
         super().__init__(name="GoalDriftDetector")
 
-    def detect(self, event: ToolCallEvent) -> Optional[SecurityEvent]:
+    def detect(self, event: ToolCallEvent) -> SecurityEvent | None:
         # Flag long-horizon trajectory drift
         if "exfiltrate" in str(event.arguments).lower():
             return SecurityEvent(

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
-from src.benchmark.harness import BenchmarkHarness, ThresholdMetrics
+from src.benchmark.harness import BenchmarkHarness
 from src.containment.engine import ContainmentEngine
 from src.core.models.events import ToolCallEvent
 
@@ -26,7 +26,7 @@ class AblationResult:
 class AblationReport:
     baseline_recall: float
     baseline_precision: float
-    results: List[AblationResult] = field(default_factory=list)
+    results: list[AblationResult] = field(default_factory=list)
     dataset_version: str = ""
 
 
@@ -34,14 +34,13 @@ class AblationHarness(BenchmarkHarness):
     """Run benchmark with each detector disabled to measure marginal contribution."""
 
     def run_ablation(self, threshold: float = 80.0) -> AblationReport:
-        import time
 
         samples = self.load_dataset()
         baseline = self._run_engine(ContainmentEngine(), samples)
         baseline_metrics = self._metrics_at_threshold(baseline, threshold)
-        baseline_t50 = self._metrics_at_threshold(baseline, 50.0)
+        self._metrics_at_threshold(baseline, 50.0)
 
-        results: List[AblationResult] = []
+        results: list[AblationResult] = []
         for detector_name in ContainmentEngine.DETECTOR_NAMES:
             engine = ContainmentEngine(disabled_detectors=[detector_name])
             scores = self._run_engine(engine, samples)
@@ -69,7 +68,7 @@ class AblationHarness(BenchmarkHarness):
         )
 
     def _run_engine(
-        self, engine: ContainmentEngine, samples: List[Dict[str, Any]]
+        self, engine: ContainmentEngine, samples: list[dict[str, Any]]
     ) -> list[tuple[float, bool, float]]:
         import time
 
@@ -87,7 +86,7 @@ class AblationHarness(BenchmarkHarness):
             scores.append((risk_score.overall_score, sample["label"] == "malicious", latency_ms))
         return scores
 
-    def to_ablation_dict(self, report: AblationReport) -> Dict[str, Any]:
+    def to_ablation_dict(self, report: AblationReport) -> dict[str, Any]:
         return {
             "dataset_version": report.dataset_version,
             "baseline": {

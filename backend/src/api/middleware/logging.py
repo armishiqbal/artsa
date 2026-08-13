@@ -1,8 +1,9 @@
 """Structlog JSON Request Logging Middleware."""
 
-import time
 import json
 import logging
+import time
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 

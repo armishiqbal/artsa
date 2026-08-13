@@ -1,6 +1,7 @@
 """ARTSA Python SDK Package."""
 
 from artsa.agent import ContainedAgent
+from artsa.async_client import AsyncArtsaClient
 from artsa.client import ArtsaBlockedError, ArtsaClient
 from artsa.middleware import (
     LangChainContainmentCallback,
@@ -14,6 +15,7 @@ from artsa.middleware import (
 __all__ = [
     "ArtsaClient",
     "ArtsaBlockedError",
+    "AsyncArtsaClient",
     "ContainedAgent",
     "LangChainContainmentCallback",
     "guarded_tool",

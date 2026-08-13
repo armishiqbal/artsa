@@ -3,8 +3,9 @@
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
 import pytest
 
 # Ensure backend root is on sys.path
@@ -14,6 +15,23 @@ if str(BACKEND_DIR) not in sys.path:
 
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["ARTSA_LOG_LEVEL"] = "WARNING"
+# Unit tests exercise handlers directly — disable the API-key auth gate that
+# the production .env enables (role keys + ARTSA_REQUIRE_AUTH=true).
+os.environ["ARTSA_REQUIRE_AUTH"] = "false"
+for _k in ("ARTSA_API_KEY", "ARTSA_ANALYST_API_KEY", "ARTSA_REDTEAM_API_KEY", "ARTSA_READONLY_API_KEY"):
+    os.environ[_k] = ""
+
+
+def unwrap_response(resp) -> dict[str, Any]:
+    """Unwrap the standardised API response envelope.
+
+    When ARTSA_RESPONSE_ENVELOPE=true, all JSON responses are wrapped as
+    {"success":bool,"data":<payload>,"meta":{...}}. This helper returns
+    the inner data payload, or the raw body when the envelope is absent
+    (e.g. health/ready/proxy/WebSocket endpoints).
+    """
+    body = resp.json()
+    return body.get("data", body) if isinstance(body, dict) else body
 
 
 @pytest.fixture

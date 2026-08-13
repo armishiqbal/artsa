@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Sequence
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import select
@@ -54,7 +54,7 @@ class EventRepository(BaseRepository[ToolCallEventORM]):
         self,
         events: Sequence[ToolCallEvent],
         tenant_id: str = "default_tenant",
-    ) -> List[ToolCallEvent]:
+    ) -> list[ToolCallEvent]:
         if not events:
             return []
 
@@ -68,7 +68,7 @@ class EventRepository(BaseRepository[ToolCallEventORM]):
             memory_store.store_event(event)
         return list(events)
 
-    async def get_by_session(self, session_id: UUID) -> List[ToolCallEvent]:
+    async def get_by_session(self, session_id: UUID) -> list[ToolCallEvent]:
         if self._use_memory:
             return sorted(memory_store.get_events_by_session(session_id), key=lambda e: e.timestamp)
 

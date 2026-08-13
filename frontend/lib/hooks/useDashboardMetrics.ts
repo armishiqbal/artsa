@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchFromBackend } from "@/lib/api";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { useAuthStore } from "@/lib/stores/auth";
@@ -15,6 +15,8 @@ export interface DashboardMetrics {
   avg_risk_score: number;
   max_risk_score: number;
   active_sessions: number;
+  event_rate: number;
+  total_events: number;
 }
 
 const POLL_INTERVAL_MS = 10_000;
@@ -25,7 +27,13 @@ export function useDashboardMetrics() {
   const [loading, setLoading] = useState(true);
   const { setWsConnected, refresh } = useConnection();
   const bearerToken = useAuthStore((s) => s.bearerToken);
-  const wsUrl = useMemo(() => buildWebSocketUrl(), [bearerToken]);
+  const apiKey = useAuthStore((s) => s.apiKey);
+  // Async URL factory — mints a fresh single-use WS ticket per connect attempt.
+  // Auth state is in the deps so a token refresh triggers a WS reconnect.
+  const resolveWsUrl = useCallback(
+    () => buildWebSocketUrl(undefined, { bearerToken, apiKey }),
+    [bearerToken, apiKey]
+  );
 
   // Timestamp of the most recent dashboard fetch, used to dedupe
   // telemetry-triggered refreshes against the 10s polling cadence.
@@ -63,10 +71,12 @@ export function useDashboardMetrics() {
   );
 
   // WebSocket with exponential backoff reconnect (1s, 2s, 4s … max 30s) and
-  // full cleanup on unmount, provided by useReconnectingWebSocket.
-  const connected = useReconnectingWebSocket(wsUrl, handleWsMessage, {
+  // full cleanup on unmount, provided by useReconnectingWebSocket. A fresh URL
+  // (and single-use ticket) is resolved before each connect attempt.
+  const connected = useReconnectingWebSocket("", handleWsMessage, {
     onOpen: onWsOpen,
     onClose: onWsClose,
+    resolveUrl: resolveWsUrl,
   });
 
   useEffect(() => {

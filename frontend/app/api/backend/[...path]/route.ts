@@ -25,10 +25,16 @@ async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) 
   const target = `${BACKEND_URL}/${path}${query}`;
 
   const headers = new Headers();
+  const xApiKey = request.headers.get("x-api-key");
   const auth = request.headers.get("authorization");
-  if (auth) {
+  if (xApiKey) {
+    // Role API key supplied by the browser (API-key sign-in) — forward as-is.
+    headers.set("x-api-key", xApiKey);
+  } else if (auth) {
+    // OIDC bearer token set by the browser — forward as-is.
     headers.set("authorization", auth);
   } else if (SERVER_API_KEY) {
+    // No client credential — fall back to the server-only admin key.
     headers.set("x-api-key", SERVER_API_KEY);
   }
   const contentType = request.headers.get("content-type");

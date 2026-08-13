@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from src.containment.engine import ContainmentEngine
 from src.core.models.events import ToolCallEvent
@@ -26,7 +26,7 @@ class ThresholdMetrics:
 @dataclass
 class BenchmarkReport:
     total_samples: int
-    thresholds: List[ThresholdMetrics] = field(default_factory=list)
+    thresholds: list[ThresholdMetrics] = field(default_factory=list)
     avg_latency_ms: float = 0.0
 
 
@@ -43,7 +43,7 @@ class BenchmarkHarness:
         self.dataset_version = self.dataset_path.name.replace(".json", "")
         self.engine = ContainmentEngine()
 
-    def load_dataset(self) -> List[Dict[str, Any]]:
+    def load_dataset(self) -> list[dict[str, Any]]:
         with self.dataset_path.open(encoding="utf-8") as f:
             return json.load(f)
 
@@ -105,7 +105,7 @@ class BenchmarkHarness:
             fn=fn,
         )
 
-    def to_dict(self, report: BenchmarkReport) -> Dict[str, Any]:
+    def to_dict(self, report: BenchmarkReport) -> dict[str, Any]:
         return {
             "total_samples": report.total_samples,
             "dataset_version": self.dataset_version,

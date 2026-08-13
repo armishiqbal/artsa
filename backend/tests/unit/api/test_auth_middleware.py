@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from src.api.main import app
 from src.core.config import settings
+from tests.conftest import unwrap_response
 
 
 def test_health_public_without_key():
@@ -37,7 +38,7 @@ def test_readonly_key_accepted_when_configured(monkeypatch):
         headers={"X-API-Key": "readonly-secret-key-12345"},
     )
     assert response.status_code == 200
-    assert response.json()["role"] == "readonly"
+    assert unwrap_response(response)["role"] == "readonly"
 
 
 def test_production_requires_api_key(monkeypatch):

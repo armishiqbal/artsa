@@ -13,7 +13,6 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageLoadingSkeleton } from "@/components/shared/PageSkeleton";
-import { SimulatedBadge } from "@/components/shared/SimulatedBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -54,7 +53,7 @@ function RiskCard({ risk }: { risk: AgenticRisk }) {
           <p className="flex items-center justify-center gap-1 text-[10px] uppercase text-muted-foreground">
             <Ban className="h-3 w-3" aria-hidden /> Blocked
           </p>
-          <p className="mt-0.5 font-mono text-lg font-semibold text-emerald-400">{risk.blocked_events}</p>
+          <p className="mt-0.5 font-mono text-lg font-semibold text-status-success">{risk.blocked_events}</p>
         </div>
         <div>
           <p className="flex items-center justify-center gap-1 text-[10px] uppercase text-muted-foreground">
@@ -118,14 +117,14 @@ function RiskCard({ risk }: { risk: AgenticRisk }) {
 
       <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
         <Button asChild variant="outline" size="sm" className="font-mono text-[10px]">
-          <Link href="/observatory">Observatory</Link>
+          <Link href="/">Command Center</Link>
         </Button>
         <Button asChild variant="outline" size="sm" className="font-mono text-[10px]">
           <Link href="/replay">Replay</Link>
         </Button>
         {primaryCategory && (
           <Button asChild variant="outline" size="sm" className="font-mono text-[10px]">
-            <Link href={`/attack-library?category=${encodeURIComponent(primaryCategory)}`}>
+            <Link href={`/library?category=${encodeURIComponent(primaryCategory)}`}>
               Attack library · {primaryCategory}
             </Link>
           </Button>
@@ -136,7 +135,7 @@ function RiskCard({ risk }: { risk: AgenticRisk }) {
 }
 
 export default function RiskFrameworkPage() {
-  const { data, loading, simulated } = useRiskFramework();
+  const { data, loading } = useRiskFramework();
 
   const framework = data?.framework ?? [];
   const criticalCount = framework.filter((r) => r.severity === "CRITICAL").length;
@@ -156,7 +155,6 @@ export default function RiskFrameworkPage() {
         icon={<ShieldAlert className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {simulated && <SimulatedBadge />}
             <Badge variant="secondary" className="font-mono">
               {framework.length} risks
             </Badge>
@@ -180,7 +178,7 @@ export default function RiskFrameworkPage() {
               <Badge variant="warning">{highCount} high</Badge>
             </DashboardCard>
             <DashboardCard title="Blocked Events" contentClassName="flex items-center justify-between">
-              <p className="font-mono text-3xl font-semibold text-emerald-400">{totalBlocked}</p>
+              <p className="font-mono text-3xl font-semibold text-status-success">{totalBlocked}</p>
               <Badge variant="success">contained</Badge>
             </DashboardCard>
             <DashboardCard title="Defense Coverage" contentClassName="space-y-2">
