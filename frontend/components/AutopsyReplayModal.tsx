@@ -213,7 +213,7 @@ export default function AutopsyReplayModal({ isOpen, onClose, sessionId }: Autop
                 </Badge>
                 <span className="font-mono text-xs font-semibold text-destructive">Tool: {step.tool}</span>
               </div>
-              <p className="rounded-lg border border-border bg-zinc-950 p-3 font-mono text-xs">{step.detail}</p>
+              <p className="rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">{step.detail}</p>
             </div>
 
             {forensics && (
@@ -243,7 +243,7 @@ export default function AutopsyReplayModal({ isOpen, onClose, sessionId }: Autop
                     <p className="mt-1 font-mono text-xl font-semibold">{forensics.total_events}</p>
                   </div>
                 </div>
-                <p className="rounded-lg border border-border bg-zinc-950 p-3 font-mono text-xs">
+                <p className="rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
                   {forensics.forensic_summary}
                 </p>
               </div>

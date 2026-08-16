@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Activity, Calendar, Flame, CheckCircle2, AlertTriangle, Layers, Loader2, Server } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import { fetchFromBackend } from "@/lib/api";
+import { formatDateTime } from "@/lib/dates";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -102,19 +103,8 @@ export default function ObservatoryPanel() {
       recall_at_80: row.recall_at_80,
     })) ?? [];
 
-  const formatScheduleTime = (iso: string | null | undefined) => {
-    if (!iso) return "—";
-    try {
-      return new Date(iso).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return iso;
-    }
-  };
+  const formatScheduleTime = (iso: string | null | undefined) =>
+    formatDateTime(iso, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
   const schedule = data?.ablation_schedule;
 

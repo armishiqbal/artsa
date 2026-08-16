@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, Bell, ExternalLink } from "lucide-react";
 import type { Alert } from "@/lib/types";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { verdictSummary } from "@/lib/verdict";
+import { formatDateTime, safeTimestamp } from "@/lib/dates";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,11 +25,21 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
 
   if (!open) return null;
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   const sorted = [...alerts].sort((a, b) => {
     const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-    const diff = order[a.severity] - order[b.severity];
+    // Unknown severities sort last instead of producing NaN.
+    const diff = (order[a.severity] ?? 99) - (order[b.severity] ?? 99);
     if (diff !== 0) return diff;
-    return new Date(b.triggered_at).getTime() - new Date(a.triggered_at).getTime();
+    return safeTimestamp(b.triggered_at) - safeTimestamp(a.triggered_at);
   });
 
   const openReplay = (sessionId: string) => {
@@ -84,7 +96,7 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
             <EmptyState
               icon={Bell}
               title="No alerts yet"
-              description="High-risk ingest events (score ≥ 60) appear here automatically."
+              description="Critical and high-risk ingest events appear here automatically."
               className="border-0 bg-transparent py-12"
             />
           ) : (
@@ -111,7 +123,7 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
                           }
                         </p>
                         <p className="mt-2 font-mono text-[10px] text-muted-foreground">
-                          {alert.agent_id} · {new Date(alert.triggered_at).toLocaleString()}
+                          {alert.agent_id} · {formatDateTime(alert.triggered_at)}
                         </p>
                       </div>
                       <SeverityBadge severity={alert.severity} />

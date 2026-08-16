@@ -27,6 +27,7 @@ from src.api.middleware.security_headers import SecurityHeadersMiddleware
 from src.api.routes.agent_runtime import router as agent_runtime_router
 from src.api.routes.agents import router as agents_router
 from src.api.routes.alerts import router as alerts_router
+from src.api.routes.auth import router as auth_router
 from src.api.routes.attack_library import router as attack_library_router
 from src.api.routes.benchmark import router as benchmark_router
 from src.api.routes.campaigns import router as campaigns_router
@@ -57,6 +58,7 @@ ROUTERS = [
     health_router,
     ingest_router,
     integrations_router,
+    auth_router,
     sessions_router,
     agents_router,
     alerts_router,
@@ -96,7 +98,7 @@ async def lifespan(app: FastAPI):
             from src.data.db import get_async_session
             from src.services.alert_store import load_persisted_state
 
-            async with get_async_session() as session:
+            async for session in get_async_session():
                 await load_persisted_state(session)
             logger.info("Persisted alerts and webhook rules loaded")
         except Exception as exc:
@@ -128,6 +130,34 @@ async def lifespan(app: FastAPI):
             logger.info("Custom integration dispatcher started")
         except Exception as exc:
             logger.warning("Custom integration dispatcher start skipped: %s", exc)
+
+        # Optional MongoDB sink: persist alerts/events/evaluations to the
+        # configured database (no-op when ARTSA_MONGODB_URI is unset).
+        try:
+            from src.services.mongo_sink import drain_telemetry, mongo_enabled, mongo_sink
+
+            if mongo_enabled():
+                mongo_sink.start()
+                app.state.mongo_drain_task = asyncio.create_task(drain_telemetry())
+                logger.info(
+                    "MongoDB sink started -> db=%s (use_uri=%s)",
+                    settings.ARTSA_MONGODB_DB,
+                    bool(settings.ARTSA_MONGODB_URI),
+                )
+            else:
+                logger.info("MongoDB sink disabled (no ARTSA_MONGODB_URI)")
+        except Exception as exc:  # pragma: no cover
+            logger.warning("MongoDB sink start skipped: %s", exc)
+
+        # Ensure the Mongo account store has its unique email index (no-op when
+        # Mongo is disabled). Fail soft so the app still boots without Mongo.
+        try:
+            from src.data.user_store import ensure_user_indexes
+
+            ensure_user_indexes()
+            logger.info("MongoDB users collection ready (unique email index ensured)")
+        except Exception as exc:
+            logger.warning("MongoDB user-store index setup skipped: %s", exc)
 
         if settings.WARM_BENCHMARK_ON_START:
             import asyncio
@@ -166,6 +196,22 @@ async def lifespan(app: FastAPI):
             logger.info("Custom integration dispatcher stopped")
         except Exception as exc:  # pragma: no cover
             logger.warning("Custom integration dispatcher stop skipped: %s", exc)
+
+        mongo_drain = getattr(app.state, "mongo_drain_task", None)
+        if mongo_drain is not None:
+            mongo_drain.cancel()
+            try:
+                with asyncio.timeout(2):
+                    await mongo_drain
+            except (asyncio.CancelledError, TimeoutError):
+                pass
+        try:
+            from src.services.mongo_sink import mongo_sink
+
+            mongo_sink.stop(wait=True)
+            logger.info("MongoDB sink stopped")
+        except Exception as exc:  # pragma: no cover
+            logger.warning("MongoDB sink stop skipped: %s", exc)
 
 
 def create_app() -> FastAPI:

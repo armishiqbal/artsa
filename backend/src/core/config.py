@@ -80,6 +80,14 @@ class Settings(BaseSettings):
     ARTSA_ANALYST_API_KEY: str | None = None
     ARTSA_REDTEAM_API_KEY: str | None = None
     ARTSA_READONLY_API_KEY: str | None = None
+    # Local email/password accounts: first registered user becomes admin, then
+    # further registrations require an admin API key. Sessions are HS256 JWTs
+    # signed with SECRET_KEY. API keys and OIDC remain supported.
+    ARTSA_PASSWORD_AUTH_ENABLED: bool = True
+    ARTSA_SESSION_TTL_SEC: int = 8 * 60 * 60  # 8 hours
+    # Account store backend: "sqlite" | "mongo" | None (auto). Auto selects
+    # mongo when ARTSA_MONGODB_URI is configured (outside testing), else sqlite.
+    ARTSA_USER_STORE: str | None = None
     # When true, ingest auto-marks sessions BREACHED/QUARANTINED on KILL/QUARANTINE verdicts
     ARTSA_AUTO_ENFORCE: bool = True
     # Reject further ingest for already contained sessions (fail closed at API)
@@ -121,6 +129,12 @@ class Settings(BaseSettings):
     PINECONE_API_KEY: str | None = None
     PINECONE_ENVIRONMENT: str | None = None
     CHROMA_PERSIST_DIR: str = "./data/chroma"
+
+    # ── MongoDB (optional document sink) ────────────────────────────────
+    # When ARTSA_MONGODB_URI is set, alerts / telemetry events / evaluations
+    # are written to the ARTSA_MONGODB_DB database (never to a shared one).
+    ARTSA_MONGODB_URI: str | None = None
+    ARTSA_MONGODB_DB: str = "artsa"
 
     # ── LLM providers (cloud) ───────────────────────────────────────────
     OPENAI_API_KEY: str | None = None

@@ -203,3 +203,27 @@ class AgentBaselineORM(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+
+class UserORM(Base):
+    """Local email/password account. First registered user becomes admin."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(255), default="")
+    avatar: Mapped[str | None] = mapped_column(Text, default=None)
+    phone: Mapped[str | None] = mapped_column(String(255), default=None)
+    location: Mapped[str | None] = mapped_column(String(255), default=None)
+    organization: Mapped[str | None] = mapped_column(String(255), default=None)
+    password_hash: Mapped[str] = mapped_column(String(512))
+    role: Mapped[str] = mapped_column(String(16), default="admin")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )

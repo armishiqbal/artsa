@@ -66,6 +66,9 @@ class EventRepository(BaseRepository[ToolCallEventORM]):
         await self.session.commit()
         for event in events:
             memory_store.store_event(event)
+        from src.services.mongo_sink import mongo_sink
+        for event in events:
+            mongo_sink.enqueue_tool_call(event)
         return list(events)
 
     async def get_by_session(self, session_id: UUID) -> list[ToolCallEvent]:

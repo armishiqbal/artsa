@@ -23,6 +23,8 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
             "POST:/ingest",
             "POST:/forensics",
             "POST:/sessions",
+            "PATCH:/auth",
+            "POST:/auth",
         }
     ),
     Role.REDTEAM: frozenset(
@@ -31,6 +33,8 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
             "POST:/ingest",
             "POST:/campaigns",
             "POST:/benchmark",
+            "PATCH:/auth",
+            "POST:/auth",
         }
     ),
     Role.READONLY: frozenset({"GET:"}),

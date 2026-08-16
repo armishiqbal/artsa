@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from src.core.config import settings
+from src.core.password_auth import password_auth_enabled
 from src.core.rbac import Role, resolve_role
 
 
@@ -32,18 +33,49 @@ def resolve_credentials(
     api_key: str | None,
     bearer_token: str | None = None,
 ) -> Role | None:
-    """Resolve role from X-API-Key and/or Authorization Bearer JWT."""
+    """Resolve role from X-API-Key and/or Authorization Bearer JWT.
+
+    Bearer tokens may be an OIDC JWT or an ARTSA email/password session token
+    (HS256, signed with SECRET_KEY).
+    """
     if api_key:
         role = resolve_role(api_key)
         if role is not None:
             return role
 
-    if bearer_token and settings.ARTSA_OIDC_ENABLED:
-        from src.core.oidc import resolve_role_from_oidc
+    if bearer_token:
+        if settings.ARTSA_OIDC_ENABLED:
+            from src.core.oidc import resolve_role_from_oidc
 
-        return resolve_role_from_oidc(bearer_token)
+            role = resolve_role_from_oidc(bearer_token)
+            if role is not None:
+                return role
+
+        if password_auth_enabled():
+            from src.core.password_auth import decode_session_token
+
+            claims = decode_session_token(bearer_token)
+            if claims:
+                try:
+                    return Role(claims["role"])
+                except ValueError:
+                    return None
 
     if not settings.auth_required and not any_static_api_key_configured() and not settings.ARTSA_OIDC_ENABLED:
         return Role.ADMIN
 
     return None
+
+
+def resolve_auth_method(api_key: str | None, bearer_token: str | None) -> str:
+    """Label the credential source: api_key | password | oidc | none."""
+    if api_key:
+        return "api_key"
+    if bearer_token:
+        if password_auth_enabled():
+            from src.core.password_auth import is_session_token
+
+            if is_session_token(bearer_token):
+                return "password"
+        return "oidc"
+    return "none"

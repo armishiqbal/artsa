@@ -7,13 +7,25 @@ export interface AuthSession {
   expires_in?: number;
 }
 
+/** Local account profile (from login/register response or /config/me). */
+export interface AuthUser {
+  email?: string | null;
+  role?: string | null;
+  display_name?: string | null;
+  avatar?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  organization?: string | null;
+}
+
 interface AuthStore {
   bearerToken: string | null;
   refreshToken: string | null;
   expiresAt: number | null;
   apiKey: string | null;
+  user: AuthUser | null;
   setBearerToken: (token: string | null) => void;
-  setSession: (session: AuthSession) => void;
+  setSession: (session: AuthSession, user?: AuthUser | null) => void;
   setApiKey: (key: string | null) => void;
   clearAuth: () => void;
 }
@@ -44,17 +56,20 @@ export const useAuthStore = create<AuthStore>()(
       refreshToken: null,
       expiresAt: null,
       apiKey: null,
+      user: null,
       setBearerToken: (token) =>
         set({
           bearerToken: token,
           refreshToken: null,
           expiresAt: null,
+          user: null,
         }),
-      setSession: (session) =>
+      setSession: (session, user) =>
         set({
           bearerToken: session.access_token,
           refreshToken: session.refresh_token ?? null,
           expiresAt: computeExpiresAt(session.expires_in),
+          user: user ?? null,
         }),
       setApiKey: (key) =>
         set({
@@ -62,6 +77,7 @@ export const useAuthStore = create<AuthStore>()(
           bearerToken: null,
           refreshToken: null,
           expiresAt: null,
+          user: null,
         }),
       clearAuth: () =>
         set({
@@ -69,6 +85,7 @@ export const useAuthStore = create<AuthStore>()(
           refreshToken: null,
           expiresAt: null,
           apiKey: null,
+          user: null,
         }),
     }),
     {
@@ -80,6 +97,7 @@ export const useAuthStore = create<AuthStore>()(
         refreshToken: state.refreshToken,
         expiresAt: state.expiresAt,
         apiKey: state.apiKey,
+        user: state.user,
       }),
     }
   )

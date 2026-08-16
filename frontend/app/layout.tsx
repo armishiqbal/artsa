@@ -1,8 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import Sidebar from "@/components/layout/Sidebar";
-import TopNav from "@/components/layout/TopNav";
-import CommandPalette from "@/components/CommandPalette";
 import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
 
@@ -33,12 +30,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0C1326",
-  colorScheme: "dark",
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" data-theme="dark">
       <body className={`${inter.variable} ${jetbrainsMono.variable} min-h-screen font-sans antialiased`}>
         <ClientProviders>
           <a
@@ -47,16 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           >
             Skip to main content
           </a>
-          <div className="flex min-h-screen bg-background">
-            <Sidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <TopNav />
-              <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-                <div className="mx-auto max-w-7xl">{children}</div>
-              </main>
-            </div>
-          </div>
-          <CommandPalette />
+          {children}
         </ClientProviders>
       </body>
     </html>

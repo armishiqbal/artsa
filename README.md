@@ -56,6 +56,8 @@ However, just like human employees, **AI agents can make mistakes or be tricked 
 
 ARTSA includes a visual **SOC War Room Dashboard** that anyone can understand:
 
+- 🔐 **Sign in**: password, API key, or organization SSO — the first account
+  created becomes the admin (see [`docs/ENV_SETUP.md`](docs/ENV_SETUP.md)).
 - 🟢 **Healthy Agents**: AI assistants working safely.
 - 🟡 **At-Risk Agents**: AI assistants showing unusual behavior.
 - 🔴 **Quarantined Agents**: AI assistants that were stopped because of a security breach.
@@ -117,6 +119,10 @@ Config-driven **custom outbound connectors** push alerts and events to *any*
 HTTP system — custom method, headers, auth, JSON payload template, and event
 triggers — with secrets encrypted at rest, no code required (Settings →
 Integrations → Custom Outbound, or `/api/v1/integrations`).
+
+Optional **MongoDB document sink**: set `ARTSA_MONGODB_URI` and every alert,
+telemetry event, and evaluation is written to a dedicated database (default
+`artsa`, never a shared app DB) for direct querying by any other system.
 
 ---
 

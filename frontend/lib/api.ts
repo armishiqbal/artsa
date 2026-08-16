@@ -26,10 +26,12 @@ function backendPort(): string {
   }
 }
 
-function buildHeaders(extra?: HeadersInit): HeadersInit {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+/**
+ * Auth-only headers (X-API-Key or session Bearer) with no Content-Type, so the
+ * browser sets its own where required (e.g. the multipart boundary on FormData).
+ */
+export function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   const apiKey = getApiKey();
   if (apiKey) {
     headers["X-API-Key"] = apiKey;
@@ -39,7 +41,15 @@ function buildHeaders(extra?: HeadersInit): HeadersInit {
       headers["Authorization"] = `Bearer ${bearer}`;
     }
   }
-  return { ...headers, ...(extra as Record<string, string> | undefined) };
+  return headers;
+}
+
+export function buildHeaders(extra?: HeadersInit): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    ...authHeaders(),
+    ...(extra as Record<string, string> | undefined),
+  };
 }
 
 /**
@@ -54,7 +64,7 @@ function buildHeaders(extra?: HeadersInit): HeadersInit {
  *
  * This function handles both shapes transparently.
  */
-function unwrapEnvelope(body: unknown): unknown {
+export function unwrapEnvelope(body: unknown): unknown {
   if (body && typeof body === "object" && "success" in body && "data" in body) {
     const envelope = body as { success: boolean; data?: unknown; error?: unknown };
     if (envelope.success) {

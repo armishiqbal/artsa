@@ -57,12 +57,12 @@ export function ThreatMatrix() {
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {["ALL", "CRITICAL", "HIGH", "MEDIUM"].map((filter) => (
+          {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((filter) => (
             <Button
               key={filter}
               variant={selectedFilter === filter ? "default" : "outline"}
               size="sm"
-              className="font-mono text-[10px]"
+              className="font-mono text-xs"
               onClick={() => setSelectedFilter(filter)}
               disabled={loading || displayedThreats.length === 0}
             >
@@ -79,21 +79,41 @@ export function ThreatMatrix() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={ShieldAlert}
-          title="No active threats"
-          description="Ingest tool calls via POST /api/v1/ingest or launch a wargame campaign to populate live sessions."
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button asChild size="sm">
-                <Link href="/campaigns">Launch wargame</Link>
+        displayedThreats.length > 0 ? (
+          <EmptyState
+            icon={ShieldAlert}
+            title="No threats match your filter"
+            description="Try clearing the search or picking a different severity."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm("");
+                  setSelectedFilter("ALL");
+                }}
+              >
+                Clear filters
               </Button>
-              <Button variant="outline" size="sm" onClick={() => router.push("/admin/providers")}>
-                Manage providers
-              </Button>
-            </div>
-          }
-        />
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={ShieldAlert}
+            title="No active threats"
+            description="Ingest tool calls via POST /api/v1/ingest or launch a wargame campaign to populate live sessions."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild size="sm">
+                  <Link href="/campaigns">Launch wargame</Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => router.push("/admin/providers")}>
+                  Manage providers
+                </Button>
+              </div>
+            }
+          />
+        )
       ) : (
         <div className="space-y-2">
           {filtered.map((threat, i) => (

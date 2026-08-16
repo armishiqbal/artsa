@@ -1,11 +1,11 @@
 import { fetchFromBackend } from "@/lib/api";
-import { getApiKey, getBearerToken } from "@/lib/stores/auth";
+import { getApiKey } from "@/lib/stores/auth";
 
 /** Mint a short-lived, single-use WebSocket ticket from the backend. */
 async function fetchWsTicket(): Promise<string | null> {
   const res = await fetchFromBackend<{ ticket?: string }>(
     "/api/v1/websocket/ticket",
-    { silent: true }
+    { method: "POST", silent: true }
   );
   return res?.ticket ?? null;
 }
@@ -44,12 +44,18 @@ export async function buildWebSocketUrl(
     return url.toString();
   }
 
-  const bearer = auth?.bearerToken ?? getBearerToken();
-  if (bearer) {
+  // The WS connects straight to the backend (bypassing the Next BFF proxy), so
+  // it must carry its own credential. Mint a short-lived single-use ticket —
+  // reachable through the BFF, which injects the server-only key when the
+  // browser has no bearer/API key — so the handshake is never left bare.
+  try {
     const ticket = await fetchWsTicket();
     if (ticket) {
       url.searchParams.set("ticket", ticket);
     }
+  } catch {
+    // Backend not reachable / ticket endpoint absent — connect without one so
+    // non-auth dev setups still work; the reconnect loop will retry.
   }
 
   return url.toString();

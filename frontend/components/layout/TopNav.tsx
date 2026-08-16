@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, Command, UserCircle2, Building2, ChevronDown, Check } from "lucide-react";
+import { Bell, Command, Building2, ChevronDown, Check, LogOut, Moon, Sun, UserCircle2 } from "lucide-react";
 import { LogoIcon } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +13,12 @@ import { useConnection } from "@/lib/context/ConnectionProvider";
 import { formatTopNavConnectionLabel } from "@/lib/connectionStatus";
 import { fetchFromBackend } from "@/lib/api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { useAuthStore } from "@/lib/stores/auth";
+import { useTheme } from "@/lib/context/ThemeProvider";
 import { isOidcEnabled } from "@/lib/oidc";
+import { avatarIsEmoji, resolveAvatarSrc } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 const ROLE_VARIANT: Record<string, "default" | "secondary" | "info" | "warning" | "success"> = {
@@ -26,19 +29,37 @@ const ROLE_VARIANT: Record<string, "default" | "secondary" | "info" | "warning" 
 };
 
 export default function TopNav() {
+  const router = useRouter();
   const [inboxOpen, setInboxOpen] = useState(false);
   const { alerts, loading, criticalCount } = useAlerts();
   const { apiOnline, wsConnected, apiGatewayStatus } = useConnection();
   const { identity, loading: authLoading } = useAuthRole();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const hasBearer = useAuthStore((s) => Boolean(s.bearerToken));
-  const showOidcLogin = isOidcEnabled() && !hasBearer;
+  const apiKey = useAuthStore((s) => s.apiKey);
+  const storedUser = useAuthStore((s) => s.user);
+  const { theme, toggleTheme } = useTheme();
+
+  // Profile menu
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   // Tenant selector
   const [tenants, setTenants] = useState<{ id: string; name: string; slug: string; plan: string }[]>([]);
   const [currentTenant, setCurrentTenant] = useState("default_tenant");
   const [tenantOpen, setTenantOpen] = useState(false);
   const tenantRef = useRef<HTMLDivElement>(null);
+
+  // Close any open dropdown when clicking outside it.
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     fetchFromBackend<{ tenants?: { id: string; name: string; slug: string; plan: string }[]; current?: string }>(
@@ -64,6 +85,20 @@ export default function TopNav() {
 
   const statusLabel = formatTopNavConnectionLabel(apiOnline, wsConnected, apiGatewayStatus);
 
+  // Profile: prefer the locally-stored session profile (survives reload), fall
+  // back to whatever /config/me resolved (covers OIDC / fresh-load edge cases).
+  const profileUser = storedUser ?? identity.user ?? null;
+  const profileEmail = profileUser?.email ?? null;
+  const profileDisplayName = profileUser?.display_name ?? null;
+  const profileRole = profileUser?.role ?? identity.role ?? null;
+  const profileAvatar = profileUser?.avatar ?? null;
+  const profileInitials = (profileDisplayName || profileEmail || profileRole || "AR").slice(0, 2).toUpperCase();
+
+  const showProfile = !authLoading && (hasBearer || Boolean(apiKey) || identity.authenticated);
+  // Only surface the SSO "Sign in" button when the user is actually signed out —
+  // otherwise an API-key or OIDC-authenticated user sees a misleading duplicate login.
+  const showOidcLogin = isOidcEnabled() && !hasBearer && !showProfile;
+
   return (
     <>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
@@ -86,28 +121,93 @@ export default function TopNav() {
               <Link href="/login">Sign in</Link>
             </Button>
           )}
-          {hasBearer && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hidden text-xs text-muted-foreground sm:inline-flex"
-              onClick={() => {
-                clearAuth();
-                window.location.reload();
-              }}
-            >
-              Sign out
-            </Button>
+          {showProfile && (
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-1.5 rounded-full border border-border p-0.5 pr-1.5 transition-colors hover:bg-accent"
+                aria-label="Account menu"
+                aria-expanded={profileOpen}
+              >
+                {avatarIsEmoji(profileAvatar) ? (
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-sm leading-none"
+                    aria-hidden
+                  >
+                    {profileAvatar}
+                  </span>
+                ) : resolveAvatarSrc(profileAvatar) ? (
+                  <span className="h-7 w-7 overflow-hidden rounded-full ring-1 ring-primary/20" aria-hidden>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolveAvatarSrc(profileAvatar) ?? undefined}
+                      alt={profileDisplayName ?? "Avatar"}
+                      className="h-full w-full object-cover"
+                    />
+                  </span>
+                ) : (
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    {profileInitials}
+                  </span>
+                )}
+                <ChevronDown
+                  className={cn("h-3 w-3 text-muted-foreground transition-transform", profileOpen && "rotate-180")}
+                />
+              </button>
+              {profileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-lg border border-border bg-card shadow-lg z-50 py-1">
+                  <div className="border-b border-border px-3 py-2.5">
+                    {profileDisplayName && (
+                      <p className="truncate text-sm font-medium">{profileDisplayName}</p>
+                    )}
+                    {profileEmail ? (
+                      <p className="truncate text-xs text-muted-foreground">{profileEmail}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Signed in</p>
+                    )}
+                    {profileRole && (
+                      <Badge
+                        variant={ROLE_VARIANT[profileRole] ?? "secondary"}
+                        className="mt-1.5 gap-1 font-mono text-[10px] uppercase"
+                      >
+                        {profileRole}
+                      </Badge>
+                    )}
+                  </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-accent"
+                  >
+                    <UserCircle2 className="h-4 w-4" aria-hidden />
+                    Profile
+                  </Link>
+                  <button
+                    onClick={() => {
+                      clearAuth();
+                      router.push("/login");
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive transition-colors hover:bg-accent"
+                  >
+                    <LogOut className="h-4 w-4" aria-hidden />
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
           )}
-          {!authLoading && (
-            <Badge
-              variant={ROLE_VARIANT[identity.role] ?? "secondary"}
-              className={cn("hidden gap-1 font-mono text-[10px] uppercase sm:inline-flex")}
-            >
-              <UserCircle2 className="h-3 w-3" aria-hidden />
-              {identity.role}
-            </Badge>
-          )}
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" aria-hidden />
+            ) : (
+              <Moon className="h-4 w-4" aria-hidden />
+            )}
+          </button>
           <Button
             variant="outline"
             size="sm"

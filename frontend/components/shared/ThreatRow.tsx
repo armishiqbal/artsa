@@ -18,8 +18,16 @@ interface ThreatRowProps {
 export function ThreatRow({ threat, rank, className }: ThreatRowProps) {
   const router = useRouter();
   const severity = severityFromScore(threat.risk_score);
+  // Statuses that mean "still being watched" collapse to a monitor verb; every
+  // terminal state (CLOSED / TERMINATED / QUARANTINED / CONTAINED…) shows its
+  // literal status so the caption never contradicts the status label above.
+  const MONITOR_STATES = new Set(["ACTIVE", "DETECTED", "MONITORING", "OPEN", "PENDING"]);
   const action =
-    threat.status === "BREACHED" ? "TERMINATED" : threat.status === "QUARANTINED" ? "QUARANTINED" : "MONITOR";
+    threat.status === "BREACHED"
+      ? "TERMINATED"
+      : MONITOR_STATES.has(threat.status)
+        ? "MONITOR"
+        : threat.status;
 
   return (
     <button
@@ -54,7 +62,8 @@ export function ThreatRow({ threat, rank, className }: ThreatRowProps) {
       </div>
       <p className="mt-2 font-mono text-xs leading-relaxed text-muted-foreground">
         {threat.breaches} containment breach{threat.breaches === 1 ? "" : "es"} · session{" "}
-        {threat.session_id.slice(0, 8)}… · {action}
+        {threat.session_id.slice(0, 8)}
+        {threat.session_id.length > 8 ? "…" : ""} · {action}
       </p>
     </button>
   );

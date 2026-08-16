@@ -66,6 +66,9 @@ class CampaignJobStore:
         }
         _memory_jobs[campaign_id] = record
 
+        from src.services.mongo_sink import mongo_sink
+        mongo_sink.enqueue_campaign(record, "created")
+
         if not self._factory:
             return
 
@@ -91,6 +94,8 @@ class CampaignJobStore:
         if campaign_id in _memory_jobs:
             _memory_jobs[campaign_id]["rounds_completed"] = rounds_completed
             _memory_jobs[campaign_id]["updated_at"] = datetime.now(UTC).isoformat()
+            from src.services.mongo_sink import mongo_sink
+            mongo_sink.enqueue_campaign(_memory_jobs[campaign_id], "progress")
 
         if not self._factory:
             return
@@ -109,6 +114,8 @@ class CampaignJobStore:
             _memory_jobs[campaign_id]["rounds_completed"] = summary.get(
                 "completed_rounds", _memory_jobs[campaign_id]["rounds_completed"]
             )
+            from src.services.mongo_sink import mongo_sink
+            mongo_sink.enqueue_campaign(_memory_jobs[campaign_id], "completed")
 
         if not self._factory:
             return
@@ -126,6 +133,8 @@ class CampaignJobStore:
         if campaign_id in _memory_jobs:
             _memory_jobs[campaign_id]["status"] = "FAILED"
             _memory_jobs[campaign_id]["error"] = error
+            from src.services.mongo_sink import mongo_sink
+            mongo_sink.enqueue_campaign(_memory_jobs[campaign_id], "failed")
 
         if not self._factory:
             return

@@ -174,6 +174,23 @@ async def ingest_events(
         await eval_repo.upsert(str(event.id), event.session_id, evaluation)
         evaluations.append(evaluation)
 
+        # Optional MongoDB sink: persist the verdict doc (no-op without URI).
+        try:
+            from datetime import UTC as _UTC
+
+            from src.services.mongo_sink import mongo_sink
+
+            mongo_sink.enqueue_evaluation(
+                {
+                    **evaluation,
+                    "session_id": str(event.session_id),
+                    "agent_id": event.agent_id,
+                    "ts": datetime.now(_UTC).isoformat(),
+                }
+            )
+        except Exception as exc:  # pragma: no cover - sink must never break ingest
+            logger.debug("MongoDB evaluation enqueue skipped: %s", exc)
+
         _maybe_enqueue_celery(event)
 
         severity = severity_from_score(risk_score.overall_score)

@@ -397,6 +397,33 @@ so connector latency or outages never slow the ingest hot path.
 
 ---
 
+## 10c. MongoDB document sink (optional)
+
+Point ARTSA at a MongoDB Atlas cluster and every **alert**, **telemetry event**
+(`tool_call` / `proxy_call` / `session_action`) and **ingest evaluation** is
+written into a dedicated database — so ARTSA data lives in its own namespace,
+never inside an existing application database.
+
+```bash
+# backend/.env (already present for you with database "artsa")
+ARTSA_MONGODB_URI=mongodb+srv://<cluster>.mongodb.net/artsa?retryWrites=true&w=majority
+ARTSA_MONGODB_DB=artsa        # the database ARTSA writes to (never staff-db)
+```
+
+- Unset `ARTSA_MONGODB_URI` (or set it to `disabled`) to turn the sink off — it
+  is a pure no-op then; ARTSA's own SQLite/Postgres store is always the source
+  of truth.
+- Writes are non-blocking: producers `put_nowait` into a bounded queue and a
+  single worker thread owns the pymongo client. Mongo latency/outages never
+  block ingest or alert dispatch (a full queue drops with a warning).
+- Collections: `alerts`, `events`, `evaluations`. Every document carries a `ts`
+  field (UTC ISO). Alerts also carry the parsed `risk_score`, `severity`,
+  `session_id`, `agent_id`, and the raw `title`/`message`.
+- Any other system (dashboard, data warehouse, your Streamlit app) can read the
+  documents directly: `db = MongoClient(uri)["artsa"]; list(db["alerts"].find({}).sort("_id", -1).limit(50))`.
+
+---
+
 ## 11. Live dashboard & WebSocket
 
 - UI: `http://localhost:3000` (Command Center, Observatory, Topology, Risks, Replay)

@@ -53,6 +53,14 @@ def test_websocket_ticket_endpoint_mints_ticket():
     assert ticket and "." in ticket
 
 
+def test_websocket_ticket_endpoint_is_post_only():
+    # The frontend previously fetched this with GET (via fetchFromBackend, which
+    # defaults to GET), got a silent 405, connected bare, and hit a 403 handshake.
+    # Pin the contract: this endpoint only serves POST.
+    res = client.get("/api/v1/websocket/ticket")
+    assert res.status_code == 405
+
+
 def test_websocket_connects_with_ticket():
     res = client.post("/api/v1/websocket/ticket")
     ticket = _ticket_from_post(res)

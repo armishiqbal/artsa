@@ -46,7 +46,8 @@ class AgentsRepository(BaseRepository[AgentORM]):
         result = await self.session.execute(select(AgentORM).where(AgentORM.id == agent.id))
         row = result.scalar_one_or_none()
         if row is None:
-            self.session.add(self._to_orm(agent))
+            row = self._to_orm(agent)
+            self.session.add(row)
         else:
             row.tenant_id = agent.tenant_id
             row.name = agent.name
@@ -55,6 +56,8 @@ class AgentsRepository(BaseRepository[AgentORM]):
             row.total_sessions = agent.total_sessions
             row.total_breaches = agent.total_breaches
         await self.session.commit()
+        from src.services.mongo_sink import mongo_sink
+        mongo_sink.enqueue_agent(row)
         return agent
 
     async def list_agents(self, tenant_id: str) -> list[Agent]:
@@ -108,4 +111,6 @@ class AgentsRepository(BaseRepository[AgentORM]):
             row.baseline = self._baseline_to_json(baseline)
         await self.session.commit()
         await self.session.refresh(row)
+        from src.services.mongo_sink import mongo_sink
+        mongo_sink.enqueue_agent_baseline(agent_id, row.baseline)
         return self._to_baseline_domain(row)

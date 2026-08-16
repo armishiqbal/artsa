@@ -22,6 +22,13 @@ export interface AuthIdentity {
   auth_required: boolean;
   auth_method?: string;
   oidc_enabled?: boolean;
+  /** Local-account profile (email / role / display_name / avatar) from password auth. */
+  user?: {
+    email?: string | null;
+    role?: string | null;
+    display_name?: string | null;
+    avatar?: string | null;
+  } | null;
 }
 
 const NO_CAPABILITIES: AuthCapabilities = {

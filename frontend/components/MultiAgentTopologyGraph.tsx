@@ -157,7 +157,7 @@ export default function MultiAgentTopologyGraph() {
         {selectedEdge && (
           <DashboardCard title="Channel Payload" badge={<Zap className="h-4 w-4 text-severity-medium" aria-hidden />}>
             <p className="text-xs font-medium">{selectedEdge.label}</p>
-            <pre className="mt-2 whitespace-pre-wrap rounded-lg border border-border bg-zinc-950 p-3 font-mono text-xs text-destructive">
+            <pre className="mt-2 whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-destructive">
               {selectedEdge.payload}
             </pre>
           </DashboardCard>

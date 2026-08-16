@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -55,8 +56,30 @@ async def init_db() -> None:
         ProviderORM,
         SessionORM,
         ToolCallEventORM,
+        UserORM,
     )
 
     engine = get_engine()
     async with engine.begin() as conn:
+        # Lightweight dev upgrade: SQLite DBs created before the avatar column
+        # existed (create_all can't ALTER existing tables) get it added here.
+        # Postgres installs should use `alembic upgrade head` instead.
+        if "sqlite" in settings.effective_database_url:
+            tables = [
+                row[0]
+                for row in await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table'")
+                )
+            ]
+            if "users" in tables:
+                cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(users)"))]
+                if "avatar" not in cols:
+                    await conn.execute(text("ALTER TABLE users ADD COLUMN avatar TEXT"))
+                # Profile fields added after the avatar column — SQLite ignores
+                # VARCHAR length, so the original avatar VARCHAR(16) needs no ALTER.
+                for col in ("phone", "location", "organization"):
+                    if col not in cols:
+                        await conn.execute(
+                            text(f"ALTER TABLE users ADD COLUMN {col} VARCHAR(255)")
+                        )
         await conn.run_sync(Base.metadata.create_all)

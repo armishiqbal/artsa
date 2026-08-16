@@ -2,6 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Dev-only: disable Webpack's persistent filesystem pack cache. Killing the
+  // dev server mid-write leaves a half-renamed `.pack.gz_` behind, and the next
+  // boot throws "Caching failed for pack: ENOENT". A fresh compile per restart
+  // is a small cost that removes the corrupt-cache crash entirely.
+  webpack: (config, { dev }) => {
+    if (dev) config.cache = false;
+    return config;
+  },
+
   async redirects() {
     return [
       // Legacy routes → new enterprise URL scheme (301 permanent)

@@ -5,6 +5,15 @@ import { GitCompare, X, ArrowUpDown, Shield, Zap, Target } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+// Theme-token tones (mirror the status/severity palette used across the app).
+const goodTone = "text-status-success";
+const warnTone = "text-status-warning";
+const badTone = "text-severity-critical";
+const defenseTone = (q: number) => (q >= 7 ? goodTone : q >= 4 ? warnTone : badTone);
+const riskTone = (r: number) => (r <= 30 ? goodTone : r <= 60 ? warnTone : badTone);
+const defenseBar = (q: number) => (q >= 7 ? "bg-status-success" : q >= 4 ? "bg-status-warning" : "bg-severity-critical");
 
 interface CampaignSummary {
   id: string;
@@ -43,11 +52,11 @@ export default function ModelComparison({ campaigns }: ModelComparisonProps) {
         label: `${String(c.provider).slice(0, 10)} / ${String(c.model).slice(0, 20)}`,
         totalRounds: c.total_rounds || c.rounds_completed || 0,
         riskScore: (s as Record<string, number>).avg_risk_score ?? (s as Record<string, number>).risk_score ?? 0,
-        blocked: (s as Record<string, number>).blocked_count ?? (s as Record<string, unknown>)?.results_by_verdict as Record<string, number> | undefined,
         defenseQuality: (s as Record<string, number>).avg_defense_quality ?? 0,
-        breached: typeof (s as Record<string, unknown>)?.results_by_verdict === "object"
-          ? ((s as Record<string, unknown>).results_by_verdict as Record<string, number>)?.BREACHED ?? 0
-          : 0,
+        breached:
+          typeof (s as Record<string, unknown>)?.results_by_verdict === "object"
+            ? ((s as Record<string, unknown>).results_by_verdict as Record<string, number>)?.BREACHED ?? 0
+            : 0,
       };
     });
   }, [selectedCampaigns]);
@@ -130,9 +139,7 @@ export default function ModelComparison({ campaigns }: ModelComparisonProps) {
                   {metrics.map((m) => (
                     <td
                       key={m.id}
-                      className={`py-2 px-3 text-center font-mono tabular-nums ${
-                        m.defenseQuality >= 7 ? "text-emerald-400" : m.defenseQuality >= 4 ? "text-amber-400" : "text-rose-400"
-                      }`}
+                      className={cn("py-2 px-3 text-center font-mono tabular-nums", defenseTone(m.defenseQuality))}
                     >
                       {m.defenseQuality}/10
                     </td>
@@ -147,9 +154,7 @@ export default function ModelComparison({ campaigns }: ModelComparisonProps) {
                   {metrics.map((m) => (
                     <td
                       key={m.id}
-                      className={`py-2 px-3 text-center font-mono tabular-nums ${
-                        m.riskScore <= 30 ? "text-emerald-400" : m.riskScore <= 60 ? "text-amber-400" : "text-rose-400"
-                      }`}
+                      className={cn("py-2 px-3 text-center font-mono tabular-nums", riskTone(m.riskScore))}
                     >
                       {Number(m.riskScore).toFixed(1)}
                     </td>
@@ -164,9 +169,7 @@ export default function ModelComparison({ campaigns }: ModelComparisonProps) {
                   {metrics.map((m) => (
                     <td
                       key={m.id}
-                      className={`py-2 px-3 text-center font-mono tabular-nums ${
-                        m.breached === 0 ? "text-emerald-400" : "text-rose-400"
-                      }`}
+                      className={cn("py-2 px-3 text-center font-mono tabular-nums", m.breached === 0 ? goodTone : badTone)}
                     >
                       {m.breached}
                     </td>
@@ -184,14 +187,8 @@ export default function ModelComparison({ campaigns }: ModelComparisonProps) {
                 <span className="w-28 text-xs text-muted-foreground truncate">{m.label}</span>
                 <div className="flex-1 rounded-full bg-muted h-3 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      m.defenseQuality >= 7
-                        ? "bg-emerald-500"
-                        : m.defenseQuality >= 4
-                        ? "bg-amber-500"
-                        : "bg-rose-500"
-                    }`}
-                    style={{ width: `${(m.defenseQuality / 10) * 100}%` }}
+                    className={cn("h-full rounded-full transition-all duration-500", defenseBar(m.defenseQuality))}
+                    style={{ width: `${Math.max(0, Math.min(100, (m.defenseQuality / 10) * 100))}%` }}
                   />
                 </div>
                 <span className="font-mono text-xs tabular-nums w-10 text-right">{m.defenseQuality}/10</span>

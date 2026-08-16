@@ -35,6 +35,7 @@ describe("navigation", () => {
     expect(admin?.adminOnly).toBe(true);
     expect(admin?.items.map((i) => i.href)).toEqual([
       "/admin",
+      "/settings",
       "/admin/providers",
       "/admin/policies",
       "/admin/alerts",

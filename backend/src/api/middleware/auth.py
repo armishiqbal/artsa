@@ -7,6 +7,7 @@ from starlette.responses import JSONResponse
 from src.core.auth_credentials import (
     any_static_api_key_configured,
     extract_bearer_token,
+    resolve_auth_method,
     resolve_credentials,
 )
 from src.core.config import settings
@@ -22,6 +23,10 @@ _PUBLIC_PATHS = {
     "/v1/metrics/prometheus",
     "/api/v1/config/me",
     "/v1/config/me",
+    "/api/v1/auth/login",
+    "/v1/auth/login",
+    "/api/v1/auth/register",
+    "/v1/auth/register",
     "/docs",
     "/openapi.json",
     "/redoc",
@@ -53,6 +58,6 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
                     content={"detail": "Invalid or missing credentials (X-API-Key or Bearer token)"},
                 )
             request.state.role = role.value
-            request.state.auth_method = "api_key" if api_key else "oidc"
+            request.state.auth_method = resolve_auth_method(api_key, bearer)
 
         return await call_next(request)

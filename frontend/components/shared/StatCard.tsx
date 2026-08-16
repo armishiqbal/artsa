@@ -65,7 +65,7 @@ export function StatCard({
         )}
       >
         <CardContent className="p-5">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
             <div className="flex items-center gap-2">
               {severity && <SeverityBadge severity={severity} />}

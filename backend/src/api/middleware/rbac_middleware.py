@@ -12,7 +12,17 @@ from src.core.auth_credentials import (
 from src.core.config import settings
 from src.core.rbac import is_allowed, normalize_path
 
-_PUBLIC_PATHS = {"/health", "/ready", "/config/me", "/docs", "/openapi.json", "/redoc", "/metrics/prometheus"}
+_PUBLIC_PATHS = {
+    "/health",
+    "/ready",
+    "/config/me",
+    "/auth/login",
+    "/auth/register",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/metrics/prometheus",
+}
 
 
 class RBACMiddleware(BaseHTTPMiddleware):

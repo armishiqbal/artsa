@@ -6,8 +6,13 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from src.core.auth_credentials import extract_bearer_token, resolve_credentials
+from src.core.auth_credentials import (
+    extract_bearer_token,
+    resolve_auth_method,
+    resolve_credentials,
+)
 from src.core.config import settings
+from src.core.password_auth import decode_session_token, password_auth_enabled
 from src.core.rbac import Role, role_capabilities
 from src.core.secrets import key_status, mask_secret
 
@@ -69,10 +74,24 @@ async def get_current_identity(request: Request) -> dict[str, Any]:
             "auth_method": None,
             "auth_required": settings.auth_required,
             "oidc_enabled": settings.ARTSA_OIDC_ENABLED,
+            "password_auth_enabled": password_auth_enabled(),
+            "user": None,
         }
 
     effective_role = role or Role.ADMIN
-    auth_method = "api_key" if api_key else ("oidc" if bearer else "none")
+
+    # Only password sessions carry an ARTSA user profile; API keys and OIDC
+    # JWTs don't map to a local account, so expose the profile just for those.
+    auth_method = resolve_auth_method(api_key, bearer)
+    user: dict[str, Any] | None = None
+    if auth_method == "password":
+        claims = decode_session_token(bearer) or {}
+        user = {
+            "email": claims.get("email"),
+            "role": claims.get("role"),
+            "display_name": claims.get("display_name"),
+            "avatar": claims.get("avatar"),
+        }
 
     return {
         "authenticated": role is not None or not settings.auth_required,
@@ -81,6 +100,8 @@ async def get_current_identity(request: Request) -> dict[str, Any]:
         "auth_required": settings.auth_required,
         "auth_method": auth_method,
         "oidc_enabled": settings.ARTSA_OIDC_ENABLED,
+        "password_auth_enabled": password_auth_enabled(),
+        "user": user,
     }
 
 

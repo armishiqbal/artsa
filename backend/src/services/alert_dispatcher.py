@@ -390,6 +390,15 @@ def dispatch_alert(alert: Alert) -> bool:
     except Exception as exc:
         logger.warning("Custom integration enqueue failed for %s: %s", alert.id, exc)
 
+    # Optional MongoDB sink: persist the alert to the artsa database (no-op when
+    # ARTSA_MONGODB_URI is unset). Non-blocking.
+    try:
+        from src.services.mongo_sink import mongo_sink
+
+        mongo_sink.enqueue_alert(alert)
+    except Exception as exc:
+        logger.warning("MongoDB alert enqueue failed for %s: %s", alert.id, exc)
+
     targets: list[AlertRule] = []
 
     for rule in env_integration_rules() + alert_store.get_webhook_rules():

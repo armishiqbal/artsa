@@ -20,7 +20,7 @@ export default function TopologyGraphView({
   onSelectEdge,
 }: TopologyGraphViewProps) {
   return (
-    <div className="relative h-[420px] overflow-hidden rounded-xl border border-border bg-zinc-950 p-4">
+    <div className="relative h-[420px] overflow-hidden rounded-xl border border-border bg-muted/50 p-4">
       <svg className="h-full w-full" role="img" aria-label="Multi-agent topology graph">
         <defs>
           <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">

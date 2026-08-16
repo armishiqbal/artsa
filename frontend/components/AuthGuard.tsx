@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useAuthRole } from "@/lib/hooks/useAuthRole";
-import { hydrateAuthStore } from "@/lib/stores/auth";
+import { hydrateAuthStore, useAuthStore } from "@/lib/stores/auth";
 
 const PUBLIC_PATHS = new Set(["/login", "/auth/callback"]);
 
@@ -13,14 +12,18 @@ interface AuthGuardProps {
 }
 
 /**
- * Redirects unauthenticated users to /login when the backend requires auth or OIDC is enabled.
- * Skips guard for public routes. Auth state is sourced from the backend identity
- * endpoint — the client never holds an API key (injected server-side by the proxy).
+ * Login wall: every non-public route requires a real client credential — a
+ * password session token (or an explicitly entered API key) stored in the auth
+ * store. Without one the visitor is redirected to /login before they can see
+ * the app. This deliberately does NOT trust the backend's resolved identity,
+ * because the BFF proxy always injects a server API key and would otherwise
+ * report "authenticated" for anonymous visitors.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { identity, loading } = useAuthRole();
+  const apiKey = useAuthStore((s) => s.apiKey);
+  const hasBearer = useAuthStore((s) => Boolean(s.bearerToken));
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -28,17 +31,16 @@ export function AuthGuard({ children }: AuthGuardProps) {
     setHydrated(true);
   }, []);
 
+  const isPublic = PUBLIC_PATHS.has(pathname);
+  const hasCredential = Boolean(apiKey || hasBearer);
+
   useEffect(() => {
-    if (!hydrated || loading || PUBLIC_PATHS.has(pathname)) return;
+    if (!hydrated || isPublic || hasCredential) return;
+    const returnTo = encodeURIComponent(pathname);
+    router.replace(`/login?returnTo=${returnTo}`);
+  }, [hydrated, isPublic, hasCredential, pathname, router]);
 
-    const authEnforced = identity.auth_required || identity.oidc_enabled;
-    if (authEnforced && !identity.authenticated) {
-      const returnTo = encodeURIComponent(pathname);
-      router.replace(`/login?returnTo=${returnTo}`);
-    }
-  }, [hydrated, loading, identity, pathname, router]);
-
-  if (!hydrated || (loading && !PUBLIC_PATHS.has(pathname))) {
+  if (!hydrated && !isPublic) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
@@ -46,11 +48,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  if (
-    !PUBLIC_PATHS.has(pathname) &&
-    (identity.auth_required || identity.oidc_enabled) &&
-    !identity.authenticated
-  ) {
+  if (!isPublic && !hasCredential) {
+    // About to be redirected — hold the spinner instead of flashing the page.
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />

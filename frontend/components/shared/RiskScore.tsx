@@ -11,10 +11,11 @@ interface RiskScoreProps {
 
 export function RiskScore({ score, className }: RiskScoreProps) {
   const variant = riskScoreBadgeVariant(score);
+  const value = Number.isFinite(score) ? score.toFixed(1) : "—";
 
   return (
     <Badge variant={variant} className={cn("gap-1 font-mono tabular-nums", className)}>
-      <span className="font-semibold">{score.toFixed(1)}</span>
+      <span className="font-semibold">{value}</span>
       <span className="text-[10px] opacity-70">/100</span>
     </Badge>
   );

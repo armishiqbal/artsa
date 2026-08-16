@@ -48,6 +48,7 @@ function HealthPill({
         colors[status]
       )}
       title={label}
+      aria-label={`${label}: ${value}`}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden />
       <span className="hidden sm:inline">{label}</span>
@@ -65,8 +66,14 @@ export function HealthGlance({
   totalEvents,
   criticalCount,
 }: HealthGlanceProps) {
-  const defenseStatus: "healthy" | "warning" | "critical" =
-    defenseScore >= 90 ? "healthy" : defenseScore >= 70 ? "warning" : "critical";
+  const scoreFinite = Number.isFinite(defenseScore);
+  const defenseStatus: "healthy" | "warning" | "critical" = !scoreFinite
+    ? "warning"
+    : defenseScore >= 90
+      ? "healthy"
+      : defenseScore >= 70
+        ? "warning"
+        : "critical";
 
   return (
     <motion.div
@@ -94,7 +101,7 @@ export function HealthGlance({
       {/* Defense posture */}
       <HealthPill
         label="Defense"
-        value={`${defenseScore.toFixed(0)}%`}
+        value={scoreFinite ? `${defenseScore.toFixed(0)}%` : "—"}
         icon={ShieldCheck}
         status={defenseStatus}
       />
