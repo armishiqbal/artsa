@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   Crosshair,
   Rocket,
+  Settings2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -66,6 +67,7 @@ export const navSections: NavSection[] = [
     adminOnly: true,
     items: [
       { name: "Admin Overview", href: "/admin", icon: Shield },
+      { name: "Settings", href: "/settings", icon: Settings2 },
       { name: "Providers", href: "/admin/providers", icon: Users, capability: "can_manage_providers" },
       { name: "Policies", href: "/admin/policies", icon: Shield, capability: "can_manage_policies" },
       { name: "Alerts & Integrations", href: "/admin/alerts", icon: Activity },
