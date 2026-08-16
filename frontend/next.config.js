@@ -29,8 +29,24 @@ const nextConfig = {
       { source: "/policies/:path*", destination: "/admin/policies/:path*", permanent: true },
       { source: "/providers/:path*", destination: "/admin/providers/:path*", permanent: true },
       { source: "/topology/:path*", destination: "/dashboard/topology/:path*", permanent: true },
+      { source: "/register", destination: "/login?mode=register", permanent: false },
+      { source: "/signup", destination: "/login?mode=register", permanent: false },
       // NOTE: /settings/* is intentionally NOT redirected — real App Router
       // pages exist at /settings/{integrations,audit-log,team,notifications}.
+    ];
+  },
+
+  async rewrites() {
+    const backendUrl = (
+      process.env.BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://127.0.0.1:8000"
+    ).replace(/\/+$/, "");
+    return [
+      {
+        source: "/api/backend/:path*",
+        destination: `${backendUrl}/:path*`,
+      },
     ];
   },
 };

@@ -71,6 +71,10 @@ async def init_db() -> None:
                     text("SELECT name FROM sqlite_master WHERE type='table'")
                 )
             ]
+            if "alert_rules" in tables:
+                alert_cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(alert_rules)"))]
+                if "config" not in alert_cols:
+                    await conn.execute(text("ALTER TABLE alert_rules ADD COLUMN config JSON DEFAULT '{}'"))
             if "users" in tables:
                 cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(users)"))]
                 if "avatar" not in cols:

@@ -19,10 +19,20 @@ const SERVER_API_KEY = process.env.ARTSA_API_KEY || "";
 
 const PROXY_TIMEOUT_MS = 30_000;
 
-async function proxy(request: NextRequest, ctx: { params: { path: string[] } }) {
-  const path = ctx.params.path.join("/");
+async function proxy(
+  request: NextRequest,
+  ctx: { params: { path: string[] } | Promise<{ path: string[] }> }
+) {
+  const resolvedParams = await Promise.resolve(ctx?.params);
+  const pathSegments = resolvedParams?.path || [];
+  const path = Array.isArray(pathSegments) ? pathSegments.join("/") : String(pathSegments);
   const query = request.nextUrl.search;
-  const target = `${BACKEND_URL}/${path}${query}`;
+  const baseUrl = (
+    process.env.BACKEND_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8000"
+  ).replace(/\/+$/, "");
+  const target = `${baseUrl}/${path.replace(/^\/+/, "")}${query}`;
 
   const headers = new Headers();
   const xApiKey = request.headers.get("x-api-key");
