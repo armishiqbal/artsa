@@ -67,6 +67,42 @@ class ProviderORM(Base):
     )
 
 
+class CustomIntegrationORM(Base):
+    """A user-defined outbound connector (config-driven, no code deploys).
+
+    ``secrets`` holds Fernet-encrypted values keyed by name (see
+    :mod:`src.utils.crypto`), referenced from ``headers`` (and optionally
+    ``payload_template``) via ``{{secret:name}}``. ``payload_template`` is a
+    JSON text body with ``{{field}}`` placeholders resolved against the event
+    payload at dispatch time.
+    """
+
+    __tablename__ = "custom_integrations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # slug
+    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    method: Mapped[str] = mapped_column(String(8), default="POST")  # POST|PUT|PATCH
+    target_url: Mapped[str] = mapped_column(String(1024))
+    auth_type: Mapped[str] = mapped_column(String(16), default="none")  # none|bearer|basic|api_key
+    headers: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)  # values may embed {{secret:name}}
+    payload_template: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON text with {{field}}
+    event_types: Mapped[list[str]] = mapped_column(JSON, default=list)  # subset of alert|tool_call|proxy_call|session_action
+    risk_threshold: Mapped[float] = mapped_column(Float, default=0.0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    retries: Mapped[int] = mapped_column(Integer, default=3)
+    timeout: Mapped[float] = mapped_column(Float, default=10.0)
+    secrets: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)  # {name: Fernet ciphertext}
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
 class ToolCallEventORM(Base):
     __tablename__ = "tool_call_events"
 

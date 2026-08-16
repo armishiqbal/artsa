@@ -10,6 +10,7 @@ import {
   Users,
   BellRing,
   ArrowLeft,
+  Webhook,
 } from "lucide-react";
 import { AdminGuard } from "@/components/AdminGuard";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 const settingsNav = [
   { name: "Overview", href: "/settings", icon: Settings2 },
   { name: "Integrations", href: "/settings/integrations", icon: Cable },
+  { name: "Custom Outbound", href: "/settings/integrations/custom", icon: Webhook },
   { name: "Audit Log", href: "/settings/audit-log", icon: ScrollText },
   { name: "Team", href: "/settings/team", icon: Users },
   { name: "Notifications", href: "/settings/notifications", icon: BellRing },

@@ -127,3 +127,42 @@ export interface RiskFrameworkResponse {
   total_events: number;
   generated_at: string | null;
 }
+
+// ─── Custom outbound integrations (config-driven connectors) ───────────────
+
+export type EventType = "alert" | "tool_call" | "proxy_call" | "session_action";
+export type AuthType = "none" | "bearer" | "basic" | "api_key";
+
+export interface CustomIntegration {
+  id: string;
+  name: string;
+  description: string | null;
+  method: "POST" | "PUT" | "PATCH";
+  target_url: string;
+  auth_type: AuthType;
+  headers: Record<string, string>;
+  payload_template: string | null;
+  event_types: EventType[];
+  risk_threshold: number;
+  enabled: boolean;
+  retries: number;
+  timeout: number;
+  secrets_masked: Record<string, string>;
+  has_secrets: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface IntegrationAuthTypeInfo {
+  type: AuthType;
+  secrets: string[];
+  header: string | null;
+}
+
+export interface CustomIntegrationSchema {
+  event_types: EventType[];
+  methods: string[];
+  auth_types: IntegrationAuthTypeInfo[];
+  template_fields: Record<EventType, string[]>;
+  placeholder_syntax: { field: string; secret: string };
+}

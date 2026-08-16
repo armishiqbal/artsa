@@ -50,6 +50,7 @@ async def init_db() -> None:
         AlertORM,
         AlertRuleORM,
         CampaignJobORM,
+        CustomIntegrationORM,
         EventEvaluationORM,
         ProviderORM,
         SessionORM,

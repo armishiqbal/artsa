@@ -35,6 +35,7 @@ from src.api.routes.enterprise import router as enterprise_router
 from src.api.routes.forensics import router as forensics_router
 from src.api.routes.health import router as health_router
 from src.api.routes.ingest import router as ingest_router
+from src.api.routes.integrations import router as integrations_router
 from src.api.routes.metrics import router as metrics_router
 from src.api.routes.observatory import router as observatory_router
 from src.api.routes.playground import router as playground_router
@@ -55,6 +56,7 @@ logger = logging.getLogger("artsa.main")
 ROUTERS = [
     health_router,
     ingest_router,
+    integrations_router,
     sessions_router,
     agents_router,
     alerts_router,
@@ -109,6 +111,24 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.warning("Provider registry load skipped: %s", exc)
 
+        # Load custom outbound connectors + start the background dispatcher.
+        try:
+            import asyncio
+
+            from src.services.custom_integration_dispatcher import (
+                custom_integration_worker,
+                drain_telemetry,
+            )
+            from src.services.custom_integration_registry import custom_integration_registry
+
+            await custom_integration_registry.refresh()
+            logger.info("Custom integration registry loaded: %s", custom_integration_registry.names())
+            custom_integration_worker.start()
+            app.state.custom_integration_drain_task = asyncio.create_task(drain_telemetry())
+            logger.info("Custom integration dispatcher started")
+        except Exception as exc:
+            logger.warning("Custom integration dispatcher start skipped: %s", exc)
+
         if settings.WARM_BENCHMARK_ON_START:
             import asyncio
 
@@ -126,6 +146,26 @@ async def lifespan(app: FastAPI):
             logger.info("Scheduled ablation task registered")
 
     yield
+
+    # Shutdown: stop the telemetry drainer + custom integration worker pool.
+    if not settings.is_testing:
+        import asyncio
+
+        drain_task = getattr(app.state, "custom_integration_drain_task", None)
+        if drain_task is not None:
+            drain_task.cancel()
+            try:
+                with asyncio.timeout(2):
+                    await drain_task
+            except (asyncio.CancelledError, TimeoutError):
+                pass
+        try:
+            from src.services.custom_integration_dispatcher import custom_integration_worker
+
+            custom_integration_worker.stop(wait=True)
+            logger.info("Custom integration dispatcher stopped")
+        except Exception as exc:  # pragma: no cover
+            logger.warning("Custom integration dispatcher stop skipped: %s", exc)
 
 
 def create_app() -> FastAPI:

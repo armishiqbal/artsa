@@ -98,5 +98,6 @@ def role_capabilities(role: Role) -> dict[str, bool]:
         "can_run_ablation": is_allowed(role, "POST", "/api/v1/benchmark/ablation"),
         "can_manage_policies": is_allowed(role, "PUT", "/api/v1/policies"),
         "can_manage_providers": is_allowed(role, "POST", "/api/v1/providers"),
+        "can_manage_integrations": is_allowed(role, "POST", "/api/v1/integrations"),
         "read_only": role == Role.READONLY,
     }

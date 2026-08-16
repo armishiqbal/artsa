@@ -380,6 +380,16 @@ def dispatch_alert(alert: Alert) -> bool:
     Returns True if at least one channel accepted the alert.
     """
     risk = extract_risk(alert.message)
+
+    # Fire custom outbound connectors (config-driven, non-blocking) even when no
+    # built-in channel is configured. Lazy import avoids a module cycle.
+    try:
+        from src.services.custom_integration_dispatcher import enqueue_alert
+
+        enqueue_alert(alert)
+    except Exception as exc:
+        logger.warning("Custom integration enqueue failed for %s: %s", alert.id, exc)
+
     targets: list[AlertRule] = []
 
     for rule in env_integration_rules() + alert_store.get_webhook_rules():

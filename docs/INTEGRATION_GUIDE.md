@@ -318,6 +318,85 @@ Configure via `/api/v1/alerts/webhooks`. High-risk ingest events feed the Alerts
 
 ---
 
+## 10b. Custom outbound connectors — any HTTP system
+
+Beyond the built-in channels, define **config-driven connectors** to *any* HTTP
+system (custom SIEM, ticketing, chat bot, internal tool…) with no code and no
+redeploy. Each connector declares a method, URL, headers, auth, a JSON payload
+template, and which events trigger it. Manage them in the UI
+(**Settings → Integrations → Custom Outbound**) or via `/api/v1/integrations`.
+
+**Connector fields**
+
+| Field | Meaning |
+|---|---|
+| `name` | Unique slug (auto-normalized; `My SIEM` → `my-siem`) |
+| `method` | `POST` / `PUT` / `PATCH` |
+| `target_url` | Endpoint that receives the payload |
+| `auth_type` | `none` / `bearer` / `basic` / `api_key` — secrets encrypted at rest |
+| `headers` | Custom headers; values may embed `{{secret:name}}` |
+| `payload_template` | JSON body template; `null` = send the full default event |
+| `event_types` | Which events fire the connector: `alert`, `tool_call`, `proxy_call`, `session_action` |
+| `risk_threshold` | Only deliver events with `risk_score >= threshold` (0–100) |
+| `enabled` / `retries` / `timeout` | Delivery controls |
+
+**Payload templating**
+
+Placeholders use `{{field}}` or dotted paths `{{a.b.0.c}}` resolved against
+the event. A whole-token placeholder keeps its type (numbers stay numbers);
+embedded tokens are stringified. Unresolved tokens are left untouched so a
+missing optional field never breaks delivery.
+
+```json
+{
+  "source": "ARTSA",
+  "alert_id": "{{id}}",
+  "agent_id": "{{agent_id}}",
+  "severity": "{{severity}}",
+  "message": "{{message}}",
+  "risk_score": "{{risk_score}}"
+}
+```
+
+Secrets referenced in headers or the template — `{{secret:token}}`,
+`{{secret:api_key}}`, `{{secret:username}}`, `{{secret:password}}` — are
+**Fernet-encrypted at rest** with the platform `SECRET_KEY` and never returned
+by the API (only masked as `secrets_masked`). Rotating `SECRET_KEY` invalidates
+stored connector secrets (same behavior as provider keys).
+
+**API reference**
+
+```bash
+# Advertised event types, auth types, and template fields
+curl -s localhost:8000/api/v1/integrations/schema
+
+# Create a connector (409 on duplicate slug)
+curl -s -X POST localhost:8000/api/v1/integrations -H 'Content-Type: application/json' -d '{
+  "name": "my-siem",
+  "method": "POST",
+  "target_url": "https://sink.example.com/ingest",
+  "auth_type": "bearer",
+  "headers": {"X-Tenant": "acme"},
+  "payload_template": "{\"agent\": \"{{agent_id}}\", \"risk\": \"{{risk_score}}\"}",
+  "event_types": ["alert", "tool_call"],
+  "risk_threshold": 70,
+  "enabled": true,
+  "secrets": {"token": "super-secret"}
+}'
+
+# List (secrets masked), read one, update (PATCH preserves unmentioned secrets),
+# delete — and fire a synthetic sample event through it:
+curl -s -X POST localhost:8000/api/v1/integrations/my-siem/test \
+  -H 'Content-Type: application/json' -d '{"event_type": "alert"}'
+# → {"status": "sent", "event_type": "alert", "detail": ""}
+```
+
+The Test action never raises and never echoes secrets; `status` is `sent` when
+any delivery attempt succeeded. Dispatch is non-blocking (bounded worker queue)
+so connector latency or outages never slow the ingest hot path.
+
+---
+
 ## 11. Live dashboard & WebSocket
 
 - UI: `http://localhost:3000` (Command Center, Observatory, Topology, Risks, Replay)

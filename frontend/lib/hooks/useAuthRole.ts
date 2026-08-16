@@ -11,6 +11,7 @@ export interface AuthCapabilities {
   can_run_ablation: boolean;
   can_manage_policies: boolean;
   can_manage_providers: boolean;
+  can_manage_integrations: boolean;
   read_only: boolean;
 }
 
@@ -30,6 +31,7 @@ const NO_CAPABILITIES: AuthCapabilities = {
   can_run_ablation: false,
   can_manage_policies: false,
   can_manage_providers: false,
+  can_manage_integrations: false,
   read_only: false,
 };
 

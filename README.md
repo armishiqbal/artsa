@@ -113,6 +113,11 @@ npm run dev
 For every integration path (HTTP ingest, LangChain, OpenAI tools, MCP, OTEL,
 CI), see [docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md).
 
+Config-driven **custom outbound connectors** push alerts and events to *any*
+HTTP system — custom method, headers, auth, JSON payload template, and event
+triggers — with secrets encrypted at rest, no code required (Settings →
+Integrations → Custom Outbound, or `/api/v1/integrations`).
+
 ---
 
 ## 📄 License & Contact
