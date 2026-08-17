@@ -36,6 +36,9 @@ jobs:
       - name: Risk framework JSON sync
         run: bash scripts/check_risk_framework_sync.sh
 
+      - name: Doc↔config sync (README claims vs. code)
+        run: bash scripts/check_doc_config_sync.sh
+
       - name: Ruff check (production modules — hard gate)
         run: |
           ruff check \
@@ -56,7 +59,7 @@ jobs:
             backend/src/core/severity.py \
             backend/src/services/mcp_proxy.py
 
-      - name: Ruff check (broader — advisory)
+      - name: Ruff check (extended scope — hard gate)
         run: |
           ruff check \
             backend/src/api/routes/campaigns.py \
@@ -66,7 +69,7 @@ jobs:
             backend/src/api/routes/health.py \
             backend/src/agents/guardrails/ \
             backend/src/api/main.py \
-            backend/src/api/dependencies.py || true
+            backend/src/api/dependencies.py
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 2: Unit & Integration Tests (Backend)
@@ -87,22 +90,25 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd backend
           python -m pip install --upgrade pip
-          pip install -e "." || pip install pytest pytest-mock pytest-asyncio pydantic fastapi uvicorn pyyaml requests sqlalchemy psycopg2-binary
-          pip install pytest-cov
+          pip install -e ".[dev]"
 
       - name: Run tests with coverage
         env:
           PYTHONPATH: backend
         run: |
-          cd backend
-          python -m pytest tests/ \
+          python -m pytest backend/tests/ \
             --tb=short \
             -v
           # Gateway tests (LLM proxy, providers) are part of the main suite
           # (tests/test_llm_proxy.py, tests/test_providers_api.py); the legacy
           # api-gateway/ package was removed.
+
+      - name: Golden evaluation gate (independent curated set)
+        env:
+          PYTHONPATH: backend
+          ENVIRONMENT: testing
+        run: python backend/scripts/golden_gate.py
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 2b: Postgres Integration Tests
@@ -134,9 +140,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd backend
           python -m pip install --upgrade pip
-          pip install -e "." || pip install pytest pytest-asyncio pydantic fastapi sqlalchemy asyncpg psycopg2-binary
+          pip install -e ".[dev]"
 
       - name: Run Postgres persistence tests
         env:
@@ -147,8 +152,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://artsa:artsa_test@localhost:5432/artsa_test
           SYNC_DATABASE_URL: postgresql://artsa:artsa_test@localhost:5432/artsa_test
         run: |
-          cd backend
-          python -m pytest tests/integration/test_postgres_persistence.py -v --tb=short
+          python -m pytest backend/tests/integration/test_postgres_persistence.py -v --tb=short
 
   # ─────────────────────────────────────────────────────────────────
   # Stage 3: Next.js Frontend Production Build
@@ -198,13 +202,38 @@ jobs:
           PYTHONPATH: backend
           ENVIRONMENT: testing
         run: |
-          cd backend
           python -m pip install --upgrade pip
-          pip install -e ".[dev]" || pip install pytest pydantic fastapi pyyaml
-          python -m pytest tests/test_benchmark_harness.py tests/test_ablation_harness.py -q
+          pip install -e ".[dev]"
+          python -m pytest backend/tests/test_benchmark_harness.py backend/tests/test_ablation_harness.py -q
 
   # ─────────────────────────────────────────────────────────────────
-  # Stage 5: Containment regression gate (recall / FPR / latency SLOs)
+  # Stage 5: TypeScript SDK tests
+  # The @artsa/sdk ships a 19-case vitest suite (fail-closed, retry, fetch
+  # blocking) that previously never ran in CI. Keep it green here so a
+  # regression in the TS client can't silently ship.
+  # ─────────────────────────────────────────────────────────────────
+  sdk:
+    name: "🟦 TypeScript SDK"
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install SDK dependencies
+        run: cd sdk/typescript && npm ci || npm install
+
+      - name: Typecheck
+        run: cd sdk/typescript && npm run typecheck
+
+      - name: Run SDK tests
+        run: cd sdk/typescript && npm test
+
+  # ─────────────────────────────────────────────────────────────────
+  # Stage 6: Containment regression gate (recall / FPR / latency SLOs)
   # ─────────────────────────────────────────────────────────────────
   regression_gate:
     name: "🚦 Regression Gate"
@@ -222,7 +251,6 @@ jobs:
           PYTHONPATH: backend
           ENVIRONMENT: testing
         run: |
-          cd backend
           python -m pip install --upgrade pip
-          pip install -e "." || pip install pydantic fastapi pyyaml
-          python scripts/ci_regression_gate.py
+          pip install -e ".[dev]"
+          python backend/scripts/ci_regression_gate.py
