@@ -15,6 +15,9 @@ env:
   PYTHON_VERSION: "3.11"
   OPENAI_API_KEY: "sk-ci-mock-key"
   ARTSA_LOG_LEVEL: "WARNING"
+  # Seeded into the frontend auth store by e2e/seedAuth.ts so Playwright runs
+  # as an authenticated admin (the /config/me identity endpoint is mocked).
+  ARTSA_API_KEY: "sk-ci-e2e-admin-key"
 
 jobs:
   # ─────────────────────────────────────────────────────────────────

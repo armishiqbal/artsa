@@ -13,10 +13,10 @@ test.describe("ARTSA frontend smoke", () => {
     });
   });
 
-  test("login page renders with API key option", async ({ page }) => {
+  test("login page renders for anonymous users", async ({ page }) => {
     await page.goto("/login");
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.locator("#main-content")).toContainText(/sign in|sso|api key/i);
+    await expect(page.getByRole("heading", { name: /sign in/i }).first()).toBeVisible();
   });
 
   test("command center includes the merged observatory section", async ({ page }) => {
