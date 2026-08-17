@@ -2,17 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  ShieldAlert,
   Activity,
   RefreshCw,
-  Clock,
-  User,
-  Layers,
   CheckCircle2,
 } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { fetchFromBackend } from "@/lib/api";
 import { formatDate } from "@/lib/dates";
 

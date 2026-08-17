@@ -4,12 +4,8 @@ import { useState, useEffect } from "react";
 import {
   Bell,
   Globe,
-  Sliders,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "@/lib/stores/toast";
 import { cn } from "@/lib/utils";
 

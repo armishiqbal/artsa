@@ -11,7 +11,6 @@ import {
   X,
   Copy,
   Check,
-  Shield,
   CircleDot,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

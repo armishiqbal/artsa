@@ -94,7 +94,6 @@ export function PersonalInfoSection({
   onSaveProfile,
   onResetEdits,
   initialsLabel,
-  displayAvatar,
 }: PersonalInfoSectionProps) {
   const [dragActive, setDragActive] = useState(false);
 

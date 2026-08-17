@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowRight,
-  Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Profile } from "./types";

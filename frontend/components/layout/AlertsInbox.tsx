@@ -23,8 +23,6 @@ interface AlertsInboxProps {
 export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps) {
   const router = useRouter();
 
-  if (!open) return null;
-
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -33,6 +31,8 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  if (!open) return null;
 
   const sorted = [...alerts].sort((a, b) => {
     const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };

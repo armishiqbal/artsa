@@ -11,7 +11,6 @@ import {
   Clock,
   Cpu,
   AlertTriangle,
-  Code2,
   ExternalLink,
 } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";

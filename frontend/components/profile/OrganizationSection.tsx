@@ -35,7 +35,6 @@ export function OrganizationSection({
   tenantInfo,
 }: OrganizationSectionProps) {
   const isAdmin = role === "admin";
-  const isAnalyst = role === "analyst";
   const isRedTeam = role === "redteam";
   const isReadonly = role === "readonly";
 

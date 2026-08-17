@@ -9,12 +9,8 @@ import {
   X,
   Copy,
   Check,
-  CheckCircle2,
-  Sparkles,
   Camera,
-  Shield,
   ShieldCheck,
-  Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +21,6 @@ import {
   formatMemberSince,
 } from "@/lib/profile";
 import { toast } from "@/lib/stores/toast";
-import { cn } from "@/lib/utils";
 import type { Profile } from "./types";
 
 interface ProfileHeroHUDProps {

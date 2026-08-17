@@ -9,13 +9,11 @@ import {
   EyeOff,
   Loader2,
   AlertCircle,
-  Clock,
 } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { passwordStrength, roleLabel, methodLabel } from "@/lib/profile";
+import { passwordStrength, roleLabel } from "@/lib/profile";
 import { SecurityAuditStream } from "@/components/profile/SecurityAuditStream";
 import { cn } from "@/lib/utils";
 import type { Profile } from "./types";
@@ -37,9 +35,7 @@ interface SecuritySectionProps {
 }
 
 export function SecuritySection({
-  profile,
   role,
-  method,
   showEditable,
   currentPassword,
   setCurrentPassword,
