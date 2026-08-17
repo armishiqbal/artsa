@@ -1,4 +1,12 @@
-"""OpenTelemetry (OTEL) Production Trace Ingestion & Exploitation Drift Ingestor."""
+"""EXPERIMENTAL OpenTelemetry (OTEL) trace ingest.
+
+WARNING: this is a heuristic placeholder, NOT production-grade drift analysis.
+It flags spans whose ``input_prompt`` contains a few hardcoded keywords and
+returns a synthetic 0-10 drift score. It does NOT compute real embedding-vector
+drift, and ingested traces live only in memory (lost on restart). The feature
+is gated behind ``ARTSA_OTEL_ENABLED`` (default off) and is not advertised as
+supported.
+"""
 
 from __future__ import annotations
 
@@ -39,13 +47,17 @@ class OTELDriftAnalysisResult(BaseModel):
 
 
 class OTELTraceIngestor:
-    """Ingests OTEL production spans, computes 1024-dim vector drift, and alerts on attack clusters."""
+    """EXPERIMENTAL heuristic trace scorer (see module docstring — NOT real vector drift)."""
 
     def __init__(self) -> None:
         self._ingested_traces: list[OTELTracePayload] = []
 
     def process_trace(self, payload: OTELTracePayload) -> OTELDriftAnalysisResult:
-        """Process incoming OTEL trace payload and compute exploitation drift."""
+        """Score a trace with the keyword heuristic. Experimental — see module docstring."""
+        logger.warning(
+            "OTEL trace ingest is EXPERIMENTAL (keyword heuristic, in-memory, no vector drift) — trace %s",
+            payload.trace_id,
+        )
         spans_count = len(payload.spans)
         max_drift = 0.0
         threats = []

@@ -22,7 +22,6 @@ from src.services.alert_dispatcher import (
     dispatch_alert,
     dispatch_test_alert,
     env_integration_rules,
-    extract_risk,
     sentinel_signature,
 )
 from tests.conftest import unwrap_response
@@ -36,6 +35,7 @@ def _alert(severity: str = "HIGH") -> Alert:
         severity=severity,
         title="BREACHED on read_file",
         message="Agent agent-dispatch-01 · risk 85.0 · recommended KILL",
+        risk_score=85.0,
         channel="WEBHOOK",
         delivered=False,
         triggered_at=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),
@@ -64,9 +64,17 @@ def _rule(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_extract_risk():
-    assert extract_risk("Agent x · risk 92.5 · recommended KILL") == 92.5
-    assert extract_risk("no risk info") == 70.0
+def test_structured_risk_score_used_not_message():
+    """Payload builders read Alert.risk_score, never re-parse the message string."""
+    alert = _alert()
+    alert.message = "Agent x · (no risk number embedded)"
+    alert.risk_score = 92.5
+    slack_fields = build_slack_payload(alert, _rule(channel="SLACK"))["attachments"][0]["blocks"][1]["fields"]
+    assert any("*Risk:* 92.5/100" in f["text"] for f in slack_fields)
+    assert build_sentinel_payload(alert, _rule(channel="SENTINEL"))["RiskScore"] == 92.5
+    assert build_splunk_payload(alert, _rule(channel="SPLUNK"))["event"]["risk_score"] == 92.5
+    assert build_pagerduty_payload(alert, _rule(channel="PAGERDUTY"))["payload"]["custom_details"]["risk_score"] == 92.5
+    assert "risk:92.5" in build_datadog_payload(alert, _rule(channel="DATADOG"))[0]["ddtags"]
 
 
 def test_slack_payload_shape():
@@ -187,10 +195,27 @@ def captured():
     return {}
 
 
+class _SyncDeliveryWorker:
+    """Fake worker that delivers synchronously so tests can assert captured state."""
+
+    def enqueue(self, alert, rule) -> bool:
+        from src.services.alert_dispatcher import _dispatch_channel
+
+        return _dispatch_channel(alert, rule)
+
+
+def _install_sync_worker(monkeypatch) -> None:
+    """Route dispatch_alert through a synchronous worker for deterministic asserts."""
+    from src.services import alert_dispatcher
+
+    monkeypatch.setattr(alert_dispatcher, "alert_delivery_worker", _SyncDeliveryWorker())
+
+
 def test_dispatch_slack(monkeypatch, captured):
     from src.services import alert_dispatcher
 
     monkeypatch.setattr(alert_dispatcher.httpx, "Client", lambda timeout: _FakeClient(captured))
+    _install_sync_worker(monkeypatch)
     alert_store.seed_webhook_rules([_rule(channel="SLACK", url="https://hooks.slack.com/ABC")])
     try:
         assert dispatch_alert(_alert()) is True
@@ -205,6 +230,7 @@ def test_dispatch_pagerduty(monkeypatch, captured):
     from src.services import alert_dispatcher
 
     monkeypatch.setattr(alert_dispatcher.httpx, "Client", lambda timeout: _FakeClient(captured))
+    _install_sync_worker(monkeypatch)
     alert_store.seed_webhook_rules(
         [_rule(channel="PAGERDUTY", url="", config={"pagerduty_routing_key": "rk-1"})]
     )
@@ -222,6 +248,7 @@ def test_dispatch_splunk_sets_auth_header(monkeypatch, captured):
     from src.services import alert_dispatcher
 
     monkeypatch.setattr(alert_dispatcher.httpx, "Client", lambda timeout: _FakeClient(captured))
+    _install_sync_worker(monkeypatch)
     alert_store.seed_webhook_rules(
         [
             _rule(
@@ -245,6 +272,7 @@ def test_dispatch_datadog(monkeypatch, captured):
 
     monkeypatch.setattr(alert_dispatcher.httpx, "Client", lambda timeout: _FakeClient(captured))
     monkeypatch.setattr(settings, "DATADOG_API_KEY", "dd-env-key")
+    _install_sync_worker(monkeypatch)
     alert_store.seed_webhook_rules([_rule(channel="DATADOG", url="")])
     try:
         assert dispatch_alert(_alert()) is True
@@ -259,6 +287,7 @@ def test_dispatch_sentinel(monkeypatch, captured):
     from src.services import alert_dispatcher
 
     monkeypatch.setattr(alert_dispatcher.httpx, "Client", lambda timeout: _FakeClient(captured))
+    _install_sync_worker(monkeypatch)
     alert_store.seed_webhook_rules(
         [
             _rule(
@@ -285,6 +314,7 @@ def test_dispatch_respects_risk_threshold(monkeypatch, captured):
     from src.services import alert_dispatcher
 
     monkeypatch.setattr(alert_dispatcher.httpx, "Client", lambda timeout: _FakeClient(captured))
+    _install_sync_worker(monkeypatch)
     alert_store.seed_webhook_rules(
         [_rule(channel="SLACK", url="https://hooks.slack.com/XYZ", risk_threshold=95.0)]
     )

@@ -28,6 +28,7 @@ def _alert(risk_message: str = "Agent agent-hook · risk 85.0 · recommended KIL
         severity="HIGH",
         title="BREACHED on exec_command",
         message=risk_message,
+        risk_score=85.0,
         channel="WEBHOOK",
         delivered=False,
         triggered_at=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),

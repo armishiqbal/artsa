@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
+from src.core.config import settings
 from src.services.mcp_proxy import MCPJsonRpcRequest, MCPProxyInterceptor
 from src.services.otel_ingest import OTELTraceIngestor, OTELTracePayload
 
@@ -29,5 +30,17 @@ def get_mcp_inspections() -> dict[str, Any]:
 
 @router.post("/otel/v1/traces")
 def otel_trace_ingest(payload: OTELTracePayload) -> dict[str, Any]:
-    """Ingest OpenTelemetry / OpenInference spans and flag exploitation drift."""
+    """Ingest OpenTelemetry / OpenInference spans and flag exploitation drift.
+
+    EXPERIMENTAL: gated behind ``ARTSA_OTEL_ENABLED`` (default off). Returns 404
+    when disabled — this is not a supported capability.
+    """
+    if not settings.ARTSA_OTEL_ENABLED:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "OTEL trace ingest is experimental and disabled by default; "
+                "set ARTSA_OTEL_ENABLED=true to enable"
+            ),
+        )
     return _otel.process_trace(payload).model_dump()

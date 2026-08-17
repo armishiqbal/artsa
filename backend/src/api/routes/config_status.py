@@ -119,8 +119,8 @@ async def get_key_status() -> dict[str, Any]:
     return {
         "environment": settings.ENVIRONMENT,
         "use_sqlite": settings.USE_SQLITE,
-        "default_provider": settings.ARTSA_DEFAULT_PROVIDER or settings.DEFAULT_PROVIDER,
-        "default_model": settings.ARTSA_DEFAULT_MODEL or settings.DEFAULT_MODEL,
+        "default_provider": settings.ARTSA_DEFAULT_PROVIDER,
+        "default_model": settings.ARTSA_DEFAULT_MODEL,
         "tenant_id": settings.ARTSA_TENANT_ID,
         "summary": {
             "llm_providers_configured": llm_configured,

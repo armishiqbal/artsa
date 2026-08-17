@@ -27,8 +27,8 @@ from src.api.middleware.security_headers import SecurityHeadersMiddleware
 from src.api.routes.agent_runtime import router as agent_runtime_router
 from src.api.routes.agents import router as agents_router
 from src.api.routes.alerts import router as alerts_router
-from src.api.routes.auth import router as auth_router
 from src.api.routes.attack_library import router as attack_library_router
+from src.api.routes.auth import router as auth_router
 from src.api.routes.benchmark import router as benchmark_router
 from src.api.routes.campaigns import router as campaigns_router
 from src.api.routes.config_status import router as config_status_router
@@ -117,6 +117,7 @@ async def lifespan(app: FastAPI):
         try:
             import asyncio
 
+            from src.services.alert_dispatcher import alert_delivery_worker
             from src.services.custom_integration_dispatcher import (
                 custom_integration_worker,
                 drain_telemetry,
@@ -126,6 +127,7 @@ async def lifespan(app: FastAPI):
             await custom_integration_registry.refresh()
             logger.info("Custom integration registry loaded: %s", custom_integration_registry.names())
             custom_integration_worker.start()
+            alert_delivery_worker.start()
             app.state.custom_integration_drain_task = asyncio.create_task(drain_telemetry())
             logger.info("Custom integration dispatcher started")
         except Exception as exc:
@@ -190,9 +192,11 @@ async def lifespan(app: FastAPI):
             except (asyncio.CancelledError, TimeoutError):
                 pass
         try:
+            from src.services.alert_dispatcher import alert_delivery_worker
             from src.services.custom_integration_dispatcher import custom_integration_worker
 
             custom_integration_worker.stop(wait=True)
+            alert_delivery_worker.stop(wait=True)
             logger.info("Custom integration dispatcher stopped")
         except Exception as exc:  # pragma: no cover
             logger.warning("Custom integration dispatcher stop skipped: %s", exc)

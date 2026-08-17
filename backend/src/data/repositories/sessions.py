@@ -49,12 +49,13 @@ class SessionRepository(BaseRepository[SessionORM]):
             containment_breaches=session.containment_breaches,
         )
 
-    async def create_session(self, session: Session) -> Session:
+    async def create_session(self, session: Session, *, commit: bool = True) -> Session:
         memory_store.store_session(session)
         if self._use_memory:
             return session
         self.session.add(self._to_orm(session))
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         from src.services.mongo_sink import mongo_sink
         mongo_sink.enqueue_session(session, "created")
         return session
@@ -90,7 +91,9 @@ class SessionRepository(BaseRepository[SessionORM]):
         result = await self.session.execute(query)
         return [self._to_domain(row) for row in result.scalars().all()]
 
-    async def update_risk_score(self, session_id: UUID, risk_score: float, breached: bool = False) -> None:
+    async def update_risk_score(
+        self, session_id: UUID, risk_score: float, breached: bool = False, *, commit: bool = True
+    ) -> None:
         memory_store.update_session_risk(session_id, risk_score, breached=breached)
         if self._use_memory:
             return
@@ -104,11 +107,12 @@ class SessionRepository(BaseRepository[SessionORM]):
         if breached:
             row.containment_breaches += 1
             row.status = "BREACHED"
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         from src.services.mongo_sink import mongo_sink
         mongo_sink.enqueue_session(row, "breach" if breached else "risk")
 
-    async def apply_action(self, session_id: UUID, action: str) -> Session | None:
+    async def apply_action(self, session_id: UUID, action: str, *, commit: bool = True) -> Session | None:
         """Persist KILL / QUARANTINE / THROTTLE to memory + DB."""
         from datetime import datetime
 
@@ -144,7 +148,8 @@ class SessionRepository(BaseRepository[SessionORM]):
                 row.containment_breaches = (row.containment_breaches or 0) + 1
         elif action_u == "THROTTLE":
             row.max_risk_score = max(row.max_risk_score or 0.0, 50.0)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         from src.services.mongo_sink import mongo_sink
         mongo_sink.enqueue_session(row, "action")
         return self._to_domain(row)

@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class RedisStreamProtocol(Protocol):
     def xadd(self, stream: str, fields: dict[str, Any]) -> str: ...
+    def xadd_many(self, stream: str, entries: list[dict[str, Any]]) -> list[str]: ...
     def ping(self) -> bool: ...
 
 
@@ -24,6 +25,15 @@ class InMemoryRedis:
     def xadd(self, stream: str, fields: dict[str, Any]) -> str:
         self._streams.setdefault(stream, []).append(fields)
         return str(len(self._streams[stream]))
+
+    def xadd_many(self, stream: str, entries: list[dict[str, Any]]) -> list[str]:
+        """Append multiple entries in one call (batched ingest hot path)."""
+        if not entries:
+            return []
+        existing = self._streams.setdefault(stream, [])
+        existing.extend(entries)
+        start = len(existing) - len(entries)
+        return [str(start + i + 1) for i in range(len(entries))]
 
     def ping(self) -> bool:
         return True
@@ -44,6 +54,15 @@ class LiveRedisClient:
 
     def xadd(self, stream: str, fields: dict[str, Any]) -> str:
         return self._client.xadd(stream, fields)  # type: ignore[return-value]
+
+    def xadd_many(self, stream: str, entries: list[dict[str, Any]]) -> list[str]:
+        """Batch multiple stream writes through one Redis pipeline round-trip."""
+        if not entries:
+            return []
+        pipe = self._client.pipeline()  # type: ignore[attr-defined]
+        for fields in entries:
+            pipe.xadd(stream, fields)
+        return [str(x) for x in pipe.execute()]
 
     def ping(self) -> bool:
         return bool(self._client.ping())

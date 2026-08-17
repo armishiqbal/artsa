@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+
+# Next.js build output (the image rebuilds it)
+.next
+out
+build
+
+# Tests / reports
+test-results
+playwright-report
+blob-report
+coverage
+
+# Env & secrets — never copy into the image
+.env
+.env.*
+!.env.example
+
+# VCS / tooling
+.git
+.gitignore
+*.log
+.DS_Store
+npm-debug.log*

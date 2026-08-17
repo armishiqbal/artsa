@@ -25,8 +25,8 @@ from enum import Enum
 from typing import Any
 
 import httpx
-
 from src.core.config import settings
+from src.gateway.url_safety import check_proxy_target
 from src.services.prompt_scanner import (
     PromptScanner,
     PromptScanResult,
@@ -241,6 +241,7 @@ class LLMProxy:
         extra_headers: dict[str, str],
     ) -> httpx.Response:
         """Forward a non-streaming chat completion request."""
+        await check_proxy_target(url)
         return await self._client.post(
             url,
             json=payload,
@@ -255,6 +256,7 @@ class LLMProxy:
         extra_headers: dict[str, str],
     ) -> AsyncIterator[bytes]:
         """Stream an SSE chat completion response from the upstream."""
+        await check_proxy_target(url)
         headers = self._build_headers(api_key, extra_headers)
         headers["Accept"] = "text/event-stream"
         async with self._client.stream("POST", url, json=payload, headers=headers) as response:

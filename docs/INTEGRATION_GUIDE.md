@@ -242,6 +242,14 @@ curl http://localhost:8000/v1/proxy/chat/completions \
   supported (private gateways, proxies, local servers).
 - Providers can be updated (same `name`) or removed (`DELETE`).
 
+> 🛡️ **SSRF guard.** In production the proxy refuses to forward to
+> private/loopback/link-local hosts (e.g. `127.0.0.1`, `10.x`, `192.168.x`,
+> `169.254.169.254`) chosen via `X-ARTSA-Forward-To`, a registered provider's
+> `base_url`, or env config — a client API key must not be able to turn the
+> proxy into an internal-network scanner. Local LLM deployments are the
+> legitimate exception: set `ARTSA_PROXY_ALLOW_INTERNAL_TARGETS=true` to allow
+> them in production (they are always allowed in dev/testing).
+
 ## 6. MCP proxy (Model Context Protocol)
 
 Sit ARTSA **in front of** MCP `tools/call` / `tools/list` traffic:
@@ -270,9 +278,14 @@ History: `GET /api/v1/mcp/inspections`.
 
 ---
 
-## 7. OpenTelemetry / OpenInference traces
+## 7. OpenTelemetry / OpenInference traces — EXPERIMENTAL
 
-Ship production spans (LLM + tool) for drift / exploit clustering:
+> ⚠️ **Experimental.** The OTEL ingestor is a **heuristic placeholder**: it flags
+> spans whose `input_prompt` contains a few hardcoded keywords and returns a
+> synthetic drift score. It does **not** compute real embedding-vector drift and
+> stores nothing (traces are kept in memory only). It is **disabled by default**
+> and not a supported capability — enable it explicitly with
+> `ARTSA_OTEL_ENABLED=true` (returns `404` otherwise).
 
 ```http
 POST /api/v1/otel/v1/traces
@@ -495,7 +508,7 @@ After an incident:
 | OpenAI tools / Assistants | `wrap_openai_tools` | Alerts webhook |
 | Node / TypeScript agents | `@artsa/sdk` (`sdk/typescript`) | Fail-closed by default |
 | MCP tools / bridges | `/mcp/proxy` before forward | Ingest for executed tools |
-| Already on OTEL | `/otel/v1/traces` | Ingest for blocking |
+| Already on OTEL | `/otel/v1/traces` *(experimental, opt-in)* | Ingest for blocking |
 | Node / other | Raw HTTP ingest | BFF if browser-facing |
 | Pre-prod hardening | Campaigns + `artsa.test` | Attack library |
 

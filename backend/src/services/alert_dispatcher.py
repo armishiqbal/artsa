@@ -21,8 +21,10 @@ import hashlib
 import hmac
 import json
 import logging
-import re
+import queue
+import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
@@ -64,20 +66,6 @@ _NL = chr(10)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def extract_risk(message: str) -> float:
-    """Parse the embedded risk score from alert messages.
-
-    Expected format: "Agent {agent_id} · risk {score:.1f} · recommended {action}"
-    """
-    match = re.search(r"risk\s+([\d.]+)", message, re.IGNORECASE)
-    if match:
-        try:
-            return float(match.group(1))
-        except ValueError:
-            pass
-    return 70.0
-
-
 def _base_fields(alert: Alert) -> dict[str, Any]:
     return {
         "id": str(alert.id),
@@ -86,6 +74,7 @@ def _base_fields(alert: Alert) -> dict[str, Any]:
         "severity": alert.severity,
         "title": alert.title,
         "message": alert.message,
+        "risk_score": alert.risk_score,
         "channel": alert.channel,
         "triggered_at": alert.triggered_at.isoformat(),
     }
@@ -94,7 +83,7 @@ def _base_fields(alert: Alert) -> dict[str, Any]:
 def build_slack_payload(alert: Alert, rule: AlertRule) -> dict[str, Any]:
     severity_color = {"LOW": "#7cb342", "MEDIUM": "#fb8c00", "HIGH": "#e53935", "CRITICAL": "#b71c1c"}
     channel = rule.config.get("channel") or "#security"
-    risk = extract_risk(alert.message)
+    risk = alert.risk_score
     return {
         "channel": channel,
         "username": "ARTSA Containment",
@@ -133,7 +122,7 @@ def build_pagerduty_payload(alert: Alert, rule: AlertRule) -> dict[str, Any]:
     severity = rule.config.get("pagerduty_severity") or (
         "critical" if alert.severity in ("HIGH", "CRITICAL") else "warning"
     )
-    risk = extract_risk(alert.message)
+    risk = alert.risk_score
     return {
         "routing_key": routing_key,
         "event_action": "trigger",
@@ -153,7 +142,7 @@ def build_pagerduty_payload(alert: Alert, rule: AlertRule) -> dict[str, Any]:
 
 def build_splunk_payload(alert: Alert, rule: AlertRule) -> dict[str, Any]:
     return {
-        "event": _base_fields(alert) | {"risk_score": extract_risk(alert.message)},
+        "event": _base_fields(alert) | {"risk_score": alert.risk_score},
         "sourcetype": "artsa:security:alert",
         "source": "artsa",
         "host": "artsa-platform",
@@ -163,7 +152,7 @@ def build_splunk_payload(alert: Alert, rule: AlertRule) -> dict[str, Any]:
 
 
 def build_datadog_payload(alert: Alert, rule: AlertRule) -> list[dict[str, Any]]:
-    risk = extract_risk(alert.message)
+    risk = alert.risk_score
     return [
         {
             "ddsource": "artsa",
@@ -191,7 +180,7 @@ def build_sentinel_payload(alert: Alert, rule: AlertRule) -> dict[str, Any]:
         "Description": alert.message,
         "SessionId": str(alert.session_id),
         "AgentId": alert.agent_id,
-        "RiskScore": extract_risk(alert.message),
+        "RiskScore": alert.risk_score,
         "SourceSystem": "ARTSA",
     }
 
@@ -313,6 +302,71 @@ def _dispatch_channel(alert: Alert, rule: AlertRule) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Background delivery worker (off the ingest hot path)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class AlertDeliveryWorker:
+    """Deliver alerts to built-in SIEM/SOAR channels off the ingest hot path.
+
+    Mirrors :class:`src.services.custom_integration_dispatcher.CustomIntegrationWorker`:
+    producers call non-blocking ``put_nowait``; a small thread pool owns the
+    (potentially slow, retried) HTTP delivery so a stuck or slow channel never
+    blocks an ingest request. ``delivered`` is marked per-channel on success.
+    """
+
+    def __init__(self, maxsize: int = 1000, workers: int = 2) -> None:
+        self._queue: queue.Queue[tuple[Alert, AlertRule]] = queue.Queue(maxsize=maxsize)
+        self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="alrt")
+        self._workers = workers
+        self._stop = threading.Event()
+        self._started = False
+
+    def start(self) -> None:
+        if self._started:
+            return
+        self._started = True
+        self._stop.clear()
+        self._futures = [self._pool.submit(self._consume) for _ in range(self._workers)]
+
+    def stop(self, wait: bool = True) -> None:
+        self._started = False
+        self._stop.set()
+        try:
+            self._pool.shutdown(wait=wait, cancel_futures=False)
+        except Exception as exc:  # pragma: no cover - already shut down
+            logger.debug("Alert delivery worker shutdown error: %s", exc)
+
+    def enqueue(self, alert: Alert, rule: AlertRule) -> bool:
+        """Queue a (alert, rule) delivery. Returns False (drops) on a full queue."""
+        if not self._started:
+            return False
+        try:
+            self._queue.put_nowait((alert, rule))
+            return True
+        except queue.Full:
+            logger.warning("Alert delivery queue full — dropping %s -> %s", alert.id, rule.channel)
+            return False
+
+    def _consume(self) -> None:
+        while not self._stop.is_set():
+            try:
+                alert, rule = self._queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            try:
+                if _dispatch_channel(alert, rule):
+                    alert_store.mark_delivered(alert.id)
+            except Exception as exc:
+                logger.warning("Alert delivery error for %s: %s", alert.id, exc)
+            finally:
+                self._queue.task_done()
+
+
+alert_delivery_worker = AlertDeliveryWorker()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Environment-configured integrations (global channels)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -376,10 +430,11 @@ def env_integration_rules() -> list[AlertRule]:
 def dispatch_alert(alert: Alert) -> bool:
     """Dispatch an alert to every matching enabled integration.
 
-    Targets = environment-configured channels + persisted store rules.
-    Returns True if at least one channel accepted the alert.
+    Targets = environment-configured channels + persisted store rules. Delivery
+    is enqueued to a background worker so slow or stuck channels never block the
+    ingest hot path. Returns True if at least one channel accepted the alert.
     """
-    risk = extract_risk(alert.message)
+    risk = alert.risk_score
 
     # Fire custom outbound connectors (config-driven, non-blocking) even when no
     # built-in channel is configured. Lazy import avoids a module cycle.
@@ -413,14 +468,13 @@ def dispatch_alert(alert: Alert) -> bool:
     if not targets:
         return False
 
-    delivered_any = False
+    # Enqueue every matching (alert, rule) for background delivery. Returns True
+    # if at least one target was accepted by the worker (never blocks).
+    accepted_any = False
     for rule in targets:
-        if _dispatch_channel(alert, rule):
-            delivered_any = True
-
-    if delivered_any:
-        alert_store.mark_delivered(alert.id)
-    return delivered_any
+        if alert_delivery_worker.enqueue(alert, rule):
+            accepted_any = True
+    return accepted_any
 
 
 def dispatch_test_alert(rule: AlertRule) -> dict[str, Any]:
@@ -432,6 +486,7 @@ def dispatch_test_alert(rule: AlertRule) -> dict[str, Any]:
         severity="HIGH",
         title="ARTSA test alert",
         message="Agent integration-test · risk 85.0 · recommended KILL",
+        risk_score=85.0,
         channel=rule.channel,
         delivered=False,
     )

@@ -55,8 +55,8 @@ async def get_health():
                 "sessions",
                 "metrics",
                 "mcp",
-                "otel",
                 "risks",
+                *(["otel_experimental"] if settings.ARTSA_OTEL_ENABLED else []),
             ],
         },
     }

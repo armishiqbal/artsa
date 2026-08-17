@@ -44,8 +44,11 @@ env:
   ARTSA_BLOCK_CONTAINED_SESSIONS: "true"
   # Must be explicit in production (never *). Override per environment.
   ARTSA_CORS_ORIGINS: "https://artsa.example.com"
-  # Set via secrets in production:
-  DATABASE_URL: postgresql+asyncpg://postgres:postgrespassword@artsa-postgres:5432/artsa_db
+  # DATABASE_URL deliberately lives OUTSIDE env: it embeds the postgres password.
+  # Dev: built in the template from .Values.postgresql.auth (artsa.databaseUrl).
+  # Prod: injected from the ARTSA secrets Secret (secrets.create=true) via envFrom.
+  # REDIS_URL carries no credentials; when secrets.create=true the Secret
+  # supplies it instead of this static value.
   REDIS_URL: redis://artsa-redis:6379/0
 
 frontend:
@@ -84,6 +87,8 @@ postgresql:
   auth:
     database: artsa_db
     username: postgres
+    # DEV DEFAULT ONLY. In production set secrets.create=true and supply
+    # secrets.postgresPassword + secrets.databaseUrl instead of this value.
     password: postgrespassword
 
 redis:
@@ -92,12 +97,15 @@ redis:
 
 secrets:
   create: false
-  # When create=true, populate via --set-file or sealed-secrets (never commit real values):
+  # When create=true, populate via --set-file or sealed-secrets (never commit
+  # real values). These are injected as envFrom on the api deployment; the
+  # postgres deployment reads POSTGRES_PASSWORD from the same Secret.
   secretKey: ""
   artsaApiKey: ""
   openaiApiKey: ""
   databaseUrl: ""
   redisUrl: ""
+  postgresPassword: ""
   oidcClientSecret: ""
 
 monitoring:

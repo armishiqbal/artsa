@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: artsa_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
     ports:
       - "5432:5432"
     volumes:
@@ -42,8 +42,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgrespassword@postgres:5432/artsa_db
-      - SYNC_DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/artsa_db
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/artsa_db
+      - SYNC_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/artsa_db
       - REDIS_URL=redis://redis:6379/0
       - USE_SQLITE=false
       - USE_CELERY=true
@@ -73,7 +73,7 @@ services:
     command: ["python", "-m", "celery", "-A", "src.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
     environment:
       - PYTHONPATH=/app/backend
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgrespassword@postgres:5432/artsa_db
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/artsa_db
       - REDIS_URL=redis://redis:6379/0
       - USE_CELERY=true
       - ENVIRONMENT=production
@@ -87,12 +87,19 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars are inlined into the client bundle at build time;
+        # pass the browser-facing URL here (backend is published on :8000).
+        NEXT_PUBLIC_API_URL: http://localhost:8000
     container_name: artsa-frontend-dashboard
     restart: always
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # Server-side BFF proxy (/api/backend/*) runs inside the container, so it
+      # must reach the backend by its Docker network name, not "localhost".
+      - BACKEND_URL=http://backend:8000
     depends_on:
       - backend
 

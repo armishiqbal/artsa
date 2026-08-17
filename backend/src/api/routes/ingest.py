@@ -105,9 +105,14 @@ async def ingest_events(
     evaluations: list[dict[str, Any]] = []
     auto_enforced: str | None = None
     session_status: str | None = None
+    # Batched hot path: Redis stream entries and DB mutations are deferred and
+    # flushed once, so a batch of N events costs ~1 Redis round-trip and 1 DB
+    # commit instead of ~N each. Repo calls run with commit=False inside the
+    # loop; the single commit below persists the whole batch transactionally.
+    redis_entries: list[dict[str, Any]] = []
 
     for event in events:
-        redis.xadd("events:incoming", {
+        redis_entries.append({
             "id": str(event.id),
             "session_id": str(event.session_id),
             "agent_id": event.agent_id,
@@ -120,7 +125,7 @@ async def ingest_events(
             tracker.active_sessions[str(event.session_id)] = session
             tracker.session_events[str(event.session_id)] = []
             memory_store.store_session(session)
-            await session_repo.create_session(session)
+            await session_repo.create_session(session, commit=False)
 
         tracker.add_event_to_session(event.session_id, event)
         risk_score, verdict, sec_events = processor.process(event)
@@ -133,6 +138,7 @@ async def ingest_events(
             event.session_id,
             risk_score.overall_score,
             breached=verdict.verdict == "BREACHED",
+            commit=False,
         )
         memory_store.update_session_risk(
             event.session_id,
@@ -144,7 +150,7 @@ async def ingest_events(
         action = verdict.recommended_action
         if settings.ARTSA_AUTO_ENFORCE and action in _ENFORCE_ACTIONS:
             tracker.apply_action(event.session_id, action)
-            await session_repo.apply_action(event.session_id, action)
+            await session_repo.apply_action(event.session_id, action, commit=False)
             enforced = True
             auto_enforced = action
 
@@ -171,7 +177,7 @@ async def ingest_events(
             "security_event_count": len(sec_events),
             "enforced": enforced,
         }
-        await eval_repo.upsert(str(event.id), event.session_id, evaluation)
+        await eval_repo.upsert(str(event.id), event.session_id, evaluation, commit=False)
         evaluations.append(evaluation)
 
         # Optional MongoDB sink: persist the verdict doc (no-op without URI).
@@ -229,7 +235,12 @@ async def ingest_events(
             recommended_action=verdict.recommended_action,
         )
         if alert is not None:
-            await persist_alert(db, alert)
+            await persist_alert(db, alert, commit=False)
+
+    # Flush the deferred batch: one Redis pipeline round-trip + one DB commit.
+    if redis_entries:
+        redis.xadd_many("events:incoming", redis_entries)
+    await db.commit()
 
     first_event = events[0]
     first_eval = evaluations[0]

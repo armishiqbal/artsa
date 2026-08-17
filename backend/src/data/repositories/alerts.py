@@ -27,6 +27,7 @@ class AlertRepository(BaseRepository[AlertORM]):
             severity=row.severity,
             title=row.title,
             message=row.message,
+            risk_score=row.risk_score or 70.0,
             channel=row.channel,
             triggered_at=row.triggered_at,
             delivered=bool(row.delivered),
@@ -40,16 +41,18 @@ class AlertRepository(BaseRepository[AlertORM]):
             severity=alert.severity,
             title=alert.title,
             message=alert.message,
+            risk_score=alert.risk_score,
             channel=alert.channel,
             triggered_at=alert.triggered_at,
             delivered=alert.delivered,
         )
 
-    async def create_alert(self, alert: Alert) -> Alert:
+    async def create_alert(self, alert: Alert, *, commit: bool = True) -> Alert:
         if settings.is_testing:
             return alert
         self.session.add(self._to_orm(alert))
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return alert
 
     async def list_alerts(

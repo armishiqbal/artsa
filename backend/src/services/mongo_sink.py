@@ -92,8 +92,6 @@ class MongoSink:
 
     def enqueue_alert(self, alert: Any) -> None:
         """Build the alert document and queue it to the ``alerts`` collection."""
-        from src.services.alert_dispatcher import extract_risk
-
         self.enqueue(
             "alerts",
             {
@@ -105,7 +103,7 @@ class MongoSink:
                 "title": alert.title,
                 "message": alert.message,
                 "channel": alert.channel,
-                "risk_score": extract_risk(alert.message),
+                "risk_score": alert.risk_score,
                 "triggered_at": alert.triggered_at.isoformat(),
                 "ts": datetime.now(UTC).isoformat(),
             },

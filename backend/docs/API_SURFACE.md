@@ -28,7 +28,7 @@ npm run dev
 | **`/forensics/analyze`** | Trajectory forensics |
 | **`/risks`** | Agentic AI Top 10 + live telemetry |
 | **`/mcp/proxy`** | MCP JSON-RPC inspection (tool poisoning) |
-| **`/otel/v1/traces`** | OpenTelemetry / OpenInference drift ingest |
+| **`/otel/v1/traces`** | OpenTelemetry ingest — **EXPERIMENTAL** heuristic, gated behind `ARTSA_OTEL_ENABLED` (404 when off) |
 | **`/agents/eds/monitor`** | Sub-50ms escape detection fast path |
 | **`/agents/trajectory/evaluate`** | Multi-step tool trajectory anomaly scoring |
 | **`/compliance/export`** | EU AI Act / NIST export |

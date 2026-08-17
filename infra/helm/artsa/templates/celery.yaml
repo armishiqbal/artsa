@@ -23,9 +23,15 @@ spec:
           env:
             - name: PYTHONPATH
               value: /app/backend
+            {{- if not .Values.secrets.create }}
+            - name: DATABASE_URL
+              value: {{ include "artsa.databaseUrl" . | quote }}
+            {{- end }}
             {{- range $key, $value := .Values.env }}
+            {{- if not (and $.Values.secrets.create (eq $key "REDIS_URL")) }}
             - name: {{ $key }}
               value: {{ $value | quote }}
+            {{- end }}
             {{- end }}
           resources:
             {{- toYaml .Values.resources.celery | nindent 12 }}

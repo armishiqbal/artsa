@@ -53,6 +53,8 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
         event_id: str,
         session_id: UUID,
         evaluation: dict[str, Any],
+        *,
+        commit: bool = True,
     ) -> None:
         memory_store.store_evaluation(event_id, evaluation)
         if self._use_memory:
@@ -72,7 +74,8 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
             row.security_event_count = int(evaluation.get("security_event_count", 0))
         else:
             self.session.add(self._to_orm(event_id, sid, evaluation))
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
 
     async def get_by_session(self, session_id: UUID) -> dict[str, dict[str, Any]]:
         if self._use_memory:

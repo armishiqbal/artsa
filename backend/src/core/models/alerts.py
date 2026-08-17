@@ -18,6 +18,7 @@ class Alert(BaseModel):
     severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     title: str
     message: str
+    risk_score: float = 70.0
     channel: Literal["WEBHOOK", "SLACK", "PAGERDUTY", "EMAIL", "SPLUNK", "DATADOG", "SENTINEL"]
     triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     delivered: bool = False

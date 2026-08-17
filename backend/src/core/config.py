@@ -187,11 +187,21 @@ class Settings(BaseSettings):
     #   fail_closed -> block the request (secure default, prioritises safety)
     #   fail_open   -> allow the request (prioritises availability)
     ARTSA_PROXY_FAIL_MODE: str = "fail_closed"
+    # SSRF guard for proxied forwarding targets (base_url / X-ARTSA-Forward-To /
+    # registered provider base URLs). Private, loopback and link-local hosts are
+    # blocked unless explicitly allowed.
+    #   true  -> always allow internal targets (needed for local LLMs / Ollama)
+    #   false -> always block internal targets
+    #   unset -> auto: blocked in production, allowed in dev/testing
+    ARTSA_PROXY_ALLOW_INTERNAL_TARGETS: bool | None = None
 
     # ── SIEM / SOAR alert channels ───────────────────────────────────────
     # Environment-level integration creds. Per-tenant rules can be configured
     # through the alerts API with channel-specific config values instead.
     ARTSA_ALERT_RISK_THRESHOLD: float = 60.0
+    # OTEL trace ingest is EXPERIMENTAL (keyword heuristic, in-memory, no vector
+    # drift). Disabled by default; enable explicitly to expose the endpoint.
+    ARTSA_OTEL_ENABLED: bool = False
     SLACK_WEBHOOK_URL: str | None = None
     PAGERDUTY_ROUTING_KEY: str | None = None
     PAGERDUTY_SERVICE_URL: str = "https://events.pagerduty.com/v2/enqueue"
@@ -206,8 +216,6 @@ class Settings(BaseSettings):
     # ── Defaults ────────────────────────────────────────────────────────
     ARTSA_DEFAULT_PROVIDER: str = "openai"
     ARTSA_DEFAULT_MODEL: str = "gpt-4o"
-    DEFAULT_PROVIDER: str = "openai"
-    DEFAULT_MODEL: str = "gpt-4o"
 
     # ── Performance SLOs ────────────────────────────────────────────────
     EDS_LATENCY_THRESHOLD_MS: float = 50.0
@@ -228,6 +236,15 @@ class Settings(BaseSettings):
     @property
     def is_testing(self) -> bool:
         return self.ENVIRONMENT == "testing"
+
+    @property
+    def proxy_allows_internal_targets(self) -> bool:
+        """Resolve the SSRF-guard policy (explicit flag, else env-based default)."""
+        if self.ARTSA_PROXY_ALLOW_INTERNAL_TARGETS is not None:
+            return self.ARTSA_PROXY_ALLOW_INTERNAL_TARGETS
+        # Auto: internal targets are the norm for local LLMs in dev; in
+        # production a security proxy should not forward to internal hosts.
+        return self.ENVIRONMENT != "production"
 
     @property
     def ws_ticket_secret(self) -> str:

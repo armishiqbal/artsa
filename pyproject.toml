@@ -11,40 +11,72 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "ARTSA Platform Security Team"}]
 
+# Single canonical dependency list. Deps are shared by the API container
+# (infra/docker/api.Dockerfile), the Celery worker, and CI — all install this
+# file with `pip install -e .` / `pip install -e ".[dev]"`.
 dependencies = [
+    # Web framework
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    # Validation / settings
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
+    # Persistence
     "sqlalchemy>=2.0.0",
     "asyncpg>=0.29.0",
     "psycopg2-binary>=2.9.0",
+    "aiosqlite>=0.20.0",
+    "greenlet>=3.0.0",
+    "alembic>=1.13.0",
+    "pymongo[srv]>=4.6.0",
     "redis>=5.0.0",
+    # Async / workers
     "celery>=5.4.0",
-    "numpy>=1.26.0",
-    "scikit-learn>=1.4.0",
+    "click>=8.0",
+    # HTTP client
     "httpx>=0.27.0",
-    "python-jose>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
-    "structlog>=24.1.0",
+    # Auth (HS256 session tokens) + Fernet secret encryption
+    "pyjwt[crypto]>=2.8.0",
+    "cryptography>=42.0",
+    # LLM / RAG
+    "langchain>=0.3.0",
+    "langchain-openai>=0.3.0",
+    "langchain-community>=0.3.0",
+    "chromadb>=0.5.0",
+    # Reporting / CLI
+    "fpdf>=1.7.2",
+    "rich>=13.0",
+    # Misc
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
+pinecone = [
+    "pinecone-client>=5.0.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-mock>=3.12.0",
     "pytest-cov>=5.0.0",
     "ruff>=0.4.0",
-    "alembic>=1.13.0",
-    "aiosqlite>=0.20.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["backend"]
 include = ["src*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# B008: FastAPI's Depends()/Body() in argument defaults is the framework idiom.
+# BLE001: defensive `except Exception` around startup/refresh paths is an
+#         intentional codebase convention (fail-soft, log-and-continue).
+ignore = ["B008", "BLE001"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]

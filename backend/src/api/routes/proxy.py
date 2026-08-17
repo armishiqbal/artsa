@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from src.core.config import settings
 from src.gateway.llm_proxy import ProxyAction, get_llm_proxy
+from src.gateway.url_safety import SSRFBlockedError
 
 router = APIRouter(tags=["LLM Proxy"])
 
@@ -170,6 +171,10 @@ async def proxy_chat_completions(
             try:
                 async for chunk in proxy.stream_chat(url, payload, api_key, extra_headers):
                     yield chunk.decode("utf-8", errors="replace")
+            except SSRFBlockedError as exc:
+                error_body = {"error": {"message": str(exc), "type": "proxy_target_blocked", "code": "proxy_target_blocked"}}
+                yield _sse(error_body)
+                yield "data: [DONE]\n\n"
             except Exception as exc:
                 error_body = {"error": {"message": str(exc), "type": "upstream_error", "code": "proxy_upstream_error"}}
                 yield _sse(error_body)
@@ -187,6 +192,11 @@ async def proxy_chat_completions(
 
     try:
         upstream = await proxy.forward_chat(url, payload, api_key, extra_headers)
+    except SSRFBlockedError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={"message": str(exc), "code": "proxy_target_blocked", "provider": provider},
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=502,
@@ -262,6 +272,10 @@ async def proxy_messages(
                 try:
                     async for chunk in proxy.stream_chat(url, forward_payload, api_key, extra_headers):
                         yield chunk.decode("utf-8", errors="replace")
+                except SSRFBlockedError as exc:
+                    yield _sse(
+                        {"type": "error", "error": {"type": "api_error", "message": str(exc), "code": "proxy_target_blocked"}}
+                    )
                 except Exception as exc:
                     yield _sse(
                         {"type": "error", "error": {"type": "api_error", "message": str(exc)}}
@@ -271,6 +285,11 @@ async def proxy_messages(
 
         try:
             upstream = await proxy.forward_chat(url, forward_payload, api_key, extra_headers)
+        except SSRFBlockedError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail={"message": str(exc), "code": "proxy_target_blocked", "provider": provider},
+            ) from exc
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
@@ -330,6 +349,10 @@ async def proxy_messages(
                     yield _sse({"type": "message_stop"})
                 else:
                     yield _sse({"type": "error", "error": {"type": "api_error", "message": "No upstream stream data"}})
+            except SSRFBlockedError as exc:
+                yield _sse(
+                    {"type": "error", "error": {"type": "api_error", "message": str(exc), "code": "proxy_target_blocked"}}
+                )
             except Exception as exc:
                 yield _sse({"type": "error", "error": {"type": "api_error", "message": str(exc)}})
 
@@ -337,6 +360,11 @@ async def proxy_messages(
 
     try:
         upstream = await proxy.forward_chat(url, openai_payload, api_key, extra_headers)
+    except SSRFBlockedError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={"message": str(exc), "code": "proxy_target_blocked", "provider": provider},
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=502,

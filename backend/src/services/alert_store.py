@@ -87,6 +87,7 @@ def record_alert_from_evaluation(
         severity=severity,
         title=title,
         message=message,
+        risk_score=risk_score,
         channel="WEBHOOK",
         delivered=False,
     )
@@ -116,11 +117,11 @@ def load_persisted_alerts(alerts: list[Alert]) -> None:
 # Durable persistence helpers (called by async API routes with a DB session)
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def persist_alert(db: AsyncSession, alert: Alert) -> Alert:
+async def persist_alert(db: AsyncSession, alert: Alert, *, commit: bool = True) -> Alert:
     """Persist an alert to the database (no-op safe if DB is unavailable)."""
     try:
         repo = AlertRepository(db)
-        return await repo.create_alert(alert)
+        return await repo.create_alert(alert, commit=commit)
     except Exception:
         return alert
 

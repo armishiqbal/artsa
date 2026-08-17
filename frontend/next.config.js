@@ -2,6 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Required for the multi-stage production Dockerfile: emits .next/standalone
+  // with the server + traced deps, so the runner stage ships no node_modules.
+  output: "standalone",
+
   // Dev-only: disable Webpack's persistent filesystem pack cache. Killing the
   // dev server mid-write leaves a half-renamed `.pack.gz_` behind, and the next
   // boot throws "Caching failed for pack: ENOENT". A fresh compile per restart

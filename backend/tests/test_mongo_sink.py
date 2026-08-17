@@ -149,6 +149,7 @@ def test_enqueue_alert_builds_document(monkeypatch):
             severity="HIGH",
             title="BREACHED on exec_command",
             message="Agent agent-x · risk 85.0 · recommended KILL",
+            risk_score=85.0,
             channel="WEBHOOK",
         )
         sink.enqueue_alert(alert)
@@ -163,7 +164,7 @@ def test_enqueue_alert_builds_document(monkeypatch):
     assert doc["session_id"] == "1c5e1ac4-5d63-40c8-b0ad-c9c4eb94eb9f"
     assert doc["agent_id"] == "agent-x"
     assert doc["severity"] == "HIGH"
-    assert doc["risk_score"] == 85.0  # parsed from the message
+    assert doc["risk_score"] == 85.0  # read from the structured field
     assert doc["channel"] == "WEBHOOK"
     assert "ts" in doc and "triggered_at" in doc
 

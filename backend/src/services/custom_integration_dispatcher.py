@@ -333,9 +333,7 @@ def enqueue_alert(alert: Any) -> None:
     Called from :func:`alert_dispatcher.dispatch_alert` (lazy import to avoid a
     module cycle). Non-blocking.
     """
-    from src.services.alert_dispatcher import extract_risk
-
-    risk = extract_risk(alert.message)
+    risk = alert.risk_score
     event: dict[str, Any] = {
         "type": "alert",
         "id": str(alert.id),
