@@ -56,6 +56,11 @@ dependencies = [
 pinecone = [
     "pinecone-client>=5.0.0",
 ]
+# Open-source, offline semantic embeddings (BAAI/bge-small-en-v1.5 ONNX).
+# `auto` uses these when installed; without them it falls back to hash-1024.
+embeddings = [
+    "fastembed>=0.4.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",

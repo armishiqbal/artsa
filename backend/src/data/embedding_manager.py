@@ -1,4 +1,10 @@
-"""Embedding utilities for semantic detection and RAG."""
+"""Embedding utilities for semantic detection and RAG.
+
+WS-2.2 (open-source): the production default is now a local, open-source ONNX
+model via FastEmbed (BAAI/bge-small-en-v1.5) — no API key, no vendor lock-in,
+runs offline after the one-time model download. OpenAI text-embedding models
+remain available as an explicit opt-in only; ``auto`` never picks them.
+"""
 
 from __future__ import annotations
 
@@ -18,15 +24,34 @@ AVAILABLE_EMBEDDING_MODELS = {
         "dimensions": 1024,
         "description": "Deterministic hash-based embedding for offline/test runs",
     },
+    "local-bge-small": {
+        "dimensions": 384,
+        "description": "Open-source BAAI/bge-small-en-v1.5 via FastEmbed (ONNX, offline)",
+    },
+    "local-minilm": {
+        "dimensions": 384,
+        "description": "Open-source sentence-transformers/all-MiniLM-L6-v2 via FastEmbed (ONNX, offline)",
+    },
     "text-embedding-3-large": {
         "dimensions": 3072,
-        "description": "OpenAI text-embedding-3-large (production)",
+        "description": "OpenAI text-embedding-3-large (explicit opt-in only)",
     },
     "text-embedding-3-small": {
         "dimensions": 1536,
-        "description": "OpenAI text-embedding-3-small",
+        "description": "OpenAI text-embedding-3-small (explicit opt-in only)",
     },
 }
+
+
+def fastembed_available() -> bool:
+    """True when the optional FastEmbed dependency (open-source ONNX embeddings)
+    is installed. Imported lazily so the rest of the platform works without it."""
+    try:
+        import fastembed  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 def _pad_or_truncate(vector: list[float], dimensions: int) -> list[float]:
@@ -50,24 +75,40 @@ class HighAccuracy1024EmbeddingFunction:
         self._api_dimensions = int(meta.get("dimensions", self.TARGET_DIMENSIONS))
         self._openai_base = (settings.OPENAI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
         self._cache: dict[str, list[float]] = {}
+        # Lazy FastEmbed model handle (one-time ONNX load / download).
+        self._local_model = None
 
     def embed(self, text: str) -> list[float]:
         if self.model_name == "hash-1024":
             return self._hash_embed(text)
-        if self.model_name.startswith("text-embedding"):
-            cached = self._cache.get(text)
-            if cached is not None:
-                return cached
-            try:
+        cached = self._cache.get(text)
+        if cached is not None:
+            return cached
+        try:
+            if self.model_name.startswith("text-embedding"):
                 vector = self._openai_embed(text)
-            except Exception as exc:
-                logger.warning("OpenAI embed failed (%s), falling back to hash-1024", exc)
+            elif self.model_name.startswith("local-"):
+                vector = self._local_embed(text)
+            else:
                 return self._hash_embed(text)
-            if len(self._cache) >= self._CACHE_MAX:
-                self._cache.pop(next(iter(self._cache)))
-            self._cache[text] = vector
-            return vector
-        return self._hash_embed(text)
+        except Exception as exc:
+            logger.warning("Embedding failed for %s (%s), falling back to hash-1024", self.model_name, exc)
+            return self._hash_embed(text)
+        if len(self._cache) >= self._CACHE_MAX:
+            self._cache.pop(next(iter(self._cache)))
+        self._cache[text] = vector
+        return vector
+
+    def _local_embed(self, text: str) -> list[float]:
+        """Open-source ONNX embeddings via FastEmbed (offline after download)."""
+        if self._local_model is None:
+            from fastembed import TextEmbedding  # optional dependency
+
+            self._local_model = TextEmbedding(model_name=self.model_name)
+        vector = next(self._local_model.embed([text]))
+        values = [float(v) for v in vector]
+        norm = math.sqrt(sum(v * v for v in values)) or 1.0
+        return [v / norm for v in values]
 
     def embed_batch(self, texts: Iterable[str]) -> list[list[float]]:
         return [self.embed(text) for text in texts]

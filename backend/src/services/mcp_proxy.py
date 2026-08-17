@@ -1,13 +1,25 @@
-"""Live MCP Protocol Interceptor — allow-listed methods + injection patterns."""
+"""Live MCP Protocol Interceptor — allow-listed methods + full containment engine.
+
+WS-2.5 (MCP parity): besides the method/tool allow-lists and fast regex checks,
+every ``tools/call`` is ALSO scored by the full ``ContainmentEngine`` (the same
+detector stack as the ingest path: rule-based, SQLi, MCP-destructive, semantic,
+goal-drift, trajectory, tool-output). A call the engine scores >= SUSPICIOUS is
+blocked, so MCP traffic gets the same verdicts as the main pipeline instead of
+a separate, weaker regex list.
+"""
 
 from __future__ import annotations
 
 import logging
 import os
 import re
+import uuid
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
+
+from src.containment.engine import ContainmentEngine
+from src.core.models.events import ToolCallEvent
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +59,10 @@ class MCPInspectionResult(BaseModel):
     method: str
     action_taken: str
     inspected_params: dict[str, Any]
+    # WS-2.5: full containment-engine verdict on tools/call (0 when not scored).
+    engine_score: float = 0.0
+    engine_verdict: str = ""
+    engine_events: list[str] = Field(default_factory=list)
 
 
 class MCPProxyInterceptor:
@@ -96,6 +112,9 @@ class MCPProxyInterceptor:
         else:
             self.allowed_tools = set()
 
+        # Shared containment engine (WS-2.5 parity with the ingest path).
+        self._engine = ContainmentEngine()
+
     def inspect_request(self, req: MCPJsonRpcRequest) -> MCPInspectionResult:
         """Inspect MCP JSON-RPC for disallowed methods, tools, or injection patterns."""
         detected: list[str] = []
@@ -128,6 +147,30 @@ class MCPProxyInterceptor:
                 detected.append(label)
                 threat_score += score
 
+        # WS-2.5 MCP parity: run tools/call through the full containment engine
+        # (same detector stack as the ingest path). SUSPICIOUS+ blocks, matching
+        # ingest enforcement (QUARANTINE/KILL are both enforced there).
+        engine_score = 0.0
+        engine_verdict = ""
+        engine_events: list[str] = []
+        if req.method.startswith("tools/"):
+            event = ToolCallEvent(
+                session_id=uuid.uuid4(),
+                agent_id="mcp-proxy",
+                tool_name="mcp_call",
+                arguments=params,
+            )
+            risk, verdict, sec_events = self._engine.evaluate_event(event)
+            engine_score = risk.overall_score
+            engine_verdict = verdict.verdict
+            engine_events = [e.event_type for e in sec_events]
+            if engine_score >= 50.0:  # SUSPICIOUS / BREACHED
+                detected.append(
+                    f"Containment engine {engine_verdict} "
+                    f"({engine_score:.0f}: {', '.join(engine_events) or 'no flags'})"
+                )
+                threat_score = max(threat_score, 8.0)
+
         threat_score = min(threat_score, 10.0)
         hard_deny = any(d.startswith(_DENY_PREFIXES) for d in detected)
         is_safe = threat_score < 4.0 and not hard_deny
@@ -140,6 +183,9 @@ class MCPProxyInterceptor:
             method=req.method,
             action_taken=action_taken,
             inspected_params=params,
+            engine_score=engine_score,
+            engine_verdict=engine_verdict,
+            engine_events=engine_events,
         )
         self._history.append(result)
         logger.info(
