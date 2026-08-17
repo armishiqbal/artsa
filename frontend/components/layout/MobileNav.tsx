@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -41,6 +41,19 @@ export default function MobileNav() {
     return () => window.removeEventListener("keydown", handler);
   }, [open]);
 
+  // A11y: move focus into the dialog when it opens and restore it on close,
+  // so keyboard and screen-reader users are not stranded behind the modal.
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    const menuButton = menuButtonRef.current;
+    dialog?.focus();
+    return () => menuButton?.focus();
+  }, [open]);
+
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
@@ -51,6 +64,7 @@ export default function MobileNav() {
   return (
     <>
       <Button
+        ref={menuButtonRef}
         variant="ghost"
         size="icon"
         className="lg:hidden"
@@ -74,6 +88,8 @@ export default function MobileNav() {
               aria-label="Close navigation menu"
             />
             <motion.aside
+              ref={dialogRef}
+              tabIndex={-1}
               className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-border bg-card lg:hidden"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}

@@ -39,6 +39,9 @@ class HighAccuracy1024EmbeddingFunction:
     """Embedding function with hash fallback and optional OpenAI API."""
 
     TARGET_DIMENSIONS = 1024
+    # Bounded embed cache so repeated arguments (common in agent loops) do not
+    # re-hit the embedding API — keeps real-time scoring inside the latency SLO.
+    _CACHE_MAX = 512
 
     def __init__(self, model_name: str | None = None) -> None:
         self.model_name = model_name or settings.resolve_embedding_model()
@@ -46,16 +49,24 @@ class HighAccuracy1024EmbeddingFunction:
         self.dimensions = self.TARGET_DIMENSIONS
         self._api_dimensions = int(meta.get("dimensions", self.TARGET_DIMENSIONS))
         self._openai_base = (settings.OPENAI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
+        self._cache: dict[str, list[float]] = {}
 
     def embed(self, text: str) -> list[float]:
         if self.model_name == "hash-1024":
             return self._hash_embed(text)
         if self.model_name.startswith("text-embedding"):
+            cached = self._cache.get(text)
+            if cached is not None:
+                return cached
             try:
-                return self._openai_embed(text)
+                vector = self._openai_embed(text)
             except Exception as exc:
                 logger.warning("OpenAI embed failed (%s), falling back to hash-1024", exc)
                 return self._hash_embed(text)
+            if len(self._cache) >= self._CACHE_MAX:
+                self._cache.pop(next(iter(self._cache)))
+            self._cache[text] = vector
+            return vector
         return self._hash_embed(text)
 
     def embed_batch(self, texts: Iterable[str]) -> list[list[float]]:

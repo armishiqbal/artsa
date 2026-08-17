@@ -127,6 +127,7 @@ export default function TopNav() {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-1.5 rounded-full border border-border p-0.5 pr-1.5 transition-colors hover:bg-accent"
                 aria-label="Account menu"
+                aria-haspopup="menu"
                 aria-expanded={profileOpen}
               >
                 {avatarIsEmoji(profileAvatar) ? (
@@ -230,6 +231,8 @@ export default function TopNav() {
               <button
                 onClick={() => setTenantOpen(!tenantOpen)}
                 className="flex items-center gap-1 font-mono text-xs hover:text-foreground transition-colors"
+                aria-haspopup="menu"
+                aria-expanded={tenantOpen}
               >
                 {currentTenantName}
                 <ChevronDown className={cn("h-3 w-3 transition-transform", tenantOpen && "rotate-180")} />

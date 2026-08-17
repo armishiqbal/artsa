@@ -221,7 +221,7 @@ class Settings(BaseSettings):
     EDS_LATENCY_THRESHOLD_MS: float = 50.0
 
     # ── Detection / embeddings ──────────────────────────────────────────
-    ARTSA_EMBEDDING_MODEL: str = "auto"  # auto | hash-1024 | text-embedding-3-large
+    ARTSA_EMBEDDING_MODEL: str = "auto"  # auto | hash-1024 | text-embedding-3-small | text-embedding-3-large
 
     def resolve_embedding_model(self) -> str:
         """Pick embedding backend: hash in tests, OpenAI when configured, else hash."""
@@ -230,7 +230,9 @@ class Settings(BaseSettings):
         if self.ARTSA_EMBEDDING_MODEL != "auto":
             return self.ARTSA_EMBEDDING_MODEL
         if self.is_key_configured("OPENAI_API_KEY"):
-            return "text-embedding-3-large"
+            # text-embedding-3-small: 1536 dims, ~5x cheaper and faster than
+            # large, with quality that is ample for similarity detection.
+            return "text-embedding-3-small"
         return "hash-1024"
 
     @property
