@@ -253,6 +253,17 @@ def create_app() -> FastAPI:
     # /v1 and /api/v1; this makes the bare `/health` and `/ready` paths work.
     app.include_router(health_router)
 
+    @app.get("/", include_in_schema=False)
+    async def root_info():
+        return {
+            "status": "ok",
+            "name": "ARTSA — AI Agent Containment Engine API",
+            "version": "0.3.0",
+            "docs": "/docs",
+            "health": "/health",
+            "frontend": "http://localhost:3000",
+        }
+
     return app
 
 

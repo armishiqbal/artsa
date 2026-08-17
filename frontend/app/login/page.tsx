@@ -51,12 +51,20 @@ function LoginInner() {
   const returnTo = searchParams.get("returnTo") || "";
   const dest = returnTo.startsWith("/") ? returnTo : "/dashboard";
 
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
+  const [mode, setMode] = useState<"login" | "register">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const requestedMode = searchParams.get("mode");
+    if (requestedMode === "register" || requestedMode === "login") {
+      setMode(requestedMode);
+    }
+  }, [searchParams]);
 
   // Already signed in (API key or session token) — go straight through.
   useEffect(() => {
