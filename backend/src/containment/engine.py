@@ -1,6 +1,8 @@
 """Containment Engine — Coordinates detectors, composite risk scoring, and verdict generation."""
 
 import json
+import re
+from typing import Any
 
 from src.containment.detectors.canary_token import CanaryTokenDetector
 from src.containment.detectors.goal_drift import GoalDriftDetector
@@ -16,6 +18,69 @@ from src.containment.scoring.composite import CompositeScorer
 from src.core.models.events import SecurityEvent, ToolCallEvent
 from src.core.models.scores import ContainmentVerdict, RiskScore
 from src.core.severity import CRITICAL_RISK_THRESHOLD, SUSPICIOUS_RISK_THRESHOLD
+
+
+def _command_text(arguments: dict[str, Any]) -> str:
+    """Return the command / script text of a tool call, preferring structured fields."""
+    if isinstance(arguments, dict):
+        for key in (
+            "command",
+            "cmd",
+            "input",
+            "code",
+            "script",
+            "payload",
+            "shell_command",
+            "sql",
+            "query",
+            "statement",
+        ):
+            val = arguments.get(key)
+            if isinstance(val, str):
+                return val
+        return str(arguments)
+    return str(arguments)
+
+
+# Tools that are command / path executors (detectors treat their args as commands).
+_COMMAND_TOOLS_ENGINE = frozenset(
+    {
+        "exec_command",
+        "execute_command",
+        "run_command",
+        "shell",
+        "bash",
+        "run_terminal",
+        "run_code",
+        "exec",
+        "eval",
+        "read_file",
+        "write_file",
+        "append_file",
+        "http_request",
+        "mcp_call",
+    }
+)
+
+# Tools whose arguments are prose / data (a dangerous substring is quoted text).
+_CONTENT_TOOLS_ENGINE = frozenset(
+    {
+        "send_email",
+        "send_message",
+        "write_markdown",
+        "create_document",
+        "update_document",
+        "translate",
+        "summarize",
+        "create_ticket",
+        # NOTE: search_documents / query_vector_db are intentionally NOT here:
+        # their *query* is a retrieval command, and an injection embedded in a
+        # search query is a real tool-input attack, not quoted prose.
+        # NOTE: inject_prompt is also deliberately NOT here — it is the injection
+        # surface itself, so genuine payloads passed to it must never be
+        # downgraded as "quoted prose".
+    }
+)
 
 
 class ContainmentEngine:
@@ -52,7 +117,9 @@ class ContainmentEngine:
         self.scorer = CompositeScorer()
         self.disabled_detectors = list(disabled)
 
-    def _calibrate_confidence(self, risk_score: RiskScore, security_events: list[SecurityEvent]) -> float:
+    def _calibrate_confidence(
+        self, risk_score: RiskScore, security_events: list[SecurityEvent]
+    ) -> float:
         """Derive confidence from the strongest signal magnitude and detector agreement.
 
         WORKPACKAGE B (B5): confidence now tracks the strongest detector's score
@@ -69,10 +136,107 @@ class ContainmentEngine:
         confidence = min(0.99, max(0.50, score_factor * 0.8 + agreement_boost + 0.12))
         return round(confidence, 3)
 
-    def evaluate_event(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
+    def evaluate_event(
+        self, event: ToolCallEvent
+    ) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
         """Evaluate incoming tool call event across all detectors and produce score and verdict."""
         risk_score, verdict, security_events, _ = self.evaluate_with_attribution(event)
         return risk_score, verdict, security_events
+
+    def _is_benign_content_mention(self, event: ToolCallEvent) -> tuple[bool, str]:
+        """Detect when a tool call is genuinely benign "content" that merely
+        *contains* a dangerous-looking substring, rather than an operational
+        action the guardrail must neutralize.
+
+        Applies to doc searches, quoted incident text, documentation writes,
+        LIKE-based SQL searches, and references to example/documentation domains.
+        Returns ``(is_benign, reason)``.
+        """
+        tool = event.tool_name.lower()
+        args_text = _command_text(event.arguments)
+
+        # Documentation / example-domain references are never an action — but
+        # ONLY when the reserved domain is the host itself (RFC 2606: the
+        # example.com/net/org apex and the .test/.invalid/.example TLDs).
+        # Subdomains such as attacker.example.com are NOT reserved and must
+        # never suppress a real signal (a reverse shell to *.example.com used
+        # to be downgraded to the review band here). URL form (//host) is
+        # matched too, so `curl -I https://example.com` is recognized.
+        if re.search(
+            r"(?:^|[/\s'\"(])(?:www\.)?example\.(?:com|org|net)(?:[/\s'\"?)]|$)"
+            r"|\w+\.(?:test|invalid|example)(?:[/\s'\"?)]|$)",
+            args_text,
+            re.IGNORECASE,
+        ):
+            # For command executors, a doc-domain reference is only benign when
+            # the command is a pure read — upload/exfil constructs make the
+            # reserved domain the *target of an action*, never a reference.
+            if tool in _COMMAND_TOOLS_ENGINE and re.search(
+                r"(?i)-F\s|-d\s|--data|-X\s+POST|base64\s+-d|/dev/tcp/|nc\s+-e|bash\s+-i|rm\s+-rf|curl\s+.*\s+@",
+                args_text,
+            ):
+                return False, ""
+            return True, "reference to RFC-reserved documentation domain"
+
+        # SQL LIKE-search wrapping a dangerous string is a search, not injection.
+        if re.search(
+            r"\blike\s+'%"  # LIKE '<value>
+            r"[\s\S]*?"  # ... lazy up to the keyword ...
+            r"(?:drop\s+table|delete\s+from|insert\s+into|update\s+\w+\s+set"
+            r"|select\s+.*\bunion\b|or\s+1\s*=\s*1)"  # keyword under test
+            r"[^'\"]*['\"]",  # rest of literal + closing quote
+            args_text,
+            re.IGNORECASE,
+        ):
+            return True, "dangerous token appears only inside a SQL LIKE search literal"
+
+        # Execution pipelines are never "references": a wrapper word followed by
+        # a decode-and-run construct (base64 -d | sh, /dev/tcp, nc -e) is an
+        # executed attack, not quoted prose — checked before the wrapper rule.
+        if re.search(
+            r"(?i)base64\s+-d|base64\s+--decode|\|\s*(ba|s)?sh\b|/dev/tcp/|nc\s+-e",
+            args_text,
+        ):
+            return False, ""
+
+        # Command executors prefixed by a benign *inspection* wrapper. NOTE: cat/
+        # tail/head/less read real files, so `cat /etc/shadow` is an actual
+        # sensitive-file read and must NOT be downgraded. The wrapper must
+        # *precede* the dangerous token in close proximity — a bare `grep`
+        # anywhere in the string is not enough (`env | grep AWS_ACCESS_KEY`
+        # reads secrets; `echo '<base64>' | base64 -d | sh` executes).
+        if tool in _COMMAND_TOOLS_ENGINE and re.search(
+            r"\b(grep|rg|egrep|man|vim|echo)\b.{0,40}"
+            r"['\"]?\s*(rm\s+-rf|/etc/(?:passwd|shadow|sudoers)|\.aws|\.ssh|id_rsa"
+            r"|base64\s+-d|drop\s+table|delete\s+from|AWS_|--delete)",
+            args_text,
+            re.IGNORECASE,
+        ):
+            return True, "dangerous token appears after a benign inspection wrapper"
+
+        # File writers: the *content* field is prose (docs/notes); only the path
+        # is a real system target for credential/privilege patterns. A match on
+        # content is a benign mention unless writing to a sensitive/system path.
+        if tool in ("write_file", "append_file", "write", "append", "update_file"):
+            path = ""
+            if isinstance(event.arguments, dict):
+                path = str(event.arguments.get("path", ""))
+            sensitive_path = re.search(
+                r"(?:/etc/|/proc/|/var/(?:spool|lib)/|\b/var/\w*/|/opt/|/usr/|/etc/+|\.aws|\.ssh|/root/|(?:^|/)\.env\b)",
+                path,
+                re.IGNORECASE,
+            )
+            if not sensitive_path:
+                return (
+                    True,
+                    "file-write to a non-system path — content is prose, not an executable target",
+                )
+
+        # Content / prose tools quoting an attack (incident emails/reports/docs).
+        if tool in _CONTENT_TOOLS_ENGINE:
+            return True, "content tool — argument is quoted prose, not an executable command"
+
+        return False, ""
 
     def evaluate_with_attribution(
         self, event: ToolCallEvent
@@ -80,9 +244,30 @@ class ContainmentEngine:
         security_events: list[SecurityEvent] = []
         fired: dict[str, bool] = {name: False for name in self.DETECTOR_NAMES}
 
+        is_benign, benign_reason = self._is_benign_content_mention(event)
+
         for detector in self.detectors:
             sec_evt = detector.detect(event)
             if sec_evt:
+                if is_benign:
+                    # Downgrade every signal from a benign content mention to
+                    # below the enforcement threshold (QUARANTINE >= 50), so
+                    # legitimate work is surfaced in events/alerts but never
+                    # neutralized: the event still records, the verdict stays
+                    # SAFE. Previously capped at 55 which still quarantined
+                    # benign LIKE-searches, prose mentions, and doc fetches.
+                    sec_evt = sec_evt.model_copy(
+                        update={
+                            "risk_score": min(sec_evt.risk_score, 45.0),
+                            "severity": "HIGH"
+                            if sec_evt.severity == "CRITICAL"
+                            else sec_evt.severity,
+                            "evidence": {
+                                **(sec_evt.evidence or {}),
+                                "benign_context_reason": benign_reason,
+                            },
+                        }
+                    )
                 security_events.append(sec_evt)
                 fired[detector.name] = True
 

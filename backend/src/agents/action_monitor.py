@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import re
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -118,7 +119,7 @@ def _targets_external_network(text: str) -> bool:
             idx = text.find(scheme, start)
             if idx == -1:
                 break
-            rest = text[idx + len(scheme):]
+            rest = text[idx + len(scheme) :]
             host = rest.split("/", 1)[0].split(":", 1)[0].split("?", 1)[0]
             if host and not _is_trusted_host(host):
                 return True
@@ -238,17 +239,40 @@ class StepwiseActionMonitor:
 
         # Suspicious network / exfiltration markers in arguments.
         if _targets_external_network(args_str):
+            # A bare external GET (curl <url>, http_request GET) is egress worth
+            # surfacing, but only an upload/exfil construct (-F/-d/--data/
+            # -X POST/base64/tee) makes it KILL-grade: reading docs is normal
+            # work, shipping data out is the breach.
+            if re.search(
+                r"(-F\s|--form|-d\s|--data|-X\s+POST|base64\s+-d|\|.*(ba|s)?sh\b|@[\w./~-]+(?:https?://)?)",
+                args_str,
+            ):
+                anomaly, kind, reason = (
+                    8.5,
+                    "NETWORK_EXFIL",
+                    "Network exfiltration (data upload construct to external destination)",
+                )
+            else:
+                anomaly, kind, reason = (
+                    5.5,
+                    "NETWORK_EXFIL",
+                    "External network destination (GET) — surfaced for review",
+                )
             return ToolCallStep(
                 step_index=step_index,
                 tool_name=tool_name,
                 arguments=arguments,
                 classification="ANOMALOUS",
-                anomaly_score=8.0,
-                anomaly_kind="NETWORK_EXFIL",
-                reasoning="Suspicious network URL destination or exfiltration parameter detected",
+                anomaly_score=anomaly,
+                anomaly_kind=kind,
+                reasoning=reason,
             )
 
-        if intent and tool_clean not in intent and any(x in tool_clean for x in ("shell", "exec", "admin")):
+        if (
+            intent
+            and tool_clean not in intent
+            and any(x in tool_clean for x in ("shell", "exec", "admin"))
+        ):
             return ToolCallStep(
                 step_index=step_index,
                 tool_name=tool_name,

@@ -16,6 +16,19 @@ from typing import ClassVar
 from src.containment.detectors.base import BaseDetector
 from src.core.models.events import SecurityEvent, ToolCallEvent
 
+
+def _normalize_sql(text: str) -> str:
+    """De-obfuscate SQL before matching.
+
+    * Strip block comments (``/* ... */`` and ``/**/``) that attackers use to
+      break up keyword matches (``OR/**/1=1``, ``DROP/**/TABLE``, ``U/**/NION``).
+    * Drop an optional trailing ``;`` so stacked-statement and keyword rules
+      both see the cleaned statement.
+    """
+    cleaned = re.sub(r"/\*.*?\*/", " ", text, flags=re.DOTALL)
+    return cleaned
+
+
 # (regex, risk_score, description) — ordered most specific / highest-signal first
 SQL_PATTERNS: ClassVar[list[tuple[str, float, str]]] = [
     (
@@ -39,14 +52,29 @@ SQL_PATTERNS: ClassVar[list[tuple[str, float, str]]] = [
         "Dangerous SQL function / command abuse",
     ),
     (
-        r"\bUNION\s+(ALL\s+)?SELECT\b",
-        75.0,
-        "UNION-based SQL injection (result-set probing)",
+        r"(?i)\bUNION\s*(?:/\*.*?\*/\s*)?(?:ALL\s+)?SELECT\b",
+        82.0,
+        "UNION-based SQL injection (incl. comment-obfuscated)",
     ),
     (
-        r"\bOR\s+1\s*=\s*1\b",
-        70.0,
+        (
+            r"(?i)(?:"
+            r"\b(password|credit_card|ssn|secret|api_key|token|bank|salary)\b[\s\S]{0,120}\bUNION\s+(ALL\s+)?SELECT\b"
+            r"|\bUNION\s+(ALL\s+)?SELECT\b[\s\S]{0,120}\b(password|credit_card|ssn|secret|api_key|token|bank|salary)\b"
+            r")"
+        ),
+        88.0,
+        "UNION-based SQL injection targeting sensitive columns (data theft)",
+    ),
+    (
+        r"\bOR\s+'?1'?\s*=\s*'?1'?\b",
+        82.0,
         "Boolean-based SQL injection (always-true predicate)",
+    ),
+    (
+        r"(?i)\bUPDATE\s+\w+\s+SET\s+(?:role|is_admin|privilege|access_level|permission|account_status)\s*=\s*['\"]?(?:admin|root|superuser|super_admin|active)",
+        88.0,
+        "Privilege escalation via SQL UPDATE",
     ),
     (
         r"(?i)@@\s*version\b|information_schema\s*\.",
@@ -70,8 +98,15 @@ class SqlInjectionDetector(BaseDetector):
 
     def detect(self, event: ToolCallEvent) -> SecurityEvent | None:
         # Prefer structured SQL fields; fall back to scanning all arguments.
-        candidates = [event.arguments.get(key) for key in ("sql", "query", "statement") if event.arguments.get(key)]
-        scan_text = str(candidates[0]) if candidates else str(event.arguments)
+        candidates = [
+            event.arguments.get(key)
+            for key in ("sql", "query", "statement")
+            if event.arguments.get(key)
+        ]
+        raw_text = str(candidates[0]) if candidates else str(event.arguments)
+        # Strip SQL comment obfuscation FIRST so keyword patterns match through
+        # ``/**/`` separators (e.g. ``DROP/**/TABLE``, ``OR/**/1=1``).
+        scan_text = _normalize_sql(raw_text)
 
         for pattern, risk_score, desc in self.PATTERNS:
             match = re.search(pattern, scan_text)

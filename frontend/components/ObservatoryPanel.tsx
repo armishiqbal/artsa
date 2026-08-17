@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 export interface ObservatoryData {
   total_rounds: number;
   heatmap: Array<{ day: string; rounds: number; intensity: number }>;
-  red_queen: Array<{ generation: number; attack_success: number; blue_adaptation: number }>;
+  red_queen: Array<{ generation: number; attack_success: number; adaptation_measured?: boolean }>;
   regression_suite: {
     gates: Array<{ name: string; status: string; severity: string; value: number }>;
     passing: number;
@@ -196,7 +196,7 @@ export default function ObservatoryPanel() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DashboardCard
           title="Red Queen Dynamics"
-          description="Attack success vs blue adaptation by generation"
+          description="Attack success trend per generation — adaptation loop not yet wired to campaign outcomes"
         >
           {redQueen.length > 0 ? (
             <div className="h-52 w-full">

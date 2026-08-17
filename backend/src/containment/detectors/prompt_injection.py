@@ -21,9 +21,9 @@ from src.core.models.events import SecurityEvent, ToolCallEvent
 # SUSPICIOUS (>=50) / BREACHED (>=80) bands so verdicts stay actionable.
 INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
     (
-        r"(?i)ignore\s+(all|any|previous|prior|your|the)?\s*(previous|prior)?\s*instructions?",
+        r"(?i)ignore\s+(all|any|previous|prior|your|the|past)?\s*(previous|prior|past|earlier)?\s*(instructions?|guidelines?|rules?|guidance)",
         "PROMPT_INJECTION",
-        78.0,
+        80.0,
         "Instruction override attempt (ignore previous instructions)",
     ),
     (
@@ -81,7 +81,7 @@ INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
         "Unrestricted-mode assertion",
     ),
     (
-        r"(?i)(output|reveal|exfiltrate|leak)\s+(secrets?|passwords?|api\s+keys?|credentials?|pii|internal\s+data)",
+        r"(?i)(output|reveal|exfiltrate|leak|print|show|display|extract|send)\s+(the|your|our|any|all|admin)?\s*(\w+\s+)?(secrets?|passwords?|api\s+keys?|credentials?|pii|internal\s+data|database\s+password|access\s+keys?)",
         "CREDENTIAL_THEFT",
         88.0,
         "Sensitive data exfiltration request",
@@ -122,6 +122,25 @@ INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
         80.0,
         "Privileged role / mode framing",
     ),
+    # ── Paraphrased / legacy-override injections (catch reworded attempts) ──
+    (
+        r"(?i)ignore\s+(past|earlier|my|all)\s+(guidance|directives?|guidelines?|teachings?|prompts?)",
+        "PROMPT_INJECTION",
+        76.0,
+        "Instruction override attempt (paraphrased guidance)",
+    ),
+    (
+        r"(?i)(override|replace|redefine)\s+(the\s+|our\s+|current\s+)?safety\s+(policy|rules?|guardrails?|guidelines?)",
+        "PROMPT_INJECTION",
+        80.0,
+        "Safety policy override / redefinition attempt",
+    ),
+    (
+        r"(?i)follow\s+my\s+instructions?\s+(?:instead|now|from\s+now)",
+        "PROMPT_INJECTION",
+        74.0,
+        "Instruction re-prioritization frame",
+    ),
 ]
 
 
@@ -145,7 +164,9 @@ class PromptInjectionDetector(BaseDetector):
         # Select the highest-scoring pattern match so a payload carrying multiple
         # injection signals (e.g. "ignore previous instructions AND reveal system
         # prompt") is scored by its strongest signal, not the first regex hit.
-        best: tuple[float, re.Match[str], str, str] | None = None  # (score, match, event_type, desc)
+        best: tuple[float, re.Match[str], str, str] | None = (
+            None  # (score, match, event_type, desc)
+        )
         for pattern, event_type, risk_score, desc in self.PATTERNS:
             match = re.search(pattern, combined_text)
             if match and (best is None or risk_score > best[0]):

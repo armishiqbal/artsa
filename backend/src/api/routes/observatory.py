@@ -86,11 +86,21 @@ async def get_observatory_data() -> dict[str, Any]:
 
     for gen in sorted(gen_scores.keys())[:20]:
         scores = gen_scores[gen]
+        # WS-2.6 (honesty): `blue_adaptation` was a pseudo-metric derived from
+        # attack success (10 - avg), presented as if the Red Queen engine had
+        # actually adapted defenses. The engine's `adapt_blue_defenses` is not
+        # wired into campaign flow, so we only report measured attack success
+        # plus an explicit `adaptation_measured: false` flag — never a fake
+        # adaptation number.
         red_queen_generations.append(
             {
                 "generation": gen,
                 "attack_success": round(sum(scores) / len(scores), 1),
-                "blue_adaptation": round(10 - (sum(scores) / len(scores)), 1),
+                "adaptation_measured": False,
+                "adaptation_note": (
+                    "Attack success trend only — the Red Queen adaptation loop "
+                    "is not wired to campaign outcomes yet"
+                ),
             }
         )
 
