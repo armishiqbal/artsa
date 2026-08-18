@@ -24,6 +24,7 @@ from src.api.middleware.rate_limit import RateLimitMiddleware
 from src.api.middleware.rbac_middleware import RBACMiddleware
 from src.api.middleware.response_envelope import ResponseEnvelopeMiddleware
 from src.api.middleware.security_headers import SecurityHeadersMiddleware
+from src.api.routes.admin import router as admin_router
 from src.api.routes.agent_runtime import router as agent_runtime_router
 from src.api.routes.agents import router as agents_router
 from src.api.routes.alerts import router as alerts_router
@@ -77,6 +78,7 @@ ROUTERS = [
     providers_router,
     enterprise_router,
     agent_runtime_router,
+    admin_router,
     settings_router,
     proxy_router,
     playground_router,

@@ -9,6 +9,7 @@
 
 import { toast } from "@/lib/stores/toast";
 import { getApiKey, getBearerToken } from "@/lib/stores/auth";
+import { useTenantStore } from "@/lib/stores/tenant";
 
 const API_BASE_URL = "/api/backend";
 
@@ -45,8 +46,17 @@ export function authHeaders(): Record<string, string> {
 }
 
 export function buildHeaders(extra?: HeadersInit): HeadersInit {
+  // WS-3.1: every request is scoped to the active tenant (X-Tenant-ID), so the
+  // backend's row-level isolation applies to the whole UI.
+  let tenantId = "default_org";
+  try {
+    tenantId = useTenantStore.getState().tenantId || "default_org";
+  } catch {
+    // SSR / pre-hydration: keep the default.
+  }
   return {
     "Content-Type": "application/json",
+    "X-Tenant-ID": tenantId,
     ...authHeaders(),
     ...(extra as Record<string, string> | undefined),
   };

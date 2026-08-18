@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { useAuthStore } from "@/lib/stores/auth";
+import { useTenantStore } from "@/lib/stores/tenant";
 import { useTheme } from "@/lib/context/ThemeProvider";
 import { isOidcEnabled } from "@/lib/oidc";
 import { avatarIsEmoji, resolveAvatarSrc } from "@/lib/profile";
@@ -44,9 +45,11 @@ export default function TopNav() {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // Tenant selector
+  // Tenant selector — selection lives in the tenant store so every API call
+  // (X-Tenant-ID header) is scoped to the chosen org (WS-3.1).
   const [tenants, setTenants] = useState<{ id: string; name: string; slug: string; plan: string }[]>([]);
-  const [currentTenant, setCurrentTenant] = useState("default_tenant");
+  const tenantId = useTenantStore((s) => s.tenantId);
+  const setTenantId = useTenantStore((s) => s.setTenant);
   const [tenantOpen, setTenantOpen] = useState(false);
   const tenantRef = useRef<HTMLDivElement>(null);
 
@@ -67,9 +70,9 @@ export default function TopNav() {
       { silent: true }
     ).then((d) => {
       if (d?.tenants) setTenants(d.tenants);
-      if (d?.current) setCurrentTenant(d.current);
+      if (d?.current) setTenantId(d.current);
     });
-  }, []);
+  }, [setTenantId]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -81,7 +84,7 @@ export default function TopNav() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const currentTenantName = tenants.find((t) => t.id === currentTenant)?.name ?? "Default Org";
+  const currentTenantName = tenants.find((t) => t.id === tenantId)?.name ?? "Default Org";
 
   const statusLabel = formatTopNavConnectionLabel(apiOnline, wsConnected, apiGatewayStatus);
 
@@ -243,12 +246,12 @@ export default function TopNav() {
                     <button
                       key={t.id}
                       onClick={() => {
-                        setCurrentTenant(t.id);
+                        setTenantId(t.id);
                         setTenantOpen(false);
                       }}
                       className={cn(
                         "flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-accent",
-                        t.id === currentTenant && "bg-primary/5 text-primary"
+                        t.id === tenantId && "bg-primary/5 text-primary"
                       )}
                     >
                       <Building2 className="h-4 w-4 shrink-0" />
@@ -256,7 +259,7 @@ export default function TopNav() {
                         <p className="font-medium truncate">{t.name}</p>
                         <p className="text-[10px] text-muted-foreground capitalize">{t.plan}</p>
                       </div>
-                      {t.id === currentTenant && <Check className="h-4 w-4 ml-auto shrink-0" />}
+                      {t.id === tenantId && <Check className="h-4 w-4 ml-auto shrink-0" />}
                     </button>
                   ))}
                 </div>
