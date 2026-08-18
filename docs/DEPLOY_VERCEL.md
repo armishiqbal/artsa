@@ -1,70 +1,78 @@
-# Deploy ARTSA on Vercel
+# Deploy ARTSA on Vercel (full stack, no self-hosted server)
 
-## What deploys on Vercel (and what doesn't)
+Verified: the dashboard builds on Vercel AND the FastAPI backend runs as a
+Vercel Python function (Mangum adapter, tested locally through a Lambda-style
+invocation: `GET /api/v1/health` → 200).
 
-| Piece | On Vercel? | Notes |
-|---|---|---|
-| **Next.js dashboard** (`frontend/`) | ✅ Yes — first-class | Builds with `output: "standalone"`, all routes static/SSR fine |
-| **FastAPI backend** | ⚠️ Experimental only | Serverless functions can't run WebSockets, Celery workers, or a persistent filesystem — the live dashboard feed, campaign workers, SQLite, and Chroma RAG **will not work** there |
-| **Database / Redis / vector store** | ❌ External only | Vercel has an ephemeral read-only filesystem; use Neon/Supabase (Postgres), Upstash (Redis), MongoDB Atlas |
+## Architecture (two Vercel projects, same repo)
 
-**Recommended architecture:** dashboard on **Vercel** + backend on a container host (Railway / Render / Fly / your `docker-compose` or Helm), with the dashboard pointed at it via env vars. This is a one-command Vercel deploy and keeps every feature working.
-
----
-
-## 1. Deploy the dashboard (recommended path)
-
-The repo already has `vercel.json` (root `frontend/`, Next.js). Steps:
-
-```bash
-# 1. Login (opens a browser)
-vercel login
-
-# 2. From the repo root
-vercel link          # create/link the project
+```
+Vercel Project A  "artsa-dashboard"  (rootDirectory: frontend)   → Next.js UI
+Vercel Project B  "artsa-api"        (rootDirectory: backend)    → FastAPI function (api/index.py)
+                        │
+                        └─ external free services (zero-ops, not self-hosted):
+                           Postgres → Neon (free tier)  ·  Redis → Upstash (free, optional)
 ```
 
-### Required environment variables (Vercel project → Settings → Environment Variables)
+## What is NOT available on serverless (be honest with yourself)
 
-| Variable | Value |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | `https://your-backend.example.com` (the hosted FastAPI base URL, **no trailing slash, no /api/v1**) |
-| `NEXT_PUBLIC_WS_URL` | `wss://your-backend.example.com/api/v1/websocket` |
-| `BACKEND_URL` | same as `NEXT_PUBLIC_API_URL` (used by the server-side `/api/backend/*` proxy) |
-| `ARTSA_API_KEY` | the backend admin key, if auth is enabled (server-side only — never `NEXT_PUBLIC_`) |
-| `NEXT_PUBLIC_OIDC_ENABLED` | `false` unless you have an OIDC provider |
+| Feature | On serverless | Impact |
+|---|---|---|
+| Dashboard UI | ✅ Full | — |
+| REST API, ingest, detection, scoring, policies, alerts, integrations | ✅ Full | verified 200 on health |
+| **WebSocket live feed** | ❌ | dashboard shows degraded/offline connection |
+| **Long campaign workers** (`USE_CELERY=false` inline) | ⚠️ best-effort | multi-round campaigns may be cut off |
+| SQLite / Chroma / `data/results` filesystem | ❌ ephemeral | use external Postgres; RAG falls back to in-memory; on-disk results not persisted |
+| Cold starts | ⚠️ slow (langchain import) | expect ~10-30s first hit |
 
-> The frontend sends REST via `/api/backend/*` (rewritten by `next.config.js` to `BACKEND_URL`) and the WebSocket connects to `NEXT_PUBLIC_WS_URL`. All data stays tenant-scoped through the `X-Tenant-ID` header the UI sends automatically.
+## Deploy steps
+
+### 1. Frontend project (`artsa-dashboard`)
 
 ```bash
-# 3. Deploy
+vercel login
+vercel link --project artsa-dashboard     # from repo root; vercel.json sets rootDirectory: frontend
+vercel env add NEXT_PUBLIC_API_URL        # = https://artsa-api.vercel.app   (the API project URL)
+vercel env add NEXT_PUBLIC_WS_URL         # = wss://artsa-api.vercel.app/api/v1/websocket (won't work serverless — optional)
+vercel env add BACKEND_URL                # = https://artsa-api.vercel.app
 vercel --prod
 ```
 
-## 2. Backend on a container host (keeps everything working)
+### 2. Backend project (`artsa-api`)
 
 ```bash
-# Render / Railway / Fly — one service from the repo root:
-#   build:  docker build -f infra/docker/api.Dockerfile .
-#   env:    DATABASE_URL (Postgres), REDIS_URL, ARTSA_API_KEY, USE_SQLITE=false
-# then set NEXT_PUBLIC_API_URL / NEXT_PUBLIC_WS_URL / BACKEND_URL above to it.
+# from repo root, but the project is rooted at backend/ (backend/vercel.json)
+vercel link --project artsa-api
+vercel env add ENVIRONMENT               # production
+vercel env add ARTSA_CORS_ORIGINS        # ["https://artsa-dashboard.vercel.app"]
+vercel env add USE_SQLITE                # false
+vercel env add DATABASE_URL              # postgresql+asyncpg://user:pass@<neon-host>/artsa?sslmode=require
+vercel env add SYNC_DATABASE_URL         # postgresql://user:pass@<neon-host>/artsa?sslmode=require (sync URL for alembic)
+vercel env add ARTSA_API_KEY             # a long random key (auth)
+vercel env add USE_CELERY                # false
+vercel env add USE_CHROMA_RAG            # false
+vercel env add USE_PINECONE_RAG          # false
+vercel --prod
 ```
 
-## 3. Experimental: backend as Vercel Python functions
+`backend/api/index.py` (Mangum adapter) + `backend/requirements-vercel.txt`
+(slimmed — excludes chromadb/celery/onnxruntime so the function stays under the
+size ceiling) are already in the repo.
 
-Not recommended for production — the backend imports langchain/chromadb/celery at
-startup (huge install, slow cold starts) and WebSockets + Celery + filesystem
-persistence don't exist on serverless. If you still want to try:
+### 3. Create the Postgres schema (one-time, from anywhere)
 
-1. Move the FastAPI app behind an ASGI adapter in `api/index.py`
-   (`from vercel_python.asgi import create_asgi_app; handler = create_asgi_app(app)`).
-2. Provide a root `requirements.txt` including the full backend dependency set.
-3. Accept: no live WS feed, no campaign workers, external Postgres/Redis/Mongo
-   required, slow cold starts, 250 MB function-size ceiling (langchain+chromadb
-   already near it).
+```bash
+cd backend && USE_SQLITE=false SYNC_DATABASE_URL="postgresql://...neon..." alembic upgrade head
+```
 
-## Verification checklist after deploy
+## Verification
 
-- `https://<your-app>.vercel.app` loads the login page → dashboard
-- Alerts panel shows the backend's live state (WS connected) when a backend is reachable
-- `GET /api/backend/health` returns the backend health envelope (proves the BFF proxy + env wiring)
+- `https://artsa-api.vercel.app/api/v1/health` → `{"status":"ok",...}`
+- `https://artsa-dashboard.vercel.app` loads, ingest + detection work, alerts list
+- Expect the live WebSocket indicator to show degraded (serverless limitation)
+
+## Alternative (everything works)
+
+Dashboard on Vercel + backend on a container host (Railway/Render/Fly, one
+`docker build -f infra/docker/api.Dockerfile .`) — the only way to keep the
+live WS feed, campaign workers, and on-disk results.
