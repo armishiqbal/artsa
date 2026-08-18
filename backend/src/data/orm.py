@@ -27,6 +27,8 @@ class AlertORM(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     delivered: Mapped[bool] = mapped_column(Boolean, default=False)
+    # WS-3.1: row-level org isolation.
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
 
 class AlertRuleORM(Base):
@@ -102,6 +104,8 @@ class CustomIntegrationORM(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+    # WS-3.1: row-level org isolation.
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
 
 class ToolCallEventORM(Base):
@@ -144,6 +148,8 @@ class EventEvaluationORM(Base):
     recommended_action: Mapped[str] = mapped_column(String(32), default="NONE")
     flags: Mapped[list[str]] = mapped_column(JSON, default=list)
     security_event_count: Mapped[int] = mapped_column(Integer, default=0)
+    # WS-3.1: row-level org isolation.
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
 
 class CampaignJobORM(Base):
@@ -166,7 +172,8 @@ class CampaignJobORM(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-
+    # WS-3.1: row-level org isolation.
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
 class AgentORM(Base):
     __tablename__ = "agents"
@@ -204,6 +211,9 @@ class AgentBaselineORM(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+    # WS-3.1: row-level org isolation (agent_id PK retained; tenant-scoped
+    # uniqueness is enforced at the repository layer).
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
 
 class UserORM(Base):

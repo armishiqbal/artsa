@@ -174,6 +174,7 @@ async def ingest_events(
             "sql_injection_score": risk_score.sql_injection_score,
             "mcp_destructive_score": risk_score.mcp_destructive_score,
             "policy_score": risk_score.policy_score,
+            "tenant_id": tenant_id,
             "bypass_depth": risk_score.bypass_depth,
             "security_event_count": len(sec_events),
             "enforced": enforced,

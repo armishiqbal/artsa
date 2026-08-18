@@ -31,6 +31,7 @@ class AlertRepository(BaseRepository[AlertORM]):
             channel=row.channel,
             triggered_at=row.triggered_at,
             delivered=bool(row.delivered),
+            tenant_id=row.tenant_id or "default_tenant",
         )
 
     def _to_orm(self, alert: Alert) -> AlertORM:
@@ -45,6 +46,7 @@ class AlertRepository(BaseRepository[AlertORM]):
             channel=alert.channel,
             triggered_at=alert.triggered_at,
             delivered=alert.delivered,
+            tenant_id=alert.tenant_id or "default_tenant",
         )
 
     async def create_alert(self, alert: Alert, *, commit: bool = True) -> Alert:
@@ -59,6 +61,7 @@ class AlertRepository(BaseRepository[AlertORM]):
         self,
         severity: str | None = None,
         session_id: str | None = None,
+        tenant_id: str | None = None,
         limit: int = 500,
     ) -> list[Alert]:
         if settings.is_testing:
@@ -68,6 +71,8 @@ class AlertRepository(BaseRepository[AlertORM]):
             query = query.where(AlertORM.severity == severity.upper())
         if session_id:
             query = query.where(AlertORM.session_id == session_id)
+        if tenant_id:
+            query = query.where(AlertORM.tenant_id == tenant_id)
         query = query.order_by(AlertORM.triggered_at.desc()).limit(limit)
         result = await self.session.execute(query)
         return [self._to_domain(row) for row in result.scalars().all()]

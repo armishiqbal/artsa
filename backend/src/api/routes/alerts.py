@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dependencies import get_db
+from src.api.dependencies import get_current_tenant, get_db
 from src.core.models.alerts import Alert, AlertRule
 from src.services import alert_store
 from src.services.alert_dispatcher import CHANNEL_LABELS, SUPPORTED_CHANNELS, dispatch_test_alert
@@ -36,13 +36,15 @@ class IntegrationConfigRequest(BaseModel):
 async def list_alerts(
     severity: str | None = Query(None),
     session_id: uuid.UUID | None = Query(None),
+    tenant_id: str = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
-    """List security alerts filtered by severity or session_id."""
+    """List security alerts filtered by severity, session, and owning tenant."""
     # Fast path: in-memory hot store (always current, includes latest).
     alerts = alert_store.list_alerts(
         severity=severity,
         session_id=str(session_id) if session_id else None,
+        tenant_id=tenant_id,
     )
     # Ensure any persisted alerts that arrived before this process started are
     # also visible (e.g. after a restart while the hot store was still empty).
@@ -54,6 +56,7 @@ async def list_alerts(
             alerts = await repo.list_alerts(
                 severity=severity,
                 session_id=str(session_id) if session_id else None,
+                tenant_id=tenant_id,
             )
         except Exception:
             alerts = []
