@@ -41,17 +41,18 @@ const nextConfig = {
   },
 
   async rewrites() {
-    const backendUrl = (
-      process.env.BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://127.0.0.1:8000"
-    ).replace(/\/+$/, "");
-    return [
-      {
-        source: "/api/backend/:path*",
-        destination: `${backendUrl}/:path*`,
-      },
-    ];
+    const backendUrl = (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    // Only rewrite at edge if an explicit external backend is provided.
+    // Otherwise, the BFF route handler in app/api/backend/[...path]/route.ts handles the request.
+    if (backendUrl && !backendUrl.includes("127.0.0.1") && !backendUrl.includes("localhost")) {
+      return [
+        {
+          source: "/api/backend/:path*",
+          destination: `${backendUrl}/:path*`,
+        },
+      ];
+    }
+    return [];
   },
 };
 

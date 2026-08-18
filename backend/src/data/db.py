@@ -61,8 +61,8 @@ async def init_db() -> None:
 
     engine = get_engine()
     async with engine.begin() as conn:
-        # Lightweight dev upgrade: SQLite DBs created before the avatar column
-        # existed (create_all can't ALTER existing tables) get it added here.
+        # Lightweight dev upgrade: SQLite DBs created before newer columns
+        # existed (create_all can't ALTER existing tables) get them added here.
         # Postgres installs should use `alembic upgrade head` instead.
         if "sqlite" in settings.effective_database_url:
             tables = [
@@ -75,6 +75,8 @@ async def init_db() -> None:
                 alert_cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(alert_rules)"))]
                 if "config" not in alert_cols:
                     await conn.execute(text("ALTER TABLE alert_rules ADD COLUMN config JSON DEFAULT '{}'"))
+                if "tenant_id" not in alert_cols:
+                    await conn.execute(text("ALTER TABLE alert_rules ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_tenant'"))
             if "users" in tables:
                 cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(users)"))]
                 if "avatar" not in cols:
@@ -85,5 +87,28 @@ async def init_db() -> None:
                     if col not in cols:
                         await conn.execute(
                             text(f"ALTER TABLE users ADD COLUMN {col} VARCHAR(255)")
+                        )
+            if "alerts" in tables:
+                cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(alerts)"))]
+                if "risk_score" not in cols:
+                    await conn.execute(text("ALTER TABLE alerts ADD COLUMN risk_score FLOAT NOT NULL DEFAULT 70.0"))
+                if "tenant_id" not in cols:
+                    await conn.execute(text("ALTER TABLE alerts ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_tenant'"))
+
+            tenant_tables = (
+                "event_evaluations",
+                "custom_integrations",
+                "campaign_jobs",
+                "agent_baselines",
+                "tool_call_events",
+                "agent_sessions",
+                "agents",
+            )
+            for tbl in tenant_tables:
+                if tbl in tables:
+                    cols = [row[1] for row in await conn.execute(text(f"PRAGMA table_info({tbl})"))]
+                    if "tenant_id" not in cols:
+                        await conn.execute(
+                            text(f"ALTER TABLE {tbl} ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_tenant'")
                         )
         await conn.run_sync(Base.metadata.create_all)
