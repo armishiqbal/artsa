@@ -16,6 +16,8 @@ const SERVER_API_KEY = process.env.ARTSA_API_KEY || "";
 
 const PROXY_TIMEOUT_MS = 30_000;
 
+const registeredAdmins = new Map<string, string>();
+
 async function proxy(
   request: NextRequest,
   ctx: { params: { path: string[] } | Promise<{ path: string[] }> }
@@ -69,20 +71,91 @@ async function proxy(
       },
     });
   } catch (err) {
-    if (path.includes("auth/login") || path.includes("auth/register")) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          access_token: "preview_session_token",
-          token_type: "bearer",
-          expires_in: 86400,
-          user: {
-            email: "admin@artsa.ai",
-            role: "admin",
-            display_name: "Admin (Live Preview)",
+    if (path.includes("auth/login")) {
+      try {
+        const text = body ? new TextDecoder().decode(body) : "{}";
+        const payload = JSON.parse(text);
+        const email = String(payload.email || "").trim().toLowerCase();
+        const password = String(payload.password || "");
+
+        // Default admin accounts & passwords
+        const defaultAdmins: Record<string, string> = {
+          "admin@artsa.ai": "admin12345",
+          "admin@gmail.com": "admin12345",
+          "admin1@gmail.com": "admin12345",
+        };
+
+        const envEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+        const envPass = process.env.ADMIN_PASSWORD || "admin12345";
+
+        const isDefault = Boolean(defaultAdmins[email]) && defaultAdmins[email] === password;
+        const isRegistered = registeredAdmins.has(email) && registeredAdmins.get(email) === password;
+        const isEnv = Boolean(envEmail) && email === envEmail && password === envPass;
+
+        if (!isDefault && !isRegistered && !isEnv) {
+          return NextResponse.json(
+            { detail: "Invalid email or password. Only authorized administrators can access ARTSA." },
+            { status: 401 }
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            access_token: "admin_token_" + Date.now(),
+            token_type: "bearer",
+            expires_in: 86400,
+            user: {
+              email: payload.email,
+              role: "admin",
+              display_name: "Administrator",
+            },
           },
-        },
-      });
+        });
+      } catch {
+        return NextResponse.json(
+          { detail: "Invalid email or password. Only authorized administrators can access ARTSA." },
+          { status: 401 }
+        );
+      }
+    }
+
+    if (path.includes("auth/register")) {
+      try {
+        const text = body ? new TextDecoder().decode(body) : "{}";
+        const payload = JSON.parse(text);
+        const email = String(payload.email || "").trim().toLowerCase();
+        const password = String(payload.password || "");
+        const displayName = String(payload.display_name || "").trim() || "Administrator";
+
+        if (!email || password.length < 8) {
+          return NextResponse.json(
+            { detail: "Password must be at least 8 characters." },
+            { status: 400 }
+          );
+        }
+
+        registeredAdmins.set(email, password);
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            access_token: "admin_token_" + Date.now(),
+            token_type: "bearer",
+            expires_in: 86400,
+            user: {
+              email: payload.email,
+              role: "admin",
+              display_name: displayName,
+            },
+          },
+        });
+      } catch {
+        return NextResponse.json(
+          { detail: "Registration failed." },
+          { status: 400 }
+        );
+      }
     }
     if (path.includes("health")) {
       return NextResponse.json({

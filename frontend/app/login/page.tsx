@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Lock, LogIn, Mail, ShieldCheck, UserPlus } from "lucide-react";
+import { Loader2, Lock, LogIn, Mail, UserPlus } from "lucide-react";
 import { LogoIcon } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,18 +81,6 @@ function LoginInner() {
     redirect();
   };
 
-  const handleDemoLogin = () => {
-    finishWithSession({
-      access_token: "demo_preview_token",
-      token_type: "bearer",
-      expires_in: 86400,
-      user: {
-        email: email.trim() || "admin@artsa.ai",
-        role: "admin",
-        display_name: displayName.trim() || "Admin (Live Preview)",
-      },
-    });
-  };
 
   const handlePasswordLogin = async () => {
     if (!email.trim() || !password) {
@@ -102,20 +90,11 @@ function LoginInner() {
     setLoading(true);
     setError(null);
     try {
-      const session = await postAuth("/api/v1/auth/login", { email, password });
+      const session = await postAuth("/api/v1/auth/login", { email: email.trim(), password });
       finishWithSession(session);
-    } catch {
-      // Seamless offline fallback: sign in immediately using the provided email
-      finishWithSession({
-        access_token: "preview_session_token",
-        token_type: "bearer",
-        expires_in: 86400,
-        user: {
-          email: email.trim(),
-          role: "admin",
-          display_name: email.split("@")[0] || "Administrator",
-        },
-      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid email or password.");
+      setLoading(false);
     }
   };
 
@@ -132,23 +111,14 @@ function LoginInner() {
     setError(null);
     try {
       const session = await postAuth("/api/v1/auth/register", {
-        email,
+        email: email.trim(),
         password,
         display_name: displayName.trim(),
       });
       finishWithSession(session);
-    } catch {
-      // Seamless offline fallback: register immediately
-      finishWithSession({
-        access_token: "preview_session_token",
-        token_type: "bearer",
-        expires_in: 86400,
-        user: {
-          email: email.trim(),
-          role: "admin",
-          display_name: displayName.trim() || email.split("@")[0] || "Administrator",
-        },
-      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+      setLoading(false);
     }
   };
 
@@ -175,7 +145,7 @@ function LoginInner() {
       <h1 className="text-xl font-semibold tracking-tight">Sign in to ARTSA</h1>
       <p className="mt-2 text-center text-sm text-muted-foreground">
         {isRegister
-          ? "Create your account. The first account becomes the administrator."
+          ? "Create your administrator account."
           : "Sign in with your email & password to enter."}
       </p>
 
@@ -185,7 +155,7 @@ function LoginInner() {
           description={
             isRegister
               ? "Password must be at least 8 characters."
-              : "Use the account your administrator created for you."
+              : "Only authorized administrators can access this system."
           }
         >
           <div className="flex flex-col gap-3">
@@ -196,7 +166,7 @@ function LoginInner() {
               />
               <Input
                 type="email"
-                placeholder="you@example.com"
+                placeholder="admin@artsa.ai"
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -264,27 +234,6 @@ function LoginInner() {
             >
               {isRegister ? "Already have an account? Sign in" : "New to ARTSA? Create account"}
             </button>
-
-            <div className="relative my-2 flex items-center justify-center">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <span className="relative bg-card px-2 text-xs uppercase tracking-wider text-muted-foreground">
-                or
-              </span>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={handleDemoLogin}
-              disabled={loading}
-              className="w-full gap-2 border-dashed border-primary/50 text-primary hover:bg-primary/10"
-            >
-              <ShieldCheck className="h-4 w-4" aria-hidden />
-              Explore Demo Mode (Live Preview)
-            </Button>
           </div>
         </DashboardCard>
 
