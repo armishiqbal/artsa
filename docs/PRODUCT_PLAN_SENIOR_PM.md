@@ -99,8 +99,16 @@
 >   enforcement band (downgrade cap moved 55 → 45).
 > - **Regression benchmark improved:** recall@80 = **1.000**, FPR@50 = **0.016**
 >   (was 0.983 / 0.040 before this round).
-> - **Not done (next):** 2.2 real embeddings, 2.3 LLM-judge fast path, 2.4 RAG→scoring,
->   2.5 MCP full-engine parity.
+> - **2.2 done (open-source)** — semantic library 6→24 phrases; auto → FastEmbed
+>   `BAAI/bge-small-en-v1.5` (ONNX, offline, no API key); OpenAI explicit opt-in only;
+>   bounded embed cache. **2.5 done** — MCP tools/call routed through the full
+>   containment engine (SQLi/reverse-shell/sensitive-path blocked, benign passes).
+>   **2.4 done** — `PolicyDetector` (org-policy YAML → score channel `policy_score`,
+>   tool-scoped rules, evidence carries the matched rule; opt-in RAG corroboration
+>   via `ARTSA_POLICY_RAG_SCORING`); a policy rule flips a live verdict SAFE→SUSPICIOUS.
+>   Also fixed: file-write paths starting `/var/` were mis-downgraded as prose.
+> - **Not done (next):** 2.3 LLM-judge fast path; 3.1 multi-tenancy; 3.3 incident
+>   workflow.
 
 | # | Task | Definition of done |
 |---|---|---|

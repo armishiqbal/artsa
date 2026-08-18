@@ -173,6 +173,7 @@ async def ingest_events(
             "canary_score": risk_score.canary_score,
             "sql_injection_score": risk_score.sql_injection_score,
             "mcp_destructive_score": risk_score.mcp_destructive_score,
+            "policy_score": risk_score.policy_score,
             "bypass_depth": risk_score.bypass_depth,
             "security_event_count": len(sec_events),
             "enforced": enforced,

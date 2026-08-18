@@ -7,6 +7,7 @@ from typing import Any
 from src.containment.detectors.canary_token import CanaryTokenDetector
 from src.containment.detectors.goal_drift import GoalDriftDetector
 from src.containment.detectors.mcp_destructive import McpDestructiveToolDetector
+from src.containment.detectors.policy import PolicyDetector
 from src.containment.detectors.prompt_injection import PromptInjectionDetector
 from src.containment.detectors.rule_based import RuleBasedDetector
 from src.containment.detectors.semantic import SemanticDetector
@@ -97,6 +98,7 @@ class ContainmentEngine:
         "PromptInjectionDetector",
         "SqlInjectionDetector",
         "McpDestructiveToolDetector",
+        "PolicyDetector",
     )
 
     def __init__(self, disabled_detectors: list[str] | None = None) -> None:
@@ -112,6 +114,7 @@ class ContainmentEngine:
             PromptInjectionDetector(tool_scope=True),
             SqlInjectionDetector(),
             McpDestructiveToolDetector(),
+            PolicyDetector(),
         ]
         self.detectors = [d for d in all_detectors if d.name not in disabled]
         self.scorer = CompositeScorer()
@@ -222,7 +225,7 @@ class ContainmentEngine:
             if isinstance(event.arguments, dict):
                 path = str(event.arguments.get("path", ""))
             sensitive_path = re.search(
-                r"(?:/etc/|/proc/|/var/(?:spool|lib)/|\b/var/\w*/|/opt/|/usr/|/etc/+|\.aws|\.ssh|/root/|(?:^|/)\.env\b)",
+                r"(?:/etc/|/proc/|/var/(?:spool|lib)/|(?:^|\b)var/[^/\s]*/|/opt/|/usr/|/etc/+|\.aws|\.ssh|/root/|(?:^|/)\.env\b)",
                 path,
                 re.IGNORECASE,
             )

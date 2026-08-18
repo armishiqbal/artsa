@@ -23,16 +23,17 @@ from src.core.models.scores import RiskScore
 # signature detectors (rule, prompt-injection) weight more than statistical
 # signals that need corroboration.
 SUBSCORE_WEIGHTS: dict[str, float] = {
-    "rule_based_score": 0.25,
-    "injection_score": 0.15,
-    "semantic_score": 0.15,
-    "statistical_score": 0.10,
-    "goal_drift_score": 0.10,
-    "trajectory_score": 0.10,
+    "rule_based_score": 0.22,
+    "injection_score": 0.14,
+    "semantic_score": 0.14,
+    "statistical_score": 0.09,
+    "goal_drift_score": 0.09,
+    "trajectory_score": 0.09,
     "tool_output_score": 0.05,
     "sql_injection_score": 0.05,
     "mcp_destructive_score": 0.03,
     "canary_score": 0.02,
+    "policy_score": 0.08,
 }
 
 # Detectors whose sub-score counts as "strong" for the compounding bonus.
@@ -52,6 +53,7 @@ _DETECTOR_TO_FIELD = {
     "CanaryTokenDetector": "canary_score",
     "SqlInjectionDetector": "sql_injection_score",
     "McpDestructiveToolDetector": "mcp_destructive_score",
+    "PolicyDetector": "policy_score",
 }
 
 
@@ -107,6 +109,7 @@ class CompositeScorer(BaseScorer):
             canary_score=subscores["canary_score"],
             sql_injection_score=subscores["sql_injection_score"],
             mcp_destructive_score=subscores["mcp_destructive_score"],
+            policy_score=subscores["policy_score"],
             bypass_depth=depth,
             flags=flags,
         )

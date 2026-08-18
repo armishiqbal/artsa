@@ -223,6 +223,13 @@ class Settings(BaseSettings):
     # ── Detection / embeddings ──────────────────────────────────────────
     ARTSA_EMBEDDING_MODEL: str = "auto"  # auto | hash-1024 | local-bge-small | local-minilm | text-embedding-3-small | text-embedding-3-large
 
+    # WS-2.4: org-policy scoring. Deterministic YAML rules always apply; the RAG
+    # semantic corroboration (adds a small boost when a violation clause is
+    # retrieved) is opt-in because it costs an embedding query per call.
+    ARTSA_POLICY_RAG_SCORING: bool = False
+    # Override path to the org-policy YAML (default: configs/org_policies/default.yaml)
+    ARTSA_ORG_POLICY_PATH: str = ""
+
     def resolve_embedding_model(self) -> str:
         """Pick embedding backend: hash in tests; open-source local ONNX model
         (FastEmbed) when installed; explicit override otherwise. `auto` NEVER

@@ -25,6 +25,7 @@ class RiskScore(BaseModel):
     canary_score: float = Field(default=0.0, ge=0.0, le=100.0)
     sql_injection_score: float = Field(default=0.0, ge=0.0, le=100.0)
     mcp_destructive_score: float = Field(default=0.0, ge=0.0, le=100.0)
+    policy_score: float = Field(default=0.0, ge=0.0, le=100.0)
     bypass_depth: int = Field(default=0, ge=0, le=5)
     flags: list[str] = Field(default_factory=list)
 
