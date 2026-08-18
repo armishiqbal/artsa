@@ -15,10 +15,22 @@ class EventProcessor:
 
     def __init__(self) -> None:
         self.monitor = RealtimeMonitor()
+        self._judge = None  # lazy — WS-2.3 optional LLM judge
+
+    def _judge_verifier(self):
+        if self._judge is None:
+            from src.services.judge import JudgeVerifier
+
+            self._judge = JudgeVerifier()
+        return self._judge
 
     def process_event(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
         """Route tool call event to containment evaluation engine."""
-        return self.monitor.process_event(event)
+        risk, verdict, sec_events = self.monitor.process_event(event)
+        # WS-2.3: optional LLM confirmation of borderline verdicts (no-op when
+        # ARTSA_JUDGE_ENABLED=false or the judge cannot confirm).
+        risk, verdict, _ = self._judge_verifier().verify(event, risk, verdict)
+        return risk, verdict, sec_events
 
     def process(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
         """Alias for process_event."""

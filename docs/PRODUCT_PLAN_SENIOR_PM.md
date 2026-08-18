@@ -107,8 +107,11 @@
 >   tool-scoped rules, evidence carries the matched rule; opt-in RAG corroboration
 >   via `ARTSA_POLICY_RAG_SCORING`); a policy rule flips a live verdict SAFE→SUSPICIOUS.
 >   Also fixed: file-write paths starting `/var/` were mis-downgraded as prose.
-> - **Not done (next):** 2.3 LLM-judge fast path; 3.1 multi-tenancy; 3.3 incident
->   workflow.
+> - **2.3 done** — optional LLM-judge verifier (`ARTSA_JUDGE_ENABLED`, off by
+>   default): confirms SUSPICIOUS (50–79) verdicts with a fast judge model and can
+>   only escalate to KILL (never downgrade); 0.6s budget, fail-safe on any error;
+>   wired into the EventProcessor hot path.
+> - **Not done (next):** 3.1 multi-tenancy; 3.3 incident workflow; 4.3/4.4; WS-5.
 
 | # | Task | Definition of done |
 |---|---|---|

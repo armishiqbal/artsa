@@ -230,6 +230,15 @@ class Settings(BaseSettings):
     # Override path to the org-policy YAML (default: configs/org_policies/default.yaml)
     ARTSA_ORG_POLICY_PATH: str = ""
 
+    # ── WS-2.3: LLM-judge verifier (optional, OFF by default) ───────────
+    # Confirms SUSPICIOUS (50-79) verdicts with a fast judge model; can only
+    # escalate to KILL, never downgrade. Costs one LLM call per borderline
+    # event within ARTSA_JUDGE_TIMEOUT_SEC.
+    ARTSA_JUDGE_ENABLED: bool = False
+    ARTSA_JUDGE_PROVIDER: str = ""
+    ARTSA_JUDGE_MODEL: str = ""
+    ARTSA_JUDGE_TIMEOUT_SEC: float = 0.6
+
     def resolve_embedding_model(self) -> str:
         """Pick embedding backend: hash in tests; open-source local ONNX model
         (FastEmbed) when installed; explicit override otherwise. `auto` NEVER
