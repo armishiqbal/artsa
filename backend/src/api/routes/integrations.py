@@ -26,6 +26,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.dependencies import get_current_tenant
 from src.data.db import get_async_session
 from src.data.integration_store import (
     delete_integration,
@@ -204,9 +205,12 @@ def _auth_header_preview(auth_type: str) -> str | None:
 
 
 @router.get("/integrations")
-async def integrations_list(session: AsyncSession = Depends(get_async_session)) -> dict[str, Any]:
+async def integrations_list(
+    session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
+) -> dict[str, Any]:
     """List user-defined connectors. Secrets are never returned (masked)."""
-    rows = await list_integrations(session)
+    rows = await list_integrations(session, tenant_id=tenant_id)
     return {"integrations": rows, "total": len(rows)}
 
 
@@ -214,10 +218,13 @@ async def integrations_list(session: AsyncSession = Depends(get_async_session)) 
 async def integrations_create(
     payload: IntegrationPayload,
     session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
-    """Create a connector (409 if the slug already exists)."""
+    """Create a connector (409 if the slug already exists in this tenant)."""
     _validate_payload_template(payload.payload_template)
-    existing = await get_integration(session, slugify(payload.name), include_secrets=True)
+    existing = await get_integration(
+        session, slugify(payload.name), include_secrets=True, tenant_id=tenant_id
+    )
     if existing is not None:
         raise HTTPException(
             status_code=409,
@@ -239,6 +246,7 @@ async def integrations_create(
             retries=payload.retries,
             timeout=payload.timeout,
             secrets=payload.secrets,
+            tenant_id=tenant_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -250,11 +258,14 @@ async def integrations_create(
 async def integrations_get(
     name: str,
     session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
     """Fetch one connector (secrets masked)."""
     # include_secrets must stay False here — the store defaults to True for the
     # internal PATCH/test merge paths; GET must never return plaintext secrets.
-    row = await get_integration(session, slugify(name), include_secrets=False)
+    row = await get_integration(
+        session, slugify(name), include_secrets=False, tenant_id=tenant_id
+    )
     if row is None:
         raise HTTPException(status_code=404, detail=f"integration '{slugify(name)}' not found")
     return {"integration": row}
@@ -265,10 +276,13 @@ async def integrations_patch(
     name: str,
     payload: IntegrationPatch,
     session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
     """Partially update a connector; unmentioned secrets are preserved."""
     _validate_payload_template(payload.payload_template)
-    existing = await get_integration(session, slugify(name), include_secrets=True)
+    existing = await get_integration(
+        session, slugify(name), include_secrets=True, tenant_id=tenant_id
+    )
     if existing is None:
         raise HTTPException(status_code=404, detail=f"integration '{slugify(name)}' not found")
 
@@ -290,7 +304,7 @@ async def integrations_patch(
     merged["secrets"] = merged_secrets
 
     try:
-        row = await upsert_integration(session, **merged)
+        row = await upsert_integration(session, tenant_id=tenant_id, **merged)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await _refresh_registry()
@@ -301,9 +315,10 @@ async def integrations_patch(
 async def integrations_delete(
     name: str,
     session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
-    """Remove a connector."""
-    removed = await delete_integration(session, slugify(name))
+    """Remove a connector belonging to the calling tenant."""
+    removed = await delete_integration(session, slugify(name), tenant_id=tenant_id)
     if not removed:
         raise HTTPException(status_code=404, detail=f"integration '{slugify(name)}' not found")
     await _refresh_registry()

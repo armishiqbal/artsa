@@ -47,6 +47,7 @@ class CampaignJobStore:
         attack_profile: str,
         max_rounds: int,
         request_json: dict[str, Any],
+        tenant_id: str = "default_tenant",
     ) -> None:
         now = datetime.now(UTC)
         record = {
@@ -63,6 +64,7 @@ class CampaignJobStore:
             "error": None,
             "created_at": now.isoformat(),
             "updated_at": now.isoformat(),
+            "tenant_id": tenant_id,
         }
         _memory_jobs[campaign_id] = record
 
@@ -86,6 +88,7 @@ class CampaignJobStore:
                     request_json=request_json,
                     created_at=now,
                     updated_at=now,
+                    tenant_id=tenant_id,
                 )
             )
             session.commit()
@@ -147,24 +150,35 @@ class CampaignJobStore:
                 row.updated_at = datetime.now(UTC)
                 session.commit()
 
-    def get(self, campaign_id: str) -> dict[str, Any] | None:
+    def get(self, campaign_id: str, tenant_id: str | None = None) -> dict[str, Any] | None:
         if campaign_id in _memory_jobs:
-            return dict(_memory_jobs[campaign_id])
+            job = _memory_jobs[campaign_id]
+            if tenant_id and job.get("tenant_id") != tenant_id:
+                return None
+            return dict(job)
 
         if not self._factory:
             return None
 
         with self._factory() as session:
             row = session.get(CampaignJobORM, campaign_id)
+            if tenant_id and row and row.tenant_id != tenant_id:
+                return None
             return self._to_dict(row) if row else None
 
-    def list_jobs(self, limit: int = 50) -> list[dict[str, Any]]:
-        jobs = list(_memory_jobs.values())
+    def list_jobs(self, limit: int = 50, tenant_id: str | None = None) -> list[dict[str, Any]]:
+        jobs = [
+            dict(j) for j in _memory_jobs.values()
+            if not tenant_id or j.get("tenant_id") == tenant_id
+        ]
 
         if self._factory:
             with self._factory() as session:
+                query = select(CampaignJobORM)
+                if tenant_id:
+                    query = query.where(CampaignJobORM.tenant_id == tenant_id)
                 result = session.execute(
-                    select(CampaignJobORM).order_by(CampaignJobORM.created_at.desc()).limit(limit)
+                    query.order_by(CampaignJobORM.created_at.desc()).limit(limit)
                 )
                 for row in result.scalars().all():
                     if not any(j["id"] == row.id for j in jobs):

@@ -162,3 +162,73 @@ async def test_session_rows_are_tenant_scoped(postgres_session, monkeypatch):
     globex_ids = {str(s.id) for s in globex}
     assert acme_ids and globex_ids
     assert acme_ids.isdisjoint(globex_ids), "tenants must never see each other's sessions"
+
+
+@pytest.mark.asyncio
+async def test_integrations_are_tenant_scoped(postgres_session, monkeypatch):
+    monkeypatch.setattr("src.core.config.settings.ENVIRONMENT", "integration_test")
+
+    from src.data.integration_store import (
+        delete_integration,
+        get_integration,
+        list_integrations,
+        upsert_integration,
+    )
+
+    for tenant, name in (("acme", "acme-slack"), ("globex", "globex-slack")):
+        await upsert_integration(
+            postgres_session,
+            name=name,
+            target_url="https://hooks.example.com/x",
+            tenant_id=tenant,
+        )
+
+    acme_rows = await list_integrations(postgres_session, tenant_id="acme")
+    globex_rows = await list_integrations(postgres_session, tenant_id="globex")
+    assert {r["name"] for r in acme_rows} == {"acme-slack"}
+    assert {r["name"] for r in globex_rows} == {"globex-slack"}
+
+    # Tenant-scoped get/delete: acme cannot see or delete globex's connector.
+    assert await get_integration(postgres_session, "globex-slack", tenant_id="acme") is None
+    assert await get_integration(postgres_session, "acme-slack", tenant_id="acme") is not None
+    assert await delete_integration(postgres_session, "globex-slack", tenant_id="acme") is False
+
+
+def test_campaigns_are_tenant_scoped(monkeypatch):
+    """CampaignJobStore uses a SYNC factory (BackgroundTasks-safe) — test it
+    against a sync engine on a fresh temp SQLite file."""
+    import tempfile
+
+    monkeypatch.setattr("src.core.config.settings.ENVIRONMENT", "integration_test")
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from src.data.campaign_job_store import CampaignJobStore
+    from src.data.db import Base
+    from src.data.orm import CampaignJobORM  # noqa: F401
+
+    engine = create_engine("sqlite:///" + tempfile.mktemp(suffix="_campaign_test.db"))
+    Base.metadata.create_all(engine)
+
+    store = CampaignJobStore()
+    store._factory = sessionmaker(bind=engine, expire_on_commit=False)
+
+    for tenant, cid in (("acme", str(uuid.uuid4())), ("globex", str(uuid.uuid4()))):
+        store.create(
+            cid,
+            name=f"campaign-{tenant}",
+            provider="groq",
+            model="llama-3.3-70b-versatile",
+            attack_profile="quick_scan",
+            max_rounds=2,
+            request_json={"name": f"campaign-{tenant}"},
+            tenant_id=tenant,
+        )
+
+    acme_jobs = store.list_jobs(tenant_id="acme")
+    globex_jobs = store.list_jobs(tenant_id="globex")
+    assert {j["name"] for j in acme_jobs} == {"campaign-acme"}
+    assert {j["name"] for j in globex_jobs} == {"campaign-globex"}
+    # Cross-tenant get returns None (ownership enforced).
+    globex_id = globex_jobs[0]["id"]
+    assert store.get(globex_id, tenant_id="acme") is None
+    assert store.get(globex_id, tenant_id="globex") is not None

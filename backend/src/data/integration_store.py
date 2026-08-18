@@ -71,19 +71,28 @@ def _row_to_dict(row: CustomIntegrationORM, include_secrets: bool = False) -> di
 
 
 async def list_integrations(
-    session: AsyncSession, include_secrets: bool = False
+    session: AsyncSession, include_secrets: bool = False, tenant_id: str | None = None
 ) -> list[dict[str, Any]]:
+    query = select(CustomIntegrationORM)
+    if tenant_id:
+        query = query.where(CustomIntegrationORM.tenant_id == tenant_id)
     rows = (
-        await session.execute(select(CustomIntegrationORM).order_by(CustomIntegrationORM.name))
+        await session.execute(query.order_by(CustomIntegrationORM.name))
     ).scalars().all()
     return [_row_to_dict(r, include_secrets=include_secrets) for r in rows]
 
 
 async def get_integration(
-    session: AsyncSession, name: str, include_secrets: bool = True
+    session: AsyncSession,
+    name: str,
+    include_secrets: bool = True,
+    tenant_id: str | None = None,
 ) -> dict[str, Any] | None:
+    query = select(CustomIntegrationORM).where(CustomIntegrationORM.name == name)
+    if tenant_id:
+        query = query.where(CustomIntegrationORM.tenant_id == tenant_id)
     row = (
-        await session.execute(select(CustomIntegrationORM).where(CustomIntegrationORM.name == name))
+        await session.execute(query)
     ).scalar_one_or_none()
     return _row_to_dict(row, include_secrets=include_secrets) if row else None
 
@@ -109,6 +118,7 @@ async def upsert_integration(
     retries: int = 3,
     timeout: float = 10.0,
     secrets: dict[str, str] | None = None,
+    tenant_id: str = "default_tenant",
 ) -> dict[str, Any]:
     """Create or update a connector. Returns the stored (masked) dict.
 
@@ -124,8 +134,11 @@ async def upsert_integration(
 
     encrypted = {k: encrypt_secret(v, settings.SECRET_KEY) for k, v in (secrets or {}).items() if v}
 
+    query = select(CustomIntegrationORM).where(CustomIntegrationORM.name == name)
+    if tenant_id:
+        query = query.where(CustomIntegrationORM.tenant_id == tenant_id)
     row = (
-        await session.execute(select(CustomIntegrationORM).where(CustomIntegrationORM.name == name))
+        await session.execute(query)
     ).scalar_one_or_none()
 
     if row is None:
@@ -144,6 +157,7 @@ async def upsert_integration(
             retries=int(retries),
             timeout=float(timeout),
             secrets=encrypted,
+            tenant_id=tenant_id or "default_tenant",
         )
         session.add(row)
     else:
@@ -165,7 +179,10 @@ async def upsert_integration(
     return _row_to_dict(row)
 
 
-async def delete_integration(session: AsyncSession, name: str) -> bool:
-    result = await session.execute(delete(CustomIntegrationORM).where(CustomIntegrationORM.name == name))
+async def delete_integration(session: AsyncSession, name: str, tenant_id: str | None = None) -> bool:
+    query = delete(CustomIntegrationORM).where(CustomIntegrationORM.name == name)
+    if tenant_id:
+        query = query.where(CustomIntegrationORM.tenant_id == tenant_id)
+    result = await session.execute(query)
     await session.commit()
     return result.rowcount > 0

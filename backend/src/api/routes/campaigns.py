@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from src.api.dependencies import get_current_tenant
 from src.core.config import settings
 from src.data.campaign_job_store import campaign_job_store
 
@@ -92,11 +93,11 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest) -> No
 
 
 @router.get("/campaigns")
-async def list_campaigns() -> dict[str, Any]:
+async def list_campaigns(tenant_id: str = Depends(get_current_tenant)) -> dict[str, Any]:
     results_dir = BACKEND_DIR / "data" / "results"
     campaigns = []
 
-    for job in campaign_job_store.list_jobs(limit=100):
+    for job in campaign_job_store.list_jobs(limit=100, tenant_id=tenant_id):
         campaigns.append(
             {
                 "id": job["id"],
@@ -142,7 +143,11 @@ async def list_campaigns() -> dict[str, Any]:
 
 
 @router.post("/campaigns/run")
-async def start_campaign(req: RunCampaignRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
+async def start_campaign(
+    req: RunCampaignRequest,
+    background_tasks: BackgroundTasks,
+    tenant_id: str = Depends(get_current_tenant),
+) -> dict[str, Any]:
     campaign_id = str(uuid.uuid4())
     campaign_job_store.create(
         campaign_id,
@@ -152,6 +157,7 @@ async def start_campaign(req: RunCampaignRequest, background_tasks: BackgroundTa
         attack_profile=req.attack_profile,
         max_rounds=req.max_rounds,
         request_json=req.model_dump(),
+        tenant_id=tenant_id,
     )
     background_tasks.add_task(execute_campaign_background, campaign_id, req)
     return {
@@ -162,8 +168,10 @@ async def start_campaign(req: RunCampaignRequest, background_tasks: BackgroundTa
 
 
 @router.get("/campaigns/{campaign_id}")
-async def get_campaign_detail(campaign_id: str) -> dict[str, Any]:
-    job = campaign_job_store.get(campaign_id)
+async def get_campaign_detail(
+    campaign_id: str, tenant_id: str = Depends(get_current_tenant)
+) -> dict[str, Any]:
+    job = campaign_job_store.get(campaign_id, tenant_id=tenant_id)
     if job:
         return {
             "id": campaign_id,
