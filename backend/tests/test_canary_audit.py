@@ -57,3 +57,28 @@ def test_contamination_audit_smoke():
     )
     assert result.returncode == 0
     assert "self-referentiality" in result.stdout.lower()
+
+
+def test_independence_check_and_gate_smoke():
+    import subprocess
+    import sys
+
+    backend = str(Path(__file__).resolve().parent.parent)
+    for script in ("scripts/check_independence.py", "scripts/independent_gate.py"):
+        result = subprocess.run(
+            [sys.executable, script],
+            capture_output=True, text=True, check=False,
+            env={"ENVIRONMENT": "testing", "PYTHONPATH": "."},
+            cwd=backend,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+    # The honest generalization number is currently low — assert the gate
+    # REPORTS it (recall line present) rather than asserting a high value.
+    result = subprocess.run(
+        [sys.executable, "scripts/independent_gate.py"],
+        capture_output=True, text=True, check=False,
+        env={"ENVIRONMENT": "testing", "PYTHONPATH": "."},
+        cwd=backend,
+    )
+    assert "recall@80" in result.stdout
+    assert "No floor applied" in result.stdout
