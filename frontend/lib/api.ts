@@ -99,10 +99,13 @@ export async function fetchFromBackend<T = unknown>(
   const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
 
   try {
+    const signal = requestInit.signal || AbortSignal.timeout(3000);
     const res = await fetch(url, {
       ...requestInit,
+      signal,
       headers: buildHeaders(requestInit.headers),
     });
+
 
     if (!res.ok) {
       if (!silent) {

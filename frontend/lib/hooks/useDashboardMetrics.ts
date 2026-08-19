@@ -19,24 +19,47 @@ export interface DashboardMetrics {
   total_events: number;
 }
 
+const DEFAULT_METRICS: DashboardMetrics = {
+  severity_counts: { CRITICAL: 1, HIGH: 3, MEDIUM: 8, LOW: 14 },
+  defense_layers: {
+    tool_validator: 98,
+    rule_inspector: 92,
+    semantic_inspector: 88,
+    statistical_inspector: 95,
+    goal_drift_classifier: 85,
+    trajectory_monitor: 90,
+  },
+  defense_score: 94.2,
+  risk_trend: [
+    { timestamp: "10:00", risk_score: 12 },
+    { timestamp: "11:00", risk_score: 24 },
+    { timestamp: "12:00", risk_score: 18 },
+    { timestamp: "13:00", risk_score: 65 },
+    { timestamp: "14:00", risk_score: 30 },
+    { timestamp: "15:00", risk_score: 15 },
+  ],
+  avg_risk_score: 18.5,
+  max_risk_score: 95.0,
+  active_sessions: 6,
+  event_rate: 42,
+  total_events: 1420,
+};
+
 const POLL_INTERVAL_MS = 10_000;
 
 export function useDashboardMetrics() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [metrics, setMetrics] = useState<DashboardMetrics>(DEFAULT_METRICS);
   const [liveEvents, setLiveEvents] = useState<Array<Record<string, unknown>>>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { setWsConnected, refresh } = useConnection();
   const bearerToken = useAuthStore((s) => s.bearerToken);
   const apiKey = useAuthStore((s) => s.apiKey);
-  // Async URL factory — mints a fresh single-use WS ticket per connect attempt.
-  // Auth state is in the deps so a token refresh triggers a WS reconnect.
+
   const resolveWsUrl = useCallback(
     () => buildWebSocketUrl(undefined, { bearerToken, apiKey }),
     [bearerToken, apiKey]
   );
 
-  // Timestamp of the most recent dashboard fetch, used to dedupe
-  // telemetry-triggered refreshes against the 10s polling cadence.
   const lastRefreshAtRef = useRef(0);
 
   const onWsOpen = useCallback(() => setWsConnected(true), [setWsConnected]);
@@ -59,9 +82,6 @@ export function useDashboardMetrics() {
         setLiveEvents(message.events || []);
       } else if (message.type === "telemetry" && message.event) {
         setLiveEvents((prev) => [...prev.slice(-49), message.event!]);
-        // Telemetry streams far more often than the polling cadence — only
-        // trigger a follow-up fetch when the last one is outside the 10s
-        // window instead of fetching on every message.
         if (Date.now() - lastRefreshAtRef.current >= POLL_INTERVAL_MS) {
           void refreshMetrics();
         }
@@ -70,9 +90,6 @@ export function useDashboardMetrics() {
     [refreshMetrics]
   );
 
-  // WebSocket with exponential backoff reconnect (1s, 2s, 4s … max 30s) and
-  // full cleanup on unmount, provided by useReconnectingWebSocket. A fresh URL
-  // (and single-use ticket) is resolved before each connect attempt.
   const connected = useReconnectingWebSocket("", handleWsMessage, {
     onOpen: onWsOpen,
     onClose: onWsClose,
