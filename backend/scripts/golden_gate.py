@@ -118,6 +118,23 @@ def main() -> int:
         print("GOLDEN GATE FAILED: " + "; ".join(failures))
         return 1
     print("Golden gate passed.")
+
+    if "--redteam" in sys.argv:
+        # Phase 2.4: append the mutation-evasion evidence to the same run.
+        from src.redteam.diversity import diversity_is_healthy, mutation_diversity
+        from src.redteam.mutator import RedTeamMutator
+        from src.redteam.runner import evaluate_attacks
+
+        bases = [s["arguments"].get("payload") or s["arguments"].get("command")
+                 for s in malicious if s.get("arguments")]
+        bases = [b for b in bases if isinstance(b, str) and len(b) > 12]
+        corpus = RedTeamMutator().generate_corpus(bases)
+        diversity = mutation_diversity([c["variant"] for c in corpus])
+        rt = evaluate_attacks(corpus)
+        print("\n── red-team mutation evidence ──")
+        print(f"  corpus={rt.corpus_size} recall={rt.recall:.3f} "
+              f"regex_invisible_semantic_catch={rt.regex_invisible_semantic_catch_rate:.3f} "
+              f"diversity_healthy={diversity_is_healthy(diversity)}")
     return 0
 
 

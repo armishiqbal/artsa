@@ -31,10 +31,10 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Task | Why / DoD |
 |---|---|---|
-| 2.1 | **LLM attacker agent**: generates attacks semantically (typo/Unicode/encoding/multilingual/RAG-poison/tool-confusion), not template-only | The independent attack distribution your evals are missing |
-| 2.2 | **Diversity metric** (embedding-distance coverage) to prevent attack collapse into few phrasings | Keeps the generator honest |
-| 2.3 | **Detector-layer attribution** per attack: which layer caught it (rule/statistical/semantic/policy/judge) | Feeds ablation + product story |
-| 2.4 | **Semantic-bypass fuzzer wired into `golden_gate.py`**: measure "% of regex-invisible attacks caught by semantic layer" | The single most defensible research number; validates whether the semantic detector is real or theater |
+| 2.1 | **Red-team mutation engine** (`src/redteam/mutator.py`): deterministic offline mutations — homoglyph/leet/base64/url/hex/unicode-escape/rot13/synonym/comment-inject, with encoding labels | ✅ done `redteam`; LLM-attacker stage (2.1b, `ARTSA_REDTEAM_LLM_ENABLED`) remains |
+| 2.2 | **Diversity metric** (`src/redteam/diversity.py`): pairwise embedding distance + cluster count, `diversity_is_healthy` | ✅ done |
+| 2.3 | **Detector-layer attribution** (`src/redteam/runner.py`): full vs semantic-disabled engine per attack, per-encoding recall, detector fire counts | ✅ done |
+| 2.4 | **Semantic-bypass fuzzer** (`scripts/redteam_gate.py`, `--redteam` flag in golden_gate): regex-invisible semantic catch rate. **Baseline: 0.354 mutation recall; 3.1% regex-invisible semantic catch (hash & fastembed)** — obfuscation evades the semantic layer; next work is obfuscation-normalization + lower thresholds | ✅ engine done; follow-up = improve the number |
 | 2.5 | Fuzz mutations via existing `payload_mutator.py`; add multilingual + Unicode confusables + encoding stages | Depth |
 | 2.6 | Guardrail against self-defeating output: attacker can't see detector internals during generation | Evals discipline |
 
