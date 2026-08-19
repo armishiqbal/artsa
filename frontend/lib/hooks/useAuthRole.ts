@@ -1,8 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchFromBackend } from "@/lib/api";
 import { useAuthStore } from "@/lib/stores/auth";
+import { isOidcEnabled } from "@/lib/oidc";
+
+/** Mirror of backend src/core/rbac.role_capabilities — grants the sidebar's
+ * capability-gated items when we can't reach /config/me. */
+function capabilitiesForRole(role: string): AuthCapabilities {
+  if (role === "admin") {
+    return {
+      can_ingest: true,
+      can_run_campaigns: true,
+      can_run_benchmark: true,
+      can_run_ablation: true,
+      can_manage_policies: true,
+      can_manage_providers: true,
+      can_manage_integrations: true,
+      read_only: false,
+    };
+  }
+  return {
+    can_ingest: true,
+    can_run_campaigns: role === "redteam" || role === "analyst",
+    can_run_benchmark: role === "redteam",
+    can_run_ablation: role === "redteam",
+    can_manage_policies: false,
+    can_manage_providers: false,
+    can_manage_integrations: false,
+    read_only: role === "readonly",
+  };
+}
 
 export interface AuthCapabilities {
   can_ingest: boolean;
@@ -57,16 +85,44 @@ export function useAuthRole() {
   const [loading, setLoading] = useState(true);
   const bearerToken = useAuthStore((s) => s.bearerToken);
   const apiKey = useAuthStore((s) => s.apiKey);
+  const storedUser = useAuthStore((s) => s.user);
 
-  const refresh = () =>
-    fetchFromBackend<AuthIdentity>("/api/v1/config/me", { silent: true }).then((res) => {
-      if (res) setIdentity(res);
-      setLoading(false);
-    });
+  // Best-effort identity from the locally-stored session (role lives on the
+  // session) so the sidebar/nav renders admin sections even when /config/me
+  // has no backend to answer (offline preview, demo login).
+  const sessionRole = storedUser?.role || (apiKey ? "admin" : "") || "";
+  const hasLocalSession = Boolean(bearerToken || apiKey || storedUser?.role);
+  const fallbackIdentity: AuthIdentity | null = hasLocalSession
+    ? {
+        authenticated: true,
+        role: sessionRole || "admin",
+        capabilities: capabilitiesForRole(sessionRole || "admin"),
+        auth_required: false,
+        oidc_enabled: isOidcEnabled(),
+        user: storedUser ?? null,
+      }
+    : null;
+
+  // Keep refresh stable across renders so the effect below doesn't re-run on
+  // every render (and eslint stays happy without listing it as a dep).
+  const refreshRef = useRef<() => void>(() => {});
+  refreshRef.current = () =>
+    fetchFromBackend<AuthIdentity>("/api/v1/config/me", { silent: true })
+      .then((res) => {
+        if (res) setIdentity(res);
+      })
+      // /config/me failed (backend offline / demo token) — fall back to the
+      // local session identity instead of leaving the nav least-privileged.
+      .catch(() => {
+        if (fallbackIdentity) setIdentity(fallbackIdentity);
+      })
+      .finally(() => setLoading(false));
 
   useEffect(() => {
-    refresh();
-  }, [bearerToken, apiKey]);
+    refreshRef.current();
+  }, [bearerToken, apiKey, storedUser?.role, hasLocalSession]);
+
+  const refresh = () => refreshRef.current();
 
   return { identity, loading, capabilities: identity.capabilities, refresh };
 }
