@@ -15,6 +15,10 @@ const API_BASE_URL = "/api/backend";
 
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
+function isOfflinePreviewToken(token: string | null): boolean {
+  return token === "demo_preview_token" || Boolean(token?.startsWith("admin_token_"));
+}
+
 /** Port of the configured backend base URL, used in connectivity error messages.
  * Falls back to 8000 when the base URL is unset or unparseable. */
 function backendPort(): string {
@@ -38,7 +42,7 @@ export function authHeaders(): Record<string, string> {
     headers["X-API-Key"] = apiKey;
   } else {
     const bearer = getBearerToken();
-    if (bearer) {
+    if (bearer && !isOfflinePreviewToken(bearer)) {
       headers["Authorization"] = `Bearer ${bearer}`;
     }
   }
@@ -75,13 +79,20 @@ export function buildHeaders(extra?: HeadersInit): HeadersInit {
  * This function handles both shapes transparently.
  */
 export function unwrapEnvelope(body: unknown): unknown {
-  if (body && typeof body === "object" && "success" in body && "data" in body) {
-    const envelope = body as { success: boolean; data?: unknown; error?: unknown };
-    if (envelope.success) {
-      return envelope.data ?? body;
+  if (!body || typeof body !== "object" || !("success" in body)) {
+    return body;
+  }
+  const envelope = body as { success: boolean; data?: unknown; error?: unknown };
+  if (envelope.success) {
+    return envelope.data ?? body;
+  }
+  const err = envelope.error;
+  if (err && typeof err === "object") {
+    const record = err as Record<string, unknown>;
+    if (typeof record.message === "string" && record.detail == null) {
+      return { ...record, detail: record.message };
     }
-    // Error path: surface the error object so callers can inspect it
-    return envelope.error ?? body;
+    return err;
   }
   return body;
 }

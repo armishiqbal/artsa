@@ -18,6 +18,7 @@ _PUBLIC_PATHS = {
     "/config/me",
     "/auth/login",
     "/auth/register",
+    "/auth/status",
     "/docs",
     "/openapi.json",
     "/redoc",

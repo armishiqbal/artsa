@@ -69,6 +69,7 @@ export const useAuthStore = create<AuthStore>()(
           bearerToken: session.access_token,
           refreshToken: session.refresh_token ?? null,
           expiresAt: computeExpiresAt(session.expires_in),
+          apiKey: null,
           user: user ?? null,
         }),
       setApiKey: (key) =>

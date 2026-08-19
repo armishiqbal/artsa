@@ -438,13 +438,15 @@ def _from_doc(doc: Any) -> UserAccount:
 
 
 def _select_user_store_class() -> type[UserStore]:
-    """Pick the store: explicit override > tests (sqlite) > mongo enabled > sqlite."""
+    """Pick the store: explicit override > tests/local SQLite > MongoDB > SQLite."""
     explicit = (settings.ARTSA_USER_STORE or "").strip().lower()
     if explicit == "sqlite":
         return SqliteUserStore
     if explicit == "mongo":
         return MongoUserStore
     if settings.is_testing:
+        return SqliteUserStore
+    if settings.USE_SQLITE:
         return SqliteUserStore
     if _mongo_enabled():
         return MongoUserStore

@@ -81,6 +81,15 @@ describe("auth store", () => {
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toContain('"bearerToken":null');
   });
 
+  it("setSession clears a stored API key so the bearer is used", () => {
+    useAuthStore.getState().setApiKey("static-key");
+    useAuthStore.getState().setSession({ access_token: "session-token" });
+
+    const state = useAuthStore.getState();
+    expect(state.apiKey).toBeNull();
+    expect(state.bearerToken).toBe("session-token");
+  });
+
   it("clearAuth resets every field to null", () => {
     useAuthStore.getState().setSession({
       access_token: "access",

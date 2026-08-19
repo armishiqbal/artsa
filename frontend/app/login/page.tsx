@@ -21,6 +21,12 @@ interface AuthResponse {
   password_auth_enabled?: boolean;
 }
 
+interface AuthStatus {
+  password_auth_enabled?: boolean;
+  registration_open?: boolean;
+  has_admin?: boolean;
+}
+
 /** POST to a public auth endpoint and unwrap the envelope, raising the backend's
  * `detail` so it can be shown inline (invalid credentials, closed registration…). */
 async function postAuth(path: string, body: unknown): Promise<AuthResponse> {
@@ -32,7 +38,8 @@ async function postAuth(path: string, body: unknown): Promise<AuthResponse> {
   const raw = await res.json().catch(() => ({}));
   const unwrapped = unwrapEnvelope(raw) as Record<string, unknown> | null;
   if (!res.ok) {
-    const detail = (unwrapped as Record<string, unknown> | null)?.detail;
+    const err = unwrapped as Record<string, unknown> | null;
+    const detail = err?.detail ?? err?.message;
     throw new Error(
       typeof detail === "string" && detail ? detail : `Request failed (${res.status})`
     );
@@ -45,7 +52,6 @@ function LoginInner() {
   const searchParams = useSearchParams();
   const apiKey = useAuthStore((s) => s.apiKey);
   const bearerToken = useAuthStore((s) => s.bearerToken);
-  const setApiKey = useAuthStore((s) => s.setApiKey);
   const setSession = useAuthStore((s) => s.setSession);
 
   const returnTo = searchParams.get("returnTo") || "";
@@ -53,6 +59,7 @@ function LoginInner() {
 
   const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
   const [mode, setMode] = useState<"login" | "register">(initialMode);
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -60,10 +67,26 @@ function LoginInner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const requestedMode = searchParams.get("mode");
-    if (requestedMode === "register" || requestedMode === "login") {
-      setMode(requestedMode);
-    }
+    let cancelled = false;
+    fetch("/api/backend/api/v1/auth/status")
+      .then((res) => res.json())
+      .then((raw) => {
+        if (cancelled) return;
+        const status = unwrapEnvelope(raw) as AuthStatus;
+        const open = Boolean(status?.registration_open);
+        setRegistrationOpen(open);
+        if (open && searchParams.get("mode") !== "login") {
+          setMode("register");
+        } else if (!open) {
+          setMode("login");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setRegistrationOpen(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   // Already signed in (API key or session token) — go straight through.
@@ -74,9 +97,6 @@ function LoginInner() {
   const redirect = () => router.replace(dest);
 
   const finishWithSession = (session: AuthResponse) => {
-    // A password session supersedes any previously stored API key — otherwise
-    // api.ts would keep sending X-API-Key and the new bearer would be ignored.
-    setApiKey(null);
     setSession({ access_token: session.access_token, expires_in: session.expires_in }, session.user);
     redirect();
   };
@@ -110,7 +130,12 @@ function LoginInner() {
       const session = await postAuth("/api/v1/auth/login", { email: email.trim(), password });
       finishWithSession(session);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid email or password.");
+      const message = err instanceof Error ? err.message : "Invalid email or password.";
+      setError(
+        message === "Invalid email or password"
+          ? "Incorrect email or password."
+          : message
+      );
       setLoading(false);
     }
   };
@@ -134,7 +159,17 @@ function LoginInner() {
       });
       finishWithSession(session);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const message = err instanceof Error ? err.message : "Registration failed";
+      if (message.toLowerCase().includes("registration is closed")) {
+        setRegistrationOpen(false);
+        setMode("login");
+        setError("An admin account already exists. Sign in with that email and password.");
+      } else if (message.toLowerCase().includes("already exists")) {
+        setMode("login");
+        setError("That email already has an account. Sign in instead.");
+      } else {
+        setError(message);
+      }
       setLoading(false);
     }
   };
@@ -152,27 +187,29 @@ function LoginInner() {
     }
   };
 
-  const isRegister = mode === "register";
+  const isRegister = mode === "register" && registrationOpen !== false;
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center py-16">
       <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl brand-bg-subtle brand-border brand-glow-sm">
         <LogoIcon size={32} aria-hidden />
       </div>
-      <h1 className="text-xl font-semibold tracking-tight">Sign in to ARTSA</h1>
+      <h1 className="text-xl font-semibold tracking-tight">
+        {isRegister ? "Create the admin account" : "Sign in to ARTSA"}
+      </h1>
       <p className="mt-2 text-center text-sm text-muted-foreground">
         {isRegister
-          ? "Create your administrator account."
-          : "Sign in with your email & password to enter."}
+          ? "The first account becomes administrator and unlocks admin features."
+          : "Sign in with your admin email and password."}
       </p>
 
       <div className="mt-8 w-full">
         <DashboardCard
-          title={isRegister ? "Create account" : "Sign in"}
+          title={isRegister ? "Create administrator" : "Admin sign in"}
           description={
             isRegister
               ? "Password must be at least 8 characters."
-              : "Only authorized administrators can access this system."
+              : "Use the account you created first. Extra sign-ups are closed."
           }
         >
           <div className="flex flex-col gap-3">
@@ -239,18 +276,24 @@ function LoginInner() {
               ) : (
                 <LogIn className="h-4 w-4" aria-hidden />
               )}
-              {isRegister ? "Create account" : "Sign in"}
+              {isRegister ? "Create admin account" : "Sign in"}
             </Button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode(isRegister ? "login" : "register");
-                setError(null);
-              }}
-              className="text-sm text-primary hover:underline"
-            >
-              {isRegister ? "Already have an account? Sign in" : "New to ARTSA? Create account"}
-            </button>
+            {registrationOpen !== false ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(isRegister ? "login" : "register");
+                  setError(null);
+                }}
+                className="text-sm text-primary hover:underline"
+              >
+                {isRegister ? "Already have an account? Sign in" : "First time? Create the admin account"}
+              </button>
+            ) : (
+              <p className="text-center text-xs text-muted-foreground">
+                Registration is closed. Sign in as the existing admin.
+              </p>
+            )}
           </div>
         </DashboardCard>
 

@@ -99,6 +99,7 @@ def _session_response(user: UserAccount) -> dict:
         "auth_required": settings.auth_required,
         "oidc_enabled": settings.ARTSA_OIDC_ENABLED,
         "password_auth_enabled": password_auth_enabled(),
+        "registration_open": False,
     }
 
 
@@ -123,6 +124,17 @@ async def _require_session_user(
     if not claims:
         return None
     return await store.get_user_by_id(claims.get("sub"))
+
+
+@router.get("/auth/status")
+async def auth_status(store: UserStore = Depends(get_user_store)) -> dict:
+    """Public bootstrap flag for the login screen (no emails or secrets)."""
+    user_count = await store.count_users()
+    return {
+        "password_auth_enabled": password_auth_enabled(),
+        "registration_open": user_count == 0,
+        "has_admin": user_count > 0,
+    }
 
 
 @router.post("/auth/login")

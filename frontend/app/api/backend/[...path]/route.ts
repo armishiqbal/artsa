@@ -12,10 +12,19 @@ export const dynamic = "force-dynamic";
 /** Server-only credential — never exposed to the client. */
 const SERVER_API_KEY = process.env.ARTSA_API_KEY || "";
 
-// Fast 2-second timeout to prevent blocking page renders
+// Dashboard polls stay snappy; login/register need longer because PBKDF2 hashing
+// often exceeds 2s and a timeout used to invent a fake in-memory account.
 const PROXY_TIMEOUT_MS = 2_000;
+const AUTH_PROXY_TIMEOUT_MS = 20_000;
 
-const registeredAdmins = new Map<string, string>();
+function isOfflinePreviewAuthorization(authorization: string | null): boolean {
+  const token = authorization?.trim().replace(/^Bearer\s+/i, "");
+  return token === "demo_preview_token" || Boolean(token?.startsWith("admin_token_"));
+}
+
+function isAuthCredentialPath(path: string): boolean {
+  return path.includes("auth/login") || path.includes("auth/register");
+}
 
 async function proxy(
   request: NextRequest,
@@ -35,12 +44,15 @@ async function proxy(
   const headers = new Headers();
   const xApiKey = request.headers.get("x-api-key");
   const auth = request.headers.get("authorization");
-  if (xApiKey) {
-    headers.set("x-api-key", xApiKey);
-  } else if (auth) {
-    headers.set("authorization", auth);
-  } else if (SERVER_API_KEY) {
-    headers.set("x-api-key", SERVER_API_KEY);
+  const isOfflinePreviewToken = isOfflinePreviewAuthorization(auth);
+  if (!isAuthCredentialPath(path)) {
+    if (xApiKey) {
+      headers.set("x-api-key", xApiKey);
+    } else if (auth && !isOfflinePreviewToken) {
+      headers.set("authorization", auth);
+    } else if (SERVER_API_KEY) {
+      headers.set("x-api-key", SERVER_API_KEY);
+    }
   }
   const contentType = request.headers.get("content-type");
   if (contentType) {
@@ -56,7 +68,9 @@ async function proxy(
       headers,
       body,
       cache: "no-store",
-      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+      signal: AbortSignal.timeout(
+        isAuthCredentialPath(path) ? AUTH_PROXY_TIMEOUT_MS : PROXY_TIMEOUT_MS
+      ),
     });
 
     const responseBody = await res.arrayBuffer();
@@ -67,92 +81,16 @@ async function proxy(
       },
     });
   } catch (err) {
-    // Auth login fallback
-    if (path.includes("auth/login")) {
-      try {
-        const text = body ? new TextDecoder().decode(body) : "{}";
-        const payload = JSON.parse(text);
-        const email = String(payload.email || "").trim().toLowerCase();
-        const password = String(payload.password || "");
-
-        const defaultAdmins: Record<string, string> = {
-          "admin@artsa.ai": "admin12345",
-          "admin@gmail.com": "admin12345",
-          "admin1@gmail.com": "admin12345",
-        };
-
-        const envEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
-        const envPass = process.env.ADMIN_PASSWORD || "admin12345";
-
-        const isDefault = Boolean(defaultAdmins[email]) && defaultAdmins[email] === password;
-        const isRegistered = registeredAdmins.has(email) && registeredAdmins.get(email) === password;
-        const isEnv = Boolean(envEmail) && email === envEmail && password === envPass;
-
-        if (!isDefault && !isRegistered && !isEnv) {
-          return NextResponse.json(
-            { detail: "Invalid email or password. Only authorized administrators can access ARTSA." },
-            { status: 401 }
-          );
-        }
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            access_token: "admin_token_" + Date.now(),
-            token_type: "bearer",
-            expires_in: 86400,
-            user: {
-              email: payload.email,
-              role: "admin",
-              display_name: "Administrator",
-            },
-          },
-        });
-      } catch {
-        return NextResponse.json(
-          { detail: "Invalid email or password. Only authorized administrators can access ARTSA." },
-          { status: 401 }
-        );
-      }
-    }
-
-    // Auth register fallback
-    if (path.includes("auth/register")) {
-      try {
-        const text = body ? new TextDecoder().decode(body) : "{}";
-        const payload = JSON.parse(text);
-        const email = String(payload.email || "").trim().toLowerCase();
-        const password = String(payload.password || "");
-        const displayName = String(payload.display_name || "").trim() || "Administrator";
-
-        if (!email || password.length < 8) {
-          return NextResponse.json(
-            { detail: "Password must be at least 8 characters." },
-            { status: 400 }
-          );
-        }
-
-        registeredAdmins.set(email, password);
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            access_token: "admin_token_" + Date.now(),
-            token_type: "bearer",
-            expires_in: 86400,
-            user: {
-              email: payload.email,
-              role: "admin",
-              display_name: displayName,
-            },
-          },
-        });
-      } catch {
-        return NextResponse.json(
-          { detail: "Registration failed." },
-          { status: 400 }
-        );
-      }
+    if (isAuthCredentialPath(path)) {
+      return NextResponse.json(
+        {
+          detail:
+            err instanceof Error && err.name === "TimeoutError"
+              ? "Sign-in is taking too long. Keep the backend running and try again."
+              : "Cannot reach the ARTSA API. Start the backend, then try again.",
+        },
+        { status: 502 }
+      );
     }
 
     // Fast Instant Fallbacks for Dashboard & Status (0ms latency during backend startup)

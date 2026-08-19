@@ -182,6 +182,23 @@ def test_login_disabled_403(password_api, monkeypatch):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def test_auth_status_open_before_bootstrap(password_api):
+    res = password_api.get("/api/v1/auth/status")
+    assert res.status_code == 200
+    body = unwrap_response(res)
+    assert body["registration_open"] is True
+    assert body["has_admin"] is False
+
+
+def test_auth_status_closed_after_bootstrap(password_api):
+    _register_bootstrap(password_api)
+    res = password_api.get("/api/v1/auth/status")
+    assert res.status_code == 200
+    body = unwrap_response(res)
+    assert body["registration_open"] is False
+    assert body["has_admin"] is True
+
+
 def test_register_bootstrap_creates_admin(password_api):
     res = password_api.post(
         "/api/v1/auth/register",

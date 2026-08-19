@@ -189,7 +189,7 @@ async def lifespan(app: FastAPI):
         if drain_task is not None:
             drain_task.cancel()
             try:
-                with asyncio.timeout(2):
+                async with asyncio.timeout(2):
                     await drain_task
             except (asyncio.CancelledError, TimeoutError):
                 pass
@@ -207,7 +207,7 @@ async def lifespan(app: FastAPI):
         if mongo_drain is not None:
             mongo_drain.cancel()
             try:
-                with asyncio.timeout(2):
+                async with asyncio.timeout(2):
                     await mongo_drain
             except (asyncio.CancelledError, TimeoutError):
                 pass

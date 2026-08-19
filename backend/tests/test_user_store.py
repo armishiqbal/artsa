@@ -222,8 +222,17 @@ def test_selection_explicit_override(monkeypatch):
 def test_selection_mongo_enabled_outside_testing(monkeypatch):
     monkeypatch.setattr(settings, "ENVIRONMENT", "development")
     monkeypatch.setattr(settings, "ARTSA_USER_STORE", None)
+    monkeypatch.setattr(settings, "USE_SQLITE", False)
     monkeypatch.setattr(settings, "ARTSA_MONGODB_URI", "mongodb://localhost:27017/artsa")
     assert isinstance(get_user_store(), MongoUserStore)
+
+
+def test_selection_use_sqlite_overrides_configured_mongo(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    monkeypatch.setattr(settings, "ARTSA_USER_STORE", None)
+    monkeypatch.setattr(settings, "USE_SQLITE", True)
+    monkeypatch.setattr(settings, "ARTSA_MONGODB_URI", "mongodb://localhost:27017/artsa")
+    assert isinstance(get_user_store(), SqliteUserStore)
 
 
 def test_selection_falls_back_to_sqlite(monkeypatch):
