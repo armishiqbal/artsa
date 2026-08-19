@@ -53,6 +53,7 @@ def main() -> int:
     caught50 = 0
     fp50: list[dict] = []
     class_stats: dict[str, list[int]] = defaultdict(lambda: [0, 0])  # class -> [caught80, total]
+    calibration_pairs: list[tuple[float, bool]] = []  # Phase 1.3: (score, is_malicious)
 
     def _score(sample: dict) -> float:
         event = ToolCallEvent(
@@ -66,6 +67,7 @@ def main() -> int:
 
     for s in malicious:
         total = _score(s)
+        calibration_pairs.append((total, True))
         if total >= 80:
             caught80 += 1
         if total >= 50:
@@ -76,6 +78,7 @@ def main() -> int:
 
     for s in safe:
         total = _score(s)
+        calibration_pairs.append((total, False))
         if total >= 50:
             fp50.append(
                 {"tool": s["tool_name"], "args": s["arguments"],
@@ -88,10 +91,19 @@ def main() -> int:
     recall50 = caught50 / n_mal
     fpr50 = len(fp50) / n_safe
 
+    # Phase 1.3/1.4: calibration + cost-aware threshold from the same scores.
+    from src.benchmark.calibration import expected_calibration_error, optimal_threshold
+
+    cal = expected_calibration_error(calibration_pairs)
+    rec = optimal_threshold(calibration_pairs, fp_cost=1.0, fn_cost=10.0)
+
     print(f"Golden set: {n_mal} malicious / {n_safe} safe / {len(review)} review samples")
     print(f"  recall@80 = {recall80:.4f}  ({caught80}/{n_mal} caught at KILL band)")
     print(f"  recall@50 = {recall50:.4f}  ({caught50}/{n_mal} at least flagged)")
     print(f"  FPR@50    = {fpr50:.4f}  ({len(fp50)}/{n_safe} benign ops wrongly flagged)")
+    print(f"  ECE       = {cal.ece:.4f}  (0 = perfectly calibrated)")
+    print(f"  recommended threshold (FP 1 / FN 10) = {rec.threshold} "
+          f"(recall {rec.recall:.3f}, FPR {rec.fpr:.3f})")
     print("  per-class recall@80:")
     for cls, (caught, total) in sorted(class_stats.items()):
         print(f"    {cls:<22} {caught}/{total} = {caught / total:.2f}" if total else f"    {cls}: n/a")

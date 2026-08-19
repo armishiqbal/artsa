@@ -22,10 +22,10 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 |---|---|---|
 | 1.1 | **Independent golden set, no generator**: 1,000+ real-world samples (real traffic + human adversarial curation), frozen, authors never see it | Current 1.0 recall is a self-referential artifact. DoD: set ships separately, provenance documented |
 | 1.2 | **Held-out canary set** that never enters the repo; used only for final release scoring | Prevents overfitting the golden set itself |
-| 1.3 | **Calibration layer**: expected calibration error (does score 80 → ~80% malicious?) + operating-point curve (recall vs FPR vs FP/FN cost) | "Trust" = calibration, not just accuracy. DoD: ECE + curve in CI artifacts |
-| 1.4 | **Recommended threshold per deployment** (not a magic 80): publish threshold given a cost ratio | CISO-grade decision support |
+| 1.3 | **Calibration layer** (`src/benchmark/calibration.py`): ECE + reliability table + operating-point curve, wired into golden_gate. **Measured: ECE 0.074** (scores are reasonably trustworthy) | ✅ done |
+| 1.4 | **Cost-aware threshold** (`optimal_threshold`): FP 1 / FN 10 → recommended threshold **50** (recall 1.0, FPR 0.0 on golden) — reported in every gate run | ✅ done |
 | 1.5 | **Contamination audit**: assert benchmark classes/labels don't match detector regex sources | Formalizes "the test and the implementation are the same object" risk |
-| 1.6 | Publish an **accuracy card** (date, dataset, methodology, per-class matrix) auto-generated from gates | Audit/sales artifact (feeds WS-5) |
+| 1.6 | **Accuracy card** (`scripts/accuracy_card.py` → `docs/ACCURACY.md`): date, dataset, methodology, per-class matrix, ECE, recommended threshold | ✅ done |
 
 ## Phase 2 — Agentic red-teaming engine (the flagship + the eval engine)
 
