@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Server-side BFF proxy to the ARTSA backend with ultra-low latency & fast fallbacks.
+ * Server-side BFF proxy to the ARTSA backend.
  *
  * The browser never talks to the backend directly for REST calls: it hits
  * /api/backend/... on this Next.js server, which forwards the request and
- * injects the server-only API key (ARTSA_API_KEY).
+ * injects the server-only API key (ARTSA_API_KEY). This keeps credentials
+ * out of the client bundle. OIDC bearer tokens set by the browser are still
+ * forwarded via the Authorization header.
+ *
+ * HONESTY RULE: when the backend is unreachable this proxy NEVER fabricates
+ * security data. A guardrail that shows invented "CRITICAL alerts" or a fake
+ * "healthy" status is worse than one that says offline — operators must be
+ * able to trust the numbers. Downstream, the dashboard renders honest empty
+ * states, and the connection indicator reads the health probe to show OFFLINE.
  */
 export const dynamic = "force-dynamic";
 
 /** Server-only credential — never exposed to the client. */
 const SERVER_API_KEY = process.env.ARTSA_API_KEY || "";
 
-// Dashboard polls stay snappy; login/register need longer because PBKDF2 hashing
-// often exceeds 2s and a timeout used to invent a fake in-memory account.
+// Dashboard polls stay snappy; login/register need longer because PBKDF2
+// hashing often exceeds 2s.
 const PROXY_TIMEOUT_MS = 2_000;
 const AUTH_PROXY_TIMEOUT_MS = 20_000;
 
@@ -81,90 +89,43 @@ async function proxy(
       },
     });
   } catch (err) {
+    const timedOut = err instanceof Error && err.name === "TimeoutError";
+
+    // Auth: honest failure — point the operator at the real backend or the
+    // client-side "Explore Live Preview" (which needs no credentials).
     if (isAuthCredentialPath(path)) {
       return NextResponse.json(
         {
-          detail:
-            err instanceof Error && err.name === "TimeoutError"
-              ? "Sign-in is taking too long. Keep the backend running and try again."
-              : "Cannot reach the ARTSA API. Start the backend, then try again.",
+          detail: timedOut
+            ? "Sign-in is taking too long. Keep the backend running and try again."
+            : "Cannot reach the ARTSA API. Start the backend, or use 'Explore Live Preview'.",
         },
         { status: 502 }
       );
     }
 
-    // Fast Instant Fallbacks for Dashboard & Status (0ms latency during backend startup)
-    if (path.includes("metrics/dashboard")) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          severity_counts: { CRITICAL: 1, HIGH: 3, MEDIUM: 8, LOW: 14 },
-          defense_layers: {
-            tool_validator: 98,
-            rule_inspector: 92,
-            semantic_inspector: 88,
-            statistical_inspector: 95,
-            goal_drift_classifier: 85,
-            trajectory_monitor: 90,
-          },
-          defense_score: 94.2,
-          risk_trend: [
-            { timestamp: "10:00", risk_score: 12 },
-            { timestamp: "11:00", risk_score: 24 },
-            { timestamp: "12:00", risk_score: 18 },
-            { timestamp: "13:00", risk_score: 65 },
-            { timestamp: "14:00", risk_score: 30 },
-            { timestamp: "15:00", risk_score: 15 },
-          ],
-          avg_risk_score: 18.5,
-          max_risk_score: 95.0,
-          active_sessions: 6,
-          event_rate: 42,
-          total_events: 1420,
-        },
-      });
-    }
-
-    if (path.includes("providers")) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          providers: [
-            { id: "openai", name: "OpenAI Frontier", type: "cloud_api", default_model: "gpt-5.6-terra", status: "ACTIVE", latency_ms: 38 },
-            { id: "anthropic", name: "Anthropic Claude", type: "cloud_api", default_model: "claude-opus-5", status: "ACTIVE", latency_ms: 42 },
-            { id: "groq", name: "Groq LPU Acceleration", type: "cloud_free", default_model: "llama3-70b-8192", status: "READY", latency_ms: 12 },
-            { id: "ollama", name: "Ollama / Local GLM", type: "local", default_model: "glm-5.2-local", status: "READY", latency_ms: 8 },
-            { id: "deepseek", name: "DeepSeek Reasoning Cluster", type: "custom", default_model: "deepseek-r1", status: "CONFIGURED", latency_ms: 65 },
-          ],
-          count: 5,
-        },
-      });
-    }
-
+    // Health probe: must NOT report healthy when the backend is unreachable —
+    // the connection indicator depends on it to show OFFLINE honestly.
     if (path.includes("health")) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          status: "healthy",
-          mode: "active",
-          api_gateway: { status: "fully_connected" },
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            status: "degraded",
+            mode: "standalone-preview",
+            api_gateway: { status: "offline" },
+          },
         },
-      });
+        { status: 503 }
+      );
     }
 
-    if (path.includes("config/keys")) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          summary: { total: 4, configured: 3, missing: 1 },
-          keys: { OPENAI_API_KEY: true, ANTHROPIC_API_KEY: true, PINECONE_API_KEY: true },
-        },
-      });
-    }
-
+    // Everything else: honest 503, no fabricated payloads, no internal details.
     return NextResponse.json(
-      { detail: err instanceof Error ? err.message : "Backend proxy error" },
-      { status: 502 }
+      {
+        detail: "Backend proxy unavailable — the ARTSA API is not reachable.",
+      },
+      { status: 503 }
     );
   }
 }
