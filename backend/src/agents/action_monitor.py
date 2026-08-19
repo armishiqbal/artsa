@@ -254,7 +254,7 @@ class StepwiseActionMonitor:
                 )
             else:
                 anomaly, kind, reason = (
-                    5.5,
+                    4.5,
                     "NETWORK_EXFIL",
                     "External network destination (GET) — surfaced for review",
                 )

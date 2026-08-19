@@ -49,7 +49,12 @@ class LiveRedisClient:
     def __init__(self, url: str) -> None:
         import redis
 
-        self._client = redis.from_url(url, decode_responses=True)
+        self._client = redis.from_url(
+            url,
+            decode_responses=True,
+            socket_connect_timeout=1,
+            socket_timeout=1,
+        )
         self._client.ping()
 
     def xadd(self, stream: str, fields: dict[str, Any]) -> str:
