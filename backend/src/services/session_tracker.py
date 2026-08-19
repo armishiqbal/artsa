@@ -59,7 +59,12 @@ class SessionTracker:
         return session
 
     def apply_action(self, session_id: uuid.UUID, action: str) -> Session | None:
-        """Apply containment action to an in-memory session."""
+        """Apply containment action to an in-memory session.
+
+        WS-3.3 incident workflow: RELEASE restores a quarantined (or breached)
+        session to ACTIVE after operator review; CLOSE closes a contained
+        session permanently without re-activating it.
+        """
         from datetime import datetime
 
         session = self.get_session(session_id)
@@ -75,6 +80,14 @@ class SessionTracker:
         elif action_u == "THROTTLE":
             # Soft control — keep ACTIVE but mark elevated risk floor
             session.max_risk_score = max(session.max_risk_score, 50.0)
+        elif action_u == "RELEASE":
+            # Operator reviewed the incident: resume normal operation.
+            if session.status in ("QUARANTINED", "BREACHED"):
+                session.status = "ACTIVE"
+                session.ended_at = None
+        elif action_u == "CLOSE":
+            session.status = "CLOSED"
+            session.ended_at = datetime.now(UTC)
         return session
 
     def is_contained(self, session_id: uuid.UUID) -> bool:

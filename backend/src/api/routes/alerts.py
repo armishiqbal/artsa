@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -36,14 +36,16 @@ class IntegrationConfigRequest(BaseModel):
 async def list_alerts(
     severity: str | None = Query(None),
     session_id: uuid.UUID | None = Query(None),
+    status: str | None = Query(None, description="NEW | ACKNOWLEDGED | RESOLVED"),
     tenant_id: str = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
-    """List security alerts filtered by severity, session, and owning tenant."""
+    """List security alerts filtered by severity, session, status, and owning tenant."""
     # Fast path: in-memory hot store (always current, includes latest).
     alerts = alert_store.list_alerts(
         severity=severity,
         session_id=str(session_id) if session_id else None,
+        status=status,
         tenant_id=tenant_id,
     )
     # Ensure any persisted alerts that arrived before this process started are
@@ -56,11 +58,33 @@ async def list_alerts(
             alerts = await repo.list_alerts(
                 severity=severity,
                 session_id=str(session_id) if session_id else None,
+                status=status,
                 tenant_id=tenant_id,
             )
         except Exception:
             alerts = []
     return alerts
+
+
+@router.patch("/alerts/{alert_id}/status")
+async def update_alert_status(
+    alert_id: uuid.UUID,
+    status: Literal["ACKNOWLEDGED", "RESOLVED"],
+    tenant_id: str = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Incident workflow: NEW -> ACKNOWLEDGED -> RESOLVED."""
+    updated_memory = alert_store.update_alert_status(alert_id, status)
+    try:
+        from src.data.repositories.alerts import AlertRepository
+
+        repo = AlertRepository(db)
+        persisted = await repo.update_status(alert_id, status)
+    except Exception:
+        persisted = False
+    if not updated_memory and not persisted:
+        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
+    return {"status": "ok", "alert_id": str(alert_id), "alert_status": status}
 
 
 @router.get("/alerts/channels")

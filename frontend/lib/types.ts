@@ -95,6 +95,7 @@ export interface Alert {
   channel: "WEBHOOK" | "SLACK" | "PAGERDUTY" | "EMAIL";
   triggered_at: string;
   delivered: boolean;
+  status?: "NEW" | "ACKNOWLEDGED" | "RESOLVED";
 }
 
 export interface AlertRule {

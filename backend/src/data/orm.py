@@ -27,6 +27,8 @@ class AlertORM(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     delivered: Mapped[bool] = mapped_column(Boolean, default=False)
+    # WS-3.3 incident workflow: NEW / ACKNOWLEDGED / RESOLVED.
+    status: Mapped[str] = mapped_column(String(16), default="NEW")
     # WS-3.1: row-level org isolation.
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 

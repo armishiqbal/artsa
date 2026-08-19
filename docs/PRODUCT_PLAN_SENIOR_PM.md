@@ -111,12 +111,13 @@
 >   default): confirms SUSPICIOUS (50–79) verdicts with a fast judge model and can
 >   only escalate to KILL (never downgrade); 0.6s budget, fail-safe on any error;
 >   wired into the EventProcessor hot path.
-> - **3.1 in progress** — Phase 1 (data foundation) + Phase 2 (route enforcement)
->   done: tenant_id on all tables (migration 008, chain fixed for fresh SQLite),
->   repos + ingest/evaluations/alerts/sessions/integrations/campaigns scoped,
->   two-tenant isolation proven (5 integration tests). Remaining: 3.1 Phase 3
->   (RBAC×tenant matrix, admin cross-tenant view, UI wiring); 3.3 incident
->   workflow; 4.3/4.4; WS-5.
+> - **3.1 done (phases 1–3)** — tenant_id on all tables (migrations 008/009,
+>   chain fixed for fresh SQLite), repos + all key routes scoped, admin
+>   cross-tenant view + frontend X-Tenant-ID wiring, two-tenant isolation proven.
+>   **3.3 done** — incident workflow: session RELEASE/CLOSE actions (quarantined/
+>   breached → active/closed) + alert status lifecycle (NEW→ACKNOWLEDGED→RESOLVED,
+>   migration 009, in-memory + DB + PATCH route) + alerts-inbox Resolve button.
+>   Remaining: 4.3/4.4; WS-5; identity→tenant credential binding.
 
 | # | Task | Definition of done |
 |---|---|---|

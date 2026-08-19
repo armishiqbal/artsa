@@ -31,6 +31,7 @@ class AlertRepository(BaseRepository[AlertORM]):
             channel=row.channel,
             triggered_at=row.triggered_at,
             delivered=bool(row.delivered),
+            status=row.status or "NEW",
             tenant_id=row.tenant_id or "default_tenant",
         )
 
@@ -46,6 +47,7 @@ class AlertRepository(BaseRepository[AlertORM]):
             channel=alert.channel,
             triggered_at=alert.triggered_at,
             delivered=alert.delivered,
+            status=alert.status,
             tenant_id=alert.tenant_id or "default_tenant",
         )
 
@@ -61,6 +63,7 @@ class AlertRepository(BaseRepository[AlertORM]):
         self,
         severity: str | None = None,
         session_id: str | None = None,
+        status: str | None = None,
         tenant_id: str | None = None,
         limit: int = 500,
     ) -> list[Alert]:
@@ -71,6 +74,8 @@ class AlertRepository(BaseRepository[AlertORM]):
             query = query.where(AlertORM.severity == severity.upper())
         if session_id:
             query = query.where(AlertORM.session_id == session_id)
+        if status:
+            query = query.where(AlertORM.status == status.upper())
         if tenant_id:
             query = query.where(AlertORM.tenant_id == tenant_id)
         query = query.order_by(AlertORM.triggered_at.desc()).limit(limit)
@@ -88,6 +93,20 @@ class AlertRepository(BaseRepository[AlertORM]):
             return
         row.delivered = True
         await self.session.commit()
+
+    async def update_status(self, alert_id: uuid.UUID, status: str) -> bool:
+        """Incident workflow: NEW -> ACKNOWLEDGED -> RESOLVED."""
+        if settings.is_testing:
+            return True
+        result = await self.session.execute(
+            select(AlertORM).where(AlertORM.id == str(alert_id))
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            return False
+        row.status = status
+        await self.session.commit()
+        return True
 
 
 class AlertRuleRepository(BaseRepository[AlertRuleORM]):

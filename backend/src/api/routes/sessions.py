@@ -26,8 +26,8 @@ router = APIRouter(tags=["Sessions"])
 
 
 class SessionActionRequest(BaseModel):
-    action: Literal["KILL", "QUARANTINE", "THROTTLE", "ALERT"] = Field(
-        ..., description="Action to enforce on agent session"
+    action: Literal["KILL", "QUARANTINE", "THROTTLE", "ALERT", "RELEASE", "CLOSE"] = Field(
+        ..., description="Action to enforce on agent session (RELEASE/CLOSE are incident workflow)"
     )
 
 

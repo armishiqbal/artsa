@@ -30,12 +30,18 @@ _MAX_ALERTS = 500
 def list_alerts(
     severity: str | None = None,
     session_id: str | None = None,
+    status: str | None = None,
+    tenant_id: str | None = None,
 ) -> list[Alert]:
     results = _alerts_store
     if severity:
         results = [a for a in results if a.severity == severity]
     if session_id:
         results = [a for a in results if str(a.session_id) == session_id]
+    if status:
+        results = [a for a in results if a.status == status.upper()]
+    if tenant_id:
+        results = [a for a in results if a.tenant_id == tenant_id]
     return results
 
 
@@ -45,7 +51,6 @@ def append_alert(alert: Alert) -> Alert:
 
     try:
         from src.services.alert_dispatcher import dispatch_alert
-
         dispatch_alert(alert)
     except Exception as exc:
         logger.warning("Alert dispatch failed for %s: %s", alert.id, exc)
@@ -58,6 +63,15 @@ def mark_delivered(alert_id: uuid.UUID) -> None:
         if alert.id == alert_id:
             alert.delivered = True
             break
+
+
+def update_alert_status(alert_id: uuid.UUID, status: str) -> bool:
+    """Incident workflow on the in-memory store: NEW -> ACKNOWLEDGED -> RESOLVED."""
+    for alert in _alerts_store:
+        if alert.id == alert_id:
+            alert.status = status.upper()  # type: ignore[assignment]
+            return True
+    return False
 
 
 def record_alert_from_evaluation(

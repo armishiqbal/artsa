@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Bell, ExternalLink } from "lucide-react";
+import { X, Bell, ExternalLink, CheckCircle2 } from "lucide-react";
 import type { Alert } from "@/lib/types";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -11,6 +11,7 @@ import { formatDateTime, safeTimestamp } from "@/lib/dates";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { fetchFromBackend } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface AlertsInboxProps {
@@ -22,6 +23,8 @@ interface AlertsInboxProps {
 
 export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps) {
   const router = useRouter();
+  // WS-3.3 incident workflow: locally track alerts the operator resolved.
+  const [resolved, setResolved] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!open) return;
@@ -34,6 +37,14 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
 
   if (!open) return null;
 
+  const resolveAlert = async (alertId: string) => {
+    setResolved((prev) => new Set(prev).add(alertId));
+    await fetchFromBackend(`/api/v1/alerts/${alertId}/status?status=RESOLVED`, {
+      method: "PATCH",
+      silent: true,
+    });
+  };
+
   const sorted = [...alerts].sort((a, b) => {
     const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
     // Unknown severities sort last instead of producing NaN.
@@ -41,6 +52,9 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
     if (diff !== 0) return diff;
     return safeTimestamp(b.triggered_at) - safeTimestamp(a.triggered_at);
   });
+  const visible = sorted.filter(
+    (a) => a.status !== "RESOLVED" && !resolved.has(a.id)
+  );
 
   const openReplay = (sessionId: string) => {
     onClose();
@@ -92,21 +106,21 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
                 <Skeleton key={i} className="h-24 w-full rounded-lg" />
               ))}
             </div>
-          ) : sorted.length === 0 ? (
+          ) : visible.length === 0 ? (
             <EmptyState
-              icon={Bell}
-              title="No alerts yet"
-              description="Critical and high-risk ingest events appear here automatically."
+              icon={CheckCircle2}
+              title="All clear"
+              description="No unresolved alerts."
               className="border-0 bg-transparent py-12"
             />
           ) : (
             <ul className="space-y-2">
-              {sorted.map((alert) => (
-                <li key={alert.id}>
+              {visible.map((alert) => (
+                <li key={alert.id} className="rounded-lg border border-border bg-muted/20">
                   <button
                     type="button"
                     className={cn(
-                      "w-full rounded-lg border border-border bg-muted/20 p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40",
+                      "w-full rounded-lg p-4 text-left transition-colors hover:border-primary/40",
                       alert.severity === "CRITICAL" && "border-l-4 border-l-severity-critical"
                     )}
                     onClick={() => openReplay(alert.session_id)}
@@ -132,6 +146,17 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
                       Open replay <ExternalLink className="h-3 w-3" />
                     </span>
                   </button>
+                  <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1 text-xs"
+                      onClick={() => resolveAlert(alert.id)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                      Resolve
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

@@ -22,6 +22,8 @@ class Alert(BaseModel):
     channel: Literal["WEBHOOK", "SLACK", "PAGERDUTY", "EMAIL", "SPLUNK", "DATADOG", "SENTINEL"]
     triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     delivered: bool = False
+    # WS-3.3 incident workflow: NEW → ACKNOWLEDGED → RESOLVED.
+    status: Literal["NEW", "ACKNOWLEDGED", "RESOLVED"] = "NEW"
     # WS-3.1: owning tenant for row-level isolation.
     tenant_id: str = "default_tenant"
 

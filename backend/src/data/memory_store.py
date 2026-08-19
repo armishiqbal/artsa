@@ -69,6 +69,9 @@ def apply_session_status(
     if not session:
         return None
     session.status = status  # type: ignore[assignment]
+    if status == "ACTIVE":
+        # Incident release: the session resumes normal operation.
+        session.ended_at = None
     if ended:
         session.ended_at = datetime.now(UTC)
         if status == "BREACHED":

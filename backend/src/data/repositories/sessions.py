@@ -113,7 +113,7 @@ class SessionRepository(BaseRepository[SessionORM]):
         mongo_sink.enqueue_session(row, "breach" if breached else "risk")
 
     async def apply_action(self, session_id: UUID, action: str, *, commit: bool = True) -> Session | None:
-        """Persist KILL / QUARANTINE / THROTTLE to memory + DB."""
+        """Persist KILL / QUARANTINE / THROTTLE / RELEASE / CLOSE to memory + DB."""
         from datetime import datetime
 
         action_u = action.upper()
@@ -121,12 +121,14 @@ class SessionRepository(BaseRepository[SessionORM]):
             "KILL": "BREACHED",
             "QUARANTINE": "QUARANTINED",
             "THROTTLE": None,
+            "RELEASE": "ACTIVE",
+            "CLOSE": "CLOSED",
         }
         if action_u not in status_map:
             return None
 
         cached = memory_store.get_session(session_id)
-        ended = action_u == "KILL"
+        ended = action_u in ("KILL", "CLOSE")
         new_status = status_map[action_u]
         if cached and new_status:
             memory_store.apply_session_status(session_id, new_status, ended=ended)
@@ -143,6 +145,9 @@ class SessionRepository(BaseRepository[SessionORM]):
 
         if new_status:
             row.status = new_status
+            if new_status == "ACTIVE":
+                # Incident release: resume normal operation.
+                row.ended_at = None
             if ended:
                 row.ended_at = datetime.now(UTC)
                 row.containment_breaches = (row.containment_breaches or 0) + 1
