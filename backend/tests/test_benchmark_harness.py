@@ -1,12 +1,11 @@
 """Benchmark harness tests."""
 
+import uuid
 from collections import Counter
 
 from src.benchmark.harness import BenchmarkHarness
 from src.containment.engine import ContainmentEngine
 from src.core.models.events import ToolCallEvent
-
-import uuid
 
 
 def test_benchmark_harness_runs():

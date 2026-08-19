@@ -3,7 +3,6 @@
 import json
 
 import pytest
-
 from src.agents.judge_agent import JudgeAgent
 from src.models import (
     AttackCategory,

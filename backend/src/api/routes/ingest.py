@@ -235,6 +235,7 @@ async def ingest_events(
             risk_score=risk_score.overall_score,
             verdict=verdict.verdict,
             recommended_action=verdict.recommended_action,
+            tenant_id=tenant_id,
         )
         if alert is not None:
             await persist_alert(db, alert, commit=False)

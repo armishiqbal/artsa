@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import sys
-
 # Floors aligned with observatory regression gates (see observatory._regression_status)
 RECALL_FLOOR_AT_80 = 0.85
 FPR_CEILING_AT_50 = 0.15

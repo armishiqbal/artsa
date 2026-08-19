@@ -15,7 +15,6 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-
 from src.gateway.llm_proxy import LLMProxy, ProxyAction
 from src.services.prompt_scanner import PromptScanner, get_prompt_scanner
 

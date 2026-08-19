@@ -1,7 +1,6 @@
 """Tests for AttackChain — multi-turn attack sequencing."""
 
 import pytest
-
 from src.attacks.chain import AttackChain
 from src.models import AttackCategory, AttackMetadata, AttackTemplate, Severity
 

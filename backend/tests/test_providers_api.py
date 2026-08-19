@@ -11,9 +11,9 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-
 from src.gateway.llm_proxy import LLMProxy
 from src.services.prompt_scanner import PromptScanner
+
 from tests.conftest import unwrap_response
 
 REAL_KEY = "sk-test-1234567890abcdef"

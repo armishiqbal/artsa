@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -38,7 +37,7 @@ def format_env(template: str, existing: dict[str, str]) -> str:
         stripped = line.strip()
         if stripped and not stripped.startswith("#") and "=" in stripped:
             key = stripped.split("=", 1)[0].strip()
-            if key in existing and existing[key]:
+            if existing.get(key):
                 lines_out.append(f"{key}={existing[key]}")
                 continue
         lines_out.append(line)
@@ -73,8 +72,8 @@ def main() -> int:
         else:
             print(f"Kept existing {FRONTEND_ENV}")
 
-    configured = sum(1 for k, v in parse_env(merged).items() if v and "KEY" in k or "TOKEN" in k or k == "DATABASE_URL")
-    print(f"\nDone. Edit {ENV_FILE} to add your API keys.")
+    configured = sum(1 for k, v in parse_env(merged).items() if v and ("KEY" in k or "TOKEN" in k or k == "DATABASE_URL"))
+    print(f"\nDone. {configured} credential field(s) already set in {ENV_FILE}.")
     print("Verify status: curl http://localhost:8000/api/v1/config/keys")
     return 0
 

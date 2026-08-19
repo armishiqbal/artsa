@@ -11,7 +11,6 @@ Regex-only, sub-ms, fully offline.
 from __future__ import annotations
 
 import re
-from typing import ClassVar
 
 from src.containment.detectors.base import BaseDetector
 from src.core.models.events import SecurityEvent, ToolCallEvent

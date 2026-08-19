@@ -1,7 +1,6 @@
 """Tests for /config/me identity endpoint."""
 
 from fastapi.testclient import TestClient
-
 from src.api.main import app
 from src.core.config import settings
 from tests.conftest import unwrap_response

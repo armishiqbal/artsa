@@ -15,7 +15,6 @@ from __future__ import annotations
 import uuid
 
 from fastapi.testclient import TestClient
-
 from src.api.main import create_app
 from src.api.routes.metrics import _compute_defense_layers
 from src.containment.engine import ContainmentEngine
@@ -77,7 +76,7 @@ def test_destructive_metadata_probe_stays_killed():
 
 # ── B3: composite explainability ─────────────────────────────────────────────
 def test_explainability_sub_scores_explain_headline():
-    risk, verdict, sec_events = _evaluate("read_file", {"path": "/etc/passwd"})
+    risk, verdict, _ = _evaluate("read_file", {"path": "/etc/passwd"})
     assert risk.overall_score >= 80.0
     sub_scores = {
         "rule_based_score": risk.rule_based_score,
@@ -92,7 +91,7 @@ def test_explainability_sub_scores_explain_headline():
 
 
 def test_no_all_zero_subscores_with_high_overall():
-    risk, _, sec_events = _evaluate("exec_command", {"command": "cat /etc/shadow"})
+    risk, _, _ = _evaluate("exec_command", {"command": "cat /etc/shadow"})
     assert risk.overall_score >= 80.0
     assert risk.statistical_score >= 80.0  # statistical destructive-arg signal visible
 

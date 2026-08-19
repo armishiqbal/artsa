@@ -8,14 +8,12 @@ shapes for the four event types.
 from __future__ import annotations
 
 import pytest
-
 from src.services.custom_integration_dispatcher import (
     build_default_payload,
     lookup_path,
     render_json_template,
     render_string,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dotted-path lookup

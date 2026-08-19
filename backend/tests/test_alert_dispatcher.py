@@ -9,7 +9,6 @@ from typing import Self
 
 import pytest
 from fastapi.testclient import TestClient
-
 from src.core.config import settings
 from src.core.models.alerts import Alert, AlertRule
 from src.services import alert_store
@@ -24,6 +23,7 @@ from src.services.alert_dispatcher import (
     env_integration_rules,
     sentinel_signature,
 )
+
 from tests.conftest import unwrap_response
 
 

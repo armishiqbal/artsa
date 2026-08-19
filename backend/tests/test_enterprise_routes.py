@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-
 from src.api.main import create_app
 from src.core.config import settings
+
 from tests.conftest import unwrap_response
 
 

@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 
 import pytest
 from pymongo.errors import DuplicateKeyError
-
 from src.core.config import settings
 from src.data.user_store import (
     MongoUserStore,
@@ -102,7 +101,7 @@ def test_parse_dt_handles_iso_zulu_and_bson():
     parsed = _parse_dt(bson_dt)
     assert parsed == bson_dt and parsed.tzinfo is not None
 
-    naive = datetime(2026, 1, 1, 12, 0, 0)
+    naive = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
     assert _parse_dt(naive).tzinfo is not None  # treated as UTC
 
 

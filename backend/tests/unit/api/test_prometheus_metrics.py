@@ -1,7 +1,6 @@
 """Prometheus metrics endpoint tests."""
 
 from fastapi.testclient import TestClient
-
 from src.api.main import app
 from src.services.prometheus_metrics import record_ingest, render_prometheus
 

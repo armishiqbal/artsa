@@ -94,6 +94,9 @@ async def init_db() -> None:
                     await conn.execute(text("ALTER TABLE alerts ADD COLUMN risk_score FLOAT NOT NULL DEFAULT 70.0"))
                 if "tenant_id" not in cols:
                     await conn.execute(text("ALTER TABLE alerts ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_tenant'"))
+                if "status" not in cols:
+                    # WS-3.3 incident workflow: NEW | ACKNOWLEDGED | RESOLVED.
+                    await conn.execute(text("ALTER TABLE alerts ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'NEW'"))
 
             tenant_tables = (
                 "event_evaluations",

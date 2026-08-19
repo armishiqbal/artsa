@@ -10,11 +10,10 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-
-from tests.conftest import unwrap_response
-
 from src.core.password_auth import create_session_token, decode_session_token
 from src.utils.passwords import hash_password, verify_password
+
+from tests.conftest import unwrap_response
 
 
 @pytest.fixture
@@ -49,7 +48,6 @@ def _seed_user(db_path, email, password, role="admin"):
     import asyncio
 
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from src.data.user_store import create_user
 
     async def _insert():

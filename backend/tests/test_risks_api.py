@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-
 from src.api.main import create_app
 from src.services.telemetry_bus import telemetry_bus
+
 from tests.conftest import unwrap_response
 
 

@@ -1,7 +1,6 @@
 """Tests for CampaignStateMachine — FSM transitions."""
 
 import pytest
-
 from src.models import CampaignState
 from src.orchestrator.state_machine import CampaignStateMachine
 

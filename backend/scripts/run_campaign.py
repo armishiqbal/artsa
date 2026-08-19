@@ -2,10 +2,9 @@
 
 import os
 import sys
-import yaml
-from pathlib import Path
 
 import click
+import yaml
 from rich.console import Console
 from rich.panel import Panel
 
@@ -13,9 +12,10 @@ from rich.panel import Panel
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from src.models import CampaignConfig, TargetConfig, AttackProfile
+from src.models import AttackProfile, CampaignConfig, TargetConfig
 from src.orchestrator.campaign_manager import CampaignManager
 
 console = Console()
@@ -73,6 +73,8 @@ def run_campaign(config, target, profile, rounds):
     summary = manager.run()
 
     console.print("\n[bold green]✅ Campaign complete.[/bold green]\n")
+    if summary:
+        console.print(summary)
 
 
 if __name__ == '__main__':

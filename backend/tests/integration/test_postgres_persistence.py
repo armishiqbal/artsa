@@ -14,7 +14,6 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture
 async def postgres_session():
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from src.core.config import settings
     from src.data.db import Base
     from src.data.orm import EventEvaluationORM, SessionORM, ToolCallEventORM  # noqa: F401

@@ -167,7 +167,7 @@ def resolve_headers(integration: Any) -> dict[str, str]:
     elif auth_type == "basic":
         user = secrets.get("username", "")
         password = secrets.get("password", "")
-        encoded = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
+        encoded = base64.b64encode(f"{user}:{password}".encode()).decode("ascii")
         headers["Authorization"] = f"Basic {encoded}"
 
     for key, value in (getattr(integration, "headers", {}) or {}).items():
@@ -281,8 +281,8 @@ class CustomIntegrationWorker:
         self._stop.set()
         try:
             self._pool.shutdown(wait=wait, cancel_futures=False)
-        except Exception:  # pragma: no cover - already shut down
-            pass
+        except Exception as exc:  # pragma: no cover - already shut down
+            logger.debug("Dispatcher pool shutdown raced: %s", exc)
 
     def enqueue(self, event_type: str, event: dict[str, Any]) -> bool:
         """Queue an event for dispatch. Returns False (drops) on a full queue."""

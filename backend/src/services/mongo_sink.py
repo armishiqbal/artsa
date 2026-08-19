@@ -67,13 +67,13 @@ class MongoSink:
         self._stop.set()
         try:
             self._pool.shutdown(wait=wait, cancel_futures=False)
-        except Exception:  # pragma: no cover - already shut down
-            pass
+        except Exception as exc:  # pragma: no cover - already shut down
+            logger.debug("Mongo sink pool shutdown raced: %s", exc)
         if self._client is not None:
             try:
                 self._client.close()
-            except Exception:  # pragma: no cover
-                pass
+            except Exception as exc:  # pragma: no cover
+                logger.debug("Mongo client close raced: %s", exc)
         self._client = None
         self._db = None
 

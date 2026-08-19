@@ -7,8 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.agents.rag.store_factory import try_create_policy_store  # noqa: E402
-from src.core.config import settings  # noqa: E402
+from src.agents.rag.store_factory import try_create_policy_store
 
 
 def main() -> None:

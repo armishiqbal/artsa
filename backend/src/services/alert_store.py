@@ -82,6 +82,7 @@ def record_alert_from_evaluation(
     risk_score: float,
     verdict: str,
     recommended_action: str,
+    tenant_id: str = "default_tenant",
 ) -> Alert | None:
     """Create an alert when risk crosses HIGH/CRITICAL thresholds."""
     if risk_score < 60:
@@ -104,6 +105,7 @@ def record_alert_from_evaluation(
         risk_score=risk_score,
         channel="WEBHOOK",
         delivered=False,
+        tenant_id=tenant_id,
     )
     return append_alert(alert)
 

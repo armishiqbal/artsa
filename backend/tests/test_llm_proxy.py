@@ -9,7 +9,6 @@ from unittest.mock import patch
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-
 from src.core.config import settings
 from src.gateway.llm_proxy import (
     SANITIZATION_WARNING,

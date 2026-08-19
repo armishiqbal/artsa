@@ -14,12 +14,16 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
 from src.core.models.agents import Agent, AgentBaseline
 from src.core.models.events import ToolCallEvent
 from src.core.models.sessions import Session
 from src.data.db import Base
-from src.data.orm import AgentBaselineORM, AgentORM, SessionORM, ToolCallEventORM  # noqa: F401  (register tables on metadata)
+from src.data.orm import (  # noqa: F401  (register tables on metadata)
+    AgentBaselineORM,
+    AgentORM,
+    SessionORM,
+    ToolCallEventORM,
+)
 from src.services import mongo_sink as mongo_sink_module
 from src.services.mongo_sink import MongoSink
 

@@ -3,7 +3,6 @@
 import asyncio
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
 from src.core.models.agents import Agent, AgentBaseline
 from src.data.db import Base
 from src.data.orm import AgentBaselineORM, AgentORM  # noqa: F401  (register tables on metadata)

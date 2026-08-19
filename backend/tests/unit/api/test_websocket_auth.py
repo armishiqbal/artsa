@@ -3,7 +3,6 @@
 import pytest
 from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
-
 from src.api.main import app
 from src.core.config import settings
 

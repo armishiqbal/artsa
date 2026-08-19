@@ -7,9 +7,9 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.core.config import settings  # noqa: E402
-from src.data.attack_library import AttackLibrary  # noqa: E402
-from src.data.vector_store import VectorStoreManager  # noqa: E402
+from src.core.config import settings
+from src.data.attack_library import AttackLibrary
+from src.data.vector_store import VectorStoreManager
 
 
 def main() -> None:

@@ -23,7 +23,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.core.config import settings  # noqa: E402
+from src.core.config import settings
 
 
 def _parse_sqlite_dt(value: Any) -> str | None:

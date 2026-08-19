@@ -12,7 +12,6 @@ import time
 
 import pytest
 from pymongo import MongoClient  # noqa: F401  (ensures the dep is importable)
-
 from src.core.models.alerts import Alert
 from src.services.mongo_sink import MongoSink, mongo_enabled
 

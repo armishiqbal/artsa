@@ -5,7 +5,6 @@ import uuid
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
 from src.core.config import settings
 from src.core.models.alerts import Alert, AlertRule
 from src.data.db import Base

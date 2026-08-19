@@ -12,10 +12,8 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-
 from src.core.models.alerts import Alert
 from src.services.custom_integration_registry import (
-    CustomIntegration,
     CustomIntegrationRegistry,
 )
 
@@ -54,9 +52,9 @@ def test_dispatch_alert_enqueues_alert_event(monkeypatch):
 
     # No built-in channels configured -> dispatch_alert returns False but the
     # custom connector hook must still fire (that's the point of the hook).
-    monkeypatch.setattr("src.services.alert_dispatcher.env_integration_rules", lambda: [])
-    from src.services.alert_store import seed_webhook_rules
+    monkeypatch.setattr("src.services.alert_dispatcher.env_integration_rules", list)
     from src.services.alert_dispatcher import dispatch_alert
+    from src.services.alert_store import seed_webhook_rules
 
     seed_webhook_rules([])
     try:
@@ -83,9 +81,9 @@ def test_dispatch_alert_enqueue_failure_is_swallowed(monkeypatch):
     monkeypatch.setattr(
         "src.services.custom_integration_dispatcher.custom_integration_worker", _BoomWorker()
     )
-    monkeypatch.setattr("src.services.alert_dispatcher.env_integration_rules", lambda: [])
-    from src.services.alert_store import seed_webhook_rules
+    monkeypatch.setattr("src.services.alert_dispatcher.env_integration_rules", list)
     from src.services.alert_dispatcher import dispatch_alert
+    from src.services.alert_store import seed_webhook_rules
 
     seed_webhook_rules([])
     try:

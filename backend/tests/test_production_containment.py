@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-
 from src.api.main import create_app
 from src.core.config import settings
 from src.services.telemetry_bus import telemetry_bus

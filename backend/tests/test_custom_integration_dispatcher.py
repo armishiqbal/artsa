@@ -12,7 +12,6 @@ import json
 from typing import Self
 
 import pytest
-
 from src.services.custom_integration_dispatcher import (
     build_request,
     dispatch,
@@ -100,7 +99,7 @@ def test_headers_custom_override_base():
 
 def test_build_request_default_payload():
     event = {"type": "alert", "agent_id": "a-1", "risk_score": 80.0}
-    method, url, headers, body = build_request(_integration(method="PUT"), "alert", event)
+    method, url, _, body = build_request(_integration(method="PUT"), "alert", event)
     assert method == "PUT"
     assert url == "https://example.com/hook"
     assert json.loads(body) == event

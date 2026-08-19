@@ -3,7 +3,6 @@
 import uuid
 
 from fastapi.testclient import TestClient
-
 from src.api.main import app
 from tests.conftest import unwrap_response
 
