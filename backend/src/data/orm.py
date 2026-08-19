@@ -232,6 +232,9 @@ class UserORM(Base):
     organization: Mapped[str | None] = mapped_column(String(255), default=None)
     password_hash: Mapped[str] = mapped_column(String(512))
     role: Mapped[str] = mapped_column(String(16), default="admin")
+    # WS-3.1 hardening: the home tenant a password-authenticated user belongs to;
+    # get_current_tenant resolves it from the session instead of trusting headers.
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_org")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

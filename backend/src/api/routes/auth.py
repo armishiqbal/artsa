@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from src.api.dependencies import rate_limit_dependency
+from src.api.dependencies import get_current_tenant, rate_limit_dependency
 from src.core.auth_credentials import extract_bearer_token
 from src.core.config import settings
 from src.core.password_auth import (
@@ -146,12 +146,14 @@ async def register(
     payload: RegisterPayload,
     request: Request,
     store: UserStore = Depends(get_user_store),
+    tenant_id: str = Depends(get_current_tenant),
     _: None = Depends(rate_limit_dependency),
 ) -> dict:
     """Create a local account.
 
     Bootstrap: when no users exist the first registration creates the admin.
     Afterwards registration requires an admin API key (X-API-Key).
+    The account is bound to the tenant from the X-Tenant-ID header.
     """
     _ensure_password_auth_enabled()
     if not _EMAIL_RE.match(payload.email.strip()):
@@ -178,6 +180,7 @@ async def register(
             password_hash=password_hash,
             role=role,
             display_name=payload.display_name,
+            tenant_id=tenant_id,
         )
     except UserExistsError:
         raise HTTPException(status_code=409, detail="An account with that email already exists")

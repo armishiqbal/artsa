@@ -88,6 +88,9 @@ async def init_db() -> None:
                         await conn.execute(
                             text(f"ALTER TABLE users ADD COLUMN {col} VARCHAR(255)")
                         )
+                if "tenant_id" not in cols:
+                    # WS-3.1 hardening: identity -> tenant binding.
+                    await conn.execute(text("ALTER TABLE users ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_org'"))
             if "alerts" in tables:
                 cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(alerts)"))]
                 if "risk_score" not in cols:

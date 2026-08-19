@@ -45,6 +45,7 @@ async def create_user(
     password_hash: str,
     role: str = "admin",
     display_name: str = "",
+    tenant_id: str = "default_org",
 ) -> UserORM:
     user = UserORM(
         id=str(uuid.uuid4()),
@@ -52,6 +53,7 @@ async def create_user(
         display_name=display_name.strip(),
         password_hash=password_hash,
         role=role,
+        tenant_id=tenant_id,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -107,6 +109,7 @@ class UserAccount:
     organization: str | None = None
     password_hash: str = ""
     role: str = "admin"
+    tenant_id: str = "default_org"
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -139,6 +142,7 @@ class UserStore(Protocol):
         password_hash: str,
         role: str = "admin",
         display_name: str = "",
+        tenant_id: str = "default_org",
     ) -> UserAccount: ...
 
     async def update_user_profile(
@@ -168,6 +172,7 @@ def _from_orm(user: UserORM) -> UserAccount:
         organization=user.organization,
         password_hash=user.password_hash,
         role=user.role,
+        tenant_id=user.tenant_id or "default_org",
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
@@ -221,11 +226,13 @@ class SqliteUserStore:
         password_hash: str,
         role: str = "admin",
         display_name: str = "",
+        tenant_id: str = "default_org",
     ) -> UserAccount:
         async with get_session_factory()() as session:
             try:
                 orm = await create_user(
-                    session, email=email, password_hash=password_hash, role=role, display_name=display_name
+                    session, email=email, password_hash=password_hash, role=role,
+                    display_name=display_name, tenant_id=tenant_id,
                 )
             except IntegrityError as exc:
                 raise UserExistsError(email) from exc
@@ -330,6 +337,7 @@ class MongoUserStore:
         password_hash: str,
         role: str = "admin",
         display_name: str = "",
+        tenant_id: str = "default_org",
     ) -> UserAccount:
         coll = self._get_collection()
         user_id = str(uuid.uuid4())
@@ -344,6 +352,7 @@ class MongoUserStore:
             "organization": None,
             "password_hash": password_hash,
             "role": role,
+            "tenant_id": tenant_id,
             "created_at": now,
             "updated_at": now,
         }
@@ -417,6 +426,7 @@ def _from_doc(doc: Any) -> UserAccount:
         organization=doc.get("organization"),
         password_hash=doc.get("password_hash", "") or "",
         role=doc.get("role", "admin"),
+        tenant_id=doc.get("tenant_id") or "default_org",
         created_at=_parse_dt(doc.get("created_at")),
         updated_at=_parse_dt(doc.get("updated_at")),
     )
