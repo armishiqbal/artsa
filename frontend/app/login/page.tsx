@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Lock, LogIn, Mail, UserPlus } from "lucide-react";
+import { Loader2, Lock, LogIn, Mail, Sparkles, UserPlus } from "lucide-react";
 import { LogoIcon } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +79,23 @@ function LoginInner() {
     setApiKey(null);
     setSession({ access_token: session.access_token, expires_in: session.expires_in }, session.user);
     redirect();
+  };
+
+  // Explore Live Preview: sign in with a demo admin session so the dashboard
+  // can be browsed before a backend is connected (restored — the parallel auth
+  // rework had removed this one-click entry).
+  const handleDemoLogin = () => {
+    setError(null);
+    finishWithSession({
+      access_token: "demo_preview_token",
+      token_type: "bearer",
+      expires_in: 86400,
+      user: {
+        email: "admin@artsa.ai",
+        role: "admin",
+        display_name: "Admin (Live Preview)",
+      },
+    });
   };
 
 
@@ -248,6 +265,27 @@ function LoginInner() {
             </Button>
           </div>
         )}
+
+        <div className="mt-4 text-center">
+          <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+            or
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full gap-2"
+            onClick={handleDemoLogin}
+            disabled={loading}
+          >
+            <Sparkles className="h-4 w-4 text-primary" aria-hidden />
+            Explore Live Preview
+          </Button>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Sign in with a demo admin session to browse the dashboard before a
+            backend is connected.
+          </p>
+        </div>
       </div>
 
       {error && <p className="mt-4 text-sm text-severity-critical">{error}</p>}
