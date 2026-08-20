@@ -21,8 +21,9 @@ catch rate reads ~0:
     ARTSA_EMBEDDING_MODEL=local-bge-multilingual ENVIRONMENT=testing \
         PYTHONPATH=. python scripts/redteam_gate.py
 
-Measured 2026-08-20: regex-invisible semantic catch rate 0.743 (was 0.031);
-overall corpus recall 0.785.
+Measured 2026-08-20 (incl. Phase-2.5 multilingual stage): regex-invisible
+semantic catch rate 0.792 (was 0.031 pre-normalization); corpus recall 0.831
+over 1,175 variants; multilingual encoding recall 0.787, bilingual_mix 1.000.
 """
 
 from __future__ import annotations
