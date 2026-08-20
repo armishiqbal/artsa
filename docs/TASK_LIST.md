@@ -65,19 +65,19 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Task | Why / DoD |
 |---|---|---|
-| 2.1 | **Red-team mutation engine** (`src/redteam/mutator.py`): deterministic offline mutations — homoglyph/leet/base64/url/hex/unicode-escape/rot13/synonym/comment-inject, with encoding labels | ✅ done `redteam`; LLM-attacker stage (2.1b, `ARTSA_REDTEAM_LLM_ENABLED`) remains |
+| 2.1 | **Red-team mutation engine** (`src/redteam/mutator.py`): deterministic offline mutations — homoglyph/leet/base64/url/hex/unicode-escape/rot13/synonym/comment-inject, with encoding labels | ✅ done `redteam`; **2.1b LLM attacker stage shipped (2026-08-20)**: `src/redteam/llm_attacker.py` generates novel semantic paraphrases via the provider registry, opt-in via `ARTSA_REDTEAM_LLM_ENABLED=true` or `--llm`, offline-safe (returns [] on any failure) |
 | 2.2 | **Diversity metric** (`src/redteam/diversity.py`): pairwise embedding distance + cluster count, `diversity_is_healthy` | ✅ done |
 | 2.3 | **Detector-layer attribution** (`src/redteam/runner.py`): full vs semantic-disabled engine per attack, per-encoding recall, detector fire counts | ✅ done |
 | 2.4 | **Semantic-bypass fuzzer** (`scripts/redteam_gate.py`, `--redteam` flag in golden_gate): regex-invisible semantic catch rate. **2026-08-20 (real embeddings + obfuscation normalization): 0.792** (was 0.031 with the embedding layer silently dead under hash-1024; 0.743 before the multilingual stage). Corpus: 1,175 variants. Per-encoding: multilingual 0.787, bilingual_mix 1.000, base64 0.949, homoglyph 0.762, url 0.729, rot13 0.722 | ✅ engine + normalization + multilingual stage shipped; residual per-encoding gaps documented |
 | 2.5 | Fuzz mutations via existing `payload_mutator.py`; add multilingual + Unicode confusables + encoding stages | ✅ **multilingual stage done (2026-08-20)**: curated 8-language phrase dictionary (pt/es/zh/hi/de/fr/ar/ja × 10 intents) + `multilingual`/`bilingual_mix` encodings in `src/redteam/mutator.py`; semantic library expanded to 18 languages + tool-misuse/exfil families. Independent-set multilingual class recall **0.12 → 0.41**; bilingual corpus variants 100% caught |
-| 2.6 | Guardrail against self-defeating output: attacker can't see detector internals during generation | ✅ by construction for the deterministic stage (mutator imports no detector internals); formally OPEN until the LLM-attacker stage lands |
+| 2.6 | Guardrail against self-defeating output: attacker can't see detector internals during generation | ✅ **done (2026-08-20)**: the LLM attacker prompt carries only the base phrase; a static AST test (`test_llm_attacker_module_never_imports_detector_internals`) forbids `src.containment.*`/benchmark/judge imports in the attacker module; deterministic mutator remains internal-free |
 
 ## Phase 3 — Public benchmark + leaderboard (credibility moat)
 
 | # | Task | DoD |
 |---|---|---|
-| 3.1 | Public harness from `golden_gate.py`; documented methodology | Reproducible by third parties |
-| 3.2 | **Independent scoring vs Lakera / Azure / other guardrails** on the same held-out set | A real comparison table, not marketing |
+| 3.1 | Public harness from `golden_gate.py`; documented methodology | ✅ **harness + methodology shipped (2026-08-20)**: all gates support `--json` machine-readable output; `docs/BENCHMARK_METHODOLOGY.md` documents sets, metrics, honesty rules, and exact reproduction commands. Reproducible by third parties |
+| 3.2 | **Independent scoring vs Lakera / Azure / other guardrails** on the same held-out set | ✅ **harness shipped (2026-08-20)**: `backend/scripts/external_comparison.py` scores the identical independent-set samples through ARTSA + Lakera Guard + Azure AI Content Safety (key-gated via `LAKERA_API_KEY` / `AZURE_CS_ENDPOINT` / `AZURE_CS_KEY`) and writes `docs/COMPARISON.md`. Without keys it reports ARTSA's numbers + methodology (table is as real as the configured keys) |
 | 3.3 | Leaderboard + community sample-submission pipeline | "HuggingFace of agent security" — compounding data moat |
 | 3.4 | Contamination guard on public set (submitter samples held out) | Keeps the leaderboard trustworthy |
 

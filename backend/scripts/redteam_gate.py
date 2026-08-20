@@ -24,12 +24,17 @@ catch rate reads ~0:
 Measured 2026-08-20 (incl. Phase-2.5 multilingual stage): regex-invisible
 semantic catch rate 0.792 (was 0.031 pre-normalization); corpus recall 0.831
 over 1,175 variants; multilingual encoding recall 0.787, bilingual_mix 1.000.
+
+Optional Phase-2.1b LLM attacker stage (semantic-novelty paraphrases; blind to
+detector internals per 2.6): add ``--llm`` or set ``ARTSA_REDTEAM_LLM_ENABLED=true``
+plus a provider key. Offline-safe: any failure yields zero LLM variants.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -77,11 +82,33 @@ def main() -> int:
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--json", action="store_true", help="print report as JSON")
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help="enable the Phase-2.1b LLM attacker stage (also via ARTSA_REDTEAM_LLM_ENABLED=true)",
+    )
     args = parser.parse_args()
 
     bases = _base_phrases()
     mutator = RedTeamMutator(seed=args.seed)
     corpus = mutator.generate_corpus(bases)
+
+    # ── Phase 2.1b: LLM attacker stage (opt-in, offline-safe) ───────────────
+    llm_added = 0
+    if args.llm or os.environ.get("ARTSA_REDTEAM_LLM_ENABLED", "").lower() == "true":
+        from src.redteam.llm_attacker import LLMAttacker
+
+        attacker = LLMAttacker()
+        if attacker.available():
+            for base in bases:
+                for variant in attacker.generate_variants(base, count=2):
+                    corpus.append({"base": base, "variant": variant, "encoding": "llm_attacker"})
+                    llm_added += 1
+        elif args.llm:
+            print(
+                "NOTE: --llm requested but the LLM attacker is unavailable "
+                "(set ARTSA_REDTEAM_LLM_ENABLED=true and configure a provider key)"
+            )
 
     diversity = mutation_diversity([c["variant"] for c in corpus])
     report = evaluate_attacks(corpus)
@@ -93,13 +120,17 @@ def main() -> int:
                     "diversity": diversity.to_dict(),
                     "report": report.to_dict(),
                     "seed_phrases": len(bases),
+                    "llm_attacker_variants": llm_added,
                 },
                 indent=2,
             )
         )
         return 0
 
-    print(f"Seed phrases: {len(bases)}  |  Corpus: {report.corpus_size} variants")
+    print(
+        f"Seed phrases: {len(bases)}  |  Corpus: {report.corpus_size} variants"
+        f"{f'  (+{llm_added} LLM-attacker)' if llm_added else ''}"
+    )
     print(
         f"Diversity : mean_pairwise_distance={diversity.mean_pairwise_distance:.3f} "
         f"clusters={diversity.distinct_clusters} "

@@ -23,6 +23,7 @@ Usage: ENVIRONMENT=testing PYTHONPATH=. python scripts/golden_gate.py
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import uuid
@@ -38,6 +39,14 @@ GOLDEN_SET = Path(__file__).resolve().parent.parent / "benchmarks" / "golden_set
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="ARTSA golden-set evaluation gate")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="print machine-readable results (reproducible public-scoring output)",
+    )
+    args = parser.parse_args()
+
     data = json.loads(GOLDEN_SET.read_text(encoding="utf-8"))
     samples = data["samples"]
     engine = ContainmentEngine()
@@ -81,8 +90,12 @@ def main() -> int:
         calibration_pairs.append((total, False))
         if total >= 50:
             fp50.append(
-                {"tool": s["tool_name"], "args": s["arguments"],
-                 "score": total, "note": s.get("note", "")}
+                {
+                    "tool": s["tool_name"],
+                    "args": s["arguments"],
+                    "score": total,
+                    "note": s.get("note", ""),
+                }
             )
 
     review_scores = [_score(s) for s in review]
@@ -102,11 +115,15 @@ def main() -> int:
     print(f"  recall@50 = {recall50:.4f}  ({caught50}/{n_mal} at least flagged)")
     print(f"  FPR@50    = {fpr50:.4f}  ({len(fp50)}/{n_safe} benign ops wrongly flagged)")
     print(f"  ECE       = {cal.ece:.4f}  (0 = perfectly calibrated)")
-    print(f"  recommended threshold (FP 1 / FN 10) = {rec.threshold} "
-          f"(recall {rec.recall:.3f}, FPR {rec.fpr:.3f})")
+    print(
+        f"  recommended threshold (FP 1 / FN 10) = {rec.threshold} "
+        f"(recall {rec.recall:.3f}, FPR {rec.fpr:.3f})"
+    )
     print("  per-class recall@80:")
     for cls, (caught, total) in sorted(class_stats.items()):
-        print(f"    {cls:<22} {caught}/{total} = {caught / total:.2f}" if total else f"    {cls}: n/a")
+        print(
+            f"    {cls:<22} {caught}/{total} = {caught / total:.2f}" if total else f"    {cls}: n/a"
+        )
 
     if fp50:
         print("  false-positive details (safe ops scored >= 50):")
@@ -115,8 +132,10 @@ def main() -> int:
 
     if review_scores:
         kills = [s for s in review_scores if s >= 80]
-        print(f"  review-class (external GETs): max={max(review_scores):.0f} "
-              f"min={min(review_scores):.0f} KILLed={len(kills)} (must be 0)")
+        print(
+            f"  review-class (external GETs): max={max(review_scores):.0f} "
+            f"min={min(review_scores):.0f} KILLed={len(kills)} (must be 0)"
+        )
 
     failures = []
     if recall80 < RECALL_AT_80_FLOOR:
@@ -131,22 +150,57 @@ def main() -> int:
         return 1
     print("Golden gate passed.")
 
+    if args.json:
+        # Machine-readable summary for third-party reproduction (Phase 3.1).
+        from src.core.config import settings
+
+        print(
+            json.dumps(
+                {
+                    "gate": "golden",
+                    "set": "benchmarks/golden_set.json",
+                    "n_malicious": n_mal,
+                    "n_safe": n_safe,
+                    "n_review": len(review),
+                    "recall@80": round(recall80, 4),
+                    "recall@50": round(recall50, 4),
+                    "fpr@50": round(fpr50, 4),
+                    "ece": round(cal.ece, 4),
+                    "recommended_threshold": rec.threshold,
+                    "recommended_recall": round(rec.recall, 4),
+                    "recommended_fpr": round(rec.fpr, 4),
+                    "per_class_recall_80": {
+                        cls: round(caught / total, 4) if total else None
+                        for cls, (caught, total) in sorted(class_stats.items())
+                    },
+                    "embedding_model": settings.resolve_embedding_model(),
+                },
+                indent=2,
+            )
+        )
+        return 0
+
     if "--redteam" in sys.argv:
         # Phase 2.4: append the mutation-evasion evidence to the same run.
         from src.redteam.diversity import diversity_is_healthy, mutation_diversity
         from src.redteam.mutator import RedTeamMutator
         from src.redteam.runner import evaluate_attacks
 
-        bases = [s["arguments"].get("payload") or s["arguments"].get("command")
-                 for s in malicious if s.get("arguments")]
+        bases = [
+            s["arguments"].get("payload") or s["arguments"].get("command")
+            for s in malicious
+            if s.get("arguments")
+        ]
         bases = [b for b in bases if isinstance(b, str) and len(b) > 12]
         corpus = RedTeamMutator().generate_corpus(bases)
         diversity = mutation_diversity([c["variant"] for c in corpus])
         rt = evaluate_attacks(corpus)
         print("\n── red-team mutation evidence ──")
-        print(f"  corpus={rt.corpus_size} recall={rt.recall:.3f} "
-              f"regex_invisible_semantic_catch={rt.regex_invisible_semantic_catch_rate:.3f} "
-              f"diversity_healthy={diversity_is_healthy(diversity)}")
+        print(
+            f"  corpus={rt.corpus_size} recall={rt.recall:.3f} "
+            f"regex_invisible_semantic_catch={rt.regex_invisible_semantic_catch_rate:.3f} "
+            f"diversity_healthy={diversity_is_healthy(diversity)}"
+        )
     return 0
 
 
