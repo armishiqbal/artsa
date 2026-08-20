@@ -238,6 +238,11 @@ class Settings(BaseSettings):
     ARTSA_JUDGE_PROVIDER: str = ""
     ARTSA_JUDGE_MODEL: str = ""
     ARTSA_JUDGE_TIMEOUT_SEC: float = 0.6
+    # Phase 4.6 power cap: the judge may add at most this many points to a
+    # borderline engine score, and only when its persisted calibration record
+    # shows agreement >= ARTSA_JUDGE_MIN_AGREEMENT.
+    ARTSA_JUDGE_MAX_RAISE: float = 25.0
+    ARTSA_JUDGE_MIN_AGREEMENT: float = 0.85
 
     def resolve_embedding_model(self) -> str:
         """Pick embedding backend: hash in tests by default; open-source local

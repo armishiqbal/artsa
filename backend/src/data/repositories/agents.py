@@ -57,6 +57,7 @@ class AgentsRepository(BaseRepository[AgentORM]):
             row.total_breaches = agent.total_breaches
         await self.session.commit()
         from src.services.mongo_sink import mongo_sink
+
         mongo_sink.enqueue_agent(row)
         return agent
 
@@ -90,27 +91,42 @@ class AgentsRepository(BaseRepository[AgentORM]):
             updated_at=row.updated_at or datetime.now(UTC),
         )
 
-    async def get_baseline(self, agent_id: str) -> AgentBaseline | None:
-        """Fetch the learned baseline for an agent, or None when absent."""
+    async def get_baseline(
+        self, agent_id: str, tenant_id: str = "default_tenant"
+    ) -> AgentBaseline | None:
+        """Fetch the learned baseline for an agent within a tenant, or None."""
         result = await self.session.execute(
-            select(AgentBaselineORM).where(AgentBaselineORM.agent_id == agent_id)
+            select(AgentBaselineORM).where(
+                AgentBaselineORM.agent_id == agent_id,
+                AgentBaselineORM.tenant_id == tenant_id,
+            )
         )
         row = result.scalar_one_or_none()
         return self._to_baseline_domain(row) if row else None
 
-    async def upsert_baseline(self, agent_id: str, baseline: AgentBaseline) -> AgentBaseline:
-        """Create or update the behavioral baseline for an agent."""
+    async def upsert_baseline(
+        self, agent_id: str, baseline: AgentBaseline, tenant_id: str = "default_tenant"
+    ) -> AgentBaseline:
+        """Create or update the behavioral baseline for an agent in a tenant."""
         result = await self.session.execute(
-            select(AgentBaselineORM).where(AgentBaselineORM.agent_id == agent_id)
+            select(AgentBaselineORM).where(
+                AgentBaselineORM.agent_id == agent_id,
+                AgentBaselineORM.tenant_id == tenant_id,
+            )
         )
         row = result.scalar_one_or_none()
         if row is None:
-            row = AgentBaselineORM(agent_id=agent_id, baseline=self._baseline_to_json(baseline))
+            row = AgentBaselineORM(
+                agent_id=agent_id,
+                tenant_id=tenant_id,
+                baseline=self._baseline_to_json(baseline),
+            )
             self.session.add(row)
         else:
             row.baseline = self._baseline_to_json(baseline)
         await self.session.commit()
         await self.session.refresh(row)
         from src.services.mongo_sink import mongo_sink
+
         mongo_sink.enqueue_agent_baseline(agent_id, row.baseline)
         return self._to_baseline_domain(row)

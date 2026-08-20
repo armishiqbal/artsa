@@ -1,15 +1,20 @@
-"""LLM-judge verifier for borderline verdicts — WS-2.3.
+"""LLM-judge verifier for borderline verdicts — WS-2.3 / Phase 4.6.
 
 When enabled (``ARTSA_JUDGE_ENABLED=true``), SUSPICIOUS (50–79) verdicts are
 sent to a fast judge model for confirmation. The judge can only *raise* a
-borderline verdict to BREACHED when it confirms the call is malicious — it
-never downgrades, so a wrong judge can never let an attack through (fail-safe
-by construction). Any error, timeout, or unparseable answer leaves the verdict
-unchanged and the call proceeds on the deterministic engine's score.
+borderline verdict — it never downgrades, so a wrong judge can never let an
+attack through (fail-safe by construction).
 
-The judge runs inside a short latency budget (``ARTSA_JUDGE_TIMEOUT_SEC``,
-default 0.6s) and is OFF by default; enabling it trades a little real-time
-latency for extra recall on the borderline band.
+POWER CAP (Phase 4.6): the judge is not trusted until it is calibrated. It may
+escalate only when a persisted calibration record (``backend/data/
+judge_calibration.json``, written by the ``/benchmark/judge-validation`` run)
+shows agreement >= ``ARTSA_JUDGE_MIN_AGREEMENT`` (0.85), and its influence is
+bounded: it adds at most ``ARTSA_JUDGE_MAX_RAISE`` (25) points to the engine's
+score, and the verdict only reaches BREACHED when the raised score actually
+crosses the KILL band (>= 80). An uncalibrated judge is inert.
+
+Any error, timeout, or unparseable answer leaves the verdict unchanged and the
+call proceeds on the deterministic engine's score.
 """
 
 from __future__ import annotations
@@ -31,9 +36,6 @@ _JUDGE_SYSTEM = (
     "Classify it as MALICIOUS or SAFE. Reply with exactly one word: MALICIOUS or SAFE."
 )
 
-# How much a judge-confirmed call is raised: SUSPICIOUS (50-79) -> KILL band.
-_RAISE_TO = 88.0
-
 
 class JudgeVerifier:
     """Optional LLM confirmation for borderline (SUSPICIOUS) verdicts."""
@@ -50,9 +52,25 @@ class JudgeVerifier:
 
     def _args_text(self, event: ToolCallEvent) -> str:
         if isinstance(event.arguments, dict):
-            for key in ("command", "cmd", "input", "code", "script", "payload",
-                        "shell_command", "sql", "query", "statement", "path",
-                        "url", "tool", "name", "q", "content", "body"):
+            for key in (
+                "command",
+                "cmd",
+                "input",
+                "code",
+                "script",
+                "payload",
+                "shell_command",
+                "sql",
+                "query",
+                "statement",
+                "path",
+                "url",
+                "tool",
+                "name",
+                "q",
+                "content",
+                "body",
+            ):
                 val = event.arguments.get(key)
                 if isinstance(val, str):
                     return val
@@ -85,9 +103,7 @@ class JudgeVerifier:
             "temperature": 0.0,
         }
         with httpx.Client(timeout=settings.ARTSA_JUDGE_TIMEOUT_SEC) as client:
-            resp = client.post(
-                f"{base_url}/chat/completions", headers=headers, json=payload
-            )
+            resp = client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
         return str(data["choices"][0]["message"]["content"])
@@ -112,16 +128,58 @@ class JudgeVerifier:
 
         if "MALICIOUS" not in answer:
             # SAFE / unknown: do not downgrade the engine's borderline verdict.
-            return risk, verdict, {
-                "judge_enabled": True,
-                "judge_response": answer[:40],
-                "judge_action": "kept_engine_verdict",
-            }
+            return (
+                risk,
+                verdict,
+                {
+                    "judge_enabled": True,
+                    "judge_response": answer[:40],
+                    "judge_action": "kept_engine_verdict",
+                },
+            )
 
-        # Judge confirmed malicious: raise to the KILL band.
+        # ── Phase 4.6 power cap ─────────────────────────────────────────────
+        # 1. Calibration gate: an unvalidated or low-agreement judge is inert.
+        from src.benchmark.judge_validation import judge_is_calibrated
+
+        if not judge_is_calibrated():
+            return (
+                risk,
+                verdict,
+                {
+                    "judge_enabled": True,
+                    "judge_response": answer[:40],
+                    "judge_action": "judge_not_calibrated_no_escalation",
+                    "note": "judge must pass /benchmark/judge-validation (agreement >= "
+                    f"{settings.ARTSA_JUDGE_MIN_AGREEMENT}) before it may escalate",
+                },
+            )
+
+        # 2. Bounded influence: the judge adds at most MAX_RAISE points.
+        new_score = min(100.0, risk.overall_score + settings.ARTSA_JUDGE_MAX_RAISE)
+        if new_score < 80.0:
+            # Capped raise stays below the KILL band — surface, don't enforce.
+            new_risk = risk.model_copy(
+                update={
+                    "overall_score": max(risk.overall_score, new_score),
+                    "flags": list(dict.fromkeys([*risk.flags, "JUDGE_RAISED"])),
+                }
+            )
+            return (
+                new_risk,
+                verdict,
+                {
+                    "judge_enabled": True,
+                    "judge_response": answer[:40],
+                    "judge_action": "raised_below_kill_band",
+                    "raised_to": round(new_score, 1),
+                },
+            )
+
+        # 3. Confirmed + calibrated + crosses KILL: escalate.
         new_risk = risk.model_copy(
             update={
-                "overall_score": max(risk.overall_score, _RAISE_TO),
+                "overall_score": max(risk.overall_score, new_score),
                 "flags": list(dict.fromkeys([*risk.flags, "JUDGE_CONFIRMED"])),
             }
         )
@@ -140,5 +198,6 @@ class JudgeVerifier:
             "judge_enabled": True,
             "judge_response": answer[:40],
             "judge_action": "escalated_to_kill",
+            "raised_to": round(new_score, 1),
         }
         return new_risk, new_verdict, evidence

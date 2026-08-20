@@ -38,13 +38,28 @@ def test_disabled_by_default_is_noop(judge):
 
 def test_judge_confirms_escalates_to_kill(monkeypatch, judge):
     monkeypatch.setattr(settings, "ARTSA_JUDGE_ENABLED", True)
+    # Phase 4.6: escalation requires a calibrated judge; the raise is bounded
+    # by ARTSA_JUDGE_MAX_RAISE (25) rather than forcing a fixed 88.
+    monkeypatch.setattr("src.benchmark.judge_validation.judge_is_calibrated", lambda: True)
     risk, verdict = _suspicious()
     new_risk, new_verdict, evidence = judge.verify(_event(), risk, verdict)
     assert new_verdict.verdict == "BREACHED"
     assert new_verdict.recommended_action == "KILL"
-    assert new_risk.overall_score >= 88.0
+    assert new_risk.overall_score == 85.0  # 60 + MAX_RAISE 25
     assert "JUDGE_CONFIRMED" in new_risk.flags
     assert evidence["judge_action"] == "escalated_to_kill"
+
+
+def test_uncalibrated_judge_cannot_escalate(monkeypatch, judge):
+    """Phase 4.6 power cap: without a persisted calibration record the judge is
+    inert even when it answers MALICIOUS."""
+    monkeypatch.setattr(settings, "ARTSA_JUDGE_ENABLED", True)
+    monkeypatch.setattr("src.benchmark.judge_validation.judge_is_calibrated", lambda: False)
+    risk, verdict = _suspicious()
+    new_risk, new_verdict, evidence = judge.verify(_event(), risk, verdict)
+    assert new_verdict.verdict == "SUSPICIOUS"
+    assert new_risk.overall_score == 60.0
+    assert evidence["judge_action"] == "judge_not_calibrated_no_escalation"
 
 
 def test_judge_safe_never_downgrades(monkeypatch):

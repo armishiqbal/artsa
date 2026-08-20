@@ -6,7 +6,17 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.data.db import Base
@@ -84,15 +94,27 @@ class CustomIntegrationORM(Base):
 
     __tablename__ = "custom_integrations"
 
+    # Phase 4.7: integration names are unique PER TENANT (not globally) — two
+    # tenants may each have a connector named "slack".
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_custom_integrations_tenant_name"),
+    )
+
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # slug
+    name: Mapped[str] = mapped_column(String(64), index=True)  # slug, unique per tenant
     description: Mapped[str | None] = mapped_column(String(512), nullable=True)
     method: Mapped[str] = mapped_column(String(8), default="POST")  # POST|PUT|PATCH
     target_url: Mapped[str] = mapped_column(String(1024))
     auth_type: Mapped[str] = mapped_column(String(16), default="none")  # none|bearer|basic|api_key
-    headers: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)  # values may embed {{secret:name}}
-    payload_template: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON text with {{field}}
-    event_types: Mapped[list[str]] = mapped_column(JSON, default=list)  # subset of alert|tool_call|proxy_call|session_action
+    headers: Mapped[dict[str, Any]] = mapped_column(
+        JSON, default=dict
+    )  # values may embed {{secret:name}}
+    payload_template: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # JSON text with {{field}}
+    event_types: Mapped[list[str]] = mapped_column(
+        JSON, default=list
+    )  # subset of alert|tool_call|proxy_call|session_action
     risk_threshold: Mapped[float] = mapped_column(Float, default=0.0)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     retries: Mapped[int] = mapped_column(Integer, default=3)
@@ -118,7 +140,9 @@ class ToolCallEventORM(Base):
     agent_id: Mapped[str] = mapped_column(String(255))
     tool_name: Mapped[str] = mapped_column(String(255))
     arguments: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     trace_id: Mapped[str] = mapped_column(String(255))
     response: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -132,7 +156,9 @@ class SessionORM(Base):
     agent_id: Mapped[str] = mapped_column(String(255))
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant")
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tool_call_count: Mapped[int] = mapped_column(Integer, default=0)
     max_risk_score: Mapped[float] = mapped_column(Float, default=0.0)
@@ -177,6 +203,7 @@ class CampaignJobORM(Base):
     # WS-3.1: row-level org isolation.
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
+
 class AgentORM(Base):
     __tablename__ = "agents"
 
@@ -206,15 +233,20 @@ class AgentORM(Base):
 class AgentBaselineORM(Base):
     __tablename__ = "agent_baselines"
 
-    agent_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    # Phase 4.7: composite primary key (tenant_id, agent_id) — a baseline is
+    # unique per tenant per agent, not a globally-unique row.
+    __table_args__ = (
+        PrimaryKeyConstraint("tenant_id", "agent_id", name="pk_agent_baselines_tenant_agent"),
+    )
+
+    agent_id: Mapped[str] = mapped_column(String(36))
     baseline: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
-    # WS-3.1: row-level org isolation (agent_id PK retained; tenant-scoped
-    # uniqueness is enforced at the repository layer).
+    # WS-3.1: row-level org isolation — now part of the composite PK (4.7).
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
 

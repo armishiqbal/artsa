@@ -78,8 +78,8 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 |---|---|---|
 | 3.1 | Public harness from `golden_gate.py`; documented methodology | ✅ **harness + methodology shipped (2026-08-20)**: all gates support `--json` machine-readable output; `docs/BENCHMARK_METHODOLOGY.md` documents sets, metrics, honesty rules, and exact reproduction commands. Reproducible by third parties |
 | 3.2 | **Independent scoring vs Lakera / Azure / other guardrails** on the same held-out set | ✅ **harness shipped (2026-08-20)**: `backend/scripts/external_comparison.py` scores the identical independent-set samples through ARTSA + Lakera Guard + Azure AI Content Safety (key-gated via `LAKERA_API_KEY` / `AZURE_CS_ENDPOINT` / `AZURE_CS_KEY`) and writes `docs/COMPARISON.md`. Without keys it reports ARTSA's numbers + methodology (table is as real as the configured keys) |
-| 3.3 | Leaderboard + community sample-submission pipeline | "HuggingFace of agent security" — compounding data moat |
-| 3.4 | Contamination guard on public set (submitter samples held out) | Keeps the leaderboard trustworthy |
+| 3.3 | Leaderboard + community sample-submission pipeline | ✅ **backend shipped (2026-08-20)**: `src/benchmark/leaderboard.py` (JSON-backed store), `POST /benchmark/submissions` intake, `GET /benchmark/leaderboard` ranking (recall@80 desc / fpr@50 asc), `scripts/leaderboard_update.py` scores accepted submissions through the engine. Frontend leaderboard page = follow-up polish |
+| 3.4 | Contamination guard on public set (submitter samples held out) | ✅ **done (2026-08-20)**: every submission passes the guard — embedding similarity ≥ 0.85 vs golden/independent/generated sets → rejected 409 with reason; exact duplicates rejected; tests cover duplicate/contamination/ranking (8 cases) |
 
 ## Phase 4 — Product depth (finish the detection story)
 
@@ -90,8 +90,8 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 | 4.3 | ✅ Org-policy → scoring (PolicyDetector + policy_score) | ✅ `404619b` |
 | 4.4 | ✅ Multi-turn goal-drift detector | ✅ `0f97793` |
 | 4.5 | ✅ LLM-judge verifier (off by default, escalate-only) | ✅ `ea2ba0b` |
-| 4.6 | **Calibrate the LLM judge** (ECE on its verdicts; cap its power until calibrated) | Open — Phase-1 dependency |
-| 4.7 | Multi-tenant unique names (integration `name` per tenant), baselines composite PK | Open — edge-case hardening |
+| 4.6 | **Calibrate the LLM judge** (ECE on its verdicts; cap its power until calibrated) | ✅ **done (2026-08-20)**: `judge_validation.py` computes ECE over judge scores vs human labels and persists `backend/data/judge_calibration.json`; the runtime `JudgeVerifier` consults it as a POWER CAP — an uncalibrated/low-agreement judge is inert, and a calibrated judge adds at most `ARTSA_JUDGE_MAX_RAISE` (25) points, reaching BREACHED only when the raised score crosses the KILL band. 6 tests |
+| 4.7 | Multi-tenant unique names (integration `name` per tenant), baselines composite PK | ✅ **done (2026-08-20)**: `custom_integrations` name now unique PER TENANT (`uq_custom_integrations_tenant_name`); `agent_baselines` composite PK `(tenant_id, agent_id)`; baseline repo tenant-scoped; alembic `011_tenant_unique_names` for Postgres; 3 tests |
 
 ## Phase 5 — GTM kit (WS-5)
 
