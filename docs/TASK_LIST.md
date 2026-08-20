@@ -106,10 +106,10 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Idea | Thesis | Effort |
 |---|---|---|---|
-| 6.1 | **LLM Firewall Gateway** (OpenAI-compatible proxy: sanitize, redact, policy, per-tenant limits, audit) | Revenue; 80% built (`llm_proxy` + engine) | M |
-| 6.2 | **Agent Risk-Scoring SDK** (`pip install artsa-guard` / `npm i artsa-guard`; LangChain/CrewAI/AutoGen/MCP plugins) | Developer-tool virality | M |
-| 6.3 | **RAG Security Scanner** (poison detection + adversarial-retrieval test) | Ties to RAG work; differentiates | M |
-| 6.4 | **MCP Kill-Chain Test Rig** (malicious MCP servers + assertion harness) | Productizes MCP-parity work | S |
+| 6.1 | **LLM Firewall Gateway** (OpenAI-compatible proxy: sanitize, redact, policy, per-tenant limits, audit) | ✅ **picked + shipped**: `llm_proxy` + `/v1/proxy` routes + 27 tests + `examples/connected_ai_app.py`. See `docs/PRODUCT_BETS.md` | M |
+| 6.2 | **Agent Risk-Scoring SDK** (`pip install artsa-guard` / `npm i artsa-guard`; LangChain/CrewAI/AutoGen/MCP plugins) | 🔶 infra exists (`sdk/python`, `sdk/typescript` with middleware + CI); not formally packaged/published this pass | M |
+| 6.3 | **RAG Security Scanner** (poison detection + adversarial-retrieval test) | Open | M |
+| 6.4 | **MCP Kill-Chain Test Rig** (malicious MCP servers + assertion harness) | ✅ **picked + shipped (2026-08-20)**: `scripts/mcp_rig.py` + `tests/test_mcp_rig.py` (12 scenarios); see `docs/PRODUCT_BETS.md` | S |
 | 6.5 | **AI Incident Forensics** (trace replay, root-cause timeline, EU AI Act/ISO export) | Splunk-for-agents; uses forensics + compliance exporter | L |
 | 6.6 | **"Hack-the-Agent" CTF arena** (community + real attack data feed for 1.1) | Community + data moat | L |
 | 6.7 | **Multi-Agent "AI SOC" simulator** (mixed benign/malicious agents, containment score) | Demo + regression suite | M |
