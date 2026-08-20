@@ -20,10 +20,14 @@ export const dynamic = "force-dynamic";
 /** Server-only credential — never exposed to the client. */
 const SERVER_API_KEY = process.env.ARTSA_API_KEY || "";
 
-// Dashboard polls stay snappy; login/register need longer because PBKDF2
-// hashing often exceeds 2s.
-const PROXY_TIMEOUT_MS = 2_000;
+// Dashboard polls: allow time for uvicorn reload / cold start. Auth paths stay longer for PBKDF2.
+const PROXY_TIMEOUT_MS = 8_000;
 const AUTH_PROXY_TIMEOUT_MS = 20_000;
+const POLL_RETRY_DELAY_MS = 500;
+
+function isPollingPath(path: string): boolean {
+  return path.includes("health") || path.includes("metrics/dashboard") || path.includes("alerts");
+}
 
 function isOfflinePreviewAuthorization(authorization: string | null): boolean {
   const token = authorization?.trim().replace(/^Bearer\s+/i, "");
@@ -70,16 +74,33 @@ async function proxy(
   const method = request.method;
   const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
 
-  try {
-    const res = await fetch(target, {
+  const timeoutMs = isAuthCredentialPath(path) ? AUTH_PROXY_TIMEOUT_MS : PROXY_TIMEOUT_MS;
+
+  const forward = () =>
+    fetch(target, {
       method,
       headers,
       body,
       cache: "no-store",
-      signal: AbortSignal.timeout(
-        isAuthCredentialPath(path) ? AUTH_PROXY_TIMEOUT_MS : PROXY_TIMEOUT_MS
-      ),
+      signal: AbortSignal.timeout(timeoutMs),
     });
+
+  try {
+    let res: Response;
+    try {
+      res = await forward();
+    } catch (firstErr) {
+      const canRetry =
+        method === "GET" &&
+        isPollingPath(path) &&
+        firstErr instanceof Error &&
+        firstErr.name === "TimeoutError";
+      if (!canRetry) {
+        throw firstErr;
+      }
+      await new Promise((resolve) => setTimeout(resolve, POLL_RETRY_DELAY_MS));
+      res = await forward();
+    }
 
     const responseBody = await res.arrayBuffer();
     return new NextResponse(responseBody, {
