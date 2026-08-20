@@ -28,6 +28,12 @@ AVAILABLE_EMBEDDING_MODELS = {
         "dimensions": 384,
         "description": "Open-source BAAI/bge-small-en-v1.5 via FastEmbed (ONNX, offline)",
     },
+    "local-bge-multilingual": {
+        "dimensions": 384,
+        "description": "Open-source sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 "
+        "via FastEmbed (ONNX, offline, 50+ languages) — used by the eval gates so "
+        "multilingual injection classes are measured honestly",
+    },
     "local-minilm": {
         "dimensions": 384,
         "description": "Open-source sentence-transformers/all-MiniLM-L6-v2 via FastEmbed (ONNX, offline)",
@@ -40,6 +46,16 @@ AVAILABLE_EMBEDDING_MODELS = {
         "dimensions": 1536,
         "description": "OpenAI text-embedding-3-small (explicit opt-in only)",
     },
+}
+
+# Internal alias -> real FastEmbed model name. FastEmbed rejects our aliases
+# (they are config labels, not HF model ids); without this mapping every local
+# embed silently fell back to hash-1024 and the "semantic" layer was never
+# actually measured by the eval gates.
+FASTEMBED_MODEL_NAMES = {
+    "local-bge-small": "BAAI/bge-small-en-v1.5",
+    "local-bge-multilingual": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "local-minilm": "sentence-transformers/all-MiniLM-L6-v2",
 }
 
 
@@ -71,8 +87,8 @@ class HighAccuracy1024EmbeddingFunction:
     def __init__(self, model_name: str | None = None) -> None:
         self.model_name = model_name or settings.resolve_embedding_model()
         meta = AVAILABLE_EMBEDDING_MODELS.get(self.model_name, {})
-        self.dimensions = self.TARGET_DIMENSIONS
-        self._api_dimensions = int(meta.get("dimensions", self.TARGET_DIMENSIONS))
+        self.dimensions = int(meta.get("dimensions", self.TARGET_DIMENSIONS))
+        self._api_dimensions = self.dimensions
         self._openai_base = (settings.OPENAI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
         self._cache: dict[str, list[float]] = {}
         # Lazy FastEmbed model handle (one-time ONNX load / download).
@@ -92,7 +108,9 @@ class HighAccuracy1024EmbeddingFunction:
             else:
                 return self._hash_embed(text)
         except Exception as exc:
-            logger.warning("Embedding failed for %s (%s), falling back to hash-1024", self.model_name, exc)
+            logger.warning(
+                "Embedding failed for %s (%s), falling back to hash-1024", self.model_name, exc
+            )
             return self._hash_embed(text)
         if len(self._cache) >= self._CACHE_MAX:
             self._cache.pop(next(iter(self._cache)))
@@ -104,7 +122,8 @@ class HighAccuracy1024EmbeddingFunction:
         if self._local_model is None:
             from fastembed import TextEmbedding  # optional dependency
 
-            self._local_model = TextEmbedding(model_name=self.model_name)
+            model_name = FASTEMBED_MODEL_NAMES.get(self.model_name, self.model_name)
+            self._local_model = TextEmbedding(model_name=model_name)
         vector = next(self._local_model.embed([text]))
         values = [float(v) for v in vector]
         norm = math.sqrt(sum(v * v for v in values)) or 1.0

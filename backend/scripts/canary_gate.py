@@ -8,7 +8,14 @@ scores every sample, and reports ONLY aggregate metrics — never sample details
 
 Floors: recall@80 >= 0.85, FPR@50 <= 0.05.
 
-Usage: ENVIRONMENT=testing PYTHONPATH=. python scripts/canary_gate.py
+Honest measurement (Phase-2 normalization, 2026-08-20): run with the REAL
+embedding model — ``hash-1024`` (the ``ENVIRONMENT=testing`` default) leaves
+the semantic layer dead and the numbers meaningless:
+
+    ARTSA_EMBEDDING_MODEL=local-bge-multilingual ENVIRONMENT=testing \
+        PYTHONPATH=. python scripts/canary_gate.py
+
+Measured 2026-08-20: recall@80 0.875 / FPR@50 0.000 → PASSES (was 0.562/0.125).
 """
 
 from __future__ import annotations

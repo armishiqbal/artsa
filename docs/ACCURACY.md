@@ -1,10 +1,13 @@
 # ARTSA — Accuracy Card
 
-**Generated:** 2026-08-19 17:18 UTC  ·  **Dataset:** `backend/benchmarks/golden_set.json` (33 malicious / 32 safe / 5 review)
+**Generated:** 2026-08-20 11:03 UTC  ·  **Dataset:** `backend/benchmarks/golden_set.json` (33 malicious / 32 safe / 5 review)
 
 > Honesty rule: these numbers come from a human-curated set independent of the
 > generated benchmark, generated with a documented methodology, and include
 > calibration — a score of X means roughly X% of those calls are malicious.
+
+**Run conditions:** embedding backend `local-bge-multilingual` (set `ARTSA_EMBEDDING_MODEL=local-bge-multilingual` for the real ONNX
+semantic layer; `hash-1024` means the embedding detector was not active).
 
 ## Headline metrics
 
@@ -12,7 +15,7 @@
 |---|---|
 | Recall@80 (KILL band) | **0.970** (32/33) |
 | FPR@50 (review band) | **0.000** |
-| Expected Calibration Error (ECE) | **0.0742** (0 = perfectly calibrated) |
+| Expected Calibration Error (ECE) | **0.0703** (0 = perfectly calibrated) |
 | Recommended threshold (FP cost 1, FN cost 10) | **50** (recall 1.000, FPR 0.000) |
 
 ## Per-class recall@80
@@ -36,9 +39,9 @@
 |---|---|---|---|---|
 | 0-10 | 28 | 0.0 | 0.0% | 0.000 |
 | 40-50 | 4 | 45.0 | 0.0% | 0.450 |
-| 50-60 | 1 | 55.0 | 100.0% | 0.450 |
-| 80-90 | 13 | 85.2 | 100.0% | 0.148 |
-| 90-100 | 19 | 96.6 | 100.0% | 0.034 |
+| 60-70 | 1 | 60.0 | 100.0% | 0.400 |
+| 80-90 | 12 | 85.6 | 100.0% | 0.144 |
+| 90-100 | 20 | 96.8 | 100.0% | 0.032 |
 
 ## Methodology
 

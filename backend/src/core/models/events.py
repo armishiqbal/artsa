@@ -38,6 +38,7 @@ class SecurityEvent(BaseModel):
         "CREDENTIAL_THEFT",
         "REVERSE_SHELL",
         "EGRESS_TUNNEL",
+        "EGRESS_EXFIL",
         "PRIVILEGE_ESCALATION",
         "GOAL_DRIFT",
         "SANDBOX_ESCAPE",

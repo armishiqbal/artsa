@@ -21,6 +21,7 @@ from typing import ClassVar
 from src.containment.detectors.base import BaseDetector
 from src.containment.policies import load_org_policies
 from src.core.models.events import SecurityEvent, ToolCallEvent
+from src.utils.obfuscation import normalize_rule_match
 
 # Tools whose job is to *read or manipulate file paths / run shell commands*.
 # For these, dangerous path / command tokens indicate a real action on a target.
@@ -144,6 +145,31 @@ class RuleBasedDetector(BaseDetector):
             95.0,
             "Destructive file deletion command",
         ),
+        # ── Phase-2 gap closure: exfiltration carriers, tunneled egress ────
+        # Upload / POST-file / form / data-from-file egress, or a pipe straight
+        # into a remote sink (curl/wget/nc). These carry data OUT, so they are
+        # escalated above the enforcement threshold instead of the generic 60.
+        # Placed early: a command like ``wget --post-file=/etc/shadow …`` is an
+        # exfiltration event first and a sensitive-file read second.
+        (
+            (
+                r"(?i)(?:curl|wget)\b[^\n]*?(?:--post-file|--upload-file|"
+                r"--data-binary\s+@|-T\s+|-F\s+\S*@|-d\s+@)\S*|"
+                r"(?:cat|tar|openssl|base64|gzip|dd|tee)[^\n]*\|\s*(?:curl|wget|nc|ncat)\b"
+            ),
+            "EGRESS_EXFIL",
+            "CRITICAL",
+            88.0,
+            "Data exfiltration — file upload / pipe-to-remote network egress",
+        ),
+        # Tunneled egress: ssh ProxyCommand / netcat proxy mode / socat relays.
+        (
+            r"(?i)nc(?:\s|\$IFS)*-x\b|ProxyCommand|socat\b[^\n]*(?:TCP|UDP):",
+            "REVERSE_SHELL",
+            "CRITICAL",
+            88.0,
+            "Tunneled egress — ssh ProxyCommand / netcat proxy / socat relay",
+        ),
         (
             r"(?i)/etc/(?:passwd|shadow|sudoers|gshadow)|\.env",
             "CREDENTIAL_THEFT",
@@ -219,6 +245,21 @@ class RuleBasedDetector(BaseDetector):
             88.0,
             "Sensitive credential / runtime environment file access (normalized)",
         ),
+        # Phase-2 gap closure: agent credential stores the canary/independent
+        # sets proved were missed (.aws/config, .netrc, azure/gcloud, kube,
+        # shell history, PowerShell PSReadLine console history).
+        (
+            (
+                r"(?i)\.aws/config|\.netrc\b|\.azure/|\.gcloud/|"
+                r"\.kube/config|serviceaccount/token|"
+                r"\.bash_history|\.zsh_history|\.fish_history|"
+                r"PSReadLine|ConsoleHost_history"
+            ),
+            "CREDENTIAL_THEFT",
+            "HIGH",
+            85.0,
+            "Agent credential store / shell history access",
+        ),
     ]
 
     def __init__(self, policy_path: str | Path | None = None) -> None:
@@ -230,17 +271,42 @@ class RuleBasedDetector(BaseDetector):
     def _normalize(text: str) -> str:
         """De-obfuscate a string before regex matching.
 
+        Phase-2 obfuscation normalization (zero-width strip, literal ``\\uXXXX``
+        escape decoding, NFKC, homoglyph transliteration) then:
+
         * URL-decode percent-encoding (``%2f`` -> ``/``, ``%2e`` -> ``.``).
         * Collapse ``//`` and ``/./`` sequences used to evade filters.
         * Lowercase for case-insensitive matching of path/command tokens.
+
+        Note: digit-leetspeak is deliberately NOT decoded here (numeric tokens
+        such as IPs / ports must stay intact); callers still match the original
+        text as well, so an obfuscated command (``сurl`` with a Cyrillic ``с``)
+        is matchable via either representation.
         """
-        lowered = text.lower()
+        cleaned = normalize_rule_match(text)
+        lowered = cleaned.lower()
         # Decode percent-encoding (most common: %2f=%2F=/ , %2e=. , %20=space)
         decoded = urllib.parse.unquote(lowered)
         # Collapse double slashes and dot-slash segments: // , /./ , /../.
         collapsed = re.sub(r"/\./|/{2,}", "/", decoded)
         collapsed = re.sub(r"/\.\./", "/../", collapsed)
         return collapsed
+
+    @staticmethod
+    def _carries_authorization(text: str) -> bool:
+        """True when the command is an *authenticated API client call* rather
+        than anonymous exfiltration: an ``-H 'Authorization: …'`` header, a
+        ``--oauth2-bearer`` token, or curl ``-u user:pass`` basic auth. Such
+        calls are surfaced (45) but not enforced — a legitimate agent reading
+        e.g. Stripe billing data must not be quarantined for the act of using
+        the API it is supposed to use."""
+        return bool(
+            re.search(
+                r"(?i)-h\s*['\"]?authorization:|--oauth2-bearer\s+"
+                r"\S+|(?:\bcurl|\bwget)\s+[^\n]*-u\s+\S+:\S+",
+                text,
+            )
+        )
 
     def _is_content_mention(self, tool_name: str, text: str) -> bool:
         """Heuristically detect an operational command vs. quoted/search text.
@@ -278,21 +344,41 @@ class RuleBasedDetector(BaseDetector):
         # Determine context: is this an operational command target or quoted prose?
         content_mention = self._is_content_mention(tool_name, normalized)
 
-        for pattern, event_type, severity, risk_score, desc in self.PATTERNS:
-            if re.search(pattern, normalized):
+        # Match BOTH representations: the normalized form catches homoglyph /
+        # unicode-escaped obfuscation (e.g. a Cyrillic ``с`` inside ``curl``),
+        # while the raw form protects numeric fidelity (IPs / ports / versions).
+        candidates = [raw_combined.lower()]
+        if normalized != candidates[0]:
+            candidates.append(normalized)
+
+        for text in candidates:
+            for pattern, event_type, severity, risk_score, desc in self.PATTERNS:
+                if not re.search(pattern, text):
+                    continue
                 # A call reaching only loopback/private hosts is ordinary work
                 # (local API health checks), never EGRESS_TUNNEL.
-                if event_type == "EGRESS_TUNNEL" and _egress_target_is_trusted(normalized):
+                if event_type == "EGRESS_TUNNEL" and _egress_target_is_trusted(text):
                     continue
                 score = risk_score
                 # A metadata / egress probe to an RFC-reserved documentation
                 # domain (example.com / example.org / .invalid / .test) is a
                 # look-alike, not a real exfiltration target — surface, don't kill.
                 if event_type in ("EGRESS_TUNNEL", "CREDENTIAL_THEFT") and re.search(
-                    r"\.(example\.(com|org)|invalid|test|localhost)(/|\s|$)", normalized
+                    r"(?i)\bexample\.(?:com|org)\b|\.(?:invalid|test|localhost)\b", text
                 ):
                     score = 55.0
                     severity = "HIGH" if severity == "CRITICAL" else severity
+                # An authenticated API client call (Authorization header / basic
+                # auth) is not anonymous exfiltration — surface below the
+                # enforcement threshold (QUARANTINE >= 50) so legitimate agents
+                # can use the APIs they are supposed to use.
+                elif (
+                    event_type == "EGRESS_TUNNEL"
+                    and score >= 60.0
+                    and self._carries_authorization(text)
+                ):
+                    score = 45.0
+                    severity = "MEDIUM"
                 # If the match is a mention in quoted/search prose, downgrade
                 # below the enforcement threshold (QUARANTINE >= 50) so the
                 # legitimate content is surfaced but never neutralized.

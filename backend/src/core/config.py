@@ -221,7 +221,7 @@ class Settings(BaseSettings):
     EDS_LATENCY_THRESHOLD_MS: float = 50.0
 
     # ── Detection / embeddings ──────────────────────────────────────────
-    ARTSA_EMBEDDING_MODEL: str = "auto"  # auto | hash-1024 | local-bge-small | local-minilm | text-embedding-3-small | text-embedding-3-large
+    ARTSA_EMBEDDING_MODEL: str = "auto"  # auto | hash-1024 | local-bge-small | local-bge-multilingual | local-minilm | text-embedding-3-small | text-embedding-3-large
 
     # WS-2.4: org-policy scoring. Deterministic YAML rules always apply; the RAG
     # semantic corroboration (adds a small boost when a violation clause is
@@ -240,13 +240,19 @@ class Settings(BaseSettings):
     ARTSA_JUDGE_TIMEOUT_SEC: float = 0.6
 
     def resolve_embedding_model(self) -> str:
-        """Pick embedding backend: hash in tests; open-source local ONNX model
-        (FastEmbed) when installed; explicit override otherwise. `auto` NEVER
-        selects a vendor API (OpenAI embeddings are explicit opt-in only)."""
-        if self.is_testing:
-            return "hash-1024"
+        """Pick embedding backend: hash in tests by default; open-source local
+        ONNX model (FastEmbed) when installed; explicit override otherwise.
+        `auto` NEVER selects a vendor API (OpenAI embeddings are opt-in only).
+
+        An explicit ``ARTSA_EMBEDDING_MODEL`` wins even in ``testing`` so the
+        eval gates (canary / red-team / accuracy card) can measure the REAL
+        semantic layer — previously ``testing`` hard-pinned hash-1024 and the
+        published generalization numbers came from a dead embedding detector.
+        """
         if self.ARTSA_EMBEDDING_MODEL != "auto":
             return self.ARTSA_EMBEDDING_MODEL
+        if self.is_testing:
+            return "hash-1024"
         from src.data.embedding_manager import fastembed_available
 
         if fastembed_available():
@@ -289,7 +295,11 @@ class Settings(BaseSettings):
     @property
     def effective_database_url(self) -> str:
         if self.USE_SQLITE:
-            return self.DATABASE_URL if "sqlite" in self.DATABASE_URL else "sqlite+aiosqlite:///./data/artsa.db"
+            return (
+                self.DATABASE_URL
+                if "sqlite" in self.DATABASE_URL
+                else "sqlite+aiosqlite:///./data/artsa.db"
+            )
         url = self.DATABASE_URL
         if url.startswith("postgresql://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -321,7 +331,10 @@ class Settings(BaseSettings):
         val = getattr(self, key_name, None)
         if val is None:
             return False
-        return not (isinstance(val, str) and val.strip() in ("", "mock-key", "mock-key-for-testing", "change-me-in-production"))
+        return not (
+            isinstance(val, str)
+            and val.strip() in ("", "mock-key", "mock-key-for-testing", "change-me-in-production")
+        )
 
 
 settings = Settings()

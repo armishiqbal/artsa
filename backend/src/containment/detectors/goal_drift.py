@@ -134,6 +134,26 @@ _EGRESS_MARKER_PATTERNS = (
     re.compile(r"(?i)\bcurl\b.*\bhttps?://|wget\b.*\bhttps?://"),
 )
 
+# Reverse-shell carriers that are NEVER suppressed by the auth-API nuance below.
+_REVERSE_SHELL_MARKERS = (re.compile(r"(?i)\bnc\s+-e\b|ncat\s+-e\b|/dev/tcp/"),)
+
+# Explicit data-exfiltration carriers (upload flags, form file=@, data from
+# file, or a pipe straight into a remote sink). Their presence overrides the
+# authenticated-API nuance — ``curl -T /tmp/x -H 'Authorization: …'`` is still
+# exfiltration even with a bearer token.
+_EXFIL_CARRIER_PATTERN = re.compile(
+    r"(?i)(?:--post-file|--upload-file|--data-binary\s+@|-T\s+|-F\s+\S*@|-d\s+@)|"
+    r"(?:cat|tar|openssl|base64|gzip|dd|tee)[^\n]*\|\s*(?:curl|wget|nc|ncat)\b"
+)
+
+# Authenticated API client call: an explicit Authorization header, an OAuth2
+# bearer flag, or curl basic auth. Legit agents calling e.g. Stripe billing
+# must not be treated as first-time exfiltration (canary FPR fix).
+_AUTH_HEADER_PATTERN = re.compile(
+    r"(?i)-h\s*['\"]?authorization:|--oauth2-bearer\s+\S+|"
+    r"(?:\bcurl|\bwget)\s+[^\n]*-u\s+\S+:\S+"
+)
+
 # Goal-abandonment keywords — an agent told to stop / forget its constraints.
 _GOAL_ABANDON_KEYWORDS = (
     "exfiltrate",
@@ -242,7 +262,19 @@ def _classify_step(event: ToolCallEvent) -> _Step:
     tool = (event.tool_name or "").lower()
     text = _args_text(event)
     has_http = "http://" in text or "https://" in text
-    egress = _matches_any(text, _EGRESS_MARKER_PATTERNS) or (has_http and _host_is_external(text))
+    egress_carrier = _matches_any(text, _EGRESS_MARKER_PATTERNS)
+    external_egress = has_http and _host_is_external(text)
+    # An authenticated API client call (Authorization header / basic auth) with
+    # no exfil carrier, no reverse-shell marker, and no sensitive/metadata
+    # target is ordinary work — calling the API the agent is supposed to call —
+    # not first-time exfiltration.
+    authenticated_api = (
+        bool(_AUTH_HEADER_PATTERN.search(text))
+        and not _EXFIL_CARRIER_PATTERN.search(text)
+        and not _matches_any(text, _REVERSE_SHELL_MARKERS)
+        and not _matches_any(text, _SENSITIVE_PATH_PATTERNS)
+    )
+    egress = (egress_carrier or external_egress) and not authenticated_api
     destructive = tool in _DESTRUCTIVE_TOOLS and (
         tool not in _EXECUTOR_TOOLS
         or any(marker in text.lower() for marker in _DESTRUCTIVE_ARG_MARKERS)

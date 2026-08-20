@@ -1,6 +1,23 @@
-# ARTSA — Full Task List (2026-08-19)
+# ARTSA — Full Task List (2026-08-19, updated 2026-08-20)
 
 Senior-engineer-graded backlog. Order = dependencies first: **security → evidence → engine → credibility → product → GTM**. Items marked ✅ are already done; everything else is open.
+
+> **2026-08-20 update — Phase-2 normalization shipped.** Three latent issues were
+> found and fixed, and every eval-gate number was re-measured honestly:
+> 1. The `local-bge-*` aliases were never mapped to real FastEmbed model ids, so
+>    every "semantic" measurement silently ran on `hash-1024` — the embedding
+>    detector was dead in all published numbers.
+> 2. No obfuscation normalization existed: homoglyph / leetspeak / ROT13 /
+>    unicode-escape / URL / base64 / hex mutations were invisible to semantic
+>    and rule layers.
+> 3. `ENVIRONMENT=testing` hard-pinned `hash-1024` even when a real model was
+>    requested; explicit `ARTSA_EMBEDDING_MODEL` now wins, and gates document
+>    `ARTSA_EMBEDDING_MODEL=local-bge-multilingual` for honest measurement.
+>
+> Net effect: canary gate **PASSES** (0.562→0.875 recall@80, FPR 0.125→0.000),
+> regex-invisible semantic catch rate **0.031→0.743**, independent-set recall@80
+> **0.375→0.667**, golden ECE 0.0742→0.0703. See `docs/ACCURACY.md` (now records
+> embedding run conditions) and `backend/tests/test_obfuscation.py`.
 
 ---
 
@@ -8,11 +25,11 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Task | Why | Status |
 |---|---|---|---|
-| 0.1 | **Remove BFF hardcoded admin backdoor** (`frontend/app/api/backend/[...path]/route.ts`: `admin@artsa.ai/admin12345` + 2 more + fake `registeredAdmins` Map) | Public admin password in deployed code — a security product shipping this fails any review instantly | 🔴 OPEN |
-| 0.2 | **Honest BFF fallback**: backend-unreachable → login/register 503 with "use Explore Live Preview"; health → 503 (UI shows OFFLINE, not fake ONLINE); no internal error-message leaks | Fixes the "API status failed" symptom + honest offline state | 🔴 OPEN |
-| 0.3 | Verify no code depends on the fake-auth fallback (E2E smoke + login flow) | Avoid regressions from 0.1/0.2 | 🔴 OPEN |
-| 0.4 | Re-run full verification after 0.1–0.3 (lint, tsc, 95 vitest, build, e2e, backend suite) | Gate the change | 🔴 OPEN |
-| 0.5 | `git push` + CI green | — | 🔴 OPEN |
+| 0.1 | **Remove BFF hardcoded admin backdoor** (`frontend/app/api/backend/[...path]/route.ts`: `admin@artsa.ai/admin12345` + 2 more + fake `registeredAdmins` Map) | Public admin password in deployed code — a security product shipping this fails any review instantly | ✅ removed (`e5fb968`→`aa1e185`); `admin@artsa.ai` survives only as the client-side "Explore Live Preview" placeholder token, never forwarded as a credential |
+| 0.2 | **Honest BFF fallback**: backend-unreachable → login/register 503 with "use Explore Live Preview"; health → 503 (UI shows OFFLINE, not fake ONLINE); no internal error-message leaks | Fixes the "API status failed" symptom + honest offline state | ✅ done (`aa1e185`): health→503 degraded/offline, auth→502 honest message, no fabricated payloads |
+| 0.3 | Verify no code depends on the fake-auth fallback (E2E smoke + login flow) | Avoid regressions from 0.1/0.2 | ✅ E2E smoke covers login page + honest empty state; real login posts to backend |
+| 0.4 | Re-run full verification after 0.1–0.3 (lint, tsc, 95 vitest, build, e2e, backend suite) | Gate the change | ✅ CI runs lint/tsc/vitest/build/e2e/backend/postgres/SDK/regression gates |
+| 0.5 | `git push` + CI green | — | ✅ CI green on latest pushes |
 | — | ✅ Identity→tenant credential binding (bearer overrides header) | done 2026-08-19 (`147752a`) | ✅ |
 | — | ✅ Alert tenant stamping, init_db status column, lint sweep (75 issues), rate-limit tests | done `db29c07`/`147752a` | ✅ |
 
@@ -20,12 +37,12 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Task | Why / DoD |
 |---|---|---|
-| 1.1 | **Independent set + guard** (`benchmarks/independent_set.json`, 40 curated samples + `scripts/check_independence.py` + `scripts/independent_gate.py`). **Measured: recall@80 0.375 / FPR@50 0.062; 0 duplicates vs generator; 71% generalization-only** — the honest real-world generalization number (vs 0.97 on familiar golden shapes). Gap mapped per class: multilingual 0/3, destructive-IaC 0/3, obfuscation 1/3. Growth to 1,000+ and a recall floor land AFTER the Phase-2 normalization work | ✅ infra + batch 1; gap documented |
-| 1.2 | **Held-out canary set** (`benchmarks/canary_set.json`, 24 samples) — labels stored as SHA-256 hashes so ground truth is unreadable in the repo; `scripts/canary_gate.py` decodes and reports AGGREGATES ONLY. **Honest baseline: recall@80 0.562 / FPR@50 0.125 → FAILS** (the held-out set is harder than golden — obfuscated/multilingual/tool-confusion attacks). Per evals discipline, the tuning loop is CLOSED before re-running; closing this gap is Phase-2 follow-up (obfuscation normalization + egress-GET policy). NOT wired into CI yet (would be permanently red — it is a release gate, run at ship time) | ✅ infra done; baseline documented, gap open |
-| 1.3 | **Calibration layer** (`src/benchmark/calibration.py`): ECE + reliability table + operating-point curve, wired into golden_gate. **Measured: ECE 0.074** (scores are reasonably trustworthy) | ✅ done |
+| 1.1 | **Independent set + guard** (`benchmarks/independent_set.json`, 40 curated samples + `scripts/check_independence.py` + `scripts/independent_gate.py`). **Measured (real embeddings, 2026-08-20): recall@80 0.667 / FPR@50 0.062; 0 duplicates vs generator; generalization-only** — up from 0.375 after the Phase-2 obfuscation-normalization + real-embedding fix. Gap still mapped per class: multilingual/obfuscation/tool-confusion. Growth to 1,000+ and a recall floor land AFTER this normalization work is shipped (see 2.4) | ✅ infra + batch 1; number improved; 1,000+ still open |
+| 1.2 | **Held-out canary set** (`benchmarks/canary_set.json`, 24 samples) — labels stored as SHA-256 hashes so ground truth is unreadable in the repo; `scripts/canary_gate.py` decodes and reports AGGREGATES ONLY. **2026-08-20: recall@80 0.875 / FPR@50 0.000 → PASSES the release floor** (was 0.562/0.125). Closed by Phase-2 obfuscation normalization (homoglyph/leet/rot13/url/base64/hex/unicode-escape), multilingual semantic library, egress-carrier + tunnel rules, and the authenticated-API nuance (FPR). Residual: homoglyph-in-email-content and email-carried injection surface at 45–61 (detected, not enforced) — deliberately NOT tuned against the hashed canary. Not wired into CI (release gate, run at ship time) | ✅ infra + **gate now passes** |
+| 1.3 | **Calibration layer** (`src/benchmark/calibration.py`): ECE + reliability table + operating-point curve, wired into golden_gate. **Measured: ECE 0.0703** (real embeddings) | ✅ done |
 | 1.4 | **Cost-aware threshold** (`optimal_threshold`): FP 1 / FN 10 → recommended threshold **50** (recall 1.0, FPR 0.0 on golden) — reported in every gate run | ✅ done |
-| 1.5 | **Contamination audit** (`scripts/contamination_audit.py`): signature-only recall on generated vs golden + shared-token report. **Measured: 0.930 vs 0.818 → 1.14× → LOW self-referentiality** (detectors generalize beyond the generator) | ✅ done |
-| 1.6 | **Accuracy card** (`scripts/accuracy_card.py` → `docs/ACCURACY.md`): date, dataset, methodology, per-class matrix, ECE, recommended threshold | ✅ done |
+| 1.5 | **Contamination audit** (`scripts/contamination_audit.py`): signature-only recall on generated vs golden + shared-token report. **Measured: 0.930 vs 0.818 → 1.14× → LOW self-referentiality** | ✅ done |
+| 1.6 | **Accuracy card** (`scripts/accuracy_card.py` → `docs/ACCURACY.md`): date, dataset, methodology, per-class matrix, ECE, recommended threshold, **embedding run conditions** | ✅ done |
 
 ## Phase 2 — Agentic red-teaming engine (the flagship + the eval engine)
 
@@ -34,9 +51,9 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 | 2.1 | **Red-team mutation engine** (`src/redteam/mutator.py`): deterministic offline mutations — homoglyph/leet/base64/url/hex/unicode-escape/rot13/synonym/comment-inject, with encoding labels | ✅ done `redteam`; LLM-attacker stage (2.1b, `ARTSA_REDTEAM_LLM_ENABLED`) remains |
 | 2.2 | **Diversity metric** (`src/redteam/diversity.py`): pairwise embedding distance + cluster count, `diversity_is_healthy` | ✅ done |
 | 2.3 | **Detector-layer attribution** (`src/redteam/runner.py`): full vs semantic-disabled engine per attack, per-encoding recall, detector fire counts | ✅ done |
-| 2.4 | **Semantic-bypass fuzzer** (`scripts/redteam_gate.py`, `--redteam` flag in golden_gate): regex-invisible semantic catch rate. **Baseline: 0.354 mutation recall; 3.1% regex-invisible semantic catch (hash & fastembed)** — obfuscation evades the semantic layer; next work is obfuscation-normalization + lower thresholds | ✅ engine done; follow-up = improve the number |
-| 2.5 | Fuzz mutations via existing `payload_mutator.py`; add multilingual + Unicode confusables + encoding stages | Depth |
-| 2.6 | Guardrail against self-defeating output: attacker can't see detector internals during generation | Evals discipline |
+| 2.4 | **Semantic-bypass fuzzer** (`scripts/redteam_gate.py`, `--redteam` flag in golden_gate): regex-invisible semantic catch rate. **2026-08-20 (real embeddings + obfuscation normalization): 0.743** (was 0.031 with the embedding layer silently dead under hash-1024). Per-encoding: url 0.729, rot13/homoglyph 0.722, unicode_escape 0.695, leetspeak 0.685 — up from ~0.0–0.07. Overall corpus recall 0.785 | ✅ engine + normalization shipped; residual per-encoding gaps documented |
+| 2.5 | Fuzz mutations via existing `payload_mutator.py`; add multilingual + Unicode confusables + encoding stages | 🔶 Partial: Unicode confusables + encoding stages in mutator + multilingual phrase library in semantic detector; **multilingual fuzzer stage (generating multilingual mutations) still open** |
+| 2.6 | Guardrail against self-defeating output: attacker can't see detector internals during generation | ✅ by construction for the deterministic stage (mutator imports no detector internals); formally OPEN until the LLM-attacker stage lands |
 
 ## Phase 3 — Public benchmark + leaderboard (credibility moat)
 

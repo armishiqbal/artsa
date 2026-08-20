@@ -14,7 +14,15 @@ mutation diversity, runs it through the containment engine, and reports:
 No hard recall floor by default (it's an evidence generator); pass
 ``--fail-below <recall>`` to make it a gate.
 
-Usage: ENVIRONMENT=testing PYTHONPATH=. python scripts/redteam_gate.py [--fail-below 0.5]
+Honest measurement (Phase-2 normalization, 2026-08-20): run with the REAL
+embedding model, otherwise the semantic layer is dead and the regex-invisible
+catch rate reads ~0:
+
+    ARTSA_EMBEDDING_MODEL=local-bge-multilingual ENVIRONMENT=testing \
+        PYTHONPATH=. python scripts/redteam_gate.py
+
+Measured 2026-08-20: regex-invisible semantic catch rate 0.743 (was 0.031);
+overall corpus recall 0.785.
 """
 
 from __future__ import annotations
@@ -60,8 +68,12 @@ def _base_phrases() -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="ARTSA red-team mutation gate")
-    parser.add_argument("--fail-below", type=float, default=None,
-                        help="exit 1 if overall corpus recall is below this")
+    parser.add_argument(
+        "--fail-below",
+        type=float,
+        default=None,
+        help="exit 1 if overall corpus recall is below this",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--json", action="store_true", help="print report as JSON")
     args = parser.parse_args()
@@ -74,17 +86,24 @@ def main() -> int:
     report = evaluate_attacks(corpus)
 
     if args.json:
-        print(json.dumps({
-            "diversity": diversity.to_dict(),
-            "report": report.to_dict(),
-            "seed_phrases": len(bases),
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "diversity": diversity.to_dict(),
+                    "report": report.to_dict(),
+                    "seed_phrases": len(bases),
+                },
+                indent=2,
+            )
+        )
         return 0
 
     print(f"Seed phrases: {len(bases)}  |  Corpus: {report.corpus_size} variants")
-    print(f"Diversity : mean_pairwise_distance={diversity.mean_pairwise_distance:.3f} "
-          f"clusters={diversity.distinct_clusters} "
-          f"healthy={diversity_is_healthy(diversity)}")
+    print(
+        f"Diversity : mean_pairwise_distance={diversity.mean_pairwise_distance:.3f} "
+        f"clusters={diversity.distinct_clusters} "
+        f"healthy={diversity_is_healthy(diversity)}"
+    )
     print(f"Recall    : {report.caught}/{report.corpus_size} = {report.recall:.3f}")
     print("By encoding:")
     for enc, stats in sorted(report.by_encoding.items()):
@@ -92,9 +111,11 @@ def main() -> int:
     print("Detector fires:")
     for det, count in report.detector_fires.items():
         print(f"  {det:<28} {count}")
-    print(f"\nREGEX-INVISIBLE SEMANTIC CATCH RATE: "
-          f"{report.regex_invisible_semantic_caught}/{report.regex_invisible_total} "
-          f"= {report.regex_invisible_semantic_catch_rate:.3f}")
+    print(
+        f"\nREGEX-INVISIBLE SEMANTIC CATCH RATE: "
+        f"{report.regex_invisible_semantic_caught}/{report.regex_invisible_total} "
+        f"= {report.regex_invisible_semantic_catch_rate:.3f}"
+    )
 
     if args.fail_below is not None and report.recall < args.fail_below:
         print(f"\nRED-TEAM GATE FAILED: recall {report.recall:.3f} < {args.fail_below}")

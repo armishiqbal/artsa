@@ -42,6 +42,9 @@ def main() -> int:
     data = __import__("json").loads(GOLDEN_SET.read_text(encoding="utf-8"))
     samples = data["samples"]
     engine = ContainmentEngine()
+    from src.core.config import settings
+
+    embedding_model = settings.resolve_embedding_model()
 
     malicious = [s for s in samples if s["label"] == "malicious"]
     safe = [s for s in samples if s["label"] == "safe"]
@@ -71,23 +74,33 @@ def main() -> int:
     lines = [
         "# ARTSA — Accuracy Card",
         "",
-        (f"**Generated:** {now}  ·  **Dataset:** `backend/benchmarks/golden_set.json` "
-        f"({len(malicious)} malicious / {len(safe)} safe / "
-        f"{sum(1 for s in samples if s['label']=='review')} review)"),
+        (
+            f"**Generated:** {now}  ·  **Dataset:** `backend/benchmarks/golden_set.json` "
+            f"({len(malicious)} malicious / {len(safe)} safe / "
+            f"{sum(1 for s in samples if s['label'] == 'review')} review)"
+        ),
         "",
         "> Honesty rule: these numbers come from a human-curated set independent of the",
         "> generated benchmark, generated with a documented methodology, and include",
         "> calibration — a score of X means roughly X% of those calls are malicious.",
         "",
+        (
+            f"**Run conditions:** embedding backend `{embedding_model}` "
+            "(set `ARTSA_EMBEDDING_MODEL=local-bge-multilingual` for the real ONNX "
+            "semantic layer; `hash-1024` means the embedding detector was not active)."
+        ),
+        "",
         "## Headline metrics",
         "",
         "| Metric | Value |",
         "|---|---|",
-        f"| Recall@80 (KILL band) | **{recall80:.3f}** ({sum(1 for s,_ in mal_pairs if s>=80)}/{len(mal_pairs)}) |",
+        f"| Recall@80 (KILL band) | **{recall80:.3f}** ({sum(1 for s, _ in mal_pairs if s >= 80)}/{len(mal_pairs)}) |",
         f"| FPR@50 (review band) | **{fpr50:.3f}** |",
         f"| Expected Calibration Error (ECE) | **{cal.ece:.4f}** (0 = perfectly calibrated) |",
-        (f"| Recommended threshold (FP cost 1, FN cost 10) | **{rec.threshold}** "
-        f"(recall {rec.recall:.3f}, FPR {rec.fpr:.3f}) |"),
+        (
+            f"| Recommended threshold (FP cost 1, FN cost 10) | **{rec.threshold}** "
+            f"(recall {rec.recall:.3f}, FPR {rec.fpr:.3f}) |"
+        ),
         "",
         "## Per-class recall@80",
         "",
@@ -95,7 +108,7 @@ def main() -> int:
         "|---|---|",
     ]
     for cls, (caught, total) in sorted(per_class.items()):
-        lines.append(f"| {cls} | {caught}/{total} = {caught/total:.2f} |")
+        lines.append(f"| {cls} | {caught}/{total} = {caught / total:.2f} |")
 
     lines += [
         "",
@@ -107,7 +120,7 @@ def main() -> int:
     for r in cal.reliability:
         lines.append(
             f"| {r.bin_range[0]:.0f}-{r.bin_range[1]:.0f} | {r.count} | "
-            f"{r.mean_score:.1f} | {r.fraction_malicious*100:.1f}% | "
+            f"{r.mean_score:.1f} | {r.fraction_malicious * 100:.1f}% | "
             f"{r.calibration_gap:.3f} |"
         )
 
@@ -124,8 +137,10 @@ def main() -> int:
     ]
     args.out.write_text("\n".join(lines), encoding="utf-8")
     print(f"Accuracy card written to {args.out}")
-    print(f"  recall@80={recall80:.3f}  FPR@50={fpr50:.3f}  ECE={cal.ece:.4f}  "
-          f"recommended_threshold={rec.threshold}")
+    print(
+        f"  recall@80={recall80:.3f}  FPR@50={fpr50:.3f}  ECE={cal.ece:.4f}  "
+        f"recommended_threshold={rec.threshold}"
+    )
     return 0
 
 
