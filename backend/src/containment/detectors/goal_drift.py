@@ -155,18 +155,35 @@ _AUTH_HEADER_PATTERN = re.compile(
 )
 
 # Goal-abandonment keywords — an agent told to stop / forget its constraints.
-_GOAL_ABANDON_KEYWORDS = (
-    "exfiltrate",
-    "exfil",
-    "exfiltration",
-    "disable safety",
-    "disable your safety",
-    "ignore all previous",
-    "ignore all instructions",
-    "forget your instructions",
-    "forget all instructions",
-    "override system",
-    "system override",
+# Compiled with word boundaries so "exfil" does NOT match defensive prose like
+# "defend against exfiltration" (which is precisely a query a security agent
+# SHOULD run) or "system override" inside a changelog.
+_GOAL_ABANDON_PATTERNS = (
+    re.compile(r"(?i)\bexfil(?:trate|tration|trating)?\b"),
+    re.compile(r"(?i)\bdisable\s+(?:your\s+)?safety\b"),
+    re.compile(r"(?i)\bignore\s+(?:all\s+)?(?:previous|prior|earlier)\b"),
+    re.compile(r"(?i)\bforget\s+(?:your\s+|all\s+|the\s+)?instructions?\b"),
+    re.compile(r"(?i)\boverride\s+system\b"),
+    re.compile(r"(?i)\bsystem\s+override\b"),
+)
+
+# Content-scoped tools: queries / documents / emails that merely *mention* an
+# attack keyword are research or quoted text, not the agent abandoning its goal
+# (e.g. "how to defend against exfiltration via DNS tunneling").
+_CONTENT_KEYWORD_TOOLS = frozenset(
+    {
+        "search_documents",
+        "query_vector_db",
+        "search",
+        "query",
+        "summarize",
+        "translate",
+        "create_ticket",
+        "update_document",
+        "create_document",
+        "read_file",
+        "write_file",
+    }
 )
 
 # Benign goal verbs — when the declared goal is one of these and the action is
@@ -322,25 +339,29 @@ class GoalDriftDetector(BaseDetector):
         low = args_text.lower()
 
         # --- Signal 1: literal goal abandonment (kept, fires on single calls) ---
-        for keyword in _GOAL_ABANDON_KEYWORDS:
-            if keyword in low:
-                return SecurityEvent(
-                    session_id=event.session_id,
-                    agent_id=event.agent_id,
-                    event_type="GOAL_DRIFT",
-                    severity="CRITICAL",
-                    risk_score=85.0,
-                    description=(
-                        "Goal drift detected: agent trajectory diverged toward "
-                        "goal abandonment / exfiltration"
-                    ),
-                    evidence={
-                        "tool_name": event.tool_name,
-                        "arguments": event.arguments,
-                        "signal": f"goal_abandon_keyword:{keyword}",
-                    },
-                    detector=self.name,
-                )
+        # Content-scoped tools are exempt: a search/summary that *mentions* an
+        # attack keyword is research or quoted text, not the agent abandoning
+        # its goal.
+        if (event.tool_name or "").lower() not in _CONTENT_KEYWORD_TOOLS:
+            for pattern in _GOAL_ABANDON_PATTERNS:
+                if pattern.search(low):
+                    return SecurityEvent(
+                        session_id=event.session_id,
+                        agent_id=event.agent_id,
+                        event_type="GOAL_DRIFT",
+                        severity="CRITICAL",
+                        risk_score=85.0,
+                        description=(
+                            "Goal drift detected: agent trajectory diverged toward "
+                            "goal abandonment / exfiltration"
+                        ),
+                        evidence={
+                            "tool_name": event.tool_name,
+                            "arguments": event.arguments,
+                            "signal": f"goal_abandon_keyword:{pattern.pattern}",
+                        },
+                        detector=self.name,
+                    )
 
         # --- Record the step before history checks (first call is baseline) ---
         step = _classify_step(event)

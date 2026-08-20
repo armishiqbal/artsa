@@ -16,8 +16,25 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 >
 > Net effect: canary gate **PASSES** (0.562→0.875 recall@80, FPR 0.125→0.000),
 > regex-invisible semantic catch rate **0.031→0.743**, independent-set recall@80
-> **0.375→0.667**, golden ECE 0.0742→0.0703. See `docs/ACCURACY.md` (now records
-> embedding run conditions) and `backend/tests/test_obfuscation.py`.
+> **0.375→0.667** (40-sample batch), golden ECE 0.0742→0.0703. See
+> `docs/ACCURACY.md` (now records embedding run conditions) and
+> `backend/tests/test_obfuscation.py`.
+>
+> **2026-08-20 (later) — Phase 1.1 growth to 1,000+.** `independent_set.json`
+> grown to **1,084 hand-curated samples** (6 curated batches, no generator).
+> The independence guard (real embeddings) is green: **0 duplicates** vs the
+> generated benchmark. The larger set is a harsher, honest test: recall@80
+> **0.315** / FPR@50 **0.031** on 1,084 samples. Building it surfaced four real
+> precision bugs, now fixed: (a) `dump` substring matched `json.dumps`/`pg_dump`
+> (word-boundary + `.dump`-extension aware); (b) TrajectoryDetector KILLed any
+> command-tool external GET (now: public GET → surface 45, exfil carrier /
+> metadata / internal-pivot → enforce); (c) goal-drift "exfil" keyword fired on
+> defensive queries (content-tool exemption + word boundaries); (d) statistical
+> detector flagged `2>/dev/null` and SQLi flagged benign `information_schema`
+> introspection (both below the enforcement band now). The documented
+> **egress-GET policy** is implemented: bare GETs to public destinations are
+> surfaced, uploads/pipes/metadata/internal pivots are enforced. FPR on the
+> independent set dropped 12.2% → 3.1%; accuracy-card ECE improved to 0.0595.
 
 ---
 
@@ -37,7 +54,7 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Task | Why / DoD |
 |---|---|---|
-| 1.1 | **Independent set + guard** (`benchmarks/independent_set.json`, 40 curated samples + `scripts/check_independence.py` + `scripts/independent_gate.py`). **Measured (real embeddings, 2026-08-20): recall@80 0.667 / FPR@50 0.062; 0 duplicates vs generator; generalization-only** — up from 0.375 after the Phase-2 obfuscation-normalization + real-embedding fix. Gap still mapped per class: multilingual/obfuscation/tool-confusion. Growth to 1,000+ and a recall floor land AFTER this normalization work is shipped (see 2.4) | ✅ infra + batch 1; number improved; 1,000+ still open |
+| 1.1 | **Independent set + guard** (`benchmarks/independent_set.json`, **1,084 curated samples** — 632 malicious / 452 safe, v2.1 + `scripts/check_independence.py` + `scripts/independent_gate.py`). Hand-curated across multilingual (18 langs), obfuscation, tool-confusion, credentials, destructive IaC, exfiltration, reverse shells, benign ops, fp-traps. **Independence guard: 0 duplicates vs generator (real embeddings)**. **Measured (2026-08-20): recall@80 0.315 / FPR@50 0.031** — the honest generalization gap on 1,100+ real-world shapes (the 40-sample batch measured 0.667; a bigger independent set is a harsher test, which is the point). Recall floor NOT yet applied (gap open; set is evidence, not a gate) | ✅ 1,000+ done; independence guard green; honest numbers published; recall floor still open |
 | 1.2 | **Held-out canary set** (`benchmarks/canary_set.json`, 24 samples) — labels stored as SHA-256 hashes so ground truth is unreadable in the repo; `scripts/canary_gate.py` decodes and reports AGGREGATES ONLY. **2026-08-20: recall@80 0.875 / FPR@50 0.000 → PASSES the release floor** (was 0.562/0.125). Closed by Phase-2 obfuscation normalization (homoglyph/leet/rot13/url/base64/hex/unicode-escape), multilingual semantic library, egress-carrier + tunnel rules, and the authenticated-API nuance (FPR). Residual: homoglyph-in-email-content and email-carried injection surface at 45–61 (detected, not enforced) — deliberately NOT tuned against the hashed canary. Not wired into CI (release gate, run at ship time) | ✅ infra + **gate now passes** |
 | 1.3 | **Calibration layer** (`src/benchmark/calibration.py`): ECE + reliability table + operating-point curve, wired into golden_gate. **Measured: ECE 0.0703** (real embeddings) | ✅ done |
 | 1.4 | **Cost-aware threshold** (`optimal_threshold`): FP 1 / FN 10 → recommended threshold **50** (recall 1.0, FPR 0.0 on golden) — reported in every gate run | ✅ done |

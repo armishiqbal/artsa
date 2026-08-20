@@ -78,8 +78,8 @@ SQL_PATTERNS: ClassVar[list[tuple[str, float, str]]] = [
     ),
     (
         r"(?i)@@\s*version\b|information_schema\s*\.",
-        65.0,
-        "Database fingerprinting (version / schema enumeration)",
+        45.0,
+        "Database fingerprinting (version / schema enumeration) — surfaced for review",
     ),
     (
         r"--\s|#\s+|\s+/\*",

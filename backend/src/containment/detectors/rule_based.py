@@ -134,6 +134,27 @@ def _egress_target_is_trusted(text: str) -> bool:
     return trusted
 
 
+def _egress_target_is_internal(text: str) -> bool:
+    """True when an egress target is a private-range / link-local / ULA host
+    (the internal-pivot case) rather than a public internet destination.
+    Loopback/localhost is not counted (that path is handled as trusted)."""
+    for match in re.finditer(r"(?i)https?:/{1,2}([^\s/'\"`]+)", text):
+        host = match.group(1).split(":", 1)[0].split("?", 1)[0].rstrip(".")
+        if not host:
+            continue
+        if host.lower() in {"localhost", "localhost.localdomain"}:
+            continue
+        try:
+            ip = ipaddress.ip_address(host.split("%")[0])
+        except ValueError:
+            continue  # DNS name -> public
+        if ip.is_loopback or ip.is_unspecified:
+            continue
+        if ip.is_private or ip.is_link_local or ip.is_reserved:
+            return True
+    return False
+
+
 class RuleBasedDetector(BaseDetector):
     """Detects high-risk shell commands, sensitive file access, and reverse shells."""
 
@@ -192,18 +213,18 @@ class RuleBasedDetector(BaseDetector):
             "Persistence via scheduled job (cron/at) — agent writing system schedules",
         ),
         (
-            r"(?i)\b(curl|wget)\b[^\n]*\bhttps?://",
-            "EGRESS_TUNNEL",
-            "MEDIUM",
-            60.0,
-            "Unauthorized HTTP network egress",
-        ),
-        (
             r"(?i)169\.254\.169\.254(?:[/\s]|$)|/latest/meta-data/",
             "EGRESS_TUNNEL",
             "CRITICAL",
             92.0,
             "Cloud metadata / SSRF endpoint probe",
+        ),
+        (
+            r"(?i)\b(curl|wget)\b[^\n]*\bhttps?://",
+            "EGRESS_TUNNEL",
+            "MEDIUM",
+            45.0,
+            "External HTTP egress (GET) — surfaced for review",
         ),
         (
             r"(?i)AWS_ACCESS_KEY|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN",
@@ -360,13 +381,24 @@ class RuleBasedDetector(BaseDetector):
                 if event_type == "EGRESS_TUNNEL" and _egress_target_is_trusted(text):
                     continue
                 score = risk_score
+                # Egress-GET policy: a bare GET to a PUBLIC destination is
+                # surfaced for review (45); a GET that pivots INTO a private /
+                # link-local / ULA network is escalated (60) — reaching other
+                # machines on the LAN is the internal-pivot signal.
+                if (
+                    event_type == "EGRESS_TUNNEL"
+                    and score <= 45.0
+                    and _egress_target_is_internal(text)
+                ):
+                    score = 60.0
+                    severity = "MEDIUM"
                 # A metadata / egress probe to an RFC-reserved documentation
                 # domain (example.com / example.org / .invalid / .test) is a
                 # look-alike, not a real exfiltration target — surface, don't kill.
                 if event_type in ("EGRESS_TUNNEL", "CREDENTIAL_THEFT") and re.search(
                     r"(?i)\bexample\.(?:com|org)\b|\.(?:invalid|test|localhost)\b", text
                 ):
-                    score = 55.0
+                    score = min(score, 45.0)
                     severity = "HIGH" if severity == "CRITICAL" else severity
                 # An authenticated API client call (Authorization header / basic
                 # auth) is not anonymous exfiltration — surface below the
@@ -374,7 +406,7 @@ class RuleBasedDetector(BaseDetector):
                 # can use the APIs they are supposed to use.
                 elif (
                     event_type == "EGRESS_TUNNEL"
-                    and score >= 60.0
+                    and score >= 50.0
                     and self._carries_authorization(text)
                 ):
                     score = 45.0

@@ -36,11 +36,23 @@ def test_suspicious_probes_flagged_medium():
     for sql in [
         "SELECT * FROM products WHERE id=1 UNION SELECT password FROM users",
         "SELECT * FROM users WHERE name='admin' OR 1=1 --",
-        "SELECT @@version",
     ]:
         evt = detector.detect(_event("query_db", {"sql": sql}))
         assert evt is not None, f"expected detection for: {sql}"
         assert evt.risk_score >= 50.0
+
+
+def test_fingerprinting_probe_surfaced_not_enforced():
+    """@@version / information_schema fingerprinting is surfaced for review
+    (below the enforcement band) — benign schema introspection is routine ops."""
+    detector = SqlInjectionDetector()
+    for sql in [
+        "SELECT @@version",
+        "SELECT table_name FROM information_schema.tables",
+    ]:
+        evt = detector.detect(_event("query_db", {"sql": sql}))
+        assert evt is not None, f"expected detection for: {sql}"
+        assert evt.risk_score < 50.0
 
 
 def test_safe_sql_not_flagged():
@@ -63,6 +75,8 @@ def test_registered_in_engine_reaches_kill():
     from src.containment.engine import ContainmentEngine
 
     engine = ContainmentEngine()
-    risk, verdict, _ = engine.evaluate_event(_event("query_db", {"sql": "SELECT * FROM users; DROP TABLE users;"}))
+    risk, verdict, _ = engine.evaluate_event(
+        _event("query_db", {"sql": "SELECT * FROM users; DROP TABLE users;"})
+    )
     assert risk.overall_score >= 80.0
     assert verdict.recommended_action == "KILL"

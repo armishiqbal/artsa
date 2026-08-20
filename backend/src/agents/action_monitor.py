@@ -84,12 +84,19 @@ _DESTRUCTIVE_ARG_MARKERS = (
 
 # Exfiltration markers that are suspicious regardless of where they point
 # (the cloud metadata endpoint 169.254.169.254 is the canonical SSRF target).
+# Word-boundary aware: "dump" must NOT match json.dumps / pg_dump / mysqldump
+# (benign operations), and "shadow" must not match prose about shadowing.
 _ALWAYS_EXFIL_MARKERS = (
-    "exfiltrate",
-    "dump",
-    "shadow",
-    "169.254",
+    re.compile(r"(?i)\bexfil(?:trate|tration)?\b"),
+    re.compile(r"(?i)(?<!\.)\bdump\b"),  # "dump" as a word, not a .dump file extension
+    re.compile(r"(?i)\bshadow\b"),
+    re.compile(r"169\.254"),
 )
+
+
+def _has_always_exfil_marker(text: str) -> bool:
+    return any(p.search(text) for p in _ALWAYS_EXFIL_MARKERS)
+
 
 # Authenticated API client call: an explicit Authorization header, an OAuth2
 # bearer flag, or curl basic auth. Legit agents calling e.g. Stripe billing
@@ -115,7 +122,7 @@ def _is_authenticated_api_call(text: str) -> bool:
     """True when *text* is an authenticated API client call rather than
     exfiltration: has an Authorization / OAuth / basic-auth header, no data
     exfiltration carrier, and no always-exfil marker (metadata IP, shadow…)."""
-    if any(marker in text for marker in _ALWAYS_EXFIL_MARKERS):
+    if _has_always_exfil_marker(text):
         return False
     return bool(_AUTH_HEADER_PATTERN.search(text)) and not _EXFIL_CARRIER_PATTERN.search(text)
 
@@ -139,7 +146,7 @@ def _targets_external_network(text: str) -> bool:
     """True when *text* reaches a network destination outside the local trust
     boundary (exfiltration / SSRF-adjacent). Loopback and private-range targets
     are excluded so a benign ``curl http://localhost:3000/api`` stays SAFE."""
-    if any(marker in text for marker in _ALWAYS_EXFIL_MARKERS):
+    if _has_always_exfil_marker(text):
         return True
     for scheme in ("http://", "https://"):
         start = 0
@@ -247,14 +254,30 @@ class StepwiseActionMonitor:
                             f"to external destination (ordinary work, not exfiltration)"
                         ),
                     )
+                # An always-exfil marker (metadata IP, shadow, literal dump/exfil)
+                # or an upload/pipe carrier is KILL-grade; a bare external GET
+                # (curl <public-url>) is surfaced for review, not neutralized —
+                # reading robots.txt or checking a public API is ordinary work.
+                if _has_always_exfil_marker(args_str) or _EXFIL_CARRIER_PATTERN.search(args_str):
+                    anomaly, kind, reason = (
+                        8.5,
+                        "NETWORK_EXFIL",
+                        f"Command tool '{tool_name}' — exfiltration to an external destination",
+                    )
+                else:
+                    anomaly, kind, reason = (
+                        4.5,
+                        "NETWORK_EXFIL",
+                        f"Command tool '{tool_name}' — external network destination (GET), surfaced for review",
+                    )
                 return ToolCallStep(
                     step_index=step_index,
                     tool_name=tool_name,
                     arguments=arguments,
                     classification="ANOMALOUS",
-                    anomaly_score=8.0,
-                    anomaly_kind="NETWORK_EXFIL",
-                    reasoning=f"Command tool '{tool_name}' reaching an external network destination",
+                    anomaly_score=anomaly,
+                    anomaly_kind=kind,
+                    reasoning=reason,
                 )
             return ToolCallStep(
                 step_index=step_index,

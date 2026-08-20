@@ -88,11 +88,7 @@ def expected_calibration_error(
     for b in range(bins):
         lo = (b / bins) * 100.0
         hi = ((b + 1) / bins) * 100.0
-        bucket = [
-            (s, l)
-            for s, l in pairs
-            if (lo <= s < hi) or (b == bins - 1 and s == 100.0)
-        ]
+        bucket = [(s, l) for s, l in pairs if (lo <= s < hi) or (b == bins - 1 and s == 100.0)]
         if not bucket:
             continue
         mean_score = sum(s for s, _ in bucket) / len(bucket)
@@ -113,9 +109,7 @@ def expected_calibration_error(
     return CalibrationReport(ece=ece, bins=bins, reliability=reliability)
 
 
-def operating_points(
-    pairs: list[tuple[float, bool]], step: int = 5
-) -> list[OperatingPoint]:
+def operating_points(pairs: list[tuple[float, bool]], step: int = 5) -> list[OperatingPoint]:
     """Recall + FPR at every threshold from 0..100."""
     mal = sum(1 for _, l in pairs if l)
     safe = sum(1 for _, l in pairs if not l)
@@ -143,13 +137,17 @@ def optimal_threshold(
 ) -> ThresholdRecommendation:
     """Threshold that minimizes expected cost:
     fp_cost * FPR * n_safe + fn_cost * (1 - recall) * n_mal.
+
+    Among equal-cost points the HIGHEST threshold wins (fewer false alarms for
+    the same expected cost), so a score cluster just below 50 does not collapse
+    the recommendation to a meaningless near-zero threshold.
     """
     mal = sum(1 for _, l in pairs if l)
     safe = sum(1 for _, l in pairs if not l)
     best: tuple[float, OperatingPoint] | None = None
     for p in operating_points(pairs, step=step):
         cost = fp_cost * p.fpr * safe + fn_cost * (1.0 - p.recall) * mal
-        if best is None or cost < best[0]:
+        if best is None or cost < best[0] or (cost == best[0] and p.threshold > best[1].threshold):
             best = (cost, p)
     assert best is not None
     cost, point = best

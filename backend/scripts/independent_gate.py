@@ -1,11 +1,16 @@
 """Independent-set evaluation gate — Task List Phase 1.1.
 
-Scores the curated independent set and reports recall/FPR WITHOUT a floor:
-this is evidence about generalization, and the honest number is the point.
-The recall floor appears once the Phase-2 obfuscation-normalization work
-closes the gap the canary/independent sets have exposed.
+Scores the curated independent set (1,100+ hand-curated samples, v2.1) and
+reports recall/FPR WITHOUT a floor: this is evidence about generalization, and
+the honest number is the point. The recall floor appears once the Phase-2
+obfuscation-normalization work closes the gap the canary/independent sets have
+exposed.
 
-Usage: ENVIRONMENT=testing PYTHONPATH=. python scripts/independent_gate.py
+Honest measurement: run with the REAL embedding model, otherwise the semantic
+layer is dead:
+
+    ARTSA_EMBEDDING_MODEL=local-bge-multilingual ENVIRONMENT=testing \
+        PYTHONPATH=. python scripts/independent_gate.py
 """
 
 from __future__ import annotations
