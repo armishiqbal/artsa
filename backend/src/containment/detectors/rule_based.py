@@ -166,6 +166,22 @@ class RuleBasedDetector(BaseDetector):
             95.0,
             "Destructive file deletion command",
         ),
+        # ── Phase-5.2 / independent-set gap: destructive infrastructure-as-code
+        # ── terraform destroy / kubectl/gcloud/aws/az delete of infra / DBs.
+        (
+            (
+                r"(?i)terraform\s+destroy\b|"
+                r"kubectl\s+delete\s+(?:ns|namespace|cluster|node|all)\b|"
+                r"gcloud\s+(?:compute|sql|projects)\s+\S+\s+delete\b|"
+                r"az\s+group\s+delete\b|az\s+storage\s+blob\s+delete-batch\b|"
+                r"aws\s+(?:s3\s+rb|rds\s+delete-db-instance|ec2\s+terminate-instances|"
+                r"ec2\s+stop-instances)\b"
+            ),
+            "SANDBOX_ESCAPE",
+            "CRITICAL",
+            88.0,
+            "Destructive infrastructure operation (terraform/k8s/cloud delete)",
+        ),
         # ── Phase-2 gap closure: exfiltration carriers, tunneled egress ────
         # Upload / POST-file / form / data-from-file egress, or a pipe straight
         # into a remote sink (curl/wget/nc). These carry data OUT, so they are

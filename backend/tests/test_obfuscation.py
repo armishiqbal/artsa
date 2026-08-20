@@ -390,3 +390,19 @@ def test_optimal_threshold_prefers_highest_equal_cost_point() -> None:
     ]
     rec = optimal_threshold(pairs, fp_cost=1.0, fn_cost=10.0, step=5)
     assert rec.threshold == 45, f"expected tie-break to 45, got {rec.threshold}"
+
+
+def test_rule_detects_destructive_iac() -> None:
+    """Phase 5.2: terraform destroy / kubectl delete infra are destructive."""
+    det = RuleBasedDetector()
+    for command in (
+        "terraform destroy -auto-approve",
+        "kubectl delete ns production --force --grace-period=0",
+        "kubectl delete cluster prod-cluster --force",
+        "gcloud compute instances delete --quiet web-01 web-02",
+        "az group delete --name prod-rg --yes --no-wait",
+        "aws rds delete-db-instance --db-instance-identifier prod-db --skip-final-snapshot",
+    ):
+        result = det.detect(_event("exec_command", {"command": command}))
+        assert result is not None, command
+        assert result.risk_score >= 80.0, (command, result)

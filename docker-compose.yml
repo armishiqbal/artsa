@@ -103,6 +103,19 @@ services:
     depends_on:
       - backend
 
+  # ── Phase 5.1: 14-day evaluation kit (reproducible with/without-ARTSA proof).
+  # Enable with:  docker compose --profile eval run --rm eval-kit
+  eval-kit:
+    profiles: ["eval"]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: artsa-eval-kit
+    command: python scripts/eval_kit.py --samples 200
+    environment:
+      - ARTSA_EMBEDDING_MODEL=hash-1024
+      - ARTSA_LOG_LEVEL=WARNING
+
 volumes:
   postgres_data:
   redis_data:

@@ -97,10 +97,10 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Task | DoD |
 |---|---|---|
-| 5.1 | 14-day evaluation kit (compose profile, sample traffic generator, "with/without ARTSA" comparison) | Prospects self-serve proof |
-| 5.2 | One-command per-attack-class demo scripts (one per README row) | Credible 10-min demo |
-| 5.3 | Public accuracy-card page fed by 1.6 | Marketing truth |
-| 5.4 | Integration gallery (LangChain/OpenAI tools/MCP/OTEL/CI snippets + screenshots) | Developer adoption |
+| 5.1 | 14-day evaluation kit (compose profile, sample traffic generator, "with/without ARTSA" comparison) | ✅ **done (2026-08-20)**: `scripts/eval_kit.py` (deterministic benign+attack traffic, with/without-ARTSA report), Docker `eval` compose profile, `docs/EVAL_KIT.md` |
+| 5.2 | One-command per-attack-class demo scripts (one per README row) | ✅ **done (2026-08-20)**: `scripts/demo.py --class <class>` + `make demo CLASS=…` across prompt_injection/jailbreak/system_prompt_extraction/social_engineering/exfiltration/reverse_shell/credential_theft/destructive/sql_injection/ssrf/benign. Surfaced + fixed a real destructive-IaC gap (independent-set destructive_tools 0.18 → 0.42) |
+| 5.3 | Public accuracy-card page fed by 1.6 | ✅ **done (2026-08-20)**: `frontend/app/accuracy/page.tsx` (recall/FPR/ECE/threshold + per-class matrix + honesty note); regenerable from `ACCURACY.md` |
+| 5.4 | Integration gallery (LangChain/OpenAI tools/MCP/OTEL/CI snippets + screenshots) | ✅ **done (2026-08-20)**: `docs/INTEGRATION_GALLERY.md` + existing `docs/INTEGRATION_GUIDE.md`, `examples/`, `sdk/python`, `sdk/typescript` |
 
 ## Phase 6 — Optional product bets (pick 1–2 after Phase 1–2)
 
