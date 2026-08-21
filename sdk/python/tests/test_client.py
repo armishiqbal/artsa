@@ -51,3 +51,20 @@ def test_guard_raises_on_block(monkeypatch) -> None:
     except ArtsaBlockedError:
         raised = True
     assert raised
+
+
+def test_score_tool_call_normalizes_risk(monkeypatch) -> None:
+    client = ArtsaClient()
+
+    def fake_monitor(*_a, **_k):
+        return {
+            "verdict": {"recommended_action": "ALERT", "verdict": "SUSPICIOUS"},
+            "risk_score": {"overall_score": 62.0, "flags": ["PROMPT_INJECTION"]},
+        }
+
+    monkeypatch.setattr(client, "monitor_tool_call", fake_monitor)
+    scored = client.score_tool_call("s", "a", "send_email", {"body": "test"})
+    assert scored["overall_score"] == 62.0
+    assert scored["verdict"] == "SUSPICIOUS"
+    assert scored["blocked"] is False
+    assert "PROMPT_INJECTION" in scored["flags"]

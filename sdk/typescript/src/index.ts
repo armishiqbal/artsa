@@ -296,6 +296,39 @@ export class ArtsaClient {
       return false;
     }
   }
+
+  async scoreToolCall(input: {
+    sessionId: string;
+    agentId: string;
+    toolName: string;
+    arguments: Record<string, unknown>;
+  }): Promise<{
+    overallScore: number;
+    flags: string[];
+    verdict: string;
+    recommendedAction: string;
+    blocked: boolean;
+    raw: ArtsaIngestResult;
+  }> {
+    const raw = await this.monitorToolCall(input);
+    const risk = raw.risk_score ?? { overall_score: 0, flags: [] };
+    const verdict = raw.verdict ?? { verdict: "SAFE", recommended_action: "NONE" };
+    return {
+      overallScore: Number(risk.overall_score ?? 0),
+      flags: [...(risk.flags ?? [])],
+      verdict: String(verdict.verdict ?? "SAFE"),
+      recommendedAction: String(verdict.recommended_action ?? "NONE"),
+      blocked: this.isBlocked(raw),
+      raw,
+    };
+  }
+
+  async scanPrompt(content: string, agentId = "sdk-client"): Promise<Record<string, unknown>> {
+    return (await this.post("/api/v1/playground/evaluate", {
+      user_input: content,
+      agent_id: agentId,
+    })) as Record<string, unknown>;
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -475,3 +508,6 @@ export function artsaProxyConfig(opts: ArtsaProxyOptions = {}): {
     defaultHeaders: Object.keys(headers).length ? headers : undefined,
   };
 }
+
+/** Published npm name: artsa-guard */
+export { ArtsaClient as ArtsaGuardClient };

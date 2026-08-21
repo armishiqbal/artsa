@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "artsa-sdk"
+name = "artsa-guard"
 version = "0.3.0"
-description = "ARTSA Python SDK — fail-closed live tool containment for AI agents"
+description = "ARTSA Agent Risk-Scoring SDK — fail-closed live tool containment for AI agents"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

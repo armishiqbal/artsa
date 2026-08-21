@@ -212,3 +212,31 @@ class ArtsaClient:
             return res.json().get("status") == "ready"
         except Exception:
             return False
+
+    def score_tool_call(
+        self,
+        session_id: str,
+        agent_id: str,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Return a normalized risk score for a tool call without enforcing."""
+        result = self.monitor_tool_call(session_id, agent_id, tool_name, arguments, **kwargs)
+        risk = result.get("risk_score") or {}
+        verdict = result.get("verdict") or {}
+        return {
+            "overall_score": float(risk.get("overall_score") or 0.0),
+            "flags": list(risk.get("flags") or []),
+            "verdict": str(verdict.get("verdict") or "SAFE"),
+            "recommended_action": str(verdict.get("recommended_action") or "NONE"),
+            "blocked": self.is_blocked(result),
+            "raw": result,
+        }
+
+    def scan_prompt(self, content: str, *, agent_id: str = "sdk-client") -> Dict[str, Any]:
+        """Scan raw prompt text via the Attack Sandbox API."""
+        return self._post(
+            "/api/v1/playground/evaluate",
+            {"user_input": content, "agent_id": agent_id},
+        )

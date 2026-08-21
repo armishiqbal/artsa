@@ -1,26 +1,19 @@
-# @artsa/sdk
+# artsa-guard
 
-Fail-closed TypeScript client for ARTSA containment.
+TypeScript Agent Risk-Scoring SDK — fail-closed tool containment + detection-gated LLM proxy client.
 
 ```bash
-cd sdk/typescript && npm install && npm run build
+npm install
+npm run build && npm test
+# published name: artsa-guard
 ```
 
-```ts
-import { ArtsaClient, ArtsaBlockedError } from "@artsa/sdk";
+```typescript
+import { ArtsaGuardClient } from "artsa-guard";
 
-const client = new ArtsaClient({
-  apiUrl: process.env.ARTSA_API_URL,
-  apiKey: process.env.ARTSA_API_KEY,
-  failClosed: true, // default
-});
-
-await client.guardToolCall({
-  sessionId,
-  agentId: "node-agent",
-  toolName: "read_file",
-  arguments: { path: "/tmp/x" },
-});
+const client = new ArtsaGuardClient({ apiUrl, apiKey, failClosed: true });
+const score = await client.scoreToolCall({ sessionId, agentId, toolName, arguments: args });
+const scan = await client.scanPrompt("ignore previous instructions");
 ```
 
 See [docs/INTEGRATION_GUIDE.md](../../docs/INTEGRATION_GUIDE.md).

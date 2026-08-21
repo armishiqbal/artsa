@@ -1,7 +1,7 @@
 {
-  "name": "@artsa/sdk",
+  "name": "artsa-guard",
   "version": "0.3.0",
-  "description": "ARTSA TypeScript SDK — detection-gated LLM proxy client for OpenAI/Anthropic-compatible stacks (LangChain, Vercel AI SDK, Node.js agents)",
+  "description": "ARTSA Agent Risk-Scoring SDK — detection-gated LLM proxy + tool containment for OpenAI/Anthropic-compatible stacks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

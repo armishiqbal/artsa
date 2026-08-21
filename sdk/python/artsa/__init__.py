@@ -3,6 +3,9 @@
 from artsa.agent import ContainedAgent
 from artsa.async_client import AsyncArtsaClient
 from artsa.client import ArtsaBlockedError, ArtsaClient
+
+# Published PyPI name: artsa-guard (import path stays `artsa`).
+ArtsaGuardClient = ArtsaClient
 from artsa.middleware import (
     LangChainContainmentCallback,
     guard_langgraph_tools,
@@ -14,6 +17,7 @@ from artsa.middleware import (
 
 __all__ = [
     "ArtsaClient",
+    "ArtsaGuardClient",
     "ArtsaBlockedError",
     "AsyncArtsaClient",
     "ContainedAgent",
