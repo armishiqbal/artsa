@@ -49,7 +49,7 @@ _HOMOGLYPHS: dict[str, str] = {
     "\u0415": "E",
     "\u0435": "e",  # Е е
     "\u041d": "H",
-    "\u043d": "h",  # Н н
+    "\u043d": "n",  # Cyrillic en — visually Latin "n" in obfuscated "1gнore" → ignore
     "\u041a": "K",
     "\u043a": "k",  # К к
     "\u041c": "M",
@@ -167,8 +167,8 @@ def _decode_unicode_escapes(text: str, passes: int = 4) -> str:
 def _strip_junk(text: str) -> str:
     text = _ZERO_WIDTH_RE.sub("", text)
     text = _decode_unicode_escapes(text)
-    # Decompose (NFKD) and drop combining marks: strips accents (é -> e) and
-    # expands ligatures/fullwidth forms to ASCII before homoglyph translation.
+    # NFKC first: fullwidth digits/letters (６２６ｈ) → ASCII before homoglyph pass.
+    text = unicodedata.normalize("NFKC", text)
     text = unicodedata.normalize("NFKD", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     return _translate_homoglyphs(text)

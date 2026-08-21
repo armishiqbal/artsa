@@ -20,14 +20,12 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 > `docs/ACCURACY.md` (now records embedding run conditions) and
 > `backend/tests/test_obfuscation.py`.
 >
-> **2026-08-21 update — weak-class closure + Phase 6.2/6.3 shipped (local).**
-> Independent-set recall@80 **0.375 → 0.505** (`ARTSA_EMBEDDING_MODEL=local-bge-multilingual`):
-> reverse_shell **0.40 → 0.88**, credential_unusual **0.19 → 0.50**, cloud_credentials **0.40 → 0.50**,
-> multilingual **0.41 → 0.48**. Email-carried exfil closed via semantic phrase family + prompt-injection
-> regex rules (regression tests green). **Residual:** obfuscated_injection **0.31** (main gap).
-> Recall floor still NOT applied (evidence set, not ship gate). CI regression gate **PASS** (38ms avg).
-> **6.2** `artsa-guard` SDK packaged (Py/TS: `score_tool_call`, `scan_prompt`). **6.3** RAG scanner API
-> (`POST /api/v1/rag/scan`, `/rag/adversarial-retrieval`). Lakera/Azure comparison still key-gated.
+> **2026-08-21 (later) — obfuscation + RAG UI + comparison prep.** Prompt-injection
+> detector now reads structured tool args (not `str(dict)`), matches obfuscation
+> candidates, and adds paraphrase/evasion regex families. Independent recall@80
+> **0.505 → 0.589**; **obfuscated_injection 0.31 → 0.72**. RAG Scanner UI at
+> `/rag-scanner`. Lakera/Azure comparison documented in `docs/EXTERNAL_COMPARISON.md`
+> (run when keys are provided).
 >
 > **2026-08-20 (later) — Phase 1.1 growth to 1,000+.** `independent_set.json`
 > grown to **1,084 hand-curated samples** (6 curated batches, no generator).
@@ -63,7 +61,7 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 
 | # | Task | Why / DoD |
 |---|---|---|
-| 1.1 | **Independent set + guard** (`benchmarks/independent_set.json`, **1,084 curated samples** — 632 malicious / 452 safe, v2.1 + `scripts/check_independence.py` + `scripts/independent_gate.py`). Hand-curated across multilingual (18 langs), obfuscation, tool-confusion, credentials, destructive IaC, exfiltration, reverse shells, benign ops, fp-traps. **Independence guard: 0 duplicates vs generator (real embeddings)**. **Measured (2026-08-21, post weak-class fixes): recall@80 0.505 / FPR@50 0.033** — reverse_shell 0.88, credential_unusual 0.50, cloud_credentials 0.50, multilingual 0.48; obfuscated_injection still 0.31. Recall floor NOT yet applied (gap open; set is evidence, not a gate) | ✅ 1,000+ done; independence guard green; honest numbers published; recall floor still open |
+| 1.1 | **Independent set + guard** (`benchmarks/independent_set.json`, **1,084 curated samples** — 632 malicious / 452 safe, v2.1 + `scripts/check_independence.py` + `scripts/independent_gate.py`). Hand-curated across multilingual (18 langs), obfuscation, tool-confusion, credentials, destructive IaC, exfiltration, reverse shells, benign ops, fp-traps. **Independence guard: 0 duplicates vs generator (real embeddings)**. **Measured (2026-08-21): recall@80 0.589 / FPR@50 0.033** — obfuscated_injection **0.72**, reverse_shell **0.88**, multilingual **0.48**, credential_unusual **0.50**. Recall floor NOT yet applied (gap open; set is evidence, not a gate) | ✅ 1,000+ done; independence guard green; honest numbers published; recall floor still open |
 | 1.2 | **Held-out canary set** (`benchmarks/canary_set.json`, 24 samples) — labels stored as SHA-256 hashes so ground truth is unreadable in the repo; `scripts/canary_gate.py` decodes and reports AGGREGATES ONLY. **2026-08-20: recall@80 0.875 / FPR@50 0.000 → PASSES the release floor** (was 0.562/0.125). Closed by Phase-2 obfuscation normalization (homoglyph/leet/rot13/url/base64/hex/unicode-escape), multilingual semantic library, egress-carrier + tunnel rules, and the authenticated-API nuance (FPR). Email-carried exfil addressed in 2026-08-21 weak-class pass (semantic + regex; not tuned against hashed canary). Not wired into CI (release gate, run at ship time) | ✅ infra + **gate now passes** |
 | 1.3 | **Calibration layer** (`src/benchmark/calibration.py`): ECE + reliability table + operating-point curve, wired into golden_gate. **Measured: ECE 0.0703** (real embeddings) | ✅ done |
 | 1.4 | **Cost-aware threshold** (`optimal_threshold`): FP 1 / FN 10 → recommended threshold **50** (recall 1.0, FPR 0.0 on golden) — reported in every gate run | ✅ done |
@@ -86,7 +84,7 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 | # | Task | DoD |
 |---|---|---|
 | 3.1 | Public harness from `golden_gate.py`; documented methodology | ✅ **harness + methodology shipped (2026-08-20)**: all gates support `--json` machine-readable output; `docs/BENCHMARK_METHODOLOGY.md` documents sets, metrics, honesty rules, and exact reproduction commands. Reproducible by third parties |
-| 3.2 | **Independent scoring vs Lakera / Azure / other guardrails** on the same held-out set | ✅ **harness shipped (2026-08-20)**: `backend/scripts/external_comparison.py` scores the identical independent-set samples through ARTSA + Lakera Guard + Azure AI Content Safety (key-gated via `LAKERA_API_KEY` / `AZURE_CS_ENDPOINT` / `AZURE_CS_KEY`) and writes `docs/COMPARISON.md`. Without keys it reports ARTSA's numbers + methodology (table is as real as the configured keys) |
+| 3.2 | **Independent scoring vs Lakera / Azure / other guardrails** on the same held-out set | ✅ **harness shipped** + **`docs/EXTERNAL_COMPARISON.md`** (key setup). Run `scripts/external_comparison.py` when `LAKERA_API_KEY` / `AZURE_CS_*` are set; without keys ARTSA-only + n/a columns |
 | 3.3 | Leaderboard + community sample-submission pipeline | ✅ **backend shipped (2026-08-20)**: `src/benchmark/leaderboard.py` (JSON-backed store), `POST /benchmark/submissions` intake, `GET /benchmark/leaderboard` ranking (recall@80 desc / fpr@50 asc), `scripts/leaderboard_update.py` scores accepted submissions through the engine. Frontend leaderboard page = follow-up polish |
 | 3.4 | Contamination guard on public set (submitter samples held out) | ✅ **done (2026-08-20)**: every submission passes the guard — embedding similarity ≥ 0.85 vs golden/independent/generated sets → rejected 409 with reason; exact duplicates rejected; tests cover duplicate/contamination/ranking (8 cases) |
 
@@ -117,7 +115,7 @@ Senior-engineer-graded backlog. Order = dependencies first: **security → evide
 |---|---|---|---|
 | 6.1 | **LLM Firewall Gateway** (OpenAI-compatible proxy: sanitize, redact, policy, per-tenant limits, audit) | ✅ **picked + shipped**: `llm_proxy` + `/v1/proxy` routes + 27 tests + `examples/connected_ai_app.py`. See `docs/PRODUCT_BETS.md` | M |
 | 6.2 | **Agent Risk-Scoring SDK** (`pip install artsa-guard` / `npm i artsa-guard`; LangChain/CrewAI/AutoGen/MCP plugins) | ✅ **shipped (2026-08-21)**: `sdk/python` + `sdk/typescript` renamed to **artsa-guard**; `ArtsaGuardClient`, `score_tool_call` / `scoreToolCall`, `scan_prompt` / `scanPrompt`; middleware unchanged. PyPI/npm publish = follow-up | M |
-| 6.3 | **RAG Security Scanner** (poison detection + adversarial-retrieval test) | ✅ **shipped (2026-08-21)**: `src/services/rag_scanner.py`, `POST /api/v1/rag/scan`, `POST /api/v1/rag/adversarial-retrieval`, `tests/test_rag_scanner.py`. Frontend UI = follow-up polish | M |
+| 6.3 | **RAG Security Scanner** (poison detection + adversarial-retrieval test) | ✅ **shipped (2026-08-21)**: API + **`/rag-scanner`** UI; `POST /api/v1/rag/scan`, `/rag/adversarial-retrieval` | M |
 | 6.4 | **MCP Kill-Chain Test Rig** (malicious MCP servers + assertion harness) | ✅ **picked + shipped (2026-08-20)**: `scripts/mcp_rig.py` + `tests/test_mcp_rig.py` (12 scenarios); see `docs/PRODUCT_BETS.md` | S |
 | 6.5 | **AI Incident Forensics** (trace replay, root-cause timeline, EU AI Act/ISO export) | Splunk-for-agents; uses forensics + compliance exporter | L |
 | 6.6 | **"Hack-the-Agent" CTF arena** (community + real attack data feed for 1.1) | Community + data moat | L |

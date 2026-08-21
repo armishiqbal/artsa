@@ -4,6 +4,7 @@ import {
   Network,
   Swords,
   BookOpen,
+  Database,
   FileCode,
   FileText,
   Users,
@@ -49,6 +50,7 @@ export const navSections: NavSection[] = [
     items: [
       { name: "Wargame", href: "/campaigns", icon: Swords, capability: "can_run_campaigns" },
       { name: "Attack Sandbox", href: "/sandbox", icon: Crosshair },
+      { name: "RAG Scanner", href: "/rag-scanner", icon: Database },
       { name: "Attack Library", href: "/library", icon: BookOpen },
       { name: "Replay", href: "/replay", icon: FileCode },
     ],

@@ -16,6 +16,19 @@ import re
 
 from src.containment.detectors.base import BaseDetector
 from src.core.models.events import SecurityEvent, ToolCallEvent
+from src.utils.obfuscation import normalize_rule_match, semantic_candidates
+
+_ARGUMENT_KEYS = (
+    "payload",
+    "input",
+    "body",
+    "command",
+    "prompt",
+    "message",
+    "content",
+    "q",
+    "text",
+)
 
 # (regex, event_type, risk_score, description) — scores tuned to land in the
 # SUSPICIOUS (>=50) / BREACHED (>=80) bands so verdicts stay actionable.
@@ -160,6 +173,97 @@ INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
         78.0,
         "Sensitive data exfiltration via email channel",
     ),
+    # ── Obfuscated / paraphrased instruction override (independent-set gap) ───
+    (
+        r"(?i)disregard\s+(?:all\s+)?(?:prior|previous)\s+(?:constraints?|directives?|policies?|rules?|guardrails?|controls?)",
+        "PROMPT_INJECTION",
+        82.0,
+        "Instruction override (prior constraints/directives)",
+    ),
+    (
+        r"(?i)(?:discard|cancel|dismiss|override)\s+(?:your\s+|all\s+|the\s+)?(?:rules?|policies?|guardrails?|constraints?|directives?|controls?)",
+        "PROMPT_INJECTION",
+        80.0,
+        "Policy / guardrail override framing",
+    ),
+    (
+        r"(?i)(?:reveal|show|display|expose|leak|print)\s+(?:the\s+|your\s+|our\s+)?(?:hidden|concealed|internal|master)\s+(?:configuration|config|secrets?|instructions?|keys?)",
+        "PROMPT_INJECTION",
+        86.0,
+        "Hidden configuration / secret extraction",
+    ),
+    (
+        r"(?i)(?:disable|turn\s+off|deactivate|shut\s+down)\s+(?:the\s+|all\s+|your\s+)?(?:egress|safety|audit|monitor|interlock|guardrail|filter|control)",
+        "JAILBREAK",
+        88.0,
+        "Safety / egress monitor disable attempt",
+    ),
+    (
+        r"(?i)(?:upload|send|exfiltrate|transmit|forward)\s+(?:the\s+)?(?:archive|database|backup|batch|export|dump)",
+        "CREDENTIAL_THEFT",
+        82.0,
+        "Data exfiltration directive",
+    ),
+    (
+        r"(?i)bypass\s+(?:the\s+|all\s+|your\s+)?(?:rate\s+limiter|tool\s+audit|mail\s+controls?|security\s+checks?|filters?)",
+        "JAILBREAK",
+        84.0,
+        "Security control bypass attempt",
+    ),
+    (
+        r"(?i)mimic\s+(?:the\s+)?(?:internal\s+)?tool(?:\s+name)?",
+        "PROMPT_INJECTION",
+        78.0,
+        "Tool-confusion / audit evasion framing",
+    ),
+    (
+        r"(?i)(?:1|i|!)?gn?ore\s+(?:all\s+|4ll\s+|every\s+)?(?:previous|prior|past)\s+instructions?",
+        "PROMPT_INJECTION",
+        82.0,
+        "Leetspeak / homoglyph instruction override (ignore all previous instructions)",
+    ),
+    (
+        r"(?i)\bprevious\s+instructions?\b",
+        "PROMPT_INJECTION",
+        78.0,
+        "Instruction override marker (previous instructions)",
+    ),
+    (
+        r"(?i)(?:inject|insert|embed)\s+(?:this\s+)?(?:payload|prompt|instruction)\s+into\s+(?:the\s+)?next\s+tool",
+        "PROMPT_INJECTION",
+        84.0,
+        "Cross-tool payload injection directive",
+    ),
+    (
+        r"(?i)(?:pretend|claim|say)\s+(?:this\s+is\s+)?(?:a\s+)?(?:scheduled\s+)?maintenance",
+        "JAILBREAK",
+        76.0,
+        "Maintenance-task social engineering framing",
+    ),
+    (
+        r"(?i)(?:wrap|format)\s+(?:your\s+)?reply\s+in\s+markdown.{0,40}(?:token|secret|internal)",
+        "PROMPT_INJECTION",
+        80.0,
+        "Markdown-wrap exfiltration framing",
+    ),
+    (
+        r"(?i)answer\s+in\s+base64",
+        "JAILBREAK",
+        78.0,
+        "Encoding evasion directive (base64 answer)",
+    ),
+    (
+        r"(?i)split\s+(?:the\s+)?secret\s+across\s+(?:two|multiple)\s+replies",
+        "PROMPT_INJECTION",
+        80.0,
+        "Split-payload evasion directive",
+    ),
+    (
+        r"(?i)(?:use|employ)\s+synonyms\s+for\s+(?:every|each)\s+sensitive\s+word",
+        "JAILBREAK",
+        76.0,
+        "Synonym evasion directive",
+    ),
 ]
 
 
@@ -178,21 +282,41 @@ class PromptInjectionDetector(BaseDetector):
         self.tool_scope = tool_scope
         self.PATTERNS = INJECTION_PATTERNS
 
+    @staticmethod
+    def _argument_text(event: ToolCallEvent) -> str:
+        if isinstance(event.arguments, dict):
+            parts = [
+                str(event.arguments[key])
+                for key in _ARGUMENT_KEYS
+                if isinstance(event.arguments.get(key), str)
+            ]
+            if parts:
+                return " ".join(parts)
+        return str(event.arguments)
+
+    @staticmethod
+    def _match_candidates(text: str) -> list[str]:
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for candidate in [text, normalize_rule_match(text), *semantic_candidates(text)[1:]]:
+            normalized = normalize_rule_match(candidate)
+            for item in (candidate, normalized):
+                if item and item not in seen:
+                    seen.add(item)
+                    ordered.append(item)
+        return ordered
+
     def detect(self, event: ToolCallEvent) -> SecurityEvent | None:
-        combined_text = str(event.arguments)
-        # Select the highest-scoring pattern match so a payload carrying multiple
-        # injection signals (e.g. "ignore previous instructions AND reveal system
-        # prompt") is scored by its strongest signal, not the first regex hit.
-        best: tuple[float, re.Match[str], str, str] | None = (
-            None  # (score, match, event_type, desc)
-        )
-        for pattern, event_type, risk_score, desc in self.PATTERNS:
-            match = re.search(pattern, combined_text)
-            if match and (best is None or risk_score > best[0]):
-                best = (risk_score, match, event_type, desc)
+        raw_text = self._argument_text(event)
+        best: tuple[float, re.Match[str], str, str, str] | None = None
+        for combined_text in self._match_candidates(raw_text):
+            for pattern, event_type, risk_score, desc in self.PATTERNS:
+                match = re.search(pattern, combined_text)
+                if match and (best is None or risk_score > best[0]):
+                    best = (risk_score, match, event_type, desc, combined_text)
         if best is None:
             return None
-        risk_score, match, event_type, desc = best
+        risk_score, match, event_type, desc, matched_text = best
         if self.tool_scope and event_type == "PROMPT_INJECTION":
             event_type = "TOOL_PROMPT_INJECTION"
         return SecurityEvent(
@@ -207,6 +331,7 @@ class PromptInjectionDetector(BaseDetector):
                 "matched_text": match.group(0),
                 "tool": event.tool_name,
                 "span": [match.start(), match.end()],
+                "normalized_match": matched_text if matched_text != raw_text else "",
             },
             detector=self.name,
         )
