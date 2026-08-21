@@ -141,6 +141,25 @@ INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
         74.0,
         "Instruction re-prioritization frame",
     ),
+    # ── Email / message-carried exfiltration (independent-set residual) ─────
+    (
+        r"(?i)(?:ignore|disregard|overlook|bypass)\s+(?:your\s+|all\s+|the\s+)?(?:security\s+)?(?:filters?|policies?|controls?|checks?|rules?|protocols?).{0,80}(?:send|email|forward|attach|mail)\b",
+        "PROMPT_INJECTION",
+        82.0,
+        "Email-carried exfiltration with filter override",
+    ),
+    (
+        r"(?i)(?:send|email|forward|attach|mail)\b.{0,80}(?:to\s+this\s+(?:address|inbox|email)|this\s+(?:address|inbox|email))",
+        "CREDENTIAL_THEFT",
+        80.0,
+        "Email exfiltration to attacker-controlled address",
+    ),
+    (
+        r"(?i)(?:send|email|forward|attach|mail)\b.{0,60}(?:customer|client|user|employee|pii|database|export|credentials?)\b",
+        "CREDENTIAL_THEFT",
+        78.0,
+        "Sensitive data exfiltration via email channel",
+    ),
 ]
 
 

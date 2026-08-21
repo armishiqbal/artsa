@@ -31,9 +31,11 @@ _ZERO_WIDTH_RE = re.compile(
     r"\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]"
 )
 
-# Literal backslash-u / backslash-U escape sequences inside the string,
-# e.g. the JSON payload "\\u0069gnore all previous instructions".
+# Literal backslash-u / backslash-U / backslash-x escape sequences inside the
+# string, e.g. the JSON payload "\\u0069gnore all previous instructions" or
+# "\\x69\\x67\\x6e..." (hex-escaped ASCII).
 _UNICODE_ESCAPE_RE = re.compile(r"\\[uU]([0-9a-fA-F]{4}|[0-9a-fA-F]{8})")
+_HEX_ESCAPE_RE = re.compile(r"\\x([0-9a-fA-F]{2})")
 
 # Homoglyph transliteration: confusable non-Latin / decorated code points that
 # visually impersonate an ASCII letter (Cyrillic and Greek lookalikes, dotless
@@ -118,6 +120,8 @@ _HOMOGLYPHS: dict[str, str] = {
     "\u041b": "L",
     "\u043b": "l",  # Л л (el, looks like l/n)
     "\u04bb": "h",  # һ (small shha, looks like h)
+    "\u0413": "G", "\u0433": "g",  # Г г (ge, looks like g/r)
+    "\u0424": "F", "\u0444": "f",  # Ф ф (ef, looks like ph/f)
 }
 
 
@@ -148,13 +152,15 @@ _LEET: dict[str, str] = {
 _LEET_ONE_AS_L = dict(_LEET, **{"1": "l"})
 
 
-def _decode_unicode_escapes(text: str, passes: int = 3) -> str:
-    """Decode literal ``\\uXXXX`` / ``\\UXXXXXXXX`` sequences (escapes can be
-    nested inside already-decoded output, so iterate a few passes)."""
+def _decode_unicode_escapes(text: str, passes: int = 4) -> str:
+    """Decode literal ``\\uXXXX`` / ``\\UXXXXXXXX`` / ``\\xNN`` sequences
+    (escapes can be nested inside already-decoded output, so iterate)."""
     for _ in range(passes):
-        if not _UNICODE_ESCAPE_RE.search(text):
-            break
+        before = text
         text = _UNICODE_ESCAPE_RE.sub(lambda m: chr(int(m.group(1), 16)), text)
+        text = _HEX_ESCAPE_RE.sub(lambda m: chr(int(m.group(1), 16)), text)
+        if text == before:
+            break
     return text
 
 

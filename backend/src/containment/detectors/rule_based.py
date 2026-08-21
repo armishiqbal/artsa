@@ -221,6 +221,62 @@ class RuleBasedDetector(BaseDetector):
             98.0,
             "Reverse shell egress attempt",
         ),
+        # ── Phase-5 follow-up: canonical reverse-shell / bind-shell / tunnel
+        # ── techniques across languages and toolchains (MITRE T1059/T1071/T1572).
+        (
+            (
+                r"(?i)/dev/(?:tcp|udp)/|"
+                r"socat\b[^\n]*(?:TCP-LISTEN|TCP:.*EXEC:)|"
+                r"nc(?:\s|\$IFS)*-l[^\n]*-e\b|"
+                r"telnet[^\n]*\|[^\n]*/bin/sh|"
+                r"openssl s_client[^\n]*/bin/sh|"
+                r"msfvenom[^\n]*(?:reverse|meterpreter)|"
+                r"powershell[^\n]*TCPClient|powershell[^\n]*-enc\s|"
+                r"lua -e[^\n]*socket|awk[^\n]*/inet/tcp/|"
+                r"node -e[^\n]*net\.connect\("
+            ),
+            "REVERSE_SHELL",
+            "CRITICAL",
+            88.0,
+            "Reverse/bind shell technique (multi-language)",
+        ),
+        # ── Tunnels / pivots: ssh -R, autossh, chisel, frp, ngrok, cloudflared.
+        (
+            (
+                r"(?i)\bssh\b[^\n]*-R\s|autossh[^\n]*-R\s|"
+                r"\bchisel\s+client\b|frpc\s+-c\b|\bngrok\s+tcp\b|"
+                r"cloudflared\s+tunnel\s+run\b|proxychains[^\n]*\bssh\b"
+            ),
+            "REVERSE_SHELL",
+            "CRITICAL",
+            85.0,
+            "Tunneled egress / pivot (ssh -R, chisel, frp, ngrok, cloudflared)",
+        ),
+        # ── Persistence: systemd / rc.local / init.d / launchd / run-key / schtasks.
+        (
+            (
+                r"(?i)(?:/etc/systemd/system/|/etc/rc\.local|/etc/init\.d/|"
+                r"update-rc\.d\b|launchctl\s+load\b|/Library/LaunchDaemons/|"
+                r"reg\s+add[^\n]*CurrentVersion\\+Run|"
+                r"New-Item[^\n]*CurrentVersion\\+Run|schtasks\s+/create\b)"
+            ),
+            "SANDBOX_ESCAPE",
+            "CRITICAL",
+            85.0,
+            "Persistence — service / launch / registry startup",
+        ),
+        # ── Log-wipe / audit-disable / guardrail-disable (MITRE T1070/T1562).
+        (
+            (
+                r"(?i)wevtutil\s+cl\b|auditctl\s+-e\s+0\b|"
+                r"rm\s+[^\n]*(?:/var/log/wtmp|/var/log/btmp|/var/log/lastlog)|"
+                r"systemctl\s+(?:stop|disable)\s+artsa|pkill\s+-f\s+artsa\b"
+            ),
+            "SANDBOX_ESCAPE",
+            "CRITICAL",
+            85.0,
+            "Log-wipe / audit-disable / guardrail-disable",
+        ),
         (
             r"(?i)(?:/var/spool/cron/|/etc/cron\.|/etc/crontab|/etc/at\.)",
             "SANDBOX_ESCAPE",
@@ -284,11 +340,25 @@ class RuleBasedDetector(BaseDetector):
         ),
         # Phase-2 gap closure: agent credential stores the canary/independent
         # sets proved were missed (.aws/config, .netrc, azure/gcloud, kube,
-        # shell history, PowerShell PSReadLine console history).
+        # shell history, PowerShell PSReadLine console history). The cloud-CLI
+        # credential stores live under ~/.config/<cli>/ and ~/.<cli>/, so the
+        # match is on the credential file/dir names, not a `.gcloud` dot-prefix
+        # (`.config/gcloud/…` has no dot before gcloud).
         (
             (
-                r"(?i)\.aws/config|\.netrc\b|\.azure/|\.gcloud/|"
-                r"\.kube/config|serviceaccount/token|"
+                r"(?i)\.aws/(?:credentials|config)|\.netrc\b|\.azure/|"
+                r"\.config/(?:gcloud|az|aws|doctl|heroku)/|"
+                r"gcloud/(?:credentials|access_tokens|legacy_credentials)\.db|"
+                r"\.kube/config|\.kube/|\bconfig\.json\b.*(?:credentials|token)|"
+                r"serviceaccount/token|kubelet\.conf|"
+                r"\.docker/config\.json|\.git-credentials|\.npmrc|\.pypirc|"
+                r"\.gradle/gradle\.properties|\.m2/settings\.xml|\.vault-token|"
+                r"\.terraform\.d/credentials\.tfrc\.json|\.config/rclone/rclone\.conf|"
+                r"(?:\.pgpass|/etc/pgpass|\.my\.cnf|\.mysql_history)|"
+                r"\.ssh/(?:id_rsa|id_ed25519|config|authorized_keys)|"
+                r"(?:Firefox|Chrome|Chromium).*/(?:logins\.json|Login Data)|"
+                r"jenkins/(?:secrets/|credentials\.xml)|\.config/gh/hosts\.yml|"
+                r"\.config/k9s/|\.k9s/|\.config/aws/|\.aws/credentials|"
                 r"\.bash_history|\.zsh_history|\.fish_history|"
                 r"PSReadLine|ConsoleHost_history"
             ),

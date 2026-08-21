@@ -20,10 +20,15 @@ _MCP_TOOLS = frozenset({"mcp_call", "mcp", "mcp_call_tool", "call_mcp_tool"})
 # Destructive tool-name markers (case-insensitive, word-boundary match on the
 # tool-name field). Keep this additive — it is an allow-for-block list, not a
 # deny-all: benign MCP tools (search, read_file, get_weather, …) never match.
+# Includes synonym / snake_case / camelCase aliases real MCP servers expose
+# (filesystem_delete, execute_shell, run_query → db_wipe, send_webhook, …).
 DESTRUCTIVE_TOOL_PATTERN = re.compile(
-    r"(?i)^(?:delete_user|delete_all|delete_many|drop_table|drop_collection|drop_database|"
-    r"truncate|purge|unlink|remove_user|remove_many|disconnect_all|revoke_all|"
-    r"shell|exec|execute|eval|run_code|system|rm)\b"
+    r"(?i)^(?:delete_user|delete_all|delete_many|delete_file|delete_files|delete_dir|"
+    r"filesystem_delete|file_delete|remove_file|remove_user|remove_many|remove|"
+    r"drop_table|drop_collection|drop_database|truncate|purge|unlink|"
+    r"disconnect_all|revoke_all|wipe|db_wipe|erase|"
+    r"shell|shell_exec|execute_shell|exec|execute|exec_command|run_code|run_query|"
+    r"eval|system|rm|shutdown|format|mkfs)\b"
 )
 
 
