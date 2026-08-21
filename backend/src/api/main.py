@@ -45,6 +45,7 @@ from src.api.routes.policies import router as policies_router
 from src.api.routes.prometheus import router as prometheus_router
 from src.api.routes.providers import router as providers_router
 from src.api.routes.proxy import router as proxy_router
+from src.api.routes.rag_scanner import router as rag_scanner_router
 from src.api.routes.risks import router as risks_router
 from src.api.routes.sessions import router as sessions_router
 from src.api.routes.settings import router as settings_router
@@ -82,6 +83,7 @@ ROUTERS = [
     settings_router,
     proxy_router,
     playground_router,
+    rag_scanner_router,
 ]
 
 
