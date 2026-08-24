@@ -7,7 +7,7 @@ ARTSA supports plug-and-play LLM backends via `src/agents/provider_registry.py`.
 | Provider | Base URL | Env Key | Default Model |
 |----------|----------|---------|---------------|
 | openai | api.openai.com | OPENAI_API_KEY | gpt-4o |
-| groq | api.groq.com/openai/v1 | GROQ_API_KEY | llama-3.3-70b-versatile |
+| groq | api.groq.com/openai/v1 | GROQ_API_KEY | openai/gpt-oss-120b |
 | mistral | api.mistral.ai/v1 | MISTRAL_API_KEY | open-mistral-7b |
 | deepseek | api.deepseek.com/v1 | DEEPSEEK_API_KEY | deepseek-chat |
 | openrouter | openrouter.ai/api/v1 | OPENROUTER_API_KEY | auto |

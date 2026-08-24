@@ -33,7 +33,7 @@ export function ThreatRow({ threat, rank, className }: ThreatRowProps) {
     <button
       type="button"
       className={cn(
-        "group w-full rounded-xl border border-border bg-muted/20 p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40",
+        "group w-full rounded-xl border border-border bg-muted/20 p-4 text-left transition-colors hover:bg-muted/40",
         className
       )}
       onClick={() => router.push(`/replay?session=${threat.session_id}`)}
@@ -43,7 +43,7 @@ export function ThreatRow({ threat, rank, className }: ThreatRowProps) {
           {rank !== undefined && (
             <span className="shrink-0 font-mono text-xs font-bold text-muted-foreground">#{rank}</span>
           )}
-          <span className="truncate text-sm font-medium group-hover:text-primary">
+          <span className="truncate text-sm font-medium group-hover:text-foreground">
             {threat.agent_id} — {threat.status}
           </span>
         </div>
@@ -57,7 +57,7 @@ export function ThreatRow({ threat, rank, className }: ThreatRowProps) {
             {severity}
           </Badge>
           <RiskScore score={threat.risk_score} />
-          <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
         </div>
       </div>
       <p className="mt-2 font-mono text-xs leading-relaxed text-muted-foreground">

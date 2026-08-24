@@ -1,353 +1,553 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Swords, Play, Terminal, Cpu, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Swords, Zap, Layers, Target, RotateCcw } from "lucide-react";
 import { useProviders } from "@/lib/hooks/useProviders";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { useCampaignRun } from "@/lib/hooks/useCampaignRun";
+import { useCampaigns } from "@/lib/hooks/useCampaigns";
+import { useAppData } from "@/lib/context/AppDataProvider";
+import { usePipelineOverview } from "@/lib/hooks/usePipelineOverview";
+import { fetchFromBackend } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StatCard } from "@/components/shared/StatCard";
+import { PageStack } from "@/components/shared/PageStack";
+import { CampaignHistory } from "@/components/wargame/CampaignHistory";
+import { CampaignResults } from "@/components/wargame/CampaignResults";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCampaignTranscript } from "@/lib/hooks/useCampaignTranscript";
+import { RedTeamLiveHud } from "@/components/wargame/RedTeamLiveHud";
+import { RedTeamRoundStrip } from "@/components/wargame/RedTeamRoundStrip";
+import { RedTeamRiskProfile } from "@/components/wargame/RedTeamRiskProfile";
+import { RedTeamConsoleHero } from "@/components/wargame/RedTeamConsoleHero";
+import { RedTeamEvaluationStudio } from "@/components/wargame/RedTeamEvaluationStudio";
+import { RedTeamTheater } from "@/components/wargame/RedTeamTheater";
+import { RedTeamFindingsPanel } from "@/components/wargame/RedTeamFindingsPanel";
+import { RedTeamScanSummary } from "@/components/wargame/RedTeamScanSummary";
+import { RedTeamVerdictBreakdown } from "@/components/wargame/RedTeamVerdictBreakdown";
+import { RedTeamCoverageGrid } from "@/components/wargame/RedTeamCoverageGrid";
+import { RedTeamQuickLinks } from "@/components/wargame/RedTeamQuickLinks";
+import { MotionCard } from "@/components/motion/MotionCard";
+import { JudgeVerdictPanel } from "@/components/wargame/JudgeVerdictPanel";
+import { PromoteToPlaybookPanel } from "@/components/wargame/PromoteToPlaybookPanel";
+import { AgentStatusStrip } from "@/components/pipeline/AgentStatusStrip";
+import { asiCodesForProfileCategories } from "@/lib/asiCategories";
+import { pickFeaturedTurn } from "@/lib/campaignTranscript";
+import { deriveScanMetrics } from "@/lib/redTeamScanMetrics";
+import type { CampaignListItem } from "@/lib/hooks/useCampaigns";
 
-const STEPS = ["Target", "Profile", "Launch"] as const;
+const CATEGORY_LABELS: Record<string, string> = {
+  DPI: "Prompt injection",
+  JBK: "Jailbreak",
+  SPE: "System prompt extraction",
+  DEX: "Data extraction",
+  MSE: "Model supply chain",
+};
 
 const ATTACK_PROFILES = [
-  { id: "quick_scan", name: "Quick Scan", desc: "DPI, JBK, SPE — fast surface assessment" },
-  { id: "comprehensive", name: "Comprehensive Audit", desc: "Full multi-vector red-team sweep" },
-];
+  {
+    id: "quick_scan",
+    label: "Smoke test",
+    lakeraBadge: "Fast",
+    description: "3 categories · single-turn probes · ~30s per round.",
+    icon: Zap,
+    categories: ["DPI", "JBK", "SPE"],
+    weights: { DPI: 40, JBK: 35, SPE: 25 },
+    mutations: false,
+  },
+  {
+    id: "comprehensive",
+    label: "Full adversarial",
+    lakeraBadge: "Deep",
+    description: "5 categories · mutations · multi-turn bypass attempts.",
+    icon: Layers,
+    categories: ["DPI", "JBK", "SPE", "DEX", "MSE"],
+    weights: { DPI: 25, JBK: 25, SPE: 20, DEX: 15, MSE: 15 },
+    mutations: true,
+  },
+] as const;
 
-export default function WargamePage() {
+type OutputTab = "theater" | "console" | "results";
+
+function logTone(line: string): string {
+  if (line.includes("[ERROR]")) return "text-destructive";
+  if (line.includes("[COMPLETE]")) return "text-status-success font-medium";
+  if (line.includes("[GATEWAY]") || line.includes("[WARGAME]")) return "text-foreground";
+  if (line.includes("[TELEMETRY]")) return "text-muted-foreground";
+  return "text-muted-foreground/90";
+}
+
+function buildCampaignLabel(name: string, focus: string): string {
+  const trimmedName = name.trim();
+  const trimmedFocus = focus.trim();
+  if (trimmedName) return trimmedName;
+  if (trimmedFocus) return trimmedFocus.slice(0, 80);
+  return "";
+}
+
+export default function RedTeamConsolePage() {
   const { providers, loading: providersLoading } = useProviders();
   const { capabilities, loading: authLoading } = useAuthRole();
-  const { isRunning, logs, campaignId, completed, launch } = useCampaignRun();
-  const [step, setStep] = useState(0);
+  const { campaigns, loading: campaignsLoading, refresh: refreshCampaigns } = useCampaigns();
+  const { refreshPolicies } = useAppData();
+  const { pipeline } = usePipelineOverview();
+  const {
+    isRunning,
+    logs,
+    campaignId,
+    completed,
+    status,
+    roundsCompleted,
+    maxRounds,
+    summary: runSummary,
+    errorMessage,
+    launch,
+    reset,
+  } = useCampaignRun();
+
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [modelName, setModelName] = useState("");
+  const [campaignName, setCampaignName] = useState("");
+  const [focusObjective, setFocusObjective] = useState("");
   const [attackProfile, setAttackProfile] = useState("quick_scan");
   const [rounds, setRounds] = useState(5);
   const [baseUrl, setBaseUrl] = useState("");
+  const [useLlmJudge, setUseLlmJudge] = useState(false);
+  const [templateCount, setTemplateCount] = useState(0);
+  const [outputTab, setOutputTab] = useState<OutputTab>("theater");
+  const [historySelection, setHistorySelection] = useState<CampaignListItem | null>(null);
+  const [selectedRound, setSelectedRound] = useState<number | null>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
 
   const provider = providers.find((p) => p.id === selectedProvider);
+  const profileMeta = ATTACK_PROFILES.find((p) => p.id === attackProfile) ?? ATTACK_PROFILES[0];
+  const canLaunch = Boolean(selectedProvider && attackProfile && rounds >= 1 && !isRunning);
+  const progressPct =
+    maxRounds > 0 ? Math.min(100, Math.round((roundsCompleted / maxRounds) * 100)) : 0;
+
+  const displaySummary = runSummary ?? (historySelection?.summary as Record<string, unknown> | undefined);
+  const displayCampaignId = campaignId ?? historySelection?.id ?? null;
+
+  const { turns: transcriptTurns, loading: transcriptLoading, refresh: refreshTranscript } =
+    useCampaignTranscript(displayCampaignId, displaySummary ?? null);
+
+  const featuredTurn = pickFeaturedTurn(transcriptTurns);
+  const activeTurn =
+    transcriptTurns.find((t) => t.roundNumber === selectedRound) ?? featuredTurn ?? null;
+
+  const profileAsi = asiCodesForProfileCategories([...profileMeta.categories]);
+  const roundsEstimateMin = Math.max(
+    1,
+    Math.round(rounds * (profileMeta.id === "quick_scan" ? 0.5 : 1))
+  );
+
+  const scanMetrics = useMemo(
+    () => deriveScanMetrics(displaySummary, transcriptTurns),
+    [displaySummary, transcriptTurns]
+  );
+
+  const stats = useMemo(() => {
+    const completedRuns = campaigns.filter((c) => c.status === "COMPLETED");
+    const successScores = completedRuns
+      .map((c) => Number((c.summary as Record<string, unknown> | undefined)?.avg_attack_success))
+      .filter((n) => Number.isFinite(n));
+    const avgSuccess =
+      successScores.length > 0
+        ? (successScores.reduce((a, b) => a + b, 0) / successScores.length).toFixed(1)
+        : "—";
+    return {
+      total: campaigns.length,
+      completed: completedRuns.length,
+      avgSuccess,
+    };
+  }, [campaigns]);
+
+  const scanAgents = useMemo(
+    () =>
+      pipeline.agents.filter((a) =>
+        ["research", "curator", "redteam", "target", "judge"].includes(a.id)
+      ),
+    [pipeline.agents]
+  );
 
   useEffect(() => {
-    if (provider && !modelName) {
-      setModelName(provider.model);
-    }
+    fetchFromBackend<{ templates?: unknown[] }>("/api/v1/attack-library", { silent: true }).then((d) => {
+      if (d?.templates) setTemplateCount(d.templates.length);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (provider && !modelName) setModelName(provider.model);
   }, [provider, modelName]);
+
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [logs]);
+
+  useEffect(() => {
+    if (completed) {
+      setOutputTab("results");
+      void refreshCampaigns();
+      void refreshTranscript();
+    }
+  }, [completed, refreshCampaigns, refreshTranscript]);
+
+  useEffect(() => {
+    if (transcriptTurns.length === 0) return;
+    setSelectedRound((prev) => {
+      if (prev != null && transcriptTurns.some((t) => t.roundNumber === prev)) return prev;
+      return pickFeaturedTurn(transcriptTurns)?.roundNumber ?? transcriptTurns[0].roundNumber;
+    });
+  }, [transcriptTurns]);
+
+  const navigateRound = useCallback(
+    (delta: number) => {
+      if (!transcriptTurns.length) return;
+      const idx = transcriptTurns.findIndex((t) => t.roundNumber === selectedRound);
+      const nextIdx = Math.max(0, Math.min(transcriptTurns.length - 1, idx + delta));
+      setSelectedRound(transcriptTurns[nextIdx].roundNumber);
+      setOutputTab("theater");
+    },
+    [transcriptTurns, selectedRound]
+  );
+
+  useEffect(() => {
+    if (outputTab !== "theater" || transcriptTurns.length === 0) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.metaKey ||
+        event.ctrlKey
+      ) {
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        navigateRound(-1);
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        navigateRound(1);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [outputTab, transcriptTurns.length, navigateRound]);
 
   const handleProviderSelect = (pId: string) => {
     setSelectedProvider(pId);
     const found = providers.find((p) => p.id === pId);
     if (found) setModelName(found.model);
+    setHistorySelection(null);
   };
 
-  const handleLaunch = () => {
-    if (!selectedProvider) return;
+  const handleLaunch = useCallback(() => {
+    if (!selectedProvider || isRunning) return;
+    setHistorySelection(null);
+    setOutputTab("theater");
+    setSelectedRound(null);
     void launch({
       provider: selectedProvider,
       modelName,
       attackProfile,
       rounds,
       baseUrl,
+      useLlmJudge,
+      campaignName: buildCampaignLabel(campaignName, focusObjective),
     });
+  }, [
+    selectedProvider,
+    isRunning,
+    launch,
+    modelName,
+    attackProfile,
+    rounds,
+    baseUrl,
+    useLlmJudge,
+    campaignName,
+    focusObjective,
+  ]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canLaunch) {
+        event.preventDefault();
+        handleLaunch();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canLaunch, handleLaunch]);
+
+  const handleHistorySelect = (campaign: CampaignListItem) => {
+    setHistorySelection(campaign);
+    setSelectedRound(null);
+    setOutputTab(campaign.summary ? "theater" : "console");
   };
 
-  const canAdvanceStep0 = !!selectedProvider;
-  const canAdvanceStep1 = !!attackProfile && rounds >= 1;
+  const showScanSummary =
+    scanMetrics.roundsCompleted > 0 || transcriptTurns.length > 0 || Boolean(displaySummary);
 
   if (!authLoading && !capabilities.can_run_campaigns) {
     return (
-      <div className="space-y-8">
+      <PageStack>
         <PageHeader
-          title="Wargame Simulation"
-          description="Configure target providers, attack profiles, and execute autonomous red-team campaigns — prompt injection, jailbreak, and system prompt extraction."
+          title="Red Team Console"
+          description="Automated adversarial testing for AI applications and agents."
           icon={<Swords className="h-5 w-5" />}
         />
         <EmptyState
           icon={Swords}
-          title="Campaign access restricted"
-          description="Your API key role does not include permission to launch wargame campaigns. Contact an admin for redteam or admin access."
+          title="Red team access restricted"
+          description="Your role cannot launch scans. Contact an admin for redteam or analyst access."
         />
-      </div>
+      </PageStack>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
-        title="Wargame Simulation"
-        description="Configure target providers, attack profiles, and execute autonomous red-team campaigns — prompt injection, jailbreak, and system prompt extraction."
+        title="Red Team Console"
+        description="Evaluate, scan, and red-team your models — continuous adversarial testing for safety and security."
         icon={<Swords className="h-5 w-5" />}
-        actions={
-          isRunning ? (
-            <Badge variant="info" className="animate-pulse">
-              Running
-            </Badge>
-          ) : completed ? (
-            <Badge variant="success">Completed</Badge>
-          ) : null
-        }
       />
 
-      <nav aria-label="Wargame wizard steps" className="flex items-center gap-2">
-        {STEPS.map((label, i) => (
-          <div key={label} className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => !isRunning && setStep(i)}
-              disabled={isRunning}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                step === i
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:bg-accent",
-                isRunning && "cursor-not-allowed opacity-60"
-              )}
-            >
-              <span className="font-mono">{i + 1}</span>
-              {label}
-              {i < step && <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />}
-            </button>
-            {i < STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-          </div>
-        ))}
-      </nav>
+      <MotionCard hover reveal className="red-team-hero-wrapper">
+        <RedTeamConsoleHero
+          isRunning={isRunning}
+          completed={completed}
+          canLaunch={canLaunch}
+          onLaunch={handleLaunch}
+          targetName={provider?.name ?? historySelection?.provider}
+          targetModel={provider?.model ?? historySelection?.model}
+          scanModeLabel={profileMeta.label}
+          rounds={rounds}
+          metrics={scanMetrics}
+        />
+      </MotionCard>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6">
-          {step === 0 && (
-            <DashboardCard title="Step 1 · Target Provider" description="Select from configured LLM backends">
-              {providersLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                  ))}
-                </div>
-              ) : providers.length === 0 ? (
-                <EmptyState
-                  icon={Swords}
-                  title="No providers available"
-                  description="Configure API keys in Providers before launching a campaign."
-                  action={
-                    <Button asChild size="sm">
-                      <Link href="/admin/providers">Configure providers</Link>
-                    </Button>
-                  }
-                />
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    {providers.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => handleProviderSelect(p.id)}
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
-                          selectedProvider === p.id
-                            ? "border-primary/50 bg-primary/10 text-foreground"
-                            : "border-border hover:bg-accent",
-                          !p.configured && p.type !== "local" && "opacity-60"
-                        )}
-                      >
-                        <div>
-                          <p className="font-medium">{p.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{p.model}</p>
-                        </div>
-                        <Badge
-                          variant={p.configured ? "success" : "secondary"}
-                          className="text-[10px]"
-                        >
-                          {p.configured ? "Ready" : "No key"}
-                        </Badge>
-                      </button>
-                    ))}
-                  </div>
-                  {selectedProvider && (
-                    <div className="space-y-3 border-t border-border pt-4">
-                      <label className="text-xs font-medium text-muted-foreground">Model name</label>
-                      <Input
-                        value={modelName}
-                        onChange={(e) => setModelName(e.target.value)}
-                        className="font-mono text-xs"
-                      />
-                      {(provider?.type === "local" || selectedProvider === "custom") && (
-                        <>
-                          <label className="text-xs font-medium text-muted-foreground">Base URL</label>
-                          <Input
-                            value={baseUrl}
-                            onChange={(e) => setBaseUrl(e.target.value)}
-                            placeholder="http://localhost:11434/v1"
-                            className="font-mono text-xs"
-                          />
-                        </>
-                      )}
-                      {!provider?.configured && provider?.type !== "local" && (
-                        <p className="text-xs text-status-warning">
-                          No API key configured — add it in{" "}
-                          <Link href="/admin/providers" className="underline">
-                            Providers
-                          </Link>{" "}
-                          or .env before launching.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  <Button
-                    className="mt-4 w-full gap-2"
-                    disabled={!canAdvanceStep0}
-                    onClick={() => setStep(1)}
-                  >
-                    Continue <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-            </DashboardCard>
-          )}
+      <RedTeamQuickLinks
+        campaignId={displayCampaignId}
+        findingsCount={scanMetrics.findingsCount}
+      />
 
-          {step === 1 && (
-            <DashboardCard title="Step 2 · Attack Profile" description="Choose campaign intensity">
-              <div className="space-y-3">
-                {ATTACK_PROFILES.map((profile) => (
-                  <button
-                    key={profile.id}
-                    type="button"
-                    onClick={() => setAttackProfile(profile.id)}
-                    className={cn(
-                      "w-full rounded-lg border p-4 text-left transition-colors",
-                      attackProfile === profile.id
-                        ? "border-primary/50 bg-primary/10"
-                        : "border-border hover:bg-accent"
-                    )}
-                  >
-                    <p className="text-sm font-medium">{profile.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{profile.desc}</p>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4">
-                <label htmlFor="rounds" className="text-xs font-medium text-muted-foreground">
-                  Max rounds: {rounds}
-                </label>
-                <input
-                  id="rounds"
-                  type="range"
-                  min={1}
-                  max={20}
-                  value={rounds}
-                  onChange={(e) => setRounds(Number(e.target.value))}
-                  className="mt-2 w-full accent-primary"
-                />
-              </div>
-              <div className="mt-4 flex gap-2">
-                <Button variant="outline" onClick={() => setStep(0)}>
-                  Back
-                </Button>
-                <Button className="flex-1 gap-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
-                  Continue <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </DashboardCard>
-          )}
-
-          {step === 2 && (
-            <DashboardCard title="Step 3 · Launch" description="Review and execute">
-              <dl className="space-y-2 font-mono text-xs">
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Provider</dt>
-                  <dd>{provider?.name ?? selectedProvider}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Model</dt>
-                  <dd>{modelName}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Profile</dt>
-                  <dd>{attackProfile}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Rounds</dt>
-                  <dd>{rounds}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 flex gap-2">
-                <Button variant="outline" onClick={() => setStep(1)} disabled={isRunning}>
-                  Back
-                </Button>
-                <Button onClick={handleLaunch} disabled={isRunning} className="flex-1 gap-2">
-                  {isRunning ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Executing…
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4" /> Run Simulation
-                    </>
-                  )}
-                </Button>
-              </div>
-              {completed && (
-                <div className="mt-4 flex flex-col gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href="/reports">View reports</Link>
-                  </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <Link href="/replay">Open replay</Link>
-                  </Button>
-                </div>
-              )}
-            </DashboardCard>
-          )}
-        </div>
-
-        <DashboardCard
-          title="Execution Console"
-          description="Live campaign telemetry"
-          className="lg:col-span-2"
-          badge={<Terminal className="h-4 w-4 text-muted-foreground" aria-hidden />}
-          contentClassName="flex min-h-[480px] flex-col"
-        >
-          <ScrollArea className="flex-1 rounded-lg border border-border bg-muted/50 p-4 font-mono text-xs text-foreground">
-            {logs.length === 0 ? (
-              <p className="py-24 text-center text-muted-foreground">
-                Complete the wizard steps and launch a simulation.
-              </p>
-            ) : (
-              logs.map((log, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "leading-relaxed",
-                    log.includes("ERROR") && "font-semibold text-destructive",
-                    log.includes("COMPLETE") && "font-semibold text-status-success",
-                    log.includes("GATEWAY") && "text-primary",
-                    !log.includes("ERROR") &&
-                      !log.includes("COMPLETE") &&
-                      !log.includes("GATEWAY") &&
-                      "text-muted-foreground"
-                  )}
-                >
-                  {log}
-                </div>
-              ))
-            )}
-          </ScrollArea>
-          <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <span className="font-mono">ID: {campaignId ?? "—"}</span>
-            <span className="flex items-center gap-1">
-              <Cpu className="h-3.5 w-3.5" aria-hidden />
-              Evolutionary Red Team
-            </span>
-          </div>
-        </DashboardCard>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Total scans"
+          value={stats.total}
+          subtitle="Archived evaluations"
+          icon={Target}
+          sparklineData={campaigns.slice(0, 8).map((c) => c.rounds_completed || 1)}
+        />
+        <StatCard label="Completed" value={stats.completed} subtitle="Finished runs" />
+        <StatCard label="Avg attack score" value={stats.avgSuccess} subtitle="Across completed" />
       </div>
-    </div>
+
+      <div className="red-team-workspace surface-panel overflow-hidden rounded-xl border border-border">
+        <div className="grid lg:grid-cols-12 lg:items-start">
+          <RedTeamEvaluationStudio
+            campaignName={campaignName}
+            onCampaignNameChange={setCampaignName}
+            focusObjective={focusObjective}
+            onFocusObjectiveChange={setFocusObjective}
+            providers={providers}
+            providersLoading={providersLoading}
+            selectedProviderId={selectedProvider}
+            onSelectProvider={handleProviderSelect}
+            modelName={modelName}
+            onModelNameChange={setModelName}
+            baseUrl={baseUrl}
+            onBaseUrlChange={setBaseUrl}
+            showBaseUrl={provider?.type === "local" || selectedProvider === "custom"}
+            attackProfiles={ATTACK_PROFILES}
+            attackProfile={attackProfile}
+            onAttackProfileChange={setAttackProfile}
+            categoryLabels={CATEGORY_LABELS}
+            profileAsi={profileAsi}
+            rounds={rounds}
+            onRoundsChange={setRounds}
+            roundsEstimateMin={roundsEstimateMin}
+            useLlmJudge={useLlmJudge}
+            onUseLlmJudgeChange={setUseLlmJudge}
+            isRunning={isRunning}
+            canLaunch={canLaunch}
+            onLaunch={handleLaunch}
+            targetPreviewName={provider?.name}
+            profileLabel={profileMeta.label}
+          />
+
+          <div className="console-panel min-h-0 border-b border-border lg:col-span-6 lg:border-b-0 xl:col-span-6">
+            <div className="border-b border-border px-4 py-3">
+              <p className="text-sm font-semibold tracking-tight">Run output</p>
+              <p className="text-xs text-muted-foreground">
+                Live adversarial session, orchestration logs, and aggregated scan results.
+              </p>
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                {historySelection?.name ?? (isRunning ? "Live scan" : "No scan selected")}
+                {displayCampaignId ? ` · ${displayCampaignId}` : ""}
+              </p>
+            </div>
+
+            <RedTeamScanSummary metrics={scanMetrics} visible={showScanSummary} />
+
+            <RedTeamLiveHud
+              running={isRunning}
+              status={status}
+              roundsCompleted={roundsCompleted}
+              maxRounds={maxRounds || rounds}
+              progressPct={progressPct}
+              targetName={provider?.name ?? historySelection?.provider}
+              scanModeLabel={profileMeta.label}
+            />
+
+            {isRunning && (
+              <div className="border-b border-border px-4 py-3">
+                <p className="section-label mb-2">Agent orchestration</p>
+                <AgentStatusStrip agents={scanAgents} compact />
+              </div>
+            )}
+
+            <Tabs
+              value={outputTab}
+              onValueChange={(v) => setOutputTab(v as OutputTab)}
+              className="flex flex-1 flex-col"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 pt-2">
+                <TabsList className="h-8">
+                  <TabsTrigger value="theater" className="text-xs">Session</TabsTrigger>
+                  <TabsTrigger value="console" className="text-xs">Console</TabsTrigger>
+                  <TabsTrigger value="results" className="text-xs" disabled={!displaySummary}>
+                    Results
+                  </TabsTrigger>
+                </TabsList>
+                {transcriptTurns.length > 0 && outputTab === "theater" && (
+                  <p className="text-[10px] text-muted-foreground">← → navigate rounds</p>
+                )}
+              </div>
+
+              <TabsContent value="theater" className="mt-0 flex-1 space-y-4 p-4">
+                <RedTeamRoundStrip
+                  turns={transcriptTurns}
+                  selectedRound={selectedRound}
+                  onSelectRound={setSelectedRound}
+                />
+                <RedTeamTheater turn={activeTurn} loading={transcriptLoading} />
+                <RedTeamCoverageGrid objectives={profileAsi} turns={transcriptTurns} />
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <JudgeVerdictPanel turn={activeTurn} />
+                  <PromoteToPlaybookPanel
+                    turn={activeTurn}
+                    findingId={
+                      displayCampaignId && activeTurn
+                        ? `campaign-${displayCampaignId}-r${activeTurn.roundNumber}`
+                        : null
+                    }
+                    onPromoted={() => {
+                      void refreshCampaigns();
+                      void refreshPolicies();
+                    }}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent
+                value="console"
+                className="mt-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col"
+              >
+                <ScrollArea className="console-viewport flex-1">
+                  <div className="space-y-0.5 p-4 font-mono text-[11px] leading-relaxed sm:text-xs">
+                    {errorMessage && (
+                      <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive">
+                        {errorMessage}
+                      </p>
+                    )}
+                    {logs.length === 0 ? (
+                      <p className="py-16 text-center text-muted-foreground">
+                        Orchestration logs appear when a scan runs.
+                      </p>
+                    ) : (
+                      logs.map((line, idx) => (
+                        <div key={`${idx}-${line.slice(0, 24)}`} className={logTone(line)}>
+                          {line}
+                        </div>
+                      ))
+                    )}
+                    <div ref={consoleEndRef} />
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="results" className="mt-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
+                {displaySummary ? (
+                  <>
+                    <RedTeamVerdictBreakdown verdicts={scanMetrics.verdicts} />
+                    <CampaignResults
+                      summary={displaySummary}
+                      campaignId={displayCampaignId}
+                      featuredTurn={activeTurn}
+                    />
+                  </>
+                ) : (
+                  <p className="py-12 text-center text-sm text-muted-foreground">
+                    Aggregated results appear when a scan completes.
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => {
+                  reset();
+                  setHistorySelection(null);
+                  setOutputTab("theater");
+                  setSelectedRound(null);
+                  setFocusObjective("");
+                }}
+                disabled={isRunning}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+              <p className="text-[10px] text-muted-foreground">
+                {templateCount} templates · ⌘/Ctrl+Enter to scan
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-0 lg:col-span-3">
+            <CampaignHistory
+              campaigns={campaigns}
+              loading={campaignsLoading}
+              selectedId={historySelection?.id ?? campaignId}
+              activeRunId={isRunning ? campaignId : null}
+              onSelect={handleHistorySelect}
+              embedded
+            />
+            <div className="border-t border-border p-4">
+              <RedTeamFindingsPanel
+                turns={transcriptTurns}
+                selectedRound={selectedRound}
+                onSelectRound={(r) => {
+                  setSelectedRound(r);
+                  setOutputTab("theater");
+                }}
+              />
+            </div>
+            <div className="border-t border-border p-4">
+              <RedTeamRiskProfile turns={transcriptTurns} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </PageStack>
   );
 }

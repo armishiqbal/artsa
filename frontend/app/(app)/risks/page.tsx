@@ -1,213 +1,452 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ShieldAlert, Activity, Ban, Gauge, Layers, Radar, AlertTriangle } from "lucide-react";
+import { ShieldAlert, Search, Crosshair, ScrollText, BookOpen } from "lucide-react";
 import {
   CATEGORY_LABELS,
-  DEFENSE_LAYER_COUNT,
   DEFENSE_LAYER_LABELS,
 } from "@/lib/agenticRisks";
 import type { AgenticRisk } from "@/lib/types";
 import { useRiskFramework } from "@/lib/hooks/useRiskFramework";
+import { useConnection } from "@/lib/context/ConnectionProvider";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageLoadingSkeleton } from "@/components/shared/PageSkeleton";
+import { LiveIndicator } from "@/components/shared/LiveIndicator";
+import { StatCard } from "@/components/shared/StatCard";
+import { PageStack } from "@/components/shared/PageStack";
+import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
-function severityVariant(severity: AgenticRisk["severity"]) {
-  return severity === "CRITICAL"
-    ? "critical"
-    : severity === "HIGH"
-      ? "warning"
-      : severity === "MEDIUM"
-        ? "secondary"
-        : "success";
+type SeverityFilter = "ALL" | AgenticRisk["severity"];
+
+function formatGeneratedAt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return null;
+  }
 }
 
-function RiskCard({ risk }: { risk: AgenticRisk }) {
+function SeverityChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "interactive-pill rounded-md border px-2.5 py-1 font-mono text-[11px] tabular-nums",
+        active
+          ? "border-foreground/25 bg-muted text-foreground shadow-sm"
+          : "border-border bg-card text-muted-foreground hover:border-foreground/15 hover:text-foreground"
+      )}
+    >
+      {label}
+      <span className="ml-1.5 text-foreground/70">{count}</span>
+    </button>
+  );
+}
+
+function RiskListRow({
+  risk,
+  selected,
+  onSelect,
+  index,
+}: {
+  risk: AgenticRisk;
+  selected: boolean;
+  onSelect: () => void;
+  index: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={selected ? "true" : undefined}
+      data-selected={selected ? "true" : "false"}
+      className={cn(
+        "selection-list-item flex gap-3 px-4 py-3",
+        selected && "border-l-foreground bg-muted/60"
+      )}
+    >
+      <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+        {risk.rank}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{risk.name}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <SeverityBadge severity={risk.severity} />
+          <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+            {risk.live_events} evt · {risk.blocked_events} blocked
+            {risk.breached_events > 0 && (
+              <span className="text-severity-critical"> · {risk.breached_events} breached</span>
+            )}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function RiskDetail({ risk }: { risk: AgenticRisk }) {
   const primaryCategory = risk.attack_categories[0];
 
   return (
-    <DashboardCard
-      title={`#${risk.rank} · ${risk.name}`}
-      badge={
-        <Badge variant={severityVariant(risk.severity)} className="font-mono text-[10px] uppercase">
-          {risk.severity}
-        </Badge>
-      }
-      delay={0.02 * risk.rank}
-    >
-      <p className="text-xs leading-relaxed text-muted-foreground">{risk.description}</p>
-
-      <div className="mt-4 grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/20 p-3 text-center sm:grid-cols-4">
-        <div>
-          <p className="flex items-center justify-center gap-1 text-[10px] uppercase text-muted-foreground">
-            <Activity className="h-3 w-3" aria-hidden /> Events
-          </p>
-          <p className="mt-0.5 font-mono text-lg font-semibold">{risk.live_events}</p>
+    <div key={risk.id} className="flex h-full flex-col">
+      <div className="border-b border-border px-5 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-xs text-muted-foreground">#{risk.rank}</span>
+          <SeverityBadge severity={risk.severity} />
         </div>
-        <div>
-          <p className="flex items-center justify-center gap-1 text-[10px] uppercase text-muted-foreground">
-            <Ban className="h-3 w-3" aria-hidden /> Blocked
-          </p>
-          <p className="mt-0.5 font-mono text-lg font-semibold text-status-success">{risk.blocked_events}</p>
-        </div>
-        <div>
-          <p className="flex items-center justify-center gap-1 text-[10px] uppercase text-muted-foreground">
-            <AlertTriangle className="h-3 w-3" aria-hidden /> Breached
-          </p>
-          <p className="mt-0.5 font-mono text-lg font-semibold text-severity-critical">{risk.breached_events}</p>
-        </div>
-        <div>
-          <p className="flex items-center justify-center gap-1 text-[10px] uppercase text-muted-foreground">
-            <Gauge className="h-3 w-3" aria-hidden /> Max risk
-          </p>
-          <p className="mt-0.5 font-mono text-lg font-semibold text-severity-medium">
-            {Number.isFinite(risk.max_risk_score) ? risk.max_risk_score.toFixed(1) : "—"}
-          </p>
-        </div>
+        <h2 className="mt-2 text-base font-semibold leading-snug sm:text-lg">{risk.name}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{risk.description}</p>
       </div>
 
-      <div className="mt-4 space-y-3">
-        <div className="flex flex-wrap gap-1.5">
-          {risk.attack_categories.map((cat) => (
-            <Badge key={cat} variant="info" className="text-[10px]">
-              {cat} · {CATEGORY_LABELS[cat] ?? cat}
-            </Badge>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <Layers className="h-3.5 w-3.5" aria-hidden />
-          <span className="font-medium">Defenses:</span>
-          {risk.defense_layers.map((layer) => (
-            <Badge key={layer} variant="outline" className="font-mono text-[10px]">
-              {DEFENSE_LAYER_LABELS[layer] ?? layer}
-            </Badge>
-          ))}
-        </div>
-        {risk.detectors.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <Radar className="h-3.5 w-3.5" aria-hidden />
-            <span className="font-medium">Detectors:</span>
-            {risk.detectors.map((d) => (
-              <Badge key={d} variant="secondary" className="font-mono text-[10px]">
-                {d}
-              </Badge>
-            ))}
+      <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Events</dt>
+            <dd className="mt-1 font-mono text-lg font-semibold tabular-nums">{risk.live_events}</dd>
           </div>
-        )}
+          <div>
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Blocked</dt>
+            <dd className="mt-1 font-mono text-lg font-semibold tabular-nums text-status-success">
+              {risk.blocked_events}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Breached</dt>
+            <dd
+              className={cn(
+                "mt-1 font-mono text-lg font-semibold tabular-nums",
+                risk.breached_events > 0 ? "text-severity-critical" : "text-foreground"
+              )}
+            >
+              {risk.breached_events}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Max score</dt>
+            <dd className="mt-1 font-mono text-lg font-semibold tabular-nums text-muted-foreground">
+              {Number.isFinite(risk.max_risk_score) ? risk.max_risk_score.toFixed(1) : "—"}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-6 space-y-5">
+          <div>
+            <h3 className="text-xs font-medium text-foreground">Attack categories</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {risk.attack_categories.map((c) => `${c} — ${CATEGORY_LABELS[c] ?? c}`).join("; ")}
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-medium text-foreground">Defense layers</h3>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {risk.defense_layers.map((layer) => (
+                <li key={layer}>{DEFENSE_LAYER_LABELS[layer] ?? layer}</li>
+              ))}
+            </ul>
+          </div>
+
+          {risk.detectors.length > 0 && (
+            <div>
+              <h3 className="text-xs font-medium text-foreground">Detectors</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{risk.detectors.join(", ")}</p>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-xs font-medium text-foreground">Mitigations</h3>
+            <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+              {risk.mitigations.map((m) => (
+                <li key={m} className="leading-relaxed">{m}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 space-y-2 border-t border-border pt-4">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Recommended mitigations
-        </p>
-        <ul className="space-y-1.5">
-          {risk.mitigations.map((m) => (
-            <li key={m} className="flex gap-2 text-xs text-muted-foreground">
-              <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary" aria-hidden />
-              {m}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-        <Button asChild variant="outline" size="sm" className="font-mono text-[10px]">
-          <Link href="/">Command Center</Link>
+      <div className="flex flex-wrap gap-2 border-t border-border px-5 py-4 sm:px-6">
+        <Button asChild size="sm">
+          <Link href="/sandbox">
+            <Crosshair className="h-3.5 w-3.5" aria-hidden />
+            Sandbox
+          </Link>
         </Button>
-        <Button asChild variant="outline" size="sm" className="font-mono text-[10px]">
-          <Link href="/replay">Replay</Link>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/logs">
+            <ScrollText className="h-3.5 w-3.5" aria-hidden />
+            Logs
+          </Link>
         </Button>
         {primaryCategory && (
-          <Button asChild variant="outline" size="sm" className="font-mono text-[10px]">
+          <Button asChild size="sm" variant="outline">
             <Link href={`/library?category=${encodeURIComponent(primaryCategory)}`}>
-              Attack library · {primaryCategory}
+              <BookOpen className="h-3.5 w-3.5" aria-hidden />
+              {primaryCategory}
             </Link>
           </Button>
         )}
       </div>
-    </DashboardCard>
+    </div>
   );
 }
 
 export default function RiskFrameworkPage() {
   const { data, loading } = useRiskFramework();
+  const { apiOnline, wsConnected } = useConnection();
+  const [query, setQuery] = useState("");
+  const [severity, setSeverity] = useState<SeverityFilter>("ALL");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const framework = data?.framework ?? [];
+
+  const visible = useMemo(() => {
+    return framework.filter((r) => {
+      if (severity !== "ALL" && r.severity !== severity) return false;
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        r.name.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q) ||
+        r.attack_categories.some((c) => c.toLowerCase().includes(q))
+      );
+    });
+  }, [framework, query, severity]);
+
+  const selected = visible.find((r) => r.id === selectedId) ?? visible[0] ?? null;
+
+  useEffect(() => {
+    if (visible.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !visible.some((r) => r.id === selectedId)) {
+      setSelectedId(visible[0].id);
+    }
+  }, [visible, selectedId]);
+
+  const selectByOffset = useCallback(
+    (offset: number) => {
+      if (visible.length === 0) return;
+      const currentIndex = visible.findIndex((r) => r.id === (selectedId ?? visible[0]?.id));
+      const nextIndex = Math.max(0, Math.min(visible.length - 1, currentIndex + offset));
+      setSelectedId(visible[nextIndex].id);
+    },
+    [visible, selectedId]
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        selectByOffset(1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        selectByOffset(-1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        setSelectedId(visible[0]?.id ?? null);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        setSelectedId(visible[visible.length - 1]?.id ?? null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectByOffset, visible]);
+
+  useEffect(() => {
+    if (!selectedId || !listRef.current) return;
+    const active = listRef.current.querySelector('[aria-current="true"]');
+    if (active instanceof HTMLElement) {
+      active.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [selectedId]);
+
   const criticalCount = framework.filter((r) => r.severity === "CRITICAL").length;
   const highCount = framework.filter((r) => r.severity === "HIGH").length;
-  const totalBlocked = framework.reduce((acc, r) => acc + r.blocked_events, 0);
-  const totalBreached = framework.reduce((acc, r) => acc + r.breached_events, 0);
-  const defenseCoverage = new Set(framework.flatMap((r) => r.defense_layers));
-  const coveragePct = framework.length
-    ? Math.round((defenseCoverage.size / DEFENSE_LAYER_COUNT) * 100)
-    : 0;
+  const mediumCount = framework.filter((r) => r.severity === "MEDIUM").length;
+  const lowCount = framework.filter((r) => r.severity === "LOW").length;
+  const generatedLabel = formatGeneratedAt(data?.generated_at);
 
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
         title="Agentic Risk Framework"
-        description="OWASP-style Agentic AI Top 10 mapped to attack categories, defense layers, and detectors with live containment counts."
+        description="OWASP Agentic AI Top 10 with live counts from screened agent activity."
         icon={<ShieldAlert className="h-5 w-5" />}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="font-mono">
-              {framework.length} risks
-            </Badge>
-          </div>
-        }
+        badge={<LiveIndicator connected={apiOnline && wsConnected} className="meta-badge" />}
       />
 
       {loading ? (
         <PageLoadingSkeleton />
+      ) : framework.length === 0 ? (
+        <EmptyState
+          icon={ShieldAlert}
+          title="Risk framework unavailable"
+          description="Could not load framework data. Verify the containment API is running."
+        />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <DashboardCard title="Framework Risks" contentClassName="flex items-center justify-between">
-              <p className="font-mono text-3xl font-semibold">{framework.length}</p>
-              <Badge variant="secondary">Top 10</Badge>
-            </DashboardCard>
-            <DashboardCard title="Critical / High" contentClassName="flex items-center justify-between">
-              <p className="font-mono text-3xl font-semibold text-severity-critical">
-                {criticalCount + highCount}
-              </p>
-              <Badge variant="warning">{highCount} high</Badge>
-            </DashboardCard>
-            <DashboardCard title="Blocked Events" contentClassName="flex items-center justify-between">
-              <p className="font-mono text-3xl font-semibold text-status-success">{totalBlocked}</p>
-              <Badge variant="success">contained</Badge>
-            </DashboardCard>
-            <DashboardCard title="Defense Coverage" contentClassName="space-y-2">
-              <p className="font-mono text-3xl font-semibold">{coveragePct}%</p>
-              <Progress value={coveragePct} className="h-1.5" aria-label={`${coveragePct}% defense coverage`} />
-              <p className="text-xs text-muted-foreground">
-                {defenseCoverage.size}/{DEFENSE_LAYER_COUNT} guardrail layers mapped
-              </p>
-              {totalBreached > 0 && (
-                <p className="text-xs text-severity-critical">{totalBreached} breach events in window</p>
-              )}
-            </DashboardCard>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard label="Critical" value={criticalCount} severity="CRITICAL" variant="compact" />
+            <StatCard label="High" value={highCount} severity="HIGH" variant="compact" />
+            <StatCard label="Medium" value={mediumCount} severity="MEDIUM" variant="compact" />
+            <StatCard label="Low" value={lowCount} severity="LOW" variant="compact" />
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {framework.map((risk) => (
-              <RiskCard key={risk.id} risk={risk} />
-            ))}
-          </div>
-
-          {framework.length === 0 && (
-            <EmptyState
-              icon={ShieldAlert}
-              title="Risk framework unavailable"
-              description="The risk framework could not be loaded."
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="mr-2 text-xs text-muted-foreground">
+              {framework.length} risks ·{" "}
+              {data?.total_events ?? framework.reduce((a, r) => a + r.live_events, 0)} events
+              {generatedLabel ? ` · ${generatedLabel}` : ""}
+            </p>
+            <SeverityChip
+              label="All"
+              count={framework.length}
+              active={severity === "ALL"}
+              onClick={() => setSeverity("ALL")}
             />
-          )}
+            <SeverityChip
+              label="Critical"
+              count={criticalCount}
+              active={severity === "CRITICAL"}
+              onClick={() => setSeverity("CRITICAL")}
+            />
+            <SeverityChip
+              label="High"
+              count={highCount}
+              active={severity === "HIGH"}
+              onClick={() => setSeverity("HIGH")}
+            />
+            <SeverityChip
+              label="Medium"
+              count={mediumCount}
+              active={severity === "MEDIUM"}
+              onClick={() => setSeverity("MEDIUM")}
+            />
+            <SeverityChip
+              label="Low"
+              count={lowCount}
+              active={severity === "LOW"}
+              onClick={() => setSeverity("LOW")}
+            />
+            {!apiOnline && (
+              <Badge variant="outline" className="meta-badge">API offline</Badge>
+            )}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(280px,320px)_1fr] lg:items-start">
+            <div className="surface-panel overflow-hidden">
+              <div className="space-y-3 border-b border-border p-3">
+                <div className="relative">
+                  <Search
+                    className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search…"
+                    aria-label="Search risks"
+                    className="pl-9"
+                  />
+                </div>
+                <Tabs value={severity} onValueChange={(v) => setSeverity(v as SeverityFilter)}>
+                  <TabsList className="h-8 w-full justify-start overflow-x-auto">
+                    <TabsTrigger value="ALL" className="text-xs">All</TabsTrigger>
+                    <TabsTrigger value="CRITICAL" className="text-xs">C ({criticalCount})</TabsTrigger>
+                    <TabsTrigger value="HIGH" className="text-xs">H ({highCount})</TabsTrigger>
+                    <TabsTrigger value="MEDIUM" className="text-xs">M ({mediumCount})</TabsTrigger>
+                    <TabsTrigger value="LOW" className="text-xs">L ({lowCount})</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <p className="text-[11px] text-muted-foreground">
+                  {visible.length} of {framework.length} shown · ↑↓ to navigate
+                </p>
+              </div>
+
+              {visible.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-sm text-muted-foreground">No matches.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => {
+                      setQuery("");
+                      setSeverity("ALL");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  ref={listRef}
+                  className="max-h-[min(560px,65vh)] overflow-y-auto scroll-smooth"
+                  role="listbox"
+                  aria-label="Risks"
+                >
+                  {visible.map((risk, index) => (
+                    <RiskListRow
+                      key={risk.id}
+                      risk={risk}
+                      index={index}
+                      selected={selected?.id === risk.id}
+                      onSelect={() => setSelectedId(risk.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="surface-panel min-h-[420px] overflow-hidden lg:min-h-[560px]">
+              {selected ? (
+                <RiskDetail risk={selected} />
+              ) : (
+                <EmptyState
+                  icon={ShieldAlert}
+                  title="No risk selected"
+                  description="Select a risk from the list."
+                  className="min-h-[420px] border-0 bg-transparent shadow-none lg:min-h-[560px]"
+                />
+              )}
+            </div>
+          </div>
         </>
       )}
-    </div>
+    </PageStack>
   );
 }

@@ -29,6 +29,11 @@ module.exports = {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
+        button: {
+          DEFAULT: "hsl(var(--button))",
+          foreground: "hsl(var(--button-foreground))",
+          hover: "hsl(var(--button-hover))",
+        },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
@@ -107,8 +112,10 @@ module.exports = {
       },
 
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "Inter", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "JetBrains Mono", "monospace"],
+        sans: ["var(--font-inter)", "var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        inter: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        "jetbrains-mono": ["var(--font-jetbrains-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
 
       boxShadow: {
@@ -117,6 +124,7 @@ module.exports = {
         "glow-lg": "var(--shadow-glow-lg)",
         card: "var(--shadow-card)",
         elevated: "var(--shadow-elevated)",
+        premium: "var(--shadow-premium)",
       },
 
       keyframes: {

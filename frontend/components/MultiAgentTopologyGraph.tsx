@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Zap, Network } from "lucide-react";
 import Link from "next/link";
 import { fetchFromBackend } from "@/lib/api";
+import { EMPTY_STATE_UI } from "@/lib/getStartedLabels";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
@@ -74,15 +75,15 @@ export default function MultiAgentTopologyGraph() {
     return (
       <EmptyState
         icon={Network}
-        title="No topology data"
-        description="Agent nodes appear when sessions are ingested via POST /api/v1/ingest or wargame campaigns."
+        title={EMPTY_STATE_UI.noTopologyTitle}
+        description={EMPTY_STATE_UI.noTopologyDescription}
         action={
           <div className="flex flex-wrap justify-center gap-2">
             <Button asChild size="sm">
-              <Link href="/campaigns">Launch wargame</Link>
+              <Link href="/get-started">{EMPTY_STATE_UI.openSetup}</Link>
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link href="/dashboard">Command Center</Link>
+              <Link href="/campaigns">{EMPTY_STATE_UI.runWargame}</Link>
             </Button>
           </div>
         }

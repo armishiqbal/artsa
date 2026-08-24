@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from src.api.dependencies import get_session_tracker
 from src.services.session_tracker import SessionTracker
@@ -146,3 +146,10 @@ async def get_dashboard_metrics(
         "event_rate": event_rate,
         "total_events": len(history),
     }
+
+
+@router.get("/telemetry/recent")
+async def recent_telemetry(limit: int = Query(50, ge=1, le=200)) -> dict[str, Any]:
+    """Recent ingest/proxy telemetry for dashboards when WebSocket history is empty."""
+    events = telemetry_bus.get_history(limit=limit)
+    return {"events": events, "count": len(events)}

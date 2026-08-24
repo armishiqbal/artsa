@@ -27,6 +27,8 @@ interface AuthStore {
   setBearerToken: (token: string | null) => void;
   setSession: (session: AuthSession, user?: AuthUser | null) => void;
   setApiKey: (key: string | null) => void;
+  /** Drop an expired JWT but keep the local profile so the BFF can fall back to ARTSA_API_KEY. */
+  clearBearerKeepUser: () => void;
   clearAuth: () => void;
 }
 
@@ -80,6 +82,13 @@ export const useAuthStore = create<AuthStore>()(
           expiresAt: null,
           user: null,
         }),
+      clearBearerKeepUser: () =>
+        set((state) => ({
+          bearerToken: null,
+          refreshToken: null,
+          expiresAt: null,
+          user: state.user,
+        })),
       clearAuth: () =>
         set({
           bearerToken: null,

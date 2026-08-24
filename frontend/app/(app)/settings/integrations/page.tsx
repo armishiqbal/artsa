@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   Cable,
@@ -22,6 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/stores/toast";
+import { INTEGRATION_UI, COMMAND_CENTER_UI, INTEGRATION_HEALTH_UI } from "@/lib/getStartedLabels";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IntegrationHealthPanel } from "@/components/dashboard/IntegrationHealthPanel";
+import { useConnection } from "@/lib/context/ConnectionProvider";
+import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
+import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -162,35 +169,35 @@ function IntegrationWizard({
 
   if (step === "select") {
     return (
-      <DashboardCard title="Add Integration" description="Choose what you want to connect." badge={<Cable className="h-4 w-4 text-primary" />}>
+      <DashboardCard title="Add Integration" description="Choose what you want to connect." badge={<Cable className="h-4 w-4 text-muted-foreground" />}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <button
             onClick={() => { setWizardType("provider"); setStep("provider"); }}
-            className="flex flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-all hover:border-primary/40 hover:bg-accent/30"
+            className="flex flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-all hover:border-border hover:bg-muted/40"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
               <Cpu className="h-5 w-5" />
             </div>
             <div>
               <p className="font-semibold">LLM Provider</p>
               <p className="mt-1 text-sm text-muted-foreground">Connect OpenAI, Anthropic, Groq, DeepSeek, or any OpenAI-compatible API.</p>
             </div>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
               Configure <ArrowRight className="h-3 w-3" />
             </span>
           </button>
           <button
             onClick={() => { setWizardType("alert"); setStep("alert"); }}
-            className="flex flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-all hover:border-primary/40 hover:bg-accent/30"
+            className="flex flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-all hover:border-border hover:bg-muted/40"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
               <BellRing className="h-5 w-5" />
             </div>
             <div>
               <p className="font-semibold">Alert Channel</p>
               <p className="mt-1 text-sm text-muted-foreground">Route alerts to Slack, PagerDuty, Splunk, webhooks, or Datadog.</p>
             </div>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
               Configure <ArrowRight className="h-3 w-3" />
             </span>
           </button>
@@ -326,6 +333,9 @@ function IntegrationWizard({
 // ---------------------------------------------------------------------------
 
 export default function IntegrationsPage() {
+  const { apiOnline, wsConnected } = useConnection();
+  const { liveEvents } = useDashboardMetrics();
+  const { status: integrationStatus, outboundConnected, outboundCount } = useIntegrationStatus(apiOnline);
   const [providers, setProviders] = useState<RegisteredProvider[]>([]);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [catalog, setCatalog] = useState<Record<string, CatalogMeta>>({});
@@ -386,7 +396,7 @@ export default function IntegrationsPage() {
       const body = await raw.json().catch(() => ({}));
       const unwrapped = (unwrapEnvelope(body) ?? {}) as { status?: string; detail?: string };
       if (raw.ok && unwrapped?.status === "sent") {
-        setTestResults((prev) => ({ ...prev, [id]: { ok: true, detail: "test alert dispatched" } }));
+        setTestResults((prev) => ({ ...prev, [id]: { ok: true, detail: COMMAND_CENTER_UI.sampleAlertDispatched } }));
       } else {
         setTestResults((prev) => ({ ...prev, [id]: { ok: false, detail: `failed: ${unwrapped?.detail || raw.status}` } }));
       }
@@ -401,7 +411,7 @@ export default function IntegrationsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Integrations"
-        description="Connect LLM providers, guardrails, and alert channels — all managed from one place."
+        description="Connect agents for live screening. Alert channels notify your team — they don't show traffic here."
         icon={<Cable className="h-5 w-5" />}
         actions={
           <div className="flex gap-2">
@@ -410,6 +420,34 @@ export default function IntegrationsPage() {
           </div>
         }
       />
+
+      <IntegrationHealthPanel
+        apiOnline={apiOnline}
+        wsConnected={wsConnected}
+        ingestKeyConfigured={integrationStatus.ingestKeyConfigured}
+        outboundConnected={outboundConnected}
+        outboundCount={outboundCount}
+        hasInboundEvents={liveEvents.length > 0}
+        compact
+      />
+
+      <Tabs defaultValue="inbound" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="inbound">{INTEGRATION_UI.inboundTab}</TabsTrigger>
+          <TabsTrigger value="outbound">{INTEGRATION_UI.outboundTab}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="inbound" className="space-y-6 mt-0">
+          <div className="rounded-lg border border-border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+            {COMMAND_CENTER_UI.inboundDetail} Use{" "}
+            <Link href="/get-started" className="font-medium text-foreground underline">
+              Get Started
+            </Link>{" "}
+            to send a test event, then watch{" "}
+            <Link href="/dashboard" className="font-medium text-foreground underline">
+              Command Center
+            </Link>.
+          </div>
 
       {/* ----- Integration Wizard ----- */}
       <IntegrationWizard
@@ -420,7 +458,7 @@ export default function IntegrationsPage() {
       />
 
       {/* ----- Providers Table ----- */}
-      <DashboardCard title="LLM Providers" description="Keys are encrypted at rest. Test connectivity after adding." badge={<Cpu className="h-4 w-4 text-primary" />}>
+      <DashboardCard title="LLM Providers" description="Keys are encrypted at rest. Test connectivity after adding." badge={<Cpu className="h-4 w-4 text-muted-foreground" />}>
         {providers.length === 0 ? (
           <p className="text-sm text-muted-foreground">No runtime providers yet. Use the wizard above to add one.</p>
         ) : (
@@ -450,7 +488,7 @@ export default function IntegrationsPage() {
                         <div className="flex justify-end gap-1.5">
                           <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onTestProvider(p.name)} disabled={testing === p.name}>
                             {testing === p.name ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
-                            Test
+                            {INTEGRATION_UI.testProvider}
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => onDeleteProvider(p.name)} aria-label={`Delete provider ${p.name}`}>
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -472,8 +510,33 @@ export default function IntegrationsPage() {
         )}
       </DashboardCard>
 
+      {/* ----- Supported APIs ----- */}
+      <DashboardCard title="Supported API Catalog" description="All provider types available. Custom endpoints always supported." badge={<Server className="h-4 w-4 text-muted-foreground" />}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Object.entries(catalog).map(([key, meta]) => (
+            <div key={key} className="flex items-start gap-2.5 rounded-lg border border-border/60 p-3">
+              <Server className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="font-mono text-xs font-semibold">{key}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
+                <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/70">{meta.base_url ?? "custom"}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DashboardCard>
+        </TabsContent>
+
+        <TabsContent value="outbound" className="space-y-6 mt-0">
+          <div className="rounded-lg border border-border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+            {INTEGRATION_HEALTH_UI.outboundReminder}{" "}
+            <Link href="/settings/integrations/custom" className="font-medium text-foreground underline">
+              Custom outbound connectors
+            </Link>
+          </div>
+
       {/* ----- Alert Integrations Table ----- */}
-      <DashboardCard title="Alert Channels" description="SIEM/SOAR integrations with risk-based routing thresholds." badge={<BellRing className="h-4 w-4 text-primary" />}>
+      <DashboardCard title="Alert Channels" description="SIEM/SOAR integrations with risk-based routing thresholds." badge={<BellRing className="h-4 w-4 text-muted-foreground" />}>
         {integrations.length === 0 ? (
           <p className="text-sm text-muted-foreground">No alert integrations. Use the wizard above, or set env values in .env.</p>
         ) : (
@@ -503,7 +566,7 @@ export default function IntegrationsPage() {
                         <div className="flex justify-end gap-1.5">
                           <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onTestIntegration(it.id)} disabled={testing === it.id}>
                             {testing === it.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
-                            Test
+                            {INTEGRATION_UI.sendSampleToUrl}
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => onDeleteIntegration(it.id)} disabled={it.source === "environment"} aria-label={`Delete ${it.label} integration`}>
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -524,22 +587,8 @@ export default function IntegrationsPage() {
           </div>
         )}
       </DashboardCard>
-
-      {/* ----- Supported APIs ----- */}
-      <DashboardCard title="Supported API Catalog" description="All provider types available. Custom endpoints always supported." badge={<Server className="h-4 w-4 text-primary" />}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Object.entries(catalog).map(([key, meta]) => (
-            <div key={key} className="flex items-start gap-2.5 rounded-lg border border-border/60 p-3">
-              <Server className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <p className="font-mono text-xs font-semibold">{key}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
-                <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/70">{meta.base_url ?? "custom"}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </DashboardCard>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

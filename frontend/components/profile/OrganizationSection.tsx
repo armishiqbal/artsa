@@ -82,7 +82,7 @@ export function OrganizationSection({
       <DashboardCard
         title="Organization & Workspace"
         description="Assigned tenant environment and enterprise governance details."
-        icon={<Building2 className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
         actions={
           isAdmin ? (
             <Link href="/settings/team">
@@ -97,7 +97,7 @@ export function OrganizationSection({
           <div className="rounded-xl border border-border/70 bg-card p-4 shadow-xs">
             <span className="text-xs font-semibold text-muted-foreground">Tenant Name</span>
             <div className="mt-2 flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
+              <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <p className="font-semibold text-foreground truncate">
                 {profile?.organization || tenantInfo?.name || "Default Organization"}
               </p>
@@ -107,7 +107,7 @@ export function OrganizationSection({
           <div className="rounded-xl border border-border/70 bg-card p-4 shadow-xs">
             <span className="text-xs font-semibold text-muted-foreground">Tenant ID / Slug</span>
             <div className="mt-2 flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" aria-hidden="true" />
+              <Layers className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <p className="font-mono text-xs text-foreground truncate">
                 {tenantInfo?.slug || "default_org"}
               </p>
@@ -117,8 +117,8 @@ export function OrganizationSection({
           <div className="rounded-xl border border-border/70 bg-card p-4 shadow-xs">
             <span className="text-xs font-semibold text-muted-foreground">Plan Tier</span>
             <div className="mt-2 flex items-center gap-2">
-              <Crown className="h-4 w-4 text-primary" aria-hidden="true" />
-              <Badge variant="outline" className="border-primary/40 text-primary font-mono text-[10px]">
+              <Crown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Badge variant="outline" className="border-border text-foreground font-mono text-[10px]">
                 Enterprise
               </Badge>
             </div>
@@ -127,7 +127,7 @@ export function OrganizationSection({
           <div className="rounded-xl border border-border/70 bg-card p-4 shadow-xs">
             <span className="text-xs font-semibold text-muted-foreground">Assigned Role</span>
             <div className="mt-2 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" aria-hidden="true" />
+              <Shield className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <Badge variant={ROLE_VARIANT[role] ?? "secondary"} className="font-mono text-[10px] uppercase">
                 {roleLabel(role)}
               </Badge>
@@ -140,7 +140,7 @@ export function OrganizationSection({
       <DashboardCard
         title="Role-Based Access Control (RBAC) Capabilities"
         description="Explicit platform permissions granted to your current role tier."
-        icon={<Lock className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<Lock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
       >
         <div className="space-y-3">
           <div className="divide-y divide-border/60 rounded-xl border border-border/80 bg-card overflow-hidden">

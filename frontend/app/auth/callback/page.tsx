@@ -48,7 +48,7 @@ function AuthCallbackInner() {
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-muted-foreground">
-      <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
       <p className="text-sm">{message}</p>
     </div>
   );
@@ -59,7 +59,7 @@ export default function AuthCallbackPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[50vh] items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
         </div>
       }
     >

@@ -17,10 +17,9 @@ describe("severity thresholds", () => {
     expect(severityFromScore(MEDIUM_RISK_THRESHOLD - 1)).toBe("LOW");
   });
 
-  it("maps badge variants consistently with severity bands", () => {
-    expect(riskScoreBadgeVariant(92)).toBe("critical");
-    expect(riskScoreBadgeVariant(55)).toBe("warning");
-    expect(riskScoreBadgeVariant(45)).toBe("secondary");
-    expect(riskScoreBadgeVariant(12)).toBe("success");
+  it("uses neutral badge variant for all risk scores", () => {
+    expect(riskScoreBadgeVariant(92)).toBe("secondary");
+    expect(riskScoreBadgeVariant(55)).toBe("secondary");
+    expect(riskScoreBadgeVariant(12)).toBe("secondary");
   });
 });

@@ -86,13 +86,13 @@ describe("passwordStrength", () => {
   it("clamps the score to 1–4 bars", () => {
     const s = passwordStrength("A very very long complex password with 12345 and special !@# chars");
     expect(s?.bars).toBe(4);
-    expect(s?.bar).toBe("bg-status-success");
+    expect(s?.bar).toBe("bg-foreground/70");
   });
 
   it("returns a bar token usable as a Tailwind class for every score", () => {
     for (const pw of ["x", "xyZ!", "xyZ!123", "x".repeat(12)]) {
       const s = passwordStrength(pw);
-      expect(s?.bar).toMatch(/^(bg-status-success|bg-status-warning|bg-severity-critical)$/);
+      expect(s?.bar).toMatch(/^bg-(foreground\/70|foreground\/45|muted-foreground\/60)$/);
     }
   });
 });

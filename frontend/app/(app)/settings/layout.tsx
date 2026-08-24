@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   Settings2,
   Cable,
@@ -11,12 +10,14 @@ import {
   BellRing,
   ArrowLeft,
   Webhook,
+  Code2,
 } from "lucide-react";
 import { AdminGuard } from "@/components/AdminGuard";
 import { cn } from "@/lib/utils";
 
 const settingsNav = [
   { name: "Overview", href: "/settings", icon: Settings2 },
+  { name: "API Setup", href: "/settings/developer", icon: Code2 },
   { name: "Integrations", href: "/settings/integrations", icon: Cable },
   { name: "Custom Outbound", href: "/settings/integrations/custom", icon: Webhook },
   { name: "Audit Log", href: "/settings/audit-log", icon: ScrollText },
@@ -33,7 +34,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <div className="flex items-center gap-3">
           <Link
             href="/admin"
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Admin
@@ -42,30 +43,25 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           <span className="text-sm font-medium">Settings</span>
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex gap-1 overflow-x-auto pb-1">
           {settingsNav.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/settings" && pathname.startsWith(`${item.href}/`));
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+                  "inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    ? "border-border bg-muted text-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}
               >
-                {isActive && (
-                  <motion.span
-                    layoutId="settings-tab"
-                    className="absolute inset-0 rounded-lg bg-primary/10 ring-1 ring-primary/20"
-                    transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-                  />
-                )}
-                <Icon className="relative h-4 w-4 shrink-0" />
-                <span className="relative">{item.name}</span>
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                {item.name}
               </Link>
             );
           })}

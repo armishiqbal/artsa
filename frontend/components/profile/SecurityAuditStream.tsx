@@ -49,7 +49,7 @@ export function SecurityAuditStream() {
     <DashboardCard
       title="Recent Security & Account Telemetry Stream"
       description="Live audit event stream recording containment and authorization actions."
-      icon={<Activity className="h-4 w-4 text-primary" />}
+      icon={<Activity className="h-4 w-4 text-muted-foreground" />}
       actions={
         <Button
           size="sm"
@@ -72,7 +72,7 @@ export function SecurityAuditStream() {
                 className="flex items-center justify-between p-3 text-xs transition-colors hover:bg-muted/20"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
                     <Activity className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">

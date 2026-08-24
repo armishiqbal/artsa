@@ -90,7 +90,7 @@ export default function AutopsyReplayModal({ isOpen, onClose, sessionId }: Autop
       if (cancelled) return;
 
       if (timeline === null) {
-        setError("Could not reach the backend. Ensure the API is running on port 8000.");
+        setError("Could not reach ARTSA. Check your deployment and try again.");
         setTrajectorySteps([]);
         setLoading(false);
         return;

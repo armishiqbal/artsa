@@ -1,5 +1,7 @@
 /** Short connection labels for TopNav — session counts belong on Command Center metrics only. */
 
+import { CONNECTION_UI } from "@/lib/getStartedLabels";
+
 export type ApiGatewayStatus = "fully_connected" | "offline" | "unknown";
 
 export function formatTopNavConnectionLabel(
@@ -7,10 +9,10 @@ export function formatTopNavConnectionLabel(
   wsConnected: boolean,
   apiGatewayStatus: ApiGatewayStatus
 ): string {
-  if (!apiOnline) return "Offline";
+  if (!apiOnline) return CONNECTION_UI.offlineNav;
   if (wsConnected) return "Live";
-  if (apiGatewayStatus === "fully_connected") return "API connected";
-  return "Connected";
+  if (apiGatewayStatus === "fully_connected") return CONNECTION_UI.pollingNav;
+  return CONNECTION_UI.pollingNav;
 }
 
 export function clampSessionCount(value: unknown): number {

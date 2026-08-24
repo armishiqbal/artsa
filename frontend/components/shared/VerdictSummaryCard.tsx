@@ -30,24 +30,15 @@ export function VerdictSummaryCard({ summary, detector, className }: VerdictSumm
       className={cn(
         "rounded-xl border p-4",
         summary.blocked
-          ? "border-destructive/30 bg-destructive/5"
-          : summary.severity === "LOW"
-            ? "border-status-success/30 bg-status-success/5"
-            : "border-status-warning/30 bg-status-warning/5",
+          ? "border-border bg-muted/30"
+          : "border-border bg-muted/20",
         className
       )}
       role="status"
     >
       <div className="flex items-center gap-2">
         <Icon
-          className={cn(
-            "h-5 w-5 shrink-0",
-            summary.blocked
-              ? "text-destructive"
-              : summary.severity === "LOW"
-                ? "text-status-success"
-                : "text-status-warning"
-          )}
+          className="h-5 w-5 shrink-0 text-muted-foreground"
           aria-hidden
         />
         <span className="text-sm font-semibold text-foreground">{summary.label}</span>

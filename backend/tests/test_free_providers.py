@@ -20,11 +20,11 @@ def test_groq_provider_init():
     agent = DummyAgent(
         name="GroqTester",
         provider="groq",
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         api_key="gsk_test123",
     )
     assert agent.provider == "groq"
-    assert agent.model == "llama-3.3-70b-versatile"
+    assert agent.model == "openai/gpt-oss-120b"
     assert "groq.com" in str(agent.llm.openai_api_base)
 
 

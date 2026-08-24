@@ -24,10 +24,6 @@ export function severityFromScore(score: number): SeverityLabel {
 }
 
 /** Badge variant for numeric risk scores (RiskScore component). */
-export function riskScoreBadgeVariant(score: number): "critical" | "warning" | "secondary" | "success" {
-  const severity = severityFromScore(score);
-  if (severity === "CRITICAL") return "critical";
-  if (severity === "HIGH") return "warning";
-  if (severity === "MEDIUM") return "secondary";
-  return "success";
+export function riskScoreBadgeVariant(_score: number): "secondary" {
+  return "secondary";
 }

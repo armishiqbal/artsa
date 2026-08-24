@@ -6,6 +6,7 @@ import { Search, ShieldAlert, Zap } from "lucide-react";
 import { useTopologyThreats } from "@/lib/hooks/useTopologyThreats";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import { ThreatRow } from "@/components/shared/ThreatRow";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -13,12 +14,23 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { severityFromScore } from "@/lib/severity";
+import { EMPTY_STATE_UI } from "@/lib/getStartedLabels";
+
+const SEVERITY_FILTERS = [
+  { value: "ALL", label: "All" },
+  { value: "CRITICAL", label: "Critical" },
+  { value: "HIGH", label: "High" },
+  { value: "MEDIUM", label: "Medium" },
+  { value: "LOW", label: "Low" },
+] as const;
+
+type SeverityFilter = (typeof SEVERITY_FILTERS)[number]["value"];
 
 export function ThreatMatrix() {
   const router = useRouter();
   const { threats, loading } = useTopologyThreats();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("ALL");
+  const [selectedFilter, setSelectedFilter] = useState<SeverityFilter>("ALL");
 
   const displayedThreats = threats;
 
@@ -37,9 +49,9 @@ export function ThreatMatrix() {
   return (
     <DashboardCard
       title="Live Threat Matrix"
-      description="High-risk sessions from topology — click to open forensic replay"
+      description="Sessions that look risky — select one to open replay"
       badge={
-        <Badge variant={displayedThreats.length ? "success" : "secondary"} className="font-mono text-[10px]">
+        <Badge variant={displayedThreats.length ? "outline" : "secondary"} className="meta-badge font-mono">
           {loading ? "…" : `${displayedThreats.length} active`}
         </Badge>
       }
@@ -56,20 +68,13 @@ export function ThreatMatrix() {
             disabled={loading || displayedThreats.length === 0}
           />
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((filter) => (
-            <Button
-              key={filter}
-              variant={selectedFilter === filter ? "default" : "outline"}
-              size="sm"
-              className="font-mono text-xs"
-              onClick={() => setSelectedFilter(filter)}
-              disabled={loading || displayedThreats.length === 0}
-            >
-              {filter}
-            </Button>
-          ))}
-        </div>
+        <SegmentedControl
+          options={[...SEVERITY_FILTERS]}
+          value={selectedFilter}
+          onChange={setSelectedFilter}
+          layoutId="threat-matrix-filter"
+          className="max-w-full overflow-x-auto"
+        />
       </div>
 
       {loading ? (
@@ -100,15 +105,15 @@ export function ThreatMatrix() {
         ) : (
           <EmptyState
             icon={ShieldAlert}
-            title="No active threats"
-            description="Ingest tool calls via POST /api/v1/ingest or launch a wargame campaign to populate live sessions."
+            title={EMPTY_STATE_UI.allClearTitle}
+            description={EMPTY_STATE_UI.allClearDescription}
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <Button asChild size="sm">
-                  <Link href="/campaigns">Launch wargame</Link>
+                  <Link href="/get-started">{EMPTY_STATE_UI.openSetup}</Link>
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => router.push("/admin/providers")}>
-                  Manage providers
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/campaigns">{EMPTY_STATE_UI.runWargame}</Link>
                 </Button>
               </div>
             }

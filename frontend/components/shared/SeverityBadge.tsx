@@ -8,18 +8,11 @@ interface SeverityBadgeProps {
   className?: string;
 }
 
-const variantMap = {
-  LOW: "info" as const,
-  MEDIUM: "warning" as const,
-  HIGH: "warning" as const,
-  CRITICAL: "critical" as const,
-};
-
 export function SeverityBadge({ severity, className }: SeverityBadgeProps) {
   return (
     <Badge
-      variant={variantMap[severity]}
-      className={cn("font-mono text-[10px] uppercase", severity === "CRITICAL" && "animate-pulse", className)}
+      variant="outline"
+      className={cn("font-mono text-[10px] uppercase", className)}
       aria-label={`Severity: ${severity}`}
     >
       {severity}

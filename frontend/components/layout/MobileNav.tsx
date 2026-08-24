@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
-import { LogoIcon } from "@/components/shared/Logo";
+import { Menu, X, Rocket } from "lucide-react";
+import Logo from "@/components/shared/Logo";
 import { navSections } from "@/lib/navigation";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { cn } from "@/lib/utils";
@@ -101,8 +101,7 @@ export default function MobileNav() {
             >
               <div className="flex items-center justify-between border-b border-border p-4">
                 <div className="flex items-center gap-2">
-                  <LogoIcon size={20} className="text-primary" aria-hidden />
-                  <span className="font-semibold">ARTSA</span>
+                  <Logo iconSize={20} />
                   <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-mono">
                     v0.3
                   </Badge>
@@ -121,7 +120,9 @@ export default function MobileNav() {
                     <ul className="space-y-0.5">
                       {section.items.map((item) => {
                         const Icon = item.icon;
-                        const isActive = pathname === item.href;
+                        const isActive =
+                          pathname === item.href ||
+                          (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
                         return (
                           <li key={item.href}>
                             <Link
@@ -129,8 +130,8 @@ export default function MobileNav() {
                               className={cn(
                                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                                 isActive
-                                  ? "bg-primary/10 text-primary ring-1 ring-primary/20"
-                                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                  ? "bg-muted text-foreground font-medium"
+                                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                               )}
                               aria-current={isActive ? "page" : undefined}
                             >
@@ -147,10 +148,13 @@ export default function MobileNav() {
 
               <Separator />
               <div className="p-4">
-                <div className="rounded-lg border border-border bg-muted/30 p-3">
-                  <p className="text-xs font-medium">Containment SLO</p>
-                  <p className="mt-1 font-mono text-[11px] text-status-success">&lt;50ms ingest latency</p>
-                </div>
+                <Link
+                  href="/get-started"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50"
+                >
+                  <Rocket className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  Setup checklist
+                </Link>
               </div>
             </motion.aside>
           </>

@@ -26,7 +26,7 @@ class ArtsaSDKResult(BaseModel):
 
 def test(
     target_provider: str = "groq",
-    target_model: str = "llama-3.3-70b-versatile",
+    target_model: str = "openai/gpt-oss-120b",
     system_prompt: str = "You are a helpful and secure AI assistant.",
     policy: str = "quick_scan",
     rounds: int = 5,
@@ -38,7 +38,7 @@ def test(
 
     Example:
         import artsa
-        result = artsa.test(target_provider="groq", target_model="llama-3.3-70b-versatile")
+        result = artsa.test(target_provider="groq", target_model="openai/gpt-oss-120b")
         assert result.passed
     """
     app_config = {

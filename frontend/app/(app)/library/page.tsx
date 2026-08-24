@@ -4,12 +4,18 @@ import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   BookOpen, Search, Plus, Loader2, Sparkles, Download,
-  Upload, GitBranch, X, CheckCircle2, AlertTriangle, FileJson
+  Upload, GitBranch, X, CheckCircle2, AlertTriangle, FileJson, Crosshair, Database
 } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
+import Link from "next/link";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { FeatureLinkCard } from "@/components/shared/FeatureLinkCard";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { SegmentedControl } from "@/components/shared/SegmentedControl";
+import { PageStack } from "@/components/shared/PageStack";
+import { PageSuspenseFallback } from "@/components/shared/PageSuspenseFallback";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -194,8 +200,16 @@ function LibraryContent() {
 
   const displayTemplates = useSemanticSearch ? (semanticResults ?? []) : filteredTemplates;
 
+  const categoryOptions = useMemo(
+    () => [
+      { value: "ALL", label: "All" },
+      ...(data.categories || []).map((c) => ({ value: c.code, label: c.code })),
+    ],
+    [data.categories]
+  );
+
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
         title="Attack Library"
         description="Adversarial templates with MITRE ATLAS and OWASP LLM mappings."
@@ -214,10 +228,25 @@ function LibraryContent() {
               <Plus className="h-4 w-4" />
               New template
             </Button>
-            <Badge variant="secondary">{data.templates?.length ?? 0} templates</Badge>
+            <Badge variant="secondary" className="meta-badge">{data.templates?.length ?? 0} templates</Badge>
           </div>
         }
       />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FeatureLinkCard
+          href="/sandbox"
+          icon={Crosshair}
+          title="Attack Sandbox"
+          description="Live guard presets — injection, jailbreak, PII"
+        />
+        <FeatureLinkCard
+          href="/rag-scanner"
+          icon={Database}
+          title="RAG corpus scan"
+          description="Offline poison detection on exported chunks"
+        />
+      </div>
 
       {/* Bulk Import Panel */}
       {showImport && (
@@ -335,25 +364,13 @@ function LibraryContent() {
       )}
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={selectedCategory === "ALL" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory("ALL")}
-          >
-            All
-          </Button>
-          {(data.categories || []).map((cat) => (
-            <Button
-              key={cat.code}
-              variant={selectedCategory === cat.code ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(cat.code)}
-            >
-              {cat.code}
-            </Button>
-          ))}
-        </div>
+        <SegmentedControl
+          options={categoryOptions}
+          value={selectedCategory}
+          onChange={setSelectedCategory}
+          layoutId="library-category-filter"
+          className="max-w-full overflow-x-auto"
+        />
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
@@ -374,10 +391,10 @@ function LibraryContent() {
 
       {useSemanticSearch && (
         <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
+          <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
           Semantic search
           {searchBackend && (
-            <Badge variant="outline" className="font-mono text-[10px]">
+            <Badge variant="outline" className="meta-badge font-mono">
               {searchBackend}
             </Badge>
           )}
@@ -395,7 +412,7 @@ function LibraryContent() {
             {!loaded ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-56 animate-pulse rounded-xl border border-border bg-muted/40" />
+                  <Skeleton key={i} className="h-56 rounded-xl" />
                 ))}
               </div>
             ) : (
@@ -444,7 +461,7 @@ function LibraryContent() {
                   </Badge>
                 )}
               </div>
-              <pre className="max-h-32 overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
+              <pre className="code-block max-h-32">
                 {String(t.template)}
               </pre>
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -470,17 +487,23 @@ function LibraryContent() {
                   v{String(t.version ?? 1)}
                 </button>
               </div>
+              <Button asChild size="sm" className="w-full">
+                <Link href={`/sandbox?template=${encodeURIComponent(String(t.id ?? ""))}`}>
+                  <Crosshair className="h-3.5 w-3.5" />
+                  Use in sandbox
+                </Link>
+              </Button>
             </DashboardCard>
           ))
         )}
       </div>
-    </div>
+    </PageStack>
   );
 }
 
 export default function AttackLibraryPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-muted-foreground">Loading library…</div>}>
+    <Suspense fallback={<PageSuspenseFallback label="Loading attack library…" />}>
       <LibraryContent />
     </Suspense>
   );

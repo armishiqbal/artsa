@@ -304,7 +304,7 @@ export default function ProfilePage() {
               <RefreshCw className="h-5 w-5" aria-hidden="true" />
             </div>
             <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-              Please check that the backend server is reachable on port 8000.
+              Please check that ARTSA is running and reachable, then refresh.
             </p>
             <Button onClick={loadMe} className="shrink-0 gap-2 text-xs">
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />

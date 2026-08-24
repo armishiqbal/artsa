@@ -6,21 +6,22 @@ test.describe("ARTSA frontend smoke", () => {
     await seedAuth(page);
   });
 
-  test("home page loads command center", async ({ page }) => {
+  test("home page loads enterprise landing", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /command center|artsa/i }).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      page.getByRole("heading", { name: /contain ai agents/i }).first()
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("link", { name: /get started/i }).first()).toBeVisible();
   });
 
-  test("login page renders for anonymous users", async ({ page }) => {
-    await page.goto("/login");
-    await expect(page).toHaveURL(/\/login/);
+  test("sign in panel renders on landing", async ({ page }) => {
+    await page.goto("/?signin=1");
+    await expect(page).toHaveURL(/\?signin=1/);
     await expect(page.getByRole("heading", { name: /sign in/i }).first()).toBeVisible();
   });
 
   test("command center includes the merged observatory section", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/dashboard");
     await expect(
       page.getByRole("heading", { name: /command center|artsa/i }).first()
     ).toBeVisible({ timeout: 15_000 });
@@ -37,7 +38,7 @@ test.describe("ARTSA frontend smoke", () => {
   });
 
   test("command center shows an honest empty state when the pipeline is idle", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: /command center|artsa/i }).first()).toBeVisible({
       timeout: 15_000,
     });
@@ -46,8 +47,8 @@ test.describe("ARTSA frontend smoke", () => {
     await expect(page.getByText(/No live telemetry yet/i).first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test("sidebar navigation includes wargame", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("link", { name: "Wargame", exact: true })).toBeVisible();
+  test("sidebar navigation includes red team console", async ({ page }) => {
+    await page.goto("/dashboard");
+    await expect(page.getByRole("link", { name: /red team console/i })).toBeVisible();
   });
 });

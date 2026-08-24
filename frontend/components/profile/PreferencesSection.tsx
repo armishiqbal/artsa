@@ -38,7 +38,7 @@ export function PreferencesSection() {
       <DashboardCard
         title="Alert & Notification Preferences"
         description="Configure what notifications you receive during agent containment and evaluations."
-        icon={<Bell className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<Bell className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
       >
         <div className="space-y-3.5 max-w-xl">
           {/* Critical Alerts Toggle */}
@@ -58,8 +58,8 @@ export function PreferencesSection() {
                 toast(criticalAlerts ? "Alerts muted" : "Alerts enabled");
               }}
               className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                criticalAlerts ? "bg-primary" : "bg-muted"
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15",
+                criticalAlerts ? "bg-foreground" : "bg-muted"
               )}
             >
               <span
@@ -88,8 +88,8 @@ export function PreferencesSection() {
                 toast(audioChime ? "Sound muted" : "Sound enabled");
               }}
               className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                audioChime ? "bg-primary" : "bg-muted"
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15",
+                audioChime ? "bg-foreground" : "bg-muted"
               )}
             >
               <span
@@ -107,7 +107,7 @@ export function PreferencesSection() {
       <DashboardCard
         title="Localization & Regional Time"
         description="Automatic timezone detection and audit timestamp formatting."
-        icon={<Globe className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<Globe className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-xl">
           <div className="rounded-xl border border-border/80 bg-card p-4 text-xs shadow-xs">
@@ -118,7 +118,7 @@ export function PreferencesSection() {
 
           <div className="rounded-xl border border-border/80 bg-card p-4 text-xs shadow-xs">
             <span className="font-semibold text-muted-foreground">Your Local Time</span>
-            <p className="mt-1.5 font-mono font-bold text-primary">
+            <p className="mt-1.5 font-mono font-semibold text-foreground">
               {currentTime || "Detecting..."}
             </p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">Auto-synchronized with browser</p>

@@ -1,6 +1,21 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "ARTSA — Real-Time AI Containment & Escape Detection",
@@ -16,18 +31,18 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0C1326",
+  themeColor: "#0a0a0a",
   colorScheme: "dark light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark">
-      <body className="min-h-screen font-sans antialiased bg-background text-foreground">
+    <html lang="en" data-theme="dark" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased [font-feature-settings:'liga'_1]">
         <ClientProviders>
           <a
             href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-background"
           >
             Skip to main content
           </a>

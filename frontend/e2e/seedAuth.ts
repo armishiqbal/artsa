@@ -9,9 +9,8 @@ export function seedAuthScript(): string {
     // No key supplied: do not seed — pages will show the login redirect.
     return "";
   }
-  // Skip seeding on /login itself so that test can render the login page
-  // (a seeded store redirects authenticated users away from it).
-  return `if (location.pathname !== "/login") { sessionStorage.setItem("artsa-auth", JSON.stringify({ state: { bearerToken: null, refreshToken: null, expiresAt: null, apiKey: "${key}" }, version: 0 })); }`;
+  // Skip seeding on landing sign-in so anonymous auth UI tests can run.
+  return `if (location.pathname !== "/login" && !location.search.includes("signin=1")) { sessionStorage.setItem("artsa-auth", JSON.stringify({ state: { bearerToken: null, refreshToken: null, expiresAt: null, apiKey: "${key}" }, version: 0 })); }`;
 }
 
 // Identity the app would receive from GET /api/v1/config/me. With no backend

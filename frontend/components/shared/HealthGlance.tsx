@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import {
   ShieldCheck,
   Wifi,
@@ -35,9 +34,9 @@ function HealthPill({
   status: "healthy" | "warning" | "critical" | "neutral";
 }) {
   const colors = {
-    healthy: "border-status-success/30 bg-status-success/10 text-status-success",
-    warning: "border-status-warning/30 bg-status-warning/10 text-status-warning",
-    critical: "border-severity-critical/30 bg-severity-critical/10 text-severity-critical",
+    healthy: "border-border bg-muted/40 text-foreground",
+    warning: "border-border bg-muted/40 text-muted-foreground",
+    critical: "border-border bg-muted/50 text-foreground",
     neutral: "border-border bg-muted/30 text-muted-foreground",
   };
 
@@ -76,12 +75,7 @@ export function HealthGlance({
         : "critical";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut", delay: 0.05 }}
-      className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-2.5"
-    >
+    <div className="surface-panel flex flex-wrap items-center gap-2 px-4 py-2.5">
       {/* Connection status */}
       <HealthPill
         label="API"
@@ -132,13 +126,13 @@ export function HealthGlance({
       {/* Critical alert indicator */}
       {criticalCount > 0 && (
         <>
-          <span className="h-5 w-px bg-severity-critical/30" aria-hidden />
-          <Badge variant="critical" className="animate-pulse gap-1 font-mono text-[10px]">
+          <span className="h-5 w-px bg-border" aria-hidden />
+          <Badge variant="outline" className="gap-1 font-mono text-[10px]">
             <AlertTriangle className="h-3 w-3" aria-hidden />
             {criticalCount} critical
           </Badge>
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

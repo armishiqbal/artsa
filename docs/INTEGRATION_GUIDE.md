@@ -224,7 +224,7 @@ curl -X POST http://localhost:8000/api/v1/providers \
   -H "Content-Type: application/json" \
   -d '{"name":"my-groq","api_key":"gsk-...","provider_type":"groq",
        "base_url":"https://api.groq.com/openai/v1",
-       "default_model":"llama-3.3-70b-versatile"}'
+       "default_model":"openai/gpt-oss-120b"}'
 
 # 3. Verify the key works (sends a tiny request)
 POST /api/v1/providers/my-groq/test
@@ -232,7 +232,7 @@ POST /api/v1/providers/my-groq/test
 # 4. Use it through the containment proxy — just send the provider name
 curl http://localhost:8000/v1/proxy/chat/completions \
   -H "X-ARTSA-Provider: my-groq" \
-  -d '{"model":"llama-3.3-70b-versatile","messages":[...]}'
+  -d '{"model":"openai/gpt-oss-120b","messages":[...]}'
 ```
 
 - Provider record → `X-ARTSA-Provider` header (any name you choose).
@@ -456,7 +456,7 @@ from src.sdk import test as artsa_test
 
 result = artsa_test(
     target_provider="groq",
-    target_model="llama-3.3-70b-versatile",
+    target_model="openai/gpt-oss-120b",
     policy="quick_scan",
     rounds=5,
 )

@@ -10,10 +10,8 @@ export function LiveIndicator({ connected, label, className }: LiveIndicatorProp
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
-        connected
-          ? "border-status-success/30 bg-status-success/10 text-status-success"
-          : "border-status-warning/30 bg-status-warning/10 text-status-warning",
+        "status-pill inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+        connected ? "status-pill--live" : "status-pill--offline",
         className
       )}
       role="status"
@@ -21,16 +19,16 @@ export function LiveIndicator({ connected, label, className }: LiveIndicatorProp
     >
       <span className="relative flex h-2 w-2">
         {connected && (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-success opacity-75" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-foreground/25 opacity-70" />
         )}
         <span
           className={cn(
             "relative inline-flex h-2 w-2 rounded-full",
-            connected ? "bg-status-success" : "bg-status-warning"
+            connected ? "bg-foreground" : "bg-muted-foreground/80"
           )}
         />
       </span>
-      {label ?? (connected ? "Live feed connected" : "Polling fallback")}
+      {label ?? (connected ? "Live feed connected" : "Offline — polling fallback")}
     </span>
   );
 }

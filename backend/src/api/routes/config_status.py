@@ -140,7 +140,7 @@ async def get_provider_readiness() -> dict[str, Any]:
 
     providers = [
         {"id": "openai", "name": "OpenAI", "type": "cloud_api", "model": settings.ARTSA_DEFAULT_MODEL, "configured": settings.is_key_configured("OPENAI_API_KEY")},
-        {"id": "groq", "name": "Groq", "type": "cloud_free", "model": "llama-3.3-70b-versatile", "configured": settings.is_key_configured("GROQ_API_KEY")},
+        {"id": "groq", "name": "Groq", "type": "cloud_free", "model": "openai/gpt-oss-120b", "configured": settings.is_key_configured("GROQ_API_KEY")},
         {"id": "mistral", "name": "Mistral", "type": "cloud_api", "model": "open-mistral-7b", "configured": settings.is_key_configured("MISTRAL_API_KEY")},
         {"id": "deepseek", "name": "DeepSeek", "type": "cloud_api", "model": "deepseek-chat", "configured": settings.is_key_configured("DEEPSEEK_API_KEY")},
         {"id": "anthropic", "name": "Anthropic", "type": "cloud_api", "model": "claude-3-5-sonnet", "configured": settings.is_key_configured("ANTHROPIC_API_KEY")},

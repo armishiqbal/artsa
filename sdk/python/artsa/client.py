@@ -184,6 +184,47 @@ class ArtsaClient:
             raise ArtsaBlockedError(tool_name, result)
         return result
 
+    def guard_rag_search(
+        self,
+        session_id: str,
+        agent_id: str,
+        query: str,
+        *,
+        collection: str | None = None,
+        provider: str = "astra",
+        enforce: bool = True,
+    ) -> Dict[str, Any]:
+        """Guard a vector/RAG retrieval step (e.g. Astra DB search) before calling the DB."""
+        arguments: Dict[str, Any] = {"query": query, "vector_provider": provider}
+        if collection:
+            arguments["collection"] = collection
+        return self.guard_tool_call(
+            session_id,
+            agent_id,
+            "vector_search",
+            arguments,
+            enforce=enforce,
+        )
+
+    def guard_rag_context(
+        self,
+        session_id: str,
+        agent_id: str,
+        user_query: str,
+        retrieved_chunks: Sequence[str],
+        *,
+        enforce: bool = True,
+    ) -> Dict[str, Any]:
+        """Guard retrieved chunks before they are sent to the LLM (poison / injection in context)."""
+        previews = [c[:500] for c in retrieved_chunks[:10]]
+        return self.guard_tool_call(
+            session_id,
+            agent_id,
+            "rag_context_to_llm",
+            {"query": user_query, "retrieved_chunks": previews, "chunk_count": len(retrieved_chunks)},
+            enforce=enforce,
+        )
+
     def enforce_session(self, session_id: str, action: str = "KILL") -> Dict[str, Any]:
         """Manually contain a session via `/api/v1/sessions/{id}/action`."""
         return self._post(f"/api/v1/sessions/{session_id}/action", {"action": action.upper()})

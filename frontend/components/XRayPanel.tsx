@@ -79,7 +79,7 @@ export default function XRayPanel() {
       <EmptyState
         icon={ShieldAlert}
         title="Unable to load X-Ray data"
-        description="The metrics and observatory endpoints are unreachable. Ensure the backend API is running on port 8000."
+        description="Metrics are unavailable right now. Check that ARTSA is running, then refresh."
         action={
           <Button size="sm" onClick={() => void load()}>
             Retry

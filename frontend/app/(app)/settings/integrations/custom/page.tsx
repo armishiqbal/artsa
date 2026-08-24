@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Cable,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/stores/toast";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
+import { INTEGRATION_UI, INTEGRATION_HEALTH_UI } from "@/lib/getStartedLabels";
 import { extractSecretRefs, buildSampleTemplate, usesDefaultPayload, validatePayloadTemplate } from "@/lib/integrationTemplates";
 import type { AuthType, CustomIntegration, CustomIntegrationSchema, EventType } from "@/lib/types";
 
@@ -411,7 +413,7 @@ function ConnectorFormCard({
               onClick={() => toggleEventType(t)}
               className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                 form.event_types.includes(t)
-                  ? "border-primary/40 bg-primary/10 text-primary"
+                  ? "border-foreground/25 bg-muted text-foreground"
                   : "border-border text-muted-foreground hover:bg-accent"
               }`}
             >
@@ -531,7 +533,7 @@ export default function CustomIntegrationsPage() {
         message?: string;
       };
       if (raw.ok && unwrapped.status === "sent") {
-        setTestResults((prev) => ({ ...prev, [conn.name]: { ok: true, detail: `sent ${eventType} sample` } }));
+        setTestResults((prev) => ({ ...prev, [conn.name]: { ok: true, detail: INTEGRATION_UI.sampleSent } }));
       } else {
         const detail = unwrapped.detail ?? unwrapped.message;
         setTestResults((prev) => ({
@@ -563,6 +565,14 @@ export default function CustomIntegrationsPage() {
         }
       />
 
+      <div className="rounded-lg border border-border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+        {INTEGRATION_HEALTH_UI.outboundReminder}{" "}
+        <Link href="/get-started" className="font-medium text-foreground underline">
+          Send a test event from setup
+        </Link>{" "}
+        to see activity on Command Center and the activity log.
+      </div>
+
       {!canManage && !roleLoading && (
         <DashboardCard title="Read-only">
           <p className="text-sm text-muted-foreground">
@@ -585,7 +595,7 @@ export default function CustomIntegrationsPage() {
         <DashboardCard
           title="Connectors"
           description="Secrets are encrypted at rest and never displayed."
-          badge={<Cable className="h-4 w-4 text-primary" />}
+          badge={<Cable className="h-4 w-4 text-muted-foreground" />}
         >
           {integrations.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -641,7 +651,7 @@ export default function CustomIntegrationsPage() {
                               disabled={testing === c.name || !canManage}
                             >
                               {testing === c.name ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
-                              Test
+                              {INTEGRATION_UI.sendSampleToUrl}
                             </Button>
                             <Button
                               variant="ghost"

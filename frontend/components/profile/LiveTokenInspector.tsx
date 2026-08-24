@@ -181,7 +181,7 @@ async function sendTelemetry() {
       <DashboardCard
         title="Active API Key & Session Token"
         description="Credentials used to authenticate scripts, agents, and SDK clients."
-        icon={<KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -235,7 +235,7 @@ async function sendTelemetry() {
             <div className="rounded-xl border border-border/80 bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                  <Cpu className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <Cpu className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   Token Session Details
                 </span>
                 <span className="font-mono text-xs text-status-success font-semibold flex items-center gap-1">
@@ -270,7 +270,7 @@ async function sendTelemetry() {
           )}
 
           <div className="flex items-start gap-2.5 rounded-lg border border-border/80 bg-muted/20 p-3 text-xs text-muted-foreground">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <p>
               Keep your keys secret. Do not commit tokens or keys to public Git repositories.
             </p>
@@ -282,7 +282,7 @@ async function sendTelemetry() {
       <DashboardCard
         title="Developer & SDK Integration"
         description="Ready-to-use code examples for connecting your AI agents."
-        icon={<Terminal className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<Terminal className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
         actions={
           <Button
             size="sm"
@@ -316,9 +316,9 @@ async function sendTelemetry() {
                 type="button"
                 onClick={() => setSdkTab(tab)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-mono font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  "rounded-md px-3 py-1.5 text-xs font-mono font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15",
                   sdkTab === tab
-                    ? "bg-primary/15 text-primary border border-primary/30 font-bold shadow-xs"
+                    ? "border-foreground bg-muted font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
                 )}
               >
@@ -337,7 +337,7 @@ async function sendTelemetry() {
               href="http://localhost:8000/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline font-semibold"
+              className="inline-flex items-center gap-1 text-foreground hover:underline font-semibold"
             >
               Interactive API Docs <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </a>

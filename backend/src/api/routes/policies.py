@@ -8,9 +8,20 @@ import yaml
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from src.data.policy_version_store import current_version, diff_versions, list_versions, snapshot_rules
+
 router = APIRouter(tags=["Policies"])
 
 POLICY_PATH = Path(__file__).resolve().parent.parent.parent.parent / "configs" / "org_policies" / "default.yaml"
+
+
+def _write_rules(rules: list[dict[str, Any]], *, trigger: str, note: str | None = None) -> dict[str, Any]:
+    POLICY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with POLICY_PATH.open("w", encoding="utf-8") as f:
+        yaml.dump({"rules": rules}, f, default_flow_style=False)
+    if current_version() == 0 and rules:
+        return snapshot_rules(rules, trigger="initial", note=note or "Initial playbook snapshot")
+    return snapshot_rules(rules, trigger=trigger, note=note)
 
 
 class PolicyRule(BaseModel):
@@ -47,19 +58,19 @@ class PolicySuggestResponse(BaseModel):
 async def list_policies() -> dict[str, Any]:
     """Return current org policy rules."""
     if not POLICY_PATH.exists():
-        return {"rules": []}
+        return {"rules": [], "playbook_version": current_version() or 0}
     with POLICY_PATH.open(encoding="utf-8") as f:
-        return yaml.safe_load(f) or {"rules": []}
+        data = yaml.safe_load(f) or {"rules": []}
+    data["playbook_version"] = current_version() or len(data.get("rules", []))
+    return data
 
 
 @router.put("/policies")
 async def update_policies(payload: PolicyUpdateRequest) -> dict[str, Any]:
     """Replace org policy rules (YAML-backed)."""
     data = {"rules": [rule.model_dump() for rule in payload.rules]}
-    POLICY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with POLICY_PATH.open("w", encoding="utf-8") as f:
-        yaml.dump(data, f, default_flow_style=False)
-    return {"status": "updated", "rule_count": len(payload.rules)}
+    version = _write_rules(data["rules"], trigger="manual_update", note="Full policy replace")
+    return {"status": "updated", "rule_count": len(payload.rules), "playbook_version": version["version"]}
 
 
 @router.post("/policies/rules")
@@ -68,10 +79,21 @@ async def add_policy_rule(rule: PolicyRule) -> dict[str, Any]:
     current = await list_policies()
     rules = current.get("rules", [])
     rules.append(rule.model_dump())
-    POLICY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with POLICY_PATH.open("w", encoding="utf-8") as f:
-        yaml.dump({"rules": rules}, f, default_flow_style=False)
-    return {"status": "added", "rule_count": len(rules)}
+    version = _write_rules(rules, trigger="rule_add", note=f"Added rule {rule.name}")
+    return {"status": "added", "rule_count": len(rules), "playbook_version": version["version"]}
+
+
+@router.get("/policies/versions")
+async def policy_versions(limit: int = 20) -> dict[str, Any]:
+    """Git-log style playbook version history."""
+    versions = list_versions(limit=limit)
+    return {"current_version": current_version(), "versions": versions}
+
+
+@router.get("/policies/versions/diff")
+async def policy_version_diff(from_version: int, to_version: int) -> dict[str, Any]:
+    """Diff two playbook snapshots (added / removed rules)."""
+    return diff_versions(from_version, to_version)
 
 
 def _synthesize_pattern(content: str, trigger_phrases: list[str]) -> str:

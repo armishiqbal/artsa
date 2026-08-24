@@ -186,7 +186,7 @@ export function PersonalInfoSection({
       <DashboardCard
         title="Personal Identity & Details"
         description="Your name, portrait avatar, contact information, and organization."
-        icon={<User className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
         actions={
           showEditable && !editing ? (
             <Button
@@ -212,9 +212,9 @@ export function PersonalInfoSection({
             {/* Identity Grid */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {/* Full Name */}
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-primary/40">
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <User className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <User className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   <span>Full Name</span>
                 </div>
                 <p className="mt-2 truncate text-sm font-bold text-foreground">
@@ -223,10 +223,10 @@ export function PersonalInfoSection({
               </div>
 
               {/* Email Address */}
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-primary/40">
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <Mail className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                     <span>Email Address</span>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
@@ -239,9 +239,9 @@ export function PersonalInfoSection({
               </div>
 
               {/* Organization */}
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-primary/40">
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <Building2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   <span>Organization</span>
                 </div>
                 <p className="mt-2 truncate text-sm font-bold text-foreground">
@@ -250,9 +250,9 @@ export function PersonalInfoSection({
               </div>
 
               {/* Phone */}
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-primary/40">
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <Phone className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   <span>Phone Number</span>
                 </div>
                 <p className="mt-2 truncate text-xs text-foreground font-mono">
@@ -261,9 +261,9 @@ export function PersonalInfoSection({
               </div>
 
               {/* Location */}
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-primary/40">
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <MapPin className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   <span>Location</span>
                 </div>
                 <p className="mt-2 truncate text-xs text-foreground">
@@ -272,9 +272,9 @@ export function PersonalInfoSection({
               </div>
 
               {/* Role Tier */}
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-primary/40">
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-xs transition-all hover:border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <Shield className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   <span>Clearance Level</span>
                 </div>
                 <p className="mt-2 truncate text-xs font-bold text-foreground">
@@ -312,7 +312,7 @@ export function PersonalInfoSection({
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-                    <Palette className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                    <Palette className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                     Avatar & Color Theme Studio
                   </h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -323,7 +323,7 @@ export function PersonalInfoSection({
 
               {/* Top: Current Avatar + Upload / Delete Dropzone */}
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="rounded-2xl p-1 bg-gradient-to-tr from-primary/30 via-border to-border/40 shrink-0">
+                <div className="shrink-0 rounded-2xl border border-border p-0.5">
                   <AvatarVisual
                     avatar={computedDisplayAvatar}
                     label={initialsLabel}
@@ -347,13 +347,13 @@ export function PersonalInfoSection({
                     }}
                     className={cn(
                       "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed p-4 transition-all",
-                      dragActive ? "border-primary bg-primary/10 shadow-inner" : "border-border/80 bg-muted/20"
+                      dragActive ? "border-foreground bg-muted shadow-inner" : "border-border/80 bg-muted/20"
                     )}
                   >
                     <div className="flex flex-wrap items-center gap-3">
                       <label
                         htmlFor="profile-avatar-upload-file"
-                        className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 focus-within:ring-2 focus-within:ring-primary"
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-button px-3.5 py-2 text-xs font-medium text-button-foreground shadow-xs transition-colors hover:bg-button-hover focus-within:ring-2 focus-within:ring-foreground/15"
                       >
                         <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
                         {isImageAvatar ? "Replace Photo" : "Upload Local Photo"}
@@ -540,7 +540,7 @@ export function PersonalInfoSection({
               <div className="border-t border-border/60 pt-4 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Color Theme Accents {isImageAvatar && <span className="text-primary font-normal">(Tints photo border & glow)</span>}:
+                    Color theme {isImageAvatar && <span className="font-normal text-muted-foreground">(border tint)</span>}:
                   </label>
                 </div>
 
@@ -559,7 +559,7 @@ export function PersonalInfoSection({
                           boxShadow: isSelected ? color.glow : undefined,
                         }}
                         className={cn(
-                          "relative flex items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                          "relative flex items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15",
                           isSelected
                             ? "bg-card scale-[1.03]"
                             : "border-border/70 bg-card hover:bg-muted/40"
@@ -605,8 +605,8 @@ export function PersonalInfoSection({
                     htmlFor="profile-display-name"
                     className="text-xs font-bold text-foreground flex items-center gap-1.5"
                   >
-                    <User className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-                    Display Name <span className="text-primary">*</span>
+                    <User className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                    Display Name <span className="text-destructive">*</span>
                   </label>
                   <span
                     className={cn(
@@ -638,7 +638,7 @@ export function PersonalInfoSection({
                     htmlFor="profile-email-readonly"
                     className="text-xs font-bold text-foreground flex items-center gap-1.5"
                   >
-                    <Mail className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                     Email Address
                   </label>
                   <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
@@ -662,7 +662,7 @@ export function PersonalInfoSection({
                   htmlFor="profile-phone"
                   className="text-xs font-bold text-foreground flex items-center gap-1.5"
                 >
-                  <Phone className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   Phone Number
                 </label>
                 <Input
@@ -682,7 +682,7 @@ export function PersonalInfoSection({
                   htmlFor="profile-location"
                   className="text-xs font-bold text-foreground flex items-center gap-1.5"
                 >
-                  <MapPin className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   Location / City
                 </label>
                 <Input
@@ -702,7 +702,7 @@ export function PersonalInfoSection({
                   htmlFor="profile-org"
                   className="text-xs font-bold text-foreground flex items-center gap-1.5"
                 >
-                  <Building2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   Organization / Team
                 </label>
                 <Input

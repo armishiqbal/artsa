@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { FileText, Download, ChevronRight, Loader2 } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
+import { useCampaigns, type CampaignListItem } from "@/lib/hooks/useCampaigns";
+import { useFindings } from "@/lib/hooks/useFindings";
+import { useAppData } from "@/lib/context/AppDataProvider";
+import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
+import { deriveCommandCenterKpis } from "@/lib/commandCenterKpis";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { PageStack } from "@/components/shared/PageStack";
+import { ReadinessSnapshotPanel } from "@/components/reports/ReadinessSnapshotPanel";
+import { FypExportPanel } from "@/components/reports/FypExportPanel";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import ModelComparison from "@/components/ModelComparison";
@@ -15,22 +23,25 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export default function ReportsPage() {
-  const [campaigns, setCampaigns] = useState<Array<Record<string, unknown>>>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { campaigns, loading } = useCampaigns();
+  const { findings, playbookVersion } = useFindings();
+  const { playbookVersion: policyVersion } = useAppData();
+  const { metrics, liveEvents } = useDashboardMetrics();
+  const kpis = deriveCommandCenterKpis(
+    metrics,
+    liveEvents,
+    playbookVersion || policyVersion,
+    campaigns
+  );
+  const [selectedCampaign, setSelectedCampaign] = useState<CampaignListItem | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportMd, setExportMd] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFromBackend<{ campaigns?: Array<Record<string, unknown>> }>("/api/v1/campaigns", { silent: true }).then((data) => {
-      const list = data?.campaigns || [];
-      if (list.length) {
-        setCampaigns(list);
-        setSelectedCampaign(list[0]);
-      }
-      setLoading(false);
-    });
-  }, []);
+    if (campaigns.length && !selectedCampaign) {
+      setSelectedCampaign(campaigns[0]);
+    }
+  }, [campaigns, selectedCampaign]);
 
   const summary = selectedCampaign?.summary as Record<string, unknown> | undefined;
 
@@ -80,16 +91,29 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
         title="Assessment Reports"
-        description="Executive wargame summaries and EU AI Act / NIST compliance exports."
+        description="Executive red-team summaries, go-live readiness, and compliance exports."
         icon={<FileText className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button asChild size="sm">
+              <Link href="/campaigns">Red Team Console</Link>
+            </Button>
             <Badge variant="secondary">{loading ? "…" : campaigns.length} campaigns</Badge>
           </div>
         }
+      />
+
+      <ReadinessSnapshotPanel />
+
+      <FypExportPanel
+        findings={findings}
+        campaigns={campaigns}
+        playbookVersion={playbookVersion || policyVersion}
+        defenseScore={metrics?.defense_score ?? 0}
+        threatsBlocked={kpis.threatsBlocked}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -104,12 +128,17 @@ export default function ReportsPage() {
             ) : campaigns.length === 0 ? (
               <EmptyState
                 icon={FileText}
-                title="No reports yet"
-                description="Run a wargame to generate assessment reports."
+                title="No campaign reports yet"
+                description="Run a red-team campaign for PDF exports, or export go-live readiness from Get Started."
                 action={
-                  <Button asChild size="sm">
-                    <Link href="/campaigns">Launch wargame</Link>
-                  </Button>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button asChild size="sm">
+                      <Link href="/campaigns">Red Team Console</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href="/get-started">Get Started checklist</Link>
+                    </Button>
+                  </div>
                 }
                 className="m-4 border-0"
               />
@@ -117,7 +146,7 @@ export default function ReportsPage() {
               <ul className="divide-y divide-border">
                 {campaigns.map((c) => (
                   <li key={String(c.id)}>
-                    <button type="button" onClick={() => { setSelectedCampaign(c); setExportMd(null); }} className={cn("flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent", selectedCampaign?.id === c.id && "bg-primary/10")}>
+                    <button type="button" onClick={() => { setSelectedCampaign(c); setExportMd(null); }} className={cn("flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/60", selectedCampaign?.id === c.id && "bg-muted")}>
                       <div>
                         <p className="text-sm font-medium">{String(c.name)}</p>
                         <p className="text-[11px] text-muted-foreground">{String(c.model ?? "—")} · {String(c.provider ?? "—")}</p>
@@ -176,7 +205,7 @@ export default function ReportsPage() {
               )}
             </>
           ) : (
-            <EmptyState icon={FileText} title="Select a campaign" description="Choose a campaign or launch a wargame." action={<Button asChild size="sm"><Link href="/campaigns">Launch wargame</Link></Button>} />
+            <EmptyState icon={FileText} title="Select a campaign" description="Choose a campaign or launch from Red Team Console." action={<Button asChild size="sm"><Link href="/campaigns">Red Team Console</Link></Button>} />
           )}
         </DashboardCard>
       </div>
@@ -194,6 +223,6 @@ export default function ReportsPage() {
           summary: c.summary as Record<string, unknown> | undefined,
         }))}
       />
-    </div>
+    </PageStack>
   );
 }

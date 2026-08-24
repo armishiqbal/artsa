@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
-  ArrowRight,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, Circle } from "lucide-react";
+import { roleLabel } from "@/lib/profile";
 import type { Profile } from "./types";
 import type { ProfileTabKey } from "./ProfileSidebarNav";
 
@@ -27,110 +22,65 @@ export function SecurityHealthCard({
 
   const items = [
     {
-      title: "Cryptographic Identity Link",
-      desc: "Signed session credentials",
+      title: "Session credentials",
+      desc: "Signed JWT active",
       completed: true,
       tab: "developer" as ProfileTabKey,
     },
     {
-      title: "Password Protection",
-      desc: hasPasswordSession ? "Configured & encrypted" : "Managed via API Key",
-      completed: true,
+      title: "Password",
+      desc: hasPasswordSession ? "Set" : "API key sign-in",
+      completed: hasPasswordSession,
       tab: "security" as ProfileTabKey,
     },
     {
-      title: "Security Clearance",
-      desc: `${role.toUpperCase()} clearance`,
+      title: "Role",
+      desc: roleLabel(role),
       completed: true,
       tab: "general" as ProfileTabKey,
     },
     {
-      title: "Recovery Phone",
-      desc: hasPhone ? profile?.phone : "Add emergency dispatch phone",
+      title: "Recovery phone",
+      desc: hasPhone ? profile?.phone ?? "Set" : "Not set",
       completed: hasPhone,
       tab: "general" as ProfileTabKey,
     },
   ];
 
   const completedCount = items.filter((i) => i.completed).length;
-  const score = Math.round((completedCount / items.length) * 100);
 
   return (
-    <section
-      aria-labelledby="security-health-heading"
-      className="rounded-2xl border border-border/80 bg-gradient-to-b from-card to-card/90 p-4.5 shadow-xs space-y-4 transition-all"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-status-success/15 text-status-success shadow-xs">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          </div>
-          <div>
-            <h2 id="security-health-heading" className="text-xs font-bold text-foreground">
-              Security Compliance
-            </h2>
-            <p className="text-[11px] text-muted-foreground font-mono">{score}% Checklist Rating</p>
-          </div>
-        </div>
-
-        <Badge
-          variant={score >= 80 ? "success" : "warning"}
-          className="font-mono text-[10px] shadow-xs"
-        >
-          {score >= 80 ? "Grade A" : "Needs Review"}
-        </Badge>
+    <section aria-labelledby="security-health-heading" className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 id="security-health-heading" className="text-sm font-medium">
+          Security
+        </h2>
+        <span className="font-mono text-xs text-muted-foreground">
+          {completedCount}/{items.length}
+        </span>
       </div>
 
-      {/* Progress Bar with accessibility attributes */}
-      <div
-        role="progressbar"
-        aria-valuenow={score}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`Security health score: ${score}%`}
-        className="h-2 w-full overflow-hidden rounded-full bg-muted/60 p-0.5 border border-border/50"
-      >
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-status-success/80 to-status-success transition-all duration-700 ease-out"
-          style={{ width: `${score}%` }}
-        />
-      </div>
-
-      {/* Interactive Checklist Items */}
-      <div className="space-y-1.5" role="list" aria-label="Security health checklist">
+      <ul className="space-y-1" aria-label="Security checklist">
         {items.map((item) => (
-          <button
-            key={item.title}
-            role="listitem"
-            type="button"
-            onClick={() => onNavigateTab(item.tab)}
-            aria-label={`Jump to ${item.title}: ${item.desc}`}
-            className="group flex w-full items-center justify-between rounded-xl p-2.5 text-left transition-all duration-200 hover:bg-muted/50 border border-transparent hover:border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
+          <li key={item.title}>
+            <button
+              type="button"
+              onClick={() => onNavigateTab(item.tab)}
+              className="group flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15"
+            >
               {item.completed ? (
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-status-success/15 text-status-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </div>
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-status-success" aria-hidden />
               ) : (
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-severity-medium/15 text-severity-medium">
-                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                </div>
+                <Circle className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               )}
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-foreground">
-                  {item.title}
-                </p>
-                <p className="truncate text-[10px] text-muted-foreground font-mono">
-                  {item.desc}
-                </p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm">{item.title}</p>
+                <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
               </div>
-            </div>
-
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-30 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5" aria-hidden="true" />
-          </button>
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

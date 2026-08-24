@@ -217,7 +217,7 @@ def test_campaigns_are_tenant_scoped(monkeypatch):
             cid,
             name=f"campaign-{tenant}",
             provider="groq",
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             attack_profile="quick_scan",
             max_rounds=2,
             request_json={"name": f"campaign-{tenant}"},

@@ -13,10 +13,10 @@ interface SparklineProps {
 }
 
 const variantColors: Record<string, string> = {
-  primary: "hsl(var(--primary))",
-  success: "hsl(var(--status-success))",
-  warning: "hsl(var(--status-warning))",
-  critical: "hsl(var(--severity-critical))",
+  primary: "hsl(var(--foreground) / 0.55)",
+  success: "hsl(var(--foreground) / 0.45)",
+  warning: "hsl(var(--foreground) / 0.45)",
+  critical: "hsl(var(--foreground) / 0.55)",
 };
 
 export function Sparkline({

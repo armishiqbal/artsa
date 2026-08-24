@@ -1,11 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { type ApiGatewayStatus } from "@/lib/connectionStatus";
 import { fetchFromBackend } from "@/lib/api";
-import {
-  clampSessionCount,
-  type ApiGatewayStatus,
-} from "@/lib/connectionStatus";
 
 interface ConnectionContextValue {
   apiOnline: boolean;
@@ -34,7 +31,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const health = await fetchFromBackend<{
       api_gateway?: { status?: string };
-    }>("/api/v1/health", { silent: true });
+    }>("/api/v1/health", { silent: true, timeoutMs: 1200 });
 
     if (health) {
       setApiOnline(true);
@@ -44,18 +41,11 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       setApiOnline(false);
       setApiGatewayStatus("offline");
     }
-
-    const data = await fetchFromBackend("/api/v1/metrics/dashboard", { silent: true });
-    if (data) {
-      setActiveSessions(
-        clampSessionCount((data as { active_sessions?: number }).active_sessions)
-      );
-    }
   }, []);
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 15000);
+    const interval = setInterval(refresh, 45_000);
     return () => clearInterval(interval);
   }, [refresh]);
 

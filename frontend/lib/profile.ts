@@ -23,58 +23,58 @@ export interface VectorAvatarPreset {
 
 export const ENTERPRISE_AVATAR_COLORS: AvatarColorStyle[] = [
   {
-    id: "color:amber",
-    name: "Cyber Ember",
-    bg: "rgba(249, 115, 22, 0.15)",
-    color: "#f97316",
-    border: "rgba(249, 115, 22, 0.5)",
-    dot: "#f97316",
-    glow: "0 0 16px rgba(249, 115, 22, 0.25)",
+    id: "color:titanium",
+    name: "Slate",
+    bg: "rgba(148, 163, 184, 0.12)",
+    color: "#64748b",
+    border: "rgba(148, 163, 184, 0.35)",
+    dot: "#64748b",
+    glow: "none",
   },
   {
     id: "color:emerald",
-    name: "Emerald Verified",
-    bg: "rgba(16, 185, 129, 0.15)",
-    color: "#10b981",
-    border: "rgba(16, 185, 129, 0.5)",
-    dot: "#10b981",
-    glow: "0 0 16px rgba(16, 185, 129, 0.25)",
+    name: "Green",
+    bg: "rgba(16, 185, 129, 0.12)",
+    color: "#059669",
+    border: "rgba(16, 185, 129, 0.35)",
+    dot: "#059669",
+    glow: "none",
   },
   {
     id: "color:cobalt",
-    name: "Cobalt Security",
-    bg: "rgba(59, 130, 246, 0.15)",
-    color: "#3b82f6",
-    border: "rgba(59, 130, 246, 0.5)",
-    dot: "#3b82f6",
-    glow: "0 0 16px rgba(59, 130, 246, 0.25)",
+    name: "Blue",
+    bg: "rgba(59, 130, 246, 0.12)",
+    color: "#2563eb",
+    border: "rgba(59, 130, 246, 0.35)",
+    dot: "#2563eb",
+    glow: "none",
+  },
+  {
+    id: "color:amber",
+    name: "Amber",
+    bg: "rgba(249, 115, 22, 0.12)",
+    color: "#ea580c",
+    border: "rgba(249, 115, 22, 0.35)",
+    dot: "#ea580c",
+    glow: "none",
   },
   {
     id: "color:amethyst",
-    name: "Amethyst Neural",
-    bg: "rgba(168, 85, 247, 0.15)",
-    color: "#a855f7",
-    border: "rgba(168, 85, 247, 0.5)",
-    dot: "#a855f7",
-    glow: "0 0 16px rgba(168, 85, 247, 0.25)",
+    name: "Purple",
+    bg: "rgba(168, 85, 247, 0.12)",
+    color: "#9333ea",
+    border: "rgba(168, 85, 247, 0.35)",
+    dot: "#9333ea",
+    glow: "none",
   },
   {
     id: "color:crimson",
-    name: "Red Team Tactical",
-    bg: "rgba(244, 63, 94, 0.15)",
-    color: "#f43f5e",
-    border: "rgba(244, 63, 94, 0.5)",
-    dot: "#f43f5e",
-    glow: "0 0 16px rgba(244, 63, 94, 0.25)",
-  },
-  {
-    id: "color:titanium",
-    name: "Titanium Slate",
-    bg: "rgba(148, 163, 184, 0.15)",
-    color: "#94a3b8",
-    border: "rgba(148, 163, 184, 0.5)",
-    dot: "#94a3b8",
-    glow: "0 0 16px rgba(148, 163, 184, 0.25)",
+    name: "Red",
+    bg: "rgba(244, 63, 94, 0.12)",
+    color: "#e11d48",
+    border: "rgba(244, 63, 94, 0.35)",
+    dot: "#e11d48",
+    glow: "none",
   },
 ];
 
@@ -88,9 +88,9 @@ export const ENTERPRISE_AVATAR_VECTORS: VectorAvatarPreset[] = [
 ];
 
 export const ROLE_VARIANT: Record<string, RoleBadgeVariant> = {
-  admin: "success",
-  analyst: "info",
-  redteam: "warning",
+  admin: "secondary",
+  analyst: "secondary",
+  redteam: "secondary",
   readonly: "secondary",
 };
 
@@ -202,6 +202,6 @@ export function passwordStrength(pw: string): { bars: number; label: string; bar
   if (/\d/.test(pw) || /[^A-Za-z0-9]/.test(pw)) score++;
   score = Math.min(4, Math.max(1, score));
   const label = ["Weak", "Fair", "Good", "Strong"][score - 1];
-  const bar = score >= 3 ? "bg-status-success" : score === 2 ? "bg-status-warning" : "bg-severity-critical";
+  const bar = score >= 3 ? "bg-foreground/70" : score === 2 ? "bg-foreground/45" : "bg-muted-foreground/60";
   return { bars: score, label, bar };
 }

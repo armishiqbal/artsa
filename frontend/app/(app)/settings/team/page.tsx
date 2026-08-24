@@ -161,7 +161,7 @@ export default function TeamPage() {
       </DashboardCard>
 
       {/* Members Table */}
-      <DashboardCard title="Members" badge={<Shield className="h-4 w-4 text-primary" />}>
+      <DashboardCard title="Members" badge={<Shield className="h-4 w-4 text-muted-foreground" />}>
         {members.length === 0 ? (
           <EmptyState icon={Users} title="No team members" description="Add your first team member above." />
         ) : (
@@ -182,7 +182,7 @@ export default function TeamPage() {
                   <tr key={m.id} className="border-b border-border/50">
                     <td className="py-2.5 pr-4">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground">
                           <UserCircle2 className="h-4 w-4" />
                         </div>
                         <div>

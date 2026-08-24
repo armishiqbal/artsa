@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import Logo from "@/components/shared/Logo";
+import { LogoIcon, LogoWordmark } from "@/components/shared/Logo";
 import { navSections } from "@/lib/navigation";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Rocket } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -26,54 +26,60 @@ export default function Sidebar() {
     .filter((section) => section.items.length > 0);
 
   return (
-    <aside className="sticky top-0 z-40 hidden h-screen w-64 flex-col border-r border-border bg-card/50 backdrop-blur-xl lg:flex">
-      <div className="flex items-center gap-3 border-b border-border p-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg brand-bg-subtle brand-border">
-          <Logo iconOnly iconSize={20} />
-        </div>
-        <div>
+    <aside className="shell-sidebar sticky top-0 z-40 hidden h-screen w-64 flex-col lg:flex">
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-3 border-b border-border p-5 transition-colors hover:bg-muted/25"
+      >
+        <LogoIcon size={22} />
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold tracking-tight">ARTSA</span>
-            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-mono">
+            <LogoWordmark size={22} />
+            <Badge variant="secondary" className="meta-badge shrink-0 font-mono">
               v0.3
             </Badge>
           </div>
-          <p className="text-[11px] text-muted-foreground">AI Containment Platform</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">AI Containment</p>
         </div>
-      </div>
+      </Link>
 
       <ScrollArea className="flex-1 px-3 py-4">
-        <nav className="space-y-6" aria-label="Main navigation">
-          {visibleSections.map((section) => (
-            <div key={section.label}>
-              <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {section.label}
-              </p>
+        <nav className="space-y-1" aria-label="Main navigation">
+          {visibleSections.map((section, sectionIndex) => (
+            <div
+              key={section.label}
+              className={cn(sectionIndex > 0 && "nav-section-block", sectionIndex === 0 && "pb-1")}
+            >
+              <p className="nav-section-label">{section.label}</p>
               <ul className="space-y-0.5">
                 {section.items.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href;
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== "/dashboard" &&
+                      item.href !== "/get-started" &&
+                      pathname.startsWith(`${item.href}/`));
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        data-active={isActive ? "true" : "false"}
                         className={cn(
-                          "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          "interactive-nav flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium tracking-[-0.17px] transition-colors",
                           isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                         )}
                         aria-current={isActive ? "page" : undefined}
                       >
-                        {isActive && (
-                          <motion.span
-                            layoutId="sidebar-active"
-                            className="absolute inset-0 rounded-lg bg-primary/10 ring-1 ring-primary/20"
-                            transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-                          />
-                        )}
-                        <Icon className="relative h-4 w-4 shrink-0" aria-hidden />
-                        <span className="relative">{item.name}</span>
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 shrink-0",
+                            isActive ? "text-foreground" : "text-muted-foreground"
+                          )}
+                          aria-hidden
+                        />
+                        <span className="truncate">{item.name}</span>
                       </Link>
                     </li>
                   );
@@ -86,10 +92,13 @@ export default function Sidebar() {
 
       <Separator />
       <div className="p-4">
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-xs font-medium text-foreground">Containment SLO</p>
-          <p className="mt-1 font-mono text-[11px] text-status-success">&lt;50ms ingest latency</p>
-        </div>
+        <Link
+          href="/get-started"
+          className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 text-xs font-medium transition-colors hover:border-foreground/15 hover:bg-muted/40"
+        >
+          <Rocket className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          Setup checklist
+        </Link>
       </div>
     </aside>
   );

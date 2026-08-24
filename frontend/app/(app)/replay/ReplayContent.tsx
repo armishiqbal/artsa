@@ -1,35 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Shield, GitCompare, Microscope, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  GitCompare,
+  Loader2,
+  Search,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { fetchFromBackend } from "@/lib/api";
-import { formatPayload, formatResponse } from "@/lib/replayFormat";
-import { severityFromScore } from "@/lib/severity";
+import { toast } from "@/lib/stores/toast";
 import type { Session, ToolCallEvent } from "@/lib/types";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { DashboardCard } from "@/components/shared/DashboardCard";
+import { FlowEmptyState } from "@/components/shared/FlowEmptyState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RiskScore } from "@/components/shared/RiskScore";
 import AutopsyReplayModal from "@/components/AutopsyReplayModal";
+import { ReplayTheaterHeader } from "@/components/replay/ReplayTheaterHeader";
+import { ReplayFilmTimeline } from "@/components/replay/ReplayFilmTimeline";
+import { ReplayStage } from "@/components/replay/ReplayStage";
+import { ReplayForensicsPanel } from "@/components/replay/ReplayForensicsPanel";
+import { type EvaluationView } from "@/components/replay/ReplayEventInspector";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EMPTY_STATE_UI } from "@/lib/getStartedLabels";
+import { Shield } from "lucide-react";
 
 interface TimelineEntry {
   event: ToolCallEvent;
-  evaluation?: {
-    risk_score: number;
-    verdict: string;
-    confidence: number;
-    recommended_action: string;
-    flags: string[];
-    bypass_depth?: number;
-  } | null;
+  evaluation?: Record<string, unknown> | null;
 }
+
+type SessionAction = "KILL" | "QUARANTINE";
+type EventFilter = "all" | "breached" | "high";
 
 export default function RoundReplayPage() {
   const searchParams = useSearchParams();
@@ -45,9 +48,57 @@ export default function RoundReplayPage() {
   const [forensics, setForensics] = useState<Record<string, unknown> | null>(null);
   const [forensicsLoading, setForensicsLoading] = useState(false);
   const [autopsyOpen, setAutopsyOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [eventQuery, setEventQuery] = useState("");
+  const [eventFilter, setEventFilter] = useState<EventFilter>("all");
+
+  const selectedSession = sessions.find((s) => s.id === selectedSessionId);
+  const entry = timeline[selectedIndex];
+  const current = entry?.event;
+  const evaluation = entry?.evaluation;
+  const previous = selectedIndex > 0 ? timeline[selectedIndex - 1]?.event : null;
+
+  const timelineViews = useMemo(
+    () =>
+      timeline.map((t, index) => ({
+        index,
+        toolName: t.event.tool_name,
+        risk: typeof t.evaluation?.risk_score === "number" ? (t.evaluation.risk_score as number) : 0,
+        verdict: String(t.evaluation?.verdict ?? "—"),
+        timestamp: t.event.timestamp,
+      })),
+    [timeline]
+  );
+
+  const trajectorySteps = useMemo(
+    () =>
+      timelineViews.map((v) => ({
+        index: v.index,
+        turn: v.index + 1,
+        action: v.verdict,
+        tool: v.toolName,
+        risk: v.risk,
+        verdict: v.verdict,
+      })),
+    [timelineViews]
+  );
+
+  const filteredViews = useMemo(() => {
+    const q = eventQuery.trim().toLowerCase();
+    return timelineViews.filter((v) => {
+      if (eventFilter === "breached" && v.verdict !== "BREACHED") return false;
+      if (eventFilter === "high" && v.risk < 50) return false;
+      if (q && !v.toolName.toLowerCase().includes(q) && !v.verdict.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [timelineViews, eventFilter, eventQuery]);
+
+  const breachedCount = timelineViews.filter((v) => v.verdict === "BREACHED").length;
+  const peakRisk = timelineViews.reduce((max, v) => Math.max(max, v.risk), 0);
 
   useEffect(() => {
-    fetchFromBackend<Session[]>("/api/v1/sessions?limit=20", { silent: true }).then((data) => {
+    fetchFromBackend<Session[]>("/api/v1/sessions?limit=50", { silent: true }).then((data) => {
       if (Array.isArray(data) && data.length) {
         setSessions(data);
         if (!sessionParam) setSelectedSessionId(data[0].id);
@@ -73,7 +124,7 @@ export default function RoundReplayPage() {
     }).then((data) => {
       if (Array.isArray(data) && data.length) {
         setTimeline(data);
-        setSelectedIndex(data.length - 1);
+        setSelectedIndex(0);
       } else {
         setTimeline([]);
         setSelectedIndex(0);
@@ -83,30 +134,58 @@ export default function RoundReplayPage() {
     });
   }, [selectedSessionId]);
 
-  const entry = timeline[selectedIndex];
-  const current = entry?.event;
-  const evaluation = entry?.evaluation;
-  const previous = selectedIndex > 0 ? timeline[selectedIndex - 1] : null;
-  const riskValue = evaluation?.risk_score;
-  const risk = typeof riskValue === "number" && Number.isFinite(riskValue) ? riskValue : 0;
-  const riskSeverity = severityFromScore(risk);
-  const riskColor =
-    riskSeverity === "CRITICAL"
-      ? "text-severity-critical"
-      : riskSeverity === "HIGH"
-        ? "text-severity-high"
-        : riskSeverity === "MEDIUM"
-          ? "text-severity-medium"
-          : "text-severity-low";
-  const sessionLabel = sessions.find((s) => s.id === selectedSessionId);
+  const selectEvent = useCallback(
+    (index: number) => {
+      setSelectedIndex(Math.max(0, Math.min(timeline.length - 1, index)));
+    },
+    [timeline.length]
+  );
 
-  // Verdict → badge color so a SUSPICIOUS verdict never renders green.
-  const verdictVariant =
-    evaluation?.verdict === "BREACHED" || evaluation?.verdict === "CRITICAL"
-      ? "critical"
-      : evaluation?.verdict === "SUSPICIOUS" || evaluation?.verdict === "HIGH"
-        ? "warning"
-        : "success";
+  const navigateFiltered = useCallback(
+    (direction: 1 | -1) => {
+      const pos = filteredViews.findIndex((v) => v.index === selectedIndex);
+      const next = filteredViews[pos + direction];
+      if (next) selectEvent(next.index);
+    },
+    [filteredViews, selectedIndex, selectEvent]
+  );
+
+  const posInFilter = filteredViews.findIndex((v) => v.index === selectedIndex);
+  const canPrev = posInFilter > 0;
+  const canNext = posInFilter >= 0 && posInFilter < filteredViews.length - 1;
+
+  useEffect(() => {
+    if (!playing || filteredViews.length === 0) return;
+    const id = window.setInterval(() => {
+      const pos = filteredViews.findIndex((v) => v.index === selectedIndex);
+      if (pos >= filteredViews.length - 1) {
+        setPlaying(false);
+        return;
+      }
+      selectEvent(filteredViews[pos + 1].index);
+    }, 1200);
+    return () => window.clearInterval(id);
+  }, [playing, filteredViews, selectedIndex, selectEvent]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.tagName === "SELECT") return;
+
+      if (event.key === "ArrowDown" || event.key === "j") {
+        event.preventDefault();
+        navigateFiltered(1);
+      } else if (event.key === "ArrowUp" || event.key === "k") {
+        event.preventDefault();
+        navigateFiltered(-1);
+      } else if (event.key === " ") {
+        event.preventDefault();
+        setPlaying((p) => !p);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [navigateFiltered]);
 
   const runForensics = async () => {
     if (!timeline.length) return;
@@ -126,195 +205,146 @@ export default function RoundReplayPage() {
     setForensicsLoading(false);
   };
 
-  const paneAttacker = current ? (
-    <DashboardCard
-      title="Attacker / Tool Call"
-      badge={<Badge variant="critical">{current.agent_id}</Badge>}
-      className="border-l-4 border-l-severity-critical"
-    >
-      <p className="text-xs text-muted-foreground">Payload · {current.tool_name}</p>
-      <pre className="mt-2 max-h-48 overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
-        {formatPayload(current.arguments)}
-      </pre>
-    </DashboardCard>
-  ) : null;
+  const runSessionAction = async (action: SessionAction) => {
+    if (!selectedSessionId) return;
+    setActionLoading(true);
+    try {
+      await fetchFromBackend(`/api/v1/sessions/${selectedSessionId}/action`, {
+        method: "POST",
+        body: JSON.stringify({ action }),
+      });
+      toast(`Session ${action.toLowerCase()} enforced`, { variant: "success" });
+      const refreshed = await fetchFromBackend<Session[]>("/api/v1/sessions?limit=50", { silent: true });
+      if (Array.isArray(refreshed)) setSessions(refreshed);
+    } catch {
+      toast("Action failed", { variant: "error" });
+    }
+    setActionLoading(false);
+  };
 
-  const paneDefender = current ? (
-    <DashboardCard
-      title="Defender Response"
-      badge={<Badge variant="warning">{current.latency_ms ? `${current.latency_ms}ms` : "—"}</Badge>}
-      className="border-l-4 border-l-severity-high"
-    >
-      <pre
-        className={cn(
-          "mt-2 max-h-48 overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs",
-          riskColor
-        )}
-      >
-        {formatResponse(current.response)}
-      </pre>
-    </DashboardCard>
-  ) : null;
+  const exportTimeline = () => {
+    const blob = new Blob([JSON.stringify(timeline, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `artsa-session-${selectedSessionId ?? "timeline"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-  const paneJudge = current ? (
-    <DashboardCard
-      title="Containment Judge"
-      badge={<Badge variant={verdictVariant}>{evaluation?.verdict ?? "—"}</Badge>}
-      className="border-l-4 border-l-primary"
-    >
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-border bg-muted/20 p-3 text-center">
-          <p className="text-[10px] uppercase text-muted-foreground">Risk</p>
-          <p className={cn("font-mono text-2xl font-semibold", riskColor)}>{risk.toFixed(1)}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-muted/20 p-3 text-center">
-          <p className="text-[10px] uppercase text-muted-foreground">Action</p>
-          <p className="font-mono text-sm font-semibold">{evaluation?.recommended_action ?? "—"}</p>
-        </div>
+  if (!loadingSessions && sessions.length === 0) {
+    return (
+      <div className="replay-theater">
+        <FlowEmptyState title="No sessions to replay yet" />
       </div>
-      {evaluation?.flags?.length ? (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {evaluation.flags.map((f) => (
-            <Badge key={f} variant="warning" className="text-[10px]">
-              {f}
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-      {sessionLabel && (
-        <p className="mt-2 font-mono text-[11px] text-muted-foreground">
-          Session {sessionLabel.status} · confidence {Math.round((evaluation?.confidence ?? 0) * 100)}%
-        </p>
-      )}
-    </DashboardCard>
-  ) : null;
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Session Replay"
-        description="Forensic analysis with live containment verdicts from the ingest pipeline."
-        icon={<Shield className="h-5 w-5" />}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => setAutopsyOpen(true)} disabled={!timeline.length}>
-              Autopsy mode
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2" onClick={runForensics} disabled={forensicsLoading || !timeline.length}>
-              {forensicsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Microscope className="h-4 w-4" />}
-              Deep forensics
-            </Button>
-            <Button
-              variant={showDiff ? "default" : "outline"}
-              size="sm"
-              className="gap-2"
-              onClick={() => setShowDiff(!showDiff)}
-              disabled={!previous}
-            >
-              <GitCompare className="h-4 w-4" />
-              {showDiff ? "Hide diff" : "Show diff"}
-            </Button>
-          </div>
-        }
+    <div className="replay-theater space-y-4">
+      <ReplayTheaterHeader
+        sessions={sessions}
+        selectedSession={selectedSession}
+        selectedSessionId={selectedSessionId}
+        onSelectSession={setSelectedSessionId}
+        peakRisk={peakRisk}
+        breachedCount={breachedCount}
+        eventCount={timeline.length}
+        playing={playing}
+        onTogglePlay={() => setPlaying((p) => !p)}
+        onPrev={() => navigateFiltered(-1)}
+        onNext={() => navigateFiltered(1)}
+        canPrev={canPrev}
+        canNext={canNext}
+        onExport={exportTimeline}
+        onForensics={() => void runForensics()}
+        forensicsLoading={forensicsLoading}
+        exportDisabled={!timeline.length}
+        actionLoading={actionLoading}
+        onQuarantine={() => void runSessionAction("QUARANTINE")}
+        onKill={() => void runSessionAction("KILL")}
       />
 
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card/50 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Session</p>
-          {loadingSessions ? (
-            <Skeleton className="h-8 w-48" />
-          ) : (
-            <ScrollArea className="max-w-full">
-              <div className="flex flex-wrap gap-2">
-                {sessions.length === 0 ? (
-                  <Badge variant="outline" className="font-mono">
-                    No live sessions
-                  </Badge>
-                ) : (
-                  sessions.map((s) => (
-                    <Button
-                      key={s.id}
-                      variant={selectedSessionId === s.id ? "default" : "outline"}
-                      size="sm"
-                      className="font-mono text-xs"
-                      onClick={() => setSelectedSessionId(s.id)}
-                    >
-                      {s.agent_id.slice(0, 12)}
-                      {s.status === "BREACHED" ? " ⚠" : ""}
-                    </Button>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Event:</span>
-          {loadingTimeline ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : (
-            timeline.map((_, i) => (
-              <Button
-                key={i}
-                variant={selectedIndex === i ? "default" : "outline"}
-                size="sm"
-                className="font-mono"
-                onClick={() => setSelectedIndex(i)}
-              >
-                {i + 1}
+      <div className="replay-theater-panel">
+        {loadingTimeline ? (
+          <div className="space-y-4 p-6">
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton className="h-24 w-full rounded-lg" />
+            <Skeleton className="h-96 w-full rounded-lg" />
+          </div>
+        ) : !current ? (
+          <EmptyState
+            icon={Shield}
+            title="Nothing to replay in this session"
+            description="This session has no tool calls yet. Run a practice wargame or finish setup to generate activity."
+            action={
+              <Button asChild size="sm">
+                <Link href="/get-started">{EMPTY_STATE_UI.openSetup}</Link>
               </Button>
-            ))
-          )}
-          {evaluation && (
-            <div className="flex items-center gap-2">
-              <RiskScore score={risk} />
-              <Badge variant={evaluation.verdict === "BREACHED" ? "critical" : "success"} className="font-mono text-[10px]">
-                {evaluation.verdict}
-              </Badge>
+            }
+            className="min-h-[420px] border-0 bg-transparent shadow-none"
+          />
+        ) : (
+          <>
+            <ReplayFilmTimeline
+              entries={filteredViews.length ? filteredViews : timelineViews}
+              steps={trajectorySteps}
+              selectedIndex={selectedIndex}
+              onSelect={selectEvent}
+            />
+
+            <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 sm:px-5">
+              <div className="relative min-w-[140px] flex-1 max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <Input
+                  value={eventQuery}
+                  onChange={(e) => setEventQuery(e.target.value)}
+                  placeholder="Filter turns…"
+                  className="h-8 pl-8 text-xs"
+                  aria-label="Filter turns"
+                />
+              </div>
+              <Tabs value={eventFilter} onValueChange={(v) => setEventFilter(v as EventFilter)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                  <TabsTrigger value="high" className="text-xs">High risk</TabsTrigger>
+                  <TabsTrigger value="breached" className="text-xs">Breached</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button
+                size="sm"
+                variant={showDiff ? "default" : "outline"}
+                className="gap-1.5 text-xs"
+                onClick={() => setShowDiff(!showDiff)}
+                disabled={!previous}
+              >
+                <GitCompare className="h-3.5 w-3.5" />
+                Compare turns
+              </Button>
+              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setAutopsyOpen(true)}>
+                Cinema view
+              </Button>
             </div>
-          )}
-        </div>
+
+            <ReplayStage
+              event={current}
+              evaluation={evaluation as EvaluationView | null | undefined}
+              previousEvent={previous}
+              showDiff={showDiff}
+              turn={selectedIndex + 1}
+              totalTurns={timeline.length}
+            />
+          </>
+        )}
       </div>
 
-      {forensics && (
-        <DashboardCard title="Forensic Analysis">
-          <pre className="max-h-48 overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
-            {JSON.stringify(forensics, null, 2)}
-          </pre>
-        </DashboardCard>
-      )}
+      {forensics && <ReplayForensicsPanel data={forensics} />}
 
-      {loadingTimeline ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
-          ))}
-        </div>
-      ) : !current ? (
-        <EmptyState
-          icon={Shield}
-          title="No timeline events"
-          description="Ingest tool calls via POST /api/v1/ingest or run a wargame campaign."
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button asChild size="sm">
-                <Link href="/campaigns">Launch wargame</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/dashboard">Command Center</Link>
-              </Button>
-            </div>
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {paneAttacker}
-          {paneDefender}
-          {paneJudge}
-        </div>
-      )}
-
-      <AutopsyReplayModal isOpen={autopsyOpen} onClose={() => setAutopsyOpen(false)} sessionId={selectedSessionId} />
+      <AutopsyReplayModal
+        isOpen={autopsyOpen}
+        onClose={() => setAutopsyOpen(false)}
+        sessionId={selectedSessionId}
+      />
     </div>
   );
 }

@@ -34,6 +34,7 @@ from src.api.routes.benchmark import router as benchmark_router
 from src.api.routes.campaigns import router as campaigns_router
 from src.api.routes.config_status import router as config_status_router
 from src.api.routes.enterprise import router as enterprise_router
+from src.api.routes.findings import router as findings_router
 from src.api.routes.forensics import router as forensics_router
 from src.api.routes.health import router as health_router
 from src.api.routes.ingest import router as ingest_router
@@ -69,6 +70,7 @@ ROUTERS = [
     observatory_router,
     topology_router,
     policies_router,
+    findings_router,
     benchmark_router,
     campaigns_router,
     attack_library_router,

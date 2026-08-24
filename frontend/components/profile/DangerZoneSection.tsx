@@ -34,7 +34,7 @@ export function DangerZoneSection() {
   const handleSignOutCurrent = () => {
     clearAuth();
     toast("Signed out", { description: "Your session was terminated." });
-    router.replace("/login");
+    router.replace("/");
   };
 
   const handleSignOutAll = async () => {
@@ -47,7 +47,7 @@ export function DangerZoneSection() {
       }
       toast("All sessions cleared", { description: "You have been signed out of all devices." });
       setConfirmAllOpen(false);
-      router.replace("/login");
+      router.replace("/");
     } finally {
       setLoading(false);
     }
@@ -124,7 +124,7 @@ export function DangerZoneSection() {
             <button
               onClick={() => setConfirmAllOpen(false)}
               aria-label="Close confirmation dialog"
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15 rounded-md"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>

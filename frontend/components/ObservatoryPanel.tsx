@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Activity, Calendar, Flame, CheckCircle2, AlertTriangle, Layers, Loader2, Server } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import { fetchFromBackend } from "@/lib/api";
+import { EMPTY_STATE_UI } from "@/lib/getStartedLabels";
 import { formatDateTime } from "@/lib/dates";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { DashboardCard } from "@/components/shared/DashboardCard";
@@ -183,10 +184,10 @@ export default function ObservatoryPanel() {
           <EmptyState
             icon={Calendar}
             title="No campaign data"
-            description="Run wargame campaigns to populate the activity heatmap."
+            description="Run a practice wargame to fill the activity heatmap."
             action={
               <Button asChild size="sm">
-                <Link href="/campaigns">Launch wargame</Link>
+                <Link href="/campaigns">{EMPTY_STATE_UI.runWargame}</Link>
               </Button>
             }
           />

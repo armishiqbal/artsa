@@ -17,16 +17,16 @@ describe("RiskScore", () => {
     expect(screen.getByText("/100")).toBeInTheDocument();
   });
 
-  it("applies the critical variant for scores >= 80", () => {
+  it("uses a neutral badge variant for all scores", () => {
     render(<RiskScore score={92.4} />);
     const badge = screen.getByText("92.4").closest("div");
-    expect(badge).toHaveClass("bg-destructive/15");
+    expect(badge).toHaveClass("bg-secondary");
   });
 
-  it("applies the success variant for low scores", () => {
+  it("uses the same neutral variant for low scores", () => {
     render(<RiskScore score={12.0} />);
     const badge = screen.getByText("12.0").closest("div");
-    expect(badge).toHaveClass("bg-status-success/15");
+    expect(badge).toHaveClass("bg-secondary");
   });
 });
 
@@ -38,14 +38,14 @@ describe("SeverityBadge", () => {
     expect(badge).toHaveTextContent("CRITICAL");
   });
 
-  it("pulses for critical severities", () => {
+  it("uses outline styling for all severities", () => {
     render(<SeverityBadge severity="CRITICAL" />);
-    expect(screen.getByLabelText("Severity: CRITICAL")).toHaveClass("animate-pulse");
+    expect(screen.getByLabelText("Severity: CRITICAL")).toHaveClass("border-border");
   });
 
-  it("maps LOW to the info variant", () => {
+  it("maps LOW to the same outline variant", () => {
     render(<SeverityBadge severity="LOW" />);
-    expect(screen.getByLabelText("Severity: LOW")).toHaveClass("bg-severity-info/15");
+    expect(screen.getByLabelText("Severity: LOW")).toHaveClass("border-border");
   });
 });
 
@@ -57,7 +57,7 @@ describe("LiveIndicator", () => {
 
   it("falls back to polling state when disconnected", () => {
     render(<LiveIndicator connected={false} />);
-    expect(screen.getByRole("status")).toHaveTextContent("Polling fallback");
+    expect(screen.getByRole("status")).toHaveTextContent("Offline — polling fallback");
   });
 
   it("honors a custom label", () => {

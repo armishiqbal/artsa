@@ -28,8 +28,8 @@ PROVIDER_CATALOG: dict[str, dict[str, str | None]] = {
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
         "env_key": "GROQ_API_KEY",
-        "default_model": "llama-3.3-70b-versatile",
-        "description": "Groq — fast open models",
+        "default_model": "openai/gpt-oss-120b",
+        "description": "Groq — GPT-OSS 120B (replaces deprecated llama-3.3-70b-versatile)",
     },
     "mistral": {
         "base_url": "https://api.mistral.ai/v1",

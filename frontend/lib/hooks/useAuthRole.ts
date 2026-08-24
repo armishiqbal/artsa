@@ -50,6 +50,8 @@ export interface AuthIdentity {
   auth_required: boolean;
   auth_method?: string;
   oidc_enabled?: boolean;
+  /** True when a client session exists but the backend rejected credentials. */
+  session_invalid?: boolean;
   /** Local-account profile (email / role / display_name / avatar) from password auth. */
   user?: {
     email?: string | null;
@@ -109,7 +111,90 @@ export function useAuthRole() {
   refreshRef.current = () =>
     fetchFromBackend<AuthIdentity>("/api/v1/config/me", { silent: true })
       .then((res) => {
-        if (res) setIdentity(res);
+        if (!res) {
+          if (fallbackIdentity) setIdentity(fallbackIdentity);
+          return;
+        }
+
+        const backendRole =
+          typeof res.role === "string" && res.role.length > 0 ? res.role : null;
+        const localRole = storedUser?.role || fallbackIdentity?.role || null;
+
+        // Expired JWT still in sessionStorage: /config/me is public and returns
+        // role=null while protected routes 401. Drop the bearer once and re-resolve
+        // so the BFF can authenticate with ARTSA_API_KEY.
+        if (
+          bearerToken &&
+          !apiKey &&
+          res.authenticated === false &&
+          !backendRole &&
+          localRole
+        ) {
+          useAuthStore.getState().clearBearerKeepUser();
+          return fetchFromBackend<AuthIdentity>("/api/v1/config/me", { silent: true }).then(
+            (retry) => {
+              if (!retry) {
+                setIdentity({
+                  ...res,
+                  authenticated: false,
+                  role: localRole,
+                  capabilities: capabilitiesForRole(localRole),
+                  session_invalid: true,
+                  user: res.user ?? storedUser ?? null,
+                });
+                return;
+              }
+              const retryRole =
+                typeof retry.role === "string" && retry.role.length > 0
+                  ? retry.role
+                  : localRole;
+              setIdentity({
+                ...retry,
+                role: retryRole,
+                capabilities:
+                  retry.capabilities && typeof retry.capabilities.can_ingest === "boolean"
+                    ? retry.capabilities
+                    : capabilitiesForRole(retryRole),
+                authenticated: retry.authenticated ?? Boolean(retryRole),
+                session_invalid: false,
+                user: retry.user ?? storedUser ?? null,
+              });
+            }
+          );
+        }
+
+        const sessionInvalid =
+          Boolean(bearerToken || apiKey) &&
+          res.authenticated === false &&
+          !backendRole &&
+          Boolean(localRole);
+
+        if (sessionInvalid && localRole) {
+          setIdentity({
+            ...res,
+            authenticated: false,
+            role: localRole,
+            capabilities: capabilitiesForRole(localRole),
+            session_invalid: true,
+            user: res.user ?? storedUser ?? null,
+          });
+          return;
+        }
+
+        const effectiveRole = backendRole || localRole || "unauthenticated";
+        const capabilities =
+          res.capabilities && typeof res.capabilities.can_ingest === "boolean"
+            ? res.capabilities
+            : capabilitiesForRole(effectiveRole);
+
+        setIdentity({
+          ...res,
+          role: effectiveRole,
+          capabilities,
+          authenticated: res.authenticated ?? Boolean(backendRole),
+          session_invalid: false,
+          user: res.user ?? storedUser ?? null,
+        });
       })
       // /config/me failed (backend offline / demo token) — fall back to the
       // local session identity instead of leaving the nav least-privileged.

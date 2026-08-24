@@ -80,6 +80,12 @@ class ResultsStore:
             row["avg_score"] = row["total_score"] / attempts
 
         total = len(rounds)
+        top_findings = sorted(
+            rounds,
+            key=lambda r: (r.score.attack_success_score, r.score.bypass_depth),
+            reverse=True,
+        )[:5]
+
         return CampaignSummary(
             campaign_id=campaign_id,
             name=config.name,
@@ -91,4 +97,5 @@ class ResultsStore:
             avg_attack_success=sum(r.score.attack_success_score for r in rounds) / total if total else 0.0,
             avg_defense_quality=sum(r.score.defense_quality_score for r in rounds) / total if total else 0.0,
             avg_bypass_depth=sum(r.score.bypass_depth for r in rounds) / total if total else 0.0,
+            top_findings=top_findings,
         )

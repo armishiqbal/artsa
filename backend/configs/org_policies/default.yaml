@@ -1,31 +1,38 @@
-# Organization-specific containment rules (YAML-driven)
-# Add custom regex patterns via API or edit this file directly.
-
 rules:
-  - name: aws_metadata_access
-    pattern: "(?i)169\\.254\\.169\\.254|metadata\\.google"
-    event_type: CREDENTIAL_THEFT
-    severity: CRITICAL
-    risk_score: 92.0
-    description: Cloud metadata endpoint access attempt
-
-  - name: kubernetes_secrets
-    pattern: "(?i)/var/run/secrets/kubernetes|serviceaccount/token"
-    event_type: CREDENTIAL_THEFT
-    severity: HIGH
-    risk_score: 88.0
-    description: Kubernetes service account secret access
-
-  - name: prompt_injection_delimiter
-    pattern: "(?i)\\[system\\]|<<SYS>>|### Instruction:"
-    event_type: PROMPT_INJECTION
-    severity: HIGH
-    risk_score: 82.0
-    description: Delimiter-based prompt injection pattern
-
-  - name: base64_evasion
-    pattern: "(?i)(?:[A-Za-z0-9+/]{40,}={0,2})"
-    event_type: PROMPT_INJECTION
-    severity: MEDIUM
-    risk_score: 55.0
-    description: Suspicious base64-encoded payload in tool arguments
+- description: Cloud metadata endpoint access attempt
+  event_type: CREDENTIAL_THEFT
+  name: aws_metadata_access
+  pattern: (?i)169\.254\.169\.254|metadata\.google
+  risk_score: 92.0
+  severity: CRITICAL
+- description: Kubernetes service account secret access
+  event_type: CREDENTIAL_THEFT
+  name: kubernetes_secrets
+  pattern: (?i)/var/run/secrets/kubernetes|serviceaccount/token
+  risk_score: 88.0
+  severity: HIGH
+- description: Delimiter-based prompt injection pattern
+  event_type: PROMPT_INJECTION
+  name: prompt_injection_delimiter
+  pattern: '(?i)\[system\]|<<SYS>>|### Instruction:'
+  risk_score: 82.0
+  severity: HIGH
+- description: Suspicious base64-encoded payload in tool arguments
+  event_type: PROMPT_INJECTION
+  name: base64_evasion
+  pattern: (?i)(?:[A-Za-z0-9+/]{40,}={0,2})
+  risk_score: 55.0
+  severity: MEDIUM
+- description: "Auto-suggested from a red-team finding (Jailbreak \u2014 Evil Twin).\
+    \ Blocks prompts matching the attack's trigger phrases."
+  event_type: JAILBREAK
+  name: "Block: Jailbreak \u2014 Evil Twin"
+  pattern: (?i)(system\ prompt)
+  risk_score: 82.0
+  severity: CRITICAL
+- description: Automated verification promote
+  event_type: PROMPT_INJECTION
+  pattern: (?i)verify-test-unique-pattern-xyz
+  risk_score: 75.0
+  rule_name: Verify test rule
+  severity: HIGH

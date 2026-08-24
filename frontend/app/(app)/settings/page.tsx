@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   Settings2,
   Cable,
   ScrollText,
   Users,
   BellRing,
-  ArrowRight,
   Shield,
   Cpu,
+  Code2,
 } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { PageStack } from "@/components/shared/PageStack";
+import { ReadinessSnapshotPanel } from "@/components/reports/ReadinessSnapshotPanel";
 import { DashboardCard } from "@/components/shared/DashboardCard";
+import { SettingsHubCard } from "@/components/shared/SettingsHubCard";
+import { QuickActionTile } from "@/components/shared/QuickActionTile";
 import { Badge } from "@/components/ui/badge";
 
 interface SettingsSummary {
@@ -85,6 +88,16 @@ export default function SettingsOverviewPage() {
 
   const cards = [
     {
+      title: "API Setup",
+      description: "Developer quickstart, API keys, and browser test events",
+      href: "/settings/developer",
+      icon: Code2,
+      stats: [
+        { label: "Keys configured", value: summary.keys_configured },
+        { label: "Guardrails", value: summary.guardrails },
+      ],
+    },
+    {
       title: "Integrations",
       description: "LLM providers, guardrails, and SIEM/SOAR alert channels",
       href: "/settings/integrations",
@@ -119,57 +132,42 @@ export default function SettingsOverviewPage() {
   ];
 
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
         title="Settings"
         description="Platform configuration, integrations, team management, and audit trail."
         icon={<Settings2 className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Badge variant="info" className="font-mono">
+            <Badge variant="outline" className="interactive-pill font-mono">
               {loaded ? summary.keys_configured : "…"} keys
             </Badge>
-            <Badge variant="success" className="font-mono">
+            <Badge variant="secondary" className="interactive-pill font-mono">
               {loaded ? summary.guardrails : "…"} guardrails
             </Badge>
           </div>
         }
       />
 
+      <ReadinessSnapshotPanel />
+
       {loaded ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {cards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Link
-                key={card.href}
-                href={card.href}
-                className="group flex h-full flex-col rounded-xl border border-border bg-card/60 p-6 transition-all hover:border-primary/40 hover:bg-card hover:shadow-lg"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </div>
-                <h3 className="mt-4 text-base font-semibold">{card.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
-                <div className="mt-auto flex gap-4 pt-4">
-                  {card.stats.map((stat) => (
-                    <div key={stat.label}>
-                      <p className="font-mono text-xl font-semibold">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-              </Link>
-            );
-          })}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {cards.map((card) => (
+            <SettingsHubCard
+              key={card.href}
+              title={card.title}
+              description={card.description}
+              href={card.href}
+              icon={card.icon}
+              stats={card.stats}
+            />
+          ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-44 animate-pulse rounded-xl border border-border bg-muted/40" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-44 animate-pulse rounded-lg border border-border bg-muted/40" />
           ))}
         </div>
       )}
@@ -177,41 +175,35 @@ export default function SettingsOverviewPage() {
       <DashboardCard
         title="Quick Actions"
         description="Common configuration tasks"
-        badge={<Shield className="h-4 w-4 text-status-success" />}
+        badge={<Shield className="h-4 w-4 text-muted-foreground" />}
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Link
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <QuickActionTile
             href="/settings/integrations"
-            className="flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/50"
-          >
-            <Cpu className="h-5 w-5 text-primary" />
-            <div>
-              <p className="text-sm font-medium">Add Provider</p>
-              <p className="text-xs text-muted-foreground">Connect an LLM backend</p>
-            </div>
-          </Link>
-          <Link
+            title="Add Provider"
+            description="Connect an LLM backend"
+            icon={Cpu}
+          />
+          <QuickActionTile
             href="/settings/notifications"
-            className="flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/50"
-          >
-            <BellRing className="h-5 w-5 text-primary" />
-            <div>
-              <p className="text-sm font-medium">Configure Alerts</p>
-              <p className="text-xs text-muted-foreground">Set up notification channels</p>
-            </div>
-          </Link>
-          <Link
+            title="Configure Alerts"
+            description="Set up notification channels"
+            icon={BellRing}
+          />
+          <QuickActionTile
+            href="/settings/developer"
+            title="API Setup"
+            description="Keys, snippets, and test events"
+            icon={Code2}
+          />
+          <QuickActionTile
             href="/settings/team"
-            className="flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/50"
-          >
-            <Users className="h-5 w-5 text-primary" />
-            <div>
-              <p className="text-sm font-medium">Invite Members</p>
-              <p className="text-xs text-muted-foreground">Add team members</p>
-            </div>
-          </Link>
+            title="Invite Members"
+            description="Add team members"
+            icon={Users}
+          />
         </div>
       </DashboardCard>
-    </div>
+    </PageStack>
   );
 }

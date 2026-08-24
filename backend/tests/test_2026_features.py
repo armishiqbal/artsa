@@ -87,7 +87,7 @@ def test_red_queen_co_evolution():
 def test_shift_left_sdk():
     result = sdk_test(
         target_provider="groq",
-        target_model="llama-3.3-70b-versatile",
+        target_model="openai/gpt-oss-120b",
         policy="quick_scan",
         rounds=2,
     )

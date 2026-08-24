@@ -86,7 +86,7 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-4">
           <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-primary" aria-hidden />
+            <Bell className="h-4 w-4 text-muted-foreground" aria-hidden />
             <h2 className="text-sm font-semibold">Alerts Inbox</h2>
             {alerts.length > 0 && (
               <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
@@ -120,7 +120,7 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
                   <button
                     type="button"
                     className={cn(
-                      "w-full rounded-lg p-4 text-left transition-colors hover:border-primary/40",
+                      "w-full rounded-lg p-4 text-left transition-colors hover:bg-muted/40",
                       alert.severity === "CRITICAL" && "border-l-4 border-l-severity-critical"
                     )}
                     onClick={() => openReplay(alert.session_id)}
@@ -142,7 +142,7 @@ export function AlertsInbox({ open, onClose, alerts, loading }: AlertsInboxProps
                       </div>
                       <SeverityBadge severity={alert.severity} />
                     </div>
-                    <span className="mt-3 inline-flex items-center gap-1 text-xs text-primary">
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs text-foreground">
                       Open replay <ExternalLink className="h-3 w-3" />
                     </span>
                   </button>

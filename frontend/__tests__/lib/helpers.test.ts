@@ -87,3 +87,14 @@ describe("replayFormat", () => {
     expect(formatResponse(structured)).toBe(JSON.stringify(structured, null, 2));
   });
 });
+
+describe("workspace relatedness", () => {
+  it("returns related links and a next action for core routes", async () => {
+    const { workspaceFor } = await import("@/lib/workspace");
+    const dash = workspaceFor("/dashboard");
+    expect(dash.related.length).toBeGreaterThan(0);
+    expect(dash.next?.href).toBe("/sandbox");
+    expect(workspaceFor("/logs").next?.href).toBe("/replay");
+    expect(workspaceFor("/library").next?.href).toBe("/sandbox");
+  });
+});

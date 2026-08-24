@@ -49,7 +49,7 @@ def _add_provider(client: TestClient, name: str = "my-groq", **overrides) -> htt
         "api_key": REAL_KEY,
         "provider_type": "groq",
         "base_url": FAKE_URL,
-        "default_model": "llama-3.3-70b-versatile",
+        "default_model": "openai/gpt-oss-120b",
         "enabled": True,
         **overrides,
     }
@@ -124,7 +124,7 @@ def test_patch_partial_update_preserves_key(provider_api):
     assert res.status_code == 200
     body = unwrap_response(res)["provider"]
     assert body["base_url"] == "https://new.example.test/v1"
-    assert body["default_model"] == "llama-3.3-70b-versatile"  # untouched
+    assert body["default_model"] == "openai/gpt-oss-120b"  # untouched
     assert body["api_key_masked"] == "sk-t...cdef"  # key not rotated
     assert unwrap_response(provider_api.get("/api/v1/providers"))["count"] == 1
 
@@ -170,7 +170,7 @@ def test_proxy_resolves_registered_provider(provider_api):
     assert api_key == REAL_KEY
     assert headers == {}
     # Model defaulting from the registered provider.
-    assert proxy.resolve_model("my-groq", "unknown") == "llama-3.3-70b-versatile"
+    assert proxy.resolve_model("my-groq", "unknown") == "openai/gpt-oss-120b"
     # Unknown providers still fall back to catalog defaults.
     assert proxy.resolve_target("deepseek")[0] == "https://api.deepseek.com/v1"
 
@@ -189,7 +189,7 @@ def test_proxy_forwards_via_registered_provider(provider_api, monkeypatch):
             json={
                 "id": "chatcmpl-x",
                 "object": "chat.completion",
-                "model": "llama-3.3-70b-versatile",
+                "model": "openai/gpt-oss-120b",
                 "choices": [
                     {"index": 0, "message": {"role": "assistant", "content": "mocked reply"}, "finish_reason": "stop"}
                 ],
@@ -202,7 +202,7 @@ def test_proxy_forwards_via_registered_provider(provider_api, monkeypatch):
     res = provider_api.post(
         "/api/v1/proxy/v1/chat/completions",
         headers={"X-ARTSA-Provider": "my-groq"},
-        json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": "Hello"}]},
+        json={"model": "openai/gpt-oss-120b", "messages": [{"role": "user", "content": "Hello"}]},
     )
     assert res.status_code == 200
     assert captured["url"] == f"{FAKE_URL}/chat/completions"

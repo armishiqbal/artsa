@@ -56,7 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     // Keep the <meta name="viewport">-independent color-scheme meta in sync.
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "dark" ? "#0C1326" : "#F7F8FB");
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#0B0F18" : "#E4DCD0");
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => setThemeState(next), []);

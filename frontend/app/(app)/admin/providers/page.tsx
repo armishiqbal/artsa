@@ -14,6 +14,7 @@ import {
 import { fetchFromBackend, unwrapEnvelope } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
+import { PageStack } from "@/components/shared/PageStack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,12 +138,12 @@ export default function AdminProvidersPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
         title="Provider Management"
         description="Register any LLM API key at runtime — keys are encrypted at rest, never returned, and usable through the containment proxy."
         icon={<Cpu className="h-5 w-5" />}
-        actions={<Badge variant="info">{providers.length} registered</Badge>}
+        actions={<Badge variant="outline" className="meta-badge">{providers.length} registered</Badge>}
       />
 
       <DashboardCard title="Add provider" description="Any provider type, any model, any OpenAI-compatible base URL.">
@@ -306,7 +307,7 @@ export default function AdminProvidersPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(catalog).map(([key, meta]) => (
             <div key={key} className="flex items-start gap-2.5 rounded-lg border border-border/60 p-3">
-              <Server className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+              <Server className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               <div className="min-w-0">
                 <p className="font-mono text-xs font-semibold">{key}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
@@ -316,6 +317,6 @@ export default function AdminProvidersPage() {
           ))}
         </div>
       </DashboardCard>
-    </div>
+    </PageStack>
   );
 }

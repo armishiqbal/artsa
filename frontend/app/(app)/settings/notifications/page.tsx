@@ -139,7 +139,7 @@ export default function NotificationsPage() {
   if (!loaded) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }

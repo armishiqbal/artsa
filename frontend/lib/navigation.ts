@@ -13,6 +13,10 @@ import {
   Crosshair,
   Rocket,
   Settings2,
+  BarChart3,
+  GitBranch,
+  FileSearch,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,14 +24,12 @@ export interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
-  /** RBAC capability required to show this nav item */
   capability?: keyof import("@/lib/hooks/useAuthRole").AuthCapabilities;
 }
 
 export interface NavSection {
   label: string;
   items: NavItem[];
-  /** Section visible only to the admin role (admin console). */
   adminOnly?: boolean;
 }
 
@@ -37,34 +39,35 @@ export const navSections: NavSection[] = [
     items: [{ name: "Get Started", href: "/get-started", icon: Rocket }],
   },
   {
-    // Runtime guardrail: watch and defend agents in production.
     label: "Protect",
     items: [
       { name: "Command Center", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Agent Pipeline", href: "/pipeline", icon: GitBranch },
+      { name: "Analytics", href: "/analytics", icon: BarChart3 },
+      { name: "Logs", href: "/logs", icon: ScrollText },
       { name: "Topology", href: "/dashboard/topology", icon: Network },
     ],
   },
   {
-    // Red-team wargame: attack your own AI before launch.
     label: "Test",
     items: [
-      { name: "Wargame", href: "/campaigns", icon: Swords, capability: "can_run_campaigns" },
+      { name: "Red Team Console", href: "/campaigns", icon: Swords, capability: "can_run_campaigns" },
       { name: "Attack Sandbox", href: "/sandbox", icon: Crosshair },
+      { name: "Guard capabilities", href: "/guides/guard-capabilities", icon: Shield },
       { name: "RAG Scanner", href: "/rag-scanner", icon: Database },
       { name: "Attack Library", href: "/library", icon: BookOpen },
       { name: "Replay", href: "/replay", icon: FileCode },
     ],
   },
   {
-    // Analysis & audit: understand and report on findings.
     label: "Investigate",
     items: [
+      { name: "Findings", href: "/findings", icon: FileSearch },
       { name: "Agentic Risks", href: "/risks", icon: ShieldAlert },
       { name: "Reports", href: "/reports", icon: FileText },
     ],
   },
   {
-    // Admin console: platform configuration, credentials, integrations.
     label: "Admin",
     adminOnly: true,
     items: [

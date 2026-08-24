@@ -2,120 +2,87 @@
 
 import { cn } from "@/lib/utils";
 
-/* ── ARTSA Logo — SVG icon + wordmark ─────────────────────────────────── */
-
 interface LogoProps {
-  /** Render only the shield icon */
   iconOnly?: boolean;
-  /** Render only the wordmark text */
   wordmarkOnly?: boolean;
-  /** Additional class names */
   className?: string;
-  /** Icon size in rem — defaults to 1.5rem */
   iconSize?: number;
 }
 
-export function LogoIcon({ className, size = 24 }: { className?: string; size?: number }) {
+/** ARTSA mark — monochrome shield with cornflower accent (Dovetail). */
+export function LogoIcon({ className, size = 26 }: { className?: string; size?: number }) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 48 48"
+      viewBox="0 0 36 36"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("shrink-0", className)}
-      aria-label="ARTSA"
+      aria-hidden
     >
-      {/* Outer shield shape */}
       <path
-        d="M24 4L6 11V24.5C6 33.5 14 41 24 44C34 41 42 33.5 42 24.5V11L24 4Z"
-        fill="url(#artsa-grad-bg)"
-        stroke="url(#artsa-grad-stroke)"
-        strokeWidth="1.5"
+        d="M18 3 L31 8.5 V18 C31 25.5 25.5 31.5 18 34 C10.5 31.5 5 25.5 5 18 V8.5 L18 3 Z"
+        fill="#0a0a0a"
+        stroke="#6798ff"
+        strokeWidth="1.75"
         strokeLinejoin="round"
       />
-      {/* Inner chevron / A symbol */}
       <path
-        d="M24 14L14 30H19L24 22L29 30H34L24 14Z"
-        fill="url(#artsa-grad-fg)"
+        d="M18 6.5 L28 10.8 V17.5 C28 23.5 23.8 28.5 18 30.5 C12.2 28.5 8 23.5 8 17.5 V10.8 L18 6.5 Z"
+        fill="none"
+        stroke="#313131"
+        strokeWidth="0.8"
       />
-      {/* Center scanline */}
-      <line
-        x1="18"
-        y1="36"
-        x2="30"
-        y2="36"
-        stroke="url(#artsa-grad-fg)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity="0.7"
+      <path
+        d="M18 10.5 L11.5 24.5 H14.5 L16.2 20.8 H19.8 L21.5 24.5 H24.5 L18 10.5 Z M17.2 18.5 L18 14.5 L18.8 18.5 H17.2 Z"
+        fill="#ffffff"
       />
-      {/* Top accent dots */}
-      <circle cx="24" cy="10" r="1.2" fill="currentColor" opacity="0.6" />
-      <circle cx="19" cy="11.5" r="0.8" fill="currentColor" opacity="0.35" />
-      <circle cx="29" cy="11.5" r="0.8" fill="currentColor" opacity="0.35" />
-
-      <defs>
-        <linearGradient id="artsa-grad-bg" x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
-          <stop stopColor="hsl(225 95% 12%)" />
-          <stop offset="1" stopColor="hsl(225 95% 18%)" />
-        </linearGradient>
-        <linearGradient id="artsa-grad-stroke" x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
-          <stop stopColor="hsl(225 95% 50%)" />
-          <stop offset="1" stopColor="hsl(200 85% 40%)" />
-        </linearGradient>
-        <linearGradient id="artsa-grad-fg" x1="14" y1="14" x2="34" y2="36" gradientUnits="userSpaceOnUse">
-          <stop stopColor="hsl(225 95% 72%)" />
-          <stop offset="1" stopColor="hsl(200 85% 55%)" />
-        </linearGradient>
-      </defs>
+      <circle cx="18" cy="16.5" r="1.5" fill="#6798ff" />
     </svg>
   );
 }
 
-export function LogoWordmark({ className, size = 24 }: { className?: string; size?: number }) {
+export function LogoWordmark({
+  className,
+  size = 26,
+}: {
+  className?: string;
+  size?: number;
+}) {
+  const fontSize = Math.round(size * 0.74);
+
   return (
-    <svg
-      width={size * 5.5}
-      height={size * 0.9}
-      viewBox="0 0 132 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={cn("shrink-0", className)}
-      aria-label="ARTSA"
-    >
-      <text
-        x="0"
-        y="19"
-        fontFamily="Inter, system-ui, sans-serif"
-        fontWeight="700"
-        fontSize="20"
-        letterSpacing="-0.02em"
-        fill="url(#artsa-wm-grad)"
+    <div className={cn("inline-flex items-center gap-2 select-none", className)}>
+      <span
+        style={{ fontSize: `${fontSize}px` }}
+        className="font-semibold tracking-[-0.02em] text-foreground"
       >
         ARTSA
-      </text>
-      <defs>
-        <linearGradient id="artsa-wm-grad" x1="0" y1="0" x2="132" y2="0" gradientUnits="userSpaceOnUse">
-          <stop stopColor="hsl(225 95% 72%)" />
-          <stop offset="1" stopColor="hsl(200 85% 55%)" />
-        </linearGradient>
-      </defs>
-    </svg>
+      </span>
+      <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[9px] font-normal uppercase tracking-[0.85px] text-muted-foreground">
+        EDS
+      </span>
+    </div>
   );
 }
 
-export default function Logo({ iconOnly, wordmarkOnly, className, iconSize = 24 }: LogoProps) {
-  if (wordmarkOnly) {
-    return <LogoWordmark className={className} size={iconSize} />;
+export default function Logo({
+  iconOnly = false,
+  wordmarkOnly = false,
+  className,
+  iconSize = 26,
+}: LogoProps) {
+  if (iconOnly) {
+    return <LogoIcon size={iconSize} className={className} />;
   }
 
-  if (iconOnly) {
-    return <LogoIcon className={className} size={iconSize} />;
+  if (wordmarkOnly) {
+    return <LogoWordmark size={iconSize} className={className} />;
   }
 
   return (
-    <div className={cn("flex items-center gap-2.5", className)}>
+    <div className={cn("inline-flex items-center gap-2.5", className)}>
       <LogoIcon size={iconSize} />
       <LogoWordmark size={iconSize} />
     </div>

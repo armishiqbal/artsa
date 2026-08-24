@@ -60,14 +60,14 @@ export function SecuritySection({
       <DashboardCard
         title="Sign-In & Protection"
         description="Overview of how your account is authenticated."
-        icon={<Lock className="h-4 w-4 text-primary" aria-hidden="true" />}
+        icon={<Lock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Card 1: Sign-In Method */}
           <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs">
             <span className="text-xs font-semibold text-muted-foreground">Sign-In Method</span>
             <div className="mt-2 flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-foreground">
                 <KeyRound className="h-4 w-4" aria-hidden="true" />
               </div>
               <div>
@@ -104,7 +104,7 @@ export function SecuritySection({
         <DashboardCard
           title="Change Password"
           description="Update your password to keep your account secure."
-          icon={<KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />}
+          icon={<KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
         >
           <form
             onSubmit={(e) => {
@@ -121,7 +121,7 @@ export function SecuritySection({
                 htmlFor="current-password-input"
                 className="text-xs font-semibold text-foreground"
               >
-                Current Password <span className="text-primary">*</span>
+                Current Password <span className="text-destructive">*</span>
               </label>
               <div className="relative mt-1.5">
                 <Input
@@ -138,7 +138,7 @@ export function SecuritySection({
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
                   aria-label={showCurrent ? "Hide password text" : "Show password text"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15"
                 >
                   {showCurrent ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                 </button>
@@ -152,7 +152,7 @@ export function SecuritySection({
                   htmlFor="new-password-input"
                   className="text-xs font-semibold text-foreground"
                 >
-                  New Password <span className="text-primary">*</span>
+                  New Password <span className="text-destructive">*</span>
                 </label>
                 {strength && (
                   <span className="text-[11px] font-semibold text-muted-foreground">
@@ -175,7 +175,7 @@ export function SecuritySection({
                   type="button"
                   onClick={() => setShowNew(!showNew)}
                   aria-label={showNew ? "Hide password text" : "Show password text"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15"
                 >
                   {showNew ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                 </button>
@@ -216,7 +216,7 @@ export function SecuritySection({
                 htmlFor="confirm-password-input"
                 className="text-xs font-semibold text-foreground"
               >
-                Confirm New Password <span className="text-primary">*</span>
+                Confirm New Password <span className="text-destructive">*</span>
               </label>
               <div className="relative mt-1.5">
                 <Input
@@ -233,7 +233,7 @@ export function SecuritySection({
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
                   aria-label={showConfirm ? "Hide password text" : "Show password text"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15"
                 >
                   {showConfirm ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                 </button>
@@ -266,7 +266,7 @@ export function SecuritySection({
         <DashboardCard
           title="Role Key Access"
           description="Information about your active role key."
-          icon={<KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />}
+          icon={<KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
         >
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground leading-relaxed">

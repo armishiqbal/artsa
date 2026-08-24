@@ -25,7 +25,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent.parent.parent
 class RunCampaignRequest(BaseModel):
     name: str = "Cyber Wargame Run"
     provider: str = "groq"
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "openai/gpt-oss-120b"
     attack_profile: str = "quick_scan"
     max_rounds: int = Field(default=10, ge=1, le=100)
     base_url: str | None = None
@@ -128,7 +128,7 @@ async def list_campaigns(tenant_id: str = Depends(get_current_tenant)) -> dict[s
                         "name": summary_data.get("name", f"Campaign {cid[:8]}"),
                         "status": "COMPLETED",
                         "provider": summary_data.get("provider", "groq"),
-                        "model": summary_data.get("model", "llama-3.3-70b-versatile"),
+                        "model": summary_data.get("model", "openai/gpt-oss-120b"),
                         "rounds_completed": summary_data.get(
                             "completed_rounds", summary_data.get("total_rounds", 0)
                         ),
@@ -198,3 +198,25 @@ async def get_campaign_detail(
         }
 
     raise HTTPException(status_code=404, detail="Campaign not found")
+
+
+@router.get("/campaigns/{campaign_id}/rounds")
+async def get_campaign_rounds(
+    campaign_id: str, tenant_id: str = Depends(get_current_tenant)
+) -> dict[str, Any]:
+    """Return per-round attack/target/judge transcript for the Red Team Console."""
+    job = campaign_job_store.get(campaign_id, tenant_id=tenant_id)
+    if job and job.get("status") not in ("COMPLETED", "FAILED"):
+        return {"rounds": [], "status": job.get("status", "RUNNING")}
+
+    from src.data.results_store import ResultsStore
+
+    results_dir = BACKEND_DIR / "data" / "results"
+    store = ResultsStore(str(results_dir))
+    rounds = store.load_rounds(campaign_id)
+    return {
+        "campaign_id": campaign_id,
+        "rounds": [r.model_dump(mode="json") for r in rounds],
+        "count": len(rounds),
+        "status": job.get("status") if job else "COMPLETED",
+    }

@@ -14,7 +14,7 @@ def test_campaign_job_lifecycle(monkeypatch):
         cid,
         name="Test Campaign",
         provider="groq",
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         attack_profile="quick_scan",
         max_rounds=5,
         request_json={"name": "Test Campaign"},

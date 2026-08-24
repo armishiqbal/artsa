@@ -1,14 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Settings2, Key, Search, CheckCircle2, XCircle, AlertCircle, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Settings2,
+  Key,
+  Search,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ShieldCheck,
+  Cpu,
+  Shield,
+  Layers,
+} from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
+import { StatCard } from "@/components/shared/StatCard";
+import { SegmentedControl } from "@/components/shared/SegmentedControl";
+import { PageStack } from "@/components/shared/PageStack";
+import { StatCardsSkeleton } from "@/components/shared/PageSkeleton";
+import { IconTile } from "@/components/shared/IconTile";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface KeyRow {
   id: string;
@@ -42,23 +58,62 @@ interface ProxyHealth {
   default_provider: string;
 }
 
+type FilterCat = "all" | "llm" | "guardrail" | "infra" | "security";
+
+const FILTER_OPTIONS: { value: FilterCat; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "llm", label: "LLM" },
+  { value: "guardrail", label: "Guardrail" },
+  { value: "infra", label: "Infra" },
+  { value: "security", label: "Security" },
+];
+
 const statusIcon = {
   configured: CheckCircle2,
   missing: XCircle,
   placeholder: AlertCircle,
 };
 
-const statusVariant: Record<string, "success" | "secondary" | "warning"> = {
-  configured: "success",
+const statusVariant: Record<string, "secondary" | "outline"> = {
+  configured: "outline",
   missing: "secondary",
-  placeholder: "warning",
+  placeholder: "secondary",
 };
+
+function KeyRowItem({ row }: { row: KeyRow }) {
+  const Icon = statusIcon[row.status as keyof typeof statusIcon] ?? AlertCircle;
+
+  return (
+    <tr className="interactive-row group border-b border-border/50">
+      <td className="py-3 pr-4">
+        <div className="flex items-center gap-3">
+          <IconTile size="sm">
+            <Key aria-hidden />
+          </IconTile>
+          <div>
+            <div className="font-medium">{row.label}</div>
+            <div className="font-mono text-[10px] text-muted-foreground">{row.id}</div>
+          </div>
+        </div>
+      </td>
+      <td className="py-3 pr-4">
+        <Badge variant={statusVariant[row.status] ?? "secondary"} className="meta-badge gap-1 capitalize">
+          <Icon className="h-3 w-3" aria-hidden />
+          {row.status}
+        </Badge>
+      </td>
+      <td className="py-3 pr-4 font-mono text-xs text-muted-foreground">{row.preview ?? "—"}</td>
+      <td className="py-3 text-xs text-muted-foreground">{row.required_for}</td>
+    </tr>
+  );
+}
 
 export default function AdminSystemPage() {
   const [data, setData] = useState<KeyStatusResponse | null>(null);
   const [proxy, setProxy] = useState<ProxyHealth | null>(null);
   const [query, setQuery] = useState("");
-  const [filterCat, setFilterCat] = useState("all");
+  const [filterCat, setFilterCat] = useState<FilterCat>("all");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     fetchFromBackend<KeyStatusResponse>("/api/v1/config/keys", { silent: true }).then((d) => {
@@ -69,15 +124,21 @@ export default function AdminSystemPage() {
     });
   }, []);
 
-  const keys = (data?.keys ?? []).filter((k) => {
-    const q = query.toLowerCase();
-    const matchSearch = k.label.toLowerCase().includes(q) || k.id.toLowerCase().includes(q);
-    const matchCat = filterCat === "all" || k.category === filterCat;
-    return matchSearch && matchCat;
-  });
+  const keys = useMemo(() => {
+    return (data?.keys ?? []).filter((k) => {
+      const q = query.toLowerCase();
+      const matchSearch = k.label.toLowerCase().includes(q) || k.id.toLowerCase().includes(q);
+      const matchCat = filterCat === "all" || k.category === filterCat;
+      return matchSearch && matchCat;
+    });
+  }, [data?.keys, query, filterCat]);
+
+  const totalKeys = data?.summary.total_keys ?? 0;
+  const totalConfigured = data?.summary.total_configured ?? 0;
+  const configRatio = totalKeys > 0 ? totalConfigured / totalKeys : 0;
 
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
         title="System & Keys"
         description="Environment configuration and credential status — secrets are never displayed."
@@ -85,13 +146,13 @@ export default function AdminSystemPage() {
         actions={
           data && (
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="font-mono text-[10px] capitalize">
+              <Badge variant="outline" className="meta-badge interactive-pill font-mono capitalize">
                 {data.environment}
               </Badge>
-              <Badge variant="info" className="font-mono text-[10px]">
+              <Badge variant="secondary" className="meta-badge interactive-pill font-mono">
                 {data.default_provider} / {data.default_model}
               </Badge>
-              <Badge variant="warning" className="font-mono text-[10px]">
+              <Badge variant="secondary" className="meta-badge interactive-pill font-mono">
                 tenant: {data.tenant_id}
               </Badge>
             </div>
@@ -99,96 +160,123 @@ export default function AdminSystemPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardCard title="LLM keys" badge={<Badge variant="success" className="text-[10px]">{data?.summary.llm_providers_configured ?? 0}</Badge>}>
-          <p className="text-sm text-muted-foreground">Configured via root .env</p>
-        </DashboardCard>
-        <DashboardCard title="Guardrails" badge={<Badge variant="success" className="text-[10px]">{data?.summary.guardrails_configured ?? 0}</Badge>}>
-          <p className="text-sm text-muted-foreground">Content-safety integrations</p>
-        </DashboardCard>
-        <DashboardCard title="Total configured" badge={<Badge variant="info" className="text-[10px]">{data?.summary.total_configured ?? 0}/{data?.summary.total_keys ?? 0}</Badge>}>
-          <p className="text-sm text-muted-foreground">Keys present vs registered</p>
-        </DashboardCard>
-        <DashboardCard title="Containment proxy" badge={<Badge variant={proxy?.enabled ? "success" : "secondary"} className="text-[10px]">{proxy?.enabled ? "Enabled" : "Disabled"}</Badge>}>
-          <p className="font-mono text-xs text-muted-foreground">
-            {proxy?.mode} · threshold {proxy?.block_threshold} · {proxy?.fail_mode}
-          </p>
-        </DashboardCard>
-      </div>
+      {data ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="LLM keys"
+              value={data.summary.llm_providers_configured}
+              subtitle="Configured via root .env"
+              icon={Cpu}
+            />
+            <StatCard
+              label="Guardrails"
+              value={data.summary.guardrails_configured}
+              subtitle="Content-safety integrations"
+              icon={Shield}
+            />
+            <StatCard
+              label="Total configured"
+              value={totalKeys ? `${totalConfigured}/${totalKeys}` : totalConfigured}
+              subtitle="Keys present vs registered"
+              icon={Layers}
+              progress={configRatio}
+            />
+            <StatCard
+              label="Containment proxy"
+              value={proxy?.enabled ? "Enabled" : "Disabled"}
+              subtitle={
+                proxy
+                  ? `${proxy.mode} · threshold ${proxy.block_threshold} · ${proxy.fail_mode}`
+                  : "Loading proxy status…"
+              }
+              icon={ShieldCheck}
+              active={proxy?.enabled}
+            />
+        </div>
+      ) : (
+        <StatCardsSkeleton />
+      )}
 
       <DashboardCard
         title="API key status"
-        badge={<Key className="h-4 w-4 text-primary" aria-hidden />}
+        badge={<Key className="h-4 w-4 text-muted-foreground" aria-hidden />}
       >
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-xs flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden />
+          <div
+            className={cn(
+              "relative max-w-xs flex-1 rounded-lg",
+              searchFocused && "ring-1 ring-foreground/10"
+            )}
+          >
+            <Search
+              className={cn(
+                "absolute left-3 top-2.5 h-4 w-4 transition-colors",
+                searchFocused ? "text-foreground" : "text-muted-foreground"
+              )}
+              aria-hidden
+            />
             <Input
               placeholder="Search keys..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-9"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              className="pl-9 transition-colors"
             />
           </div>
-          <div className="flex flex-wrap gap-1">
-            {["all", "llm", "guardrail", "infra", "security"].map((cat) => (
-              <Button
-                key={cat}
-                variant={filterCat === cat ? "default" : "ghost"}
-                size="sm"
-                className="text-xs capitalize"
-                onClick={() => setFilterCat(cat)}
-              >
-                {cat}
-              </Button>
-            ))}
-          </div>
+          <SegmentedControl
+            options={FILTER_OPTIONS}
+            value={filterCat}
+            onChange={setFilterCat}
+            layoutId="system-key-filter"
+          />
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="data-table-wrap">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="pb-2 pr-4">Key</th>
-                <th className="pb-2 pr-4">Status</th>
-                <th className="pb-2 pr-4">Preview</th>
-                <th className="pb-2">Purpose</th>
+              <tr className="data-table-head">
+                <th className="px-3 py-2.5 pr-4 font-medium">Key</th>
+                <th className="py-2.5 pr-4 font-medium">Status</th>
+                <th className="py-2.5 pr-4 font-medium">Preview</th>
+                <th className="py-2.5 font-medium">Purpose</th>
               </tr>
             </thead>
             <tbody>
-              {keys.map((k) => {
-                const Icon = statusIcon[k.status as keyof typeof statusIcon] ?? AlertCircle;
-                return (
-                  <tr key={k.id} className="border-b border-border/50">
-                    <td className="py-2.5 pr-4">
-                      <div className="font-medium">{k.label}</div>
-                      <div className="font-mono text-[10px] text-muted-foreground">{k.id}</div>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <Badge variant={statusVariant[k.status] ?? "secondary"} className="gap-1 text-[10px] capitalize">
-                        <Icon className="h-3 w-3" aria-hidden />
-                        {k.status}
-                      </Badge>
-                    </td>
-                    <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">{k.preview ?? "—"}</td>
-                    <td className="py-2.5 text-xs text-muted-foreground">{k.required_for}</td>
-                  </tr>
-                );
-              })}
+              {keys.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                    No keys match your search or filter.
+                  </td>
+                </tr>
+              ) : (
+                keys.map((k) => <KeyRowItem key={k.id} row={k} />)
+              )}
             </tbody>
           </table>
         </div>
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          Showing {keys.length} credential{keys.length === 1 ? "" : "s"}
+          {filterCat !== "all" ? ` in ${filterCat}` : ""}
+        </p>
       </DashboardCard>
 
-      <DashboardCard title="Runtime providers" badge={<ShieldCheck className="h-4 w-4 text-status-success" aria-hidden />}>
+      <DashboardCard
+        title="Runtime providers"
+        badge={<ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />}
+      >
         <p className="text-sm text-muted-foreground">
           Providers registered at runtime (with encrypted keys) are managed on the{" "}
-          <Link href="/admin/providers" className="text-primary hover:underline">
+          <Link
+            href="/admin/providers"
+            className="font-medium text-foreground underline-offset-4 transition-colors hover:underline"
+          >
             Providers
           </Link>{" "}
           page — no env changes or restarts needed.
         </p>
       </DashboardCard>
-    </div>
+    </PageStack>
   );
 }

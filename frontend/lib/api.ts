@@ -8,7 +8,8 @@
  */
 
 import { toast } from "@/lib/stores/toast";
-import { getApiKey, getBearerToken } from "@/lib/stores/auth";
+import { API_UNAVAILABLE } from "@/lib/getStartedLabels";
+import { getApiKey, getBearerToken, useAuthStore } from "@/lib/stores/auth";
 import { useTenantStore } from "@/lib/stores/tenant";
 
 const API_BASE_URL = "/api/backend";
@@ -100,17 +101,24 @@ export function unwrapEnvelope(body: unknown): unknown {
 export interface FetchOptions extends RequestInit {
   /** Suppress error toasts (for background polling) */
   silent?: boolean;
+  /** Request timeout in ms — silent polls default to 1.5s, user actions to 3s */
+  timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 3000;
+const SILENT_TIMEOUT_MS = 1500;
 
 export async function fetchFromBackend<T = unknown>(
   endpoint: string,
   options: FetchOptions = {}
 ): Promise<T | null> {
-  const { silent = false, ...requestInit } = options;
+  const { silent = false, timeoutMs, ...requestInit } = options;
   const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
 
   try {
-    const signal = requestInit.signal || AbortSignal.timeout(3000);
+    const signal =
+      requestInit.signal ||
+      AbortSignal.timeout(timeoutMs ?? (silent ? SILENT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS));
     const res = await fetch(url, {
       ...requestInit,
       signal,
@@ -119,6 +127,20 @@ export async function fetchFromBackend<T = unknown>(
 
 
     if (!res.ok) {
+      const hadBearer = Boolean(getBearerToken()) && !getApiKey();
+      // Stale JWT: drop it and retry once so the BFF can inject ARTSA_API_KEY.
+      if (res.status === 401 && hadBearer) {
+        useAuthStore.getState().clearBearerKeepUser();
+        const retryRes = await fetch(url, {
+          ...requestInit,
+          signal,
+          headers: buildHeaders(requestInit.headers),
+        });
+        if (retryRes.ok) {
+          const raw = await retryRes.json();
+          return unwrapEnvelope(raw) as T;
+        }
+      }
       if (!silent) {
         // Attempt to extract error detail from envelope or raw body
         let errorMsg = `${endpoint} returned ${res.status}`;
@@ -128,9 +150,16 @@ export async function fetchFromBackend<T = unknown>(
           if (typeof unwrapped === "object" && unwrapped !== null) {
             const err = unwrapped as Record<string, unknown>;
             errorMsg = String(err.message ?? err.detail ?? errorMsg);
+          } else if (typeof unwrapped === "string" && unwrapped.trim()) {
+            errorMsg = unwrapped;
           }
         } catch {
           // can't parse — use status-only message
+        }
+        // Corrupted Next dev cache surfaces as proxy 500 with no JSON — point to fix.
+        if (res.status >= 500 && errorMsg.includes("returned 5")) {
+          errorMsg =
+            "Frontend API proxy failed (stale dev cache). Stop the dev server and run: npm run dev:clean";
         }
         toast("Request failed", {
           description: errorMsg,
@@ -145,7 +174,7 @@ export async function fetchFromBackend<T = unknown>(
   } catch (err) {
     if (!silent) {
       toast("Backend unreachable", {
-        description: `Ensure the API is running on port ${backendPort()}.`,
+        description: API_UNAVAILABLE.hint,
         variant: "error",
       });
     }

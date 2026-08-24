@@ -82,7 +82,7 @@ export default function TopologyGraphView({
               <circle
                 r={24}
                 fill="hsl(var(--card))"
-                stroke={isSel ? "hsl(var(--primary))" : isComp ? "hsl(var(--severity-critical))" : "hsl(var(--severity-low))"}
+                stroke={isSel ? "hsl(var(--foreground))" : isComp ? "hsl(var(--severity-critical))" : "hsl(var(--severity-low))"}
                 strokeWidth={isSel ? 3 : 2}
               />
               <text y={4} fill="hsl(var(--foreground))" fontSize="11" textAnchor="middle">

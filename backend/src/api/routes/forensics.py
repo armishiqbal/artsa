@@ -82,3 +82,26 @@ async def export_compliance_report(
         "iso_42001": exporter.generate_iso_42001(),
         "report_markdown": exporter.export_markdown_audit_report(),
     }
+
+
+@router.post("/readiness/export")
+async def export_readiness_report(
+    report: dict[str, Any],
+    format: str = Query("markdown", pattern="^(markdown|json|pdf)$"),
+) -> Any:
+    """Export Get Started validation suite as JSON, Markdown, or PDF."""
+    from src.reporting.readiness_exporter import ReadinessReportExporter
+
+    exporter = ReadinessReportExporter(report)
+    if format == "json":
+        return exporter.export_json()
+    if format == "pdf":
+        pdf_bytes = exporter.export_pdf()
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="artsa-readiness-{int(exporter.readiness_pct)}pct.pdf"'
+            },
+        )
+    return {"report_markdown": exporter.export_markdown()}

@@ -20,12 +20,13 @@ import { useTenantStore } from "@/lib/stores/tenant";
 import { useTheme } from "@/lib/context/ThemeProvider";
 import { isOidcEnabled } from "@/lib/oidc";
 import { avatarIsEmoji, resolveAvatarSrc } from "@/lib/profile";
+import { landingSignInHref } from "@/lib/authSession";
 import { cn } from "@/lib/utils";
 
 const ROLE_VARIANT: Record<string, "default" | "secondary" | "info" | "warning" | "success"> = {
-  admin: "success",
-  analyst: "info",
-  redteam: "warning",
+  admin: "secondary",
+  analyst: "secondary",
+  redteam: "secondary",
   readonly: "secondary",
 };
 
@@ -104,44 +105,58 @@ export default function TopNav() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
+      <header className="shell-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2 lg:hidden">
           <MobileNav />
           <span className="font-semibold tracking-tight">ARTSA</span>
         </div>
 
         <div className="hidden items-center gap-3 sm:flex">
-          <LiveIndicator connected={apiOnline} label={statusLabel} className="hidden sm:inline-flex" />
-          <kbd className="hidden items-center gap-1 rounded border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground md:inline-flex">
-            <Command className="h-3 w-3" aria-hidden />
-            K
-          </kbd>
+          {apiOnline ? (
+            <LiveIndicator connected={wsConnected} label={statusLabel} className="hidden sm:inline-flex" />
+          ) : (
+            <Link href="/get-started" className="hidden sm:inline-flex">
+              <LiveIndicator connected={false} label={statusLabel} className="cursor-pointer hover:opacity-90" />
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("artsa:open-command-palette"))}
+            className="hidden items-center gap-2 rounded-lg border border-border/80 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/15 hover:bg-muted/50 hover:text-foreground md:inline-flex"
+            aria-label="Open command palette"
+          >
+            <span>Search</span>
+            <kbd className="inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px]">
+              <Command className="h-3 w-3" aria-hidden />
+              K
+            </kbd>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
           {showOidcLogin && (
             <Button asChild variant="outline" size="sm" className="hidden text-xs sm:inline-flex">
-              <Link href="/login">Sign in</Link>
+              <Link href={landingSignInHref()}>Sign in</Link>
             </Button>
           )}
           {showProfile && (
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-1.5 rounded-full border border-border p-0.5 pr-1.5 transition-colors hover:bg-accent"
+                className="flex items-center gap-1.5 rounded-full border border-border p-0.5 pr-1.5 transition-colors hover:bg-muted/60"
                 aria-label="Account menu"
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
               >
                 {avatarIsEmoji(profileAvatar) ? (
                   <span
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-sm leading-none"
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm leading-none"
                     aria-hidden
                   >
                     {profileAvatar}
                   </span>
                 ) : resolveAvatarSrc(profileAvatar) ? (
-                  <span className="h-7 w-7 overflow-hidden rounded-full ring-1 ring-primary/20" aria-hidden>
+                  <span className="h-7 w-7 overflow-hidden rounded-full ring-1 ring-border" aria-hidden>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={resolveAvatarSrc(profileAvatar) ?? undefined}
@@ -150,7 +165,7 @@ export default function TopNav() {
                     />
                   </span>
                 ) : (
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
                     {profileInitials}
                   </span>
                 )}
@@ -159,7 +174,7 @@ export default function TopNav() {
                 />
               </button>
               {profileOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 rounded-lg border border-border bg-card shadow-lg z-50 py-1">
+                <div className="dropdown-surface absolute right-0 top-full z-50 mt-2 w-64 py-1">
                   <div className="border-b border-border px-3 py-2.5">
                     {profileDisplayName && (
                       <p className="truncate text-sm font-medium">{profileDisplayName}</p>
@@ -181,7 +196,7 @@ export default function TopNav() {
                   <Link
                     href="/profile"
                     onClick={() => setProfileOpen(false)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-accent"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-muted/60"
                   >
                     <UserCircle2 className="h-4 w-4" aria-hidden />
                     Profile
@@ -189,9 +204,9 @@ export default function TopNav() {
                   <button
                     onClick={() => {
                       clearAuth();
-                      router.push("/login");
+                      router.push("/");
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive transition-colors hover:bg-accent"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive transition-colors hover:bg-muted/60"
                   >
                     <LogOut className="h-4 w-4" aria-hidden />
                     Sign out
@@ -202,9 +217,9 @@ export default function TopNav() {
           )}
           <button
             onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label={theme === "dark" ? "Switch to parchment theme" : "Switch to ops dark theme"}
+            title={theme === "dark" ? "Parchment (warm light)" : "Ops dark"}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
           >
             {theme === "dark" ? (
               <Sun className="h-4 w-4" aria-hidden />
@@ -220,7 +235,7 @@ export default function TopNav() {
             aria-expanded={inboxOpen}
             onClick={() => setInboxOpen(true)}
           >
-            <Bell className="h-3.5 w-3.5 text-primary" aria-hidden />
+            <Bell className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             <span className="hidden sm:inline">Alerts</span>
             {criticalCount > 0 && (
               <Badge variant="critical" className="h-5 min-w-5 justify-center px-1.5 text-[10px]">
@@ -229,7 +244,7 @@ export default function TopNav() {
             )}
           </Button>
           <div className="hidden items-center gap-2 border-l border-border pl-3 text-xs text-muted-foreground md:flex" ref={tenantRef}>
-            <LogoIcon size={14} className="text-status-success" aria-hidden />
+            <LogoIcon size={14} className="text-foreground" aria-hidden />
             <div className="relative">
               <button
                 onClick={() => setTenantOpen(!tenantOpen)}
@@ -241,7 +256,7 @@ export default function TopNav() {
                 <ChevronDown className={cn("h-3 w-3 transition-transform", tenantOpen && "rotate-180")} />
               </button>
               {tenantOpen && tenants.length > 0 && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border border-border bg-card shadow-lg z-50 py-1">
+                <div className="dropdown-surface absolute right-0 top-full z-50 mt-2 w-56 py-1">
                   {tenants.map((t) => (
                     <button
                       key={t.id}
@@ -250,8 +265,8 @@ export default function TopNav() {
                         setTenantOpen(false);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-accent",
-                        t.id === tenantId && "bg-primary/5 text-primary"
+                        "flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-muted/60",
+                        t.id === tenantId && "bg-muted text-foreground"
                       )}
                     >
                       <Building2 className="h-4 w-4 shrink-0" />

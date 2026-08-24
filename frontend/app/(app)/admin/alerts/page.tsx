@@ -5,6 +5,7 @@ import { BellRing, Plus, Trash2, FlaskConical, Loader2, Cable, CheckCircle2, XCi
 import { fetchFromBackend, unwrapEnvelope } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
+import { PageStack } from "@/components/shared/PageStack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,12 +112,12 @@ export default function AdminAlertsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <PageStack>
       <PageHeader
         title="Alerts & Integrations"
         description="Route containment alerts to webhooks, Slack, PagerDuty, Splunk or Datadog — with risk thresholds."
         icon={<BellRing className="h-5 w-5" />}
-        actions={<Badge variant="info">{integrations.length} integrations</Badge>}
+        actions={<Badge variant="outline" className="meta-badge">{integrations.length} integrations</Badge>}
       />
 
       <DashboardCard title="Add integration" description="Alerts above the risk threshold are dispatched to this channel.">
@@ -248,6 +249,6 @@ export default function AdminAlertsPage() {
           </div>
         )}
       </DashboardCard>
-    </div>
+    </PageStack>
   );
 }

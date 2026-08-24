@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { IconTile } from "@/components/shared/IconTile";
+import { MotionCard } from "@/components/motion/MotionCard";
 import { cn } from "@/lib/utils";
 
 interface DashboardCardProps {
@@ -13,9 +14,9 @@ interface DashboardCardProps {
   children: React.ReactNode;
   className?: string;
   contentClassName?: string;
-  delay?: number;
 }
 
+/** Content panel — static surface with consistent header rhythm. */
 export function DashboardCard({
   title,
   description,
@@ -25,25 +26,16 @@ export function DashboardCard({
   children,
   className,
   contentClassName,
-  delay = 0,
 }: DashboardCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut", delay }}
-    >
-      <Card className={cn("shadow-card", className)}>
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+    <MotionCard hover className={cn("surface-panel overflow-hidden", className)}>
+      <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader className="dashboard-card-header flex flex-row items-start justify-between space-y-0 pb-4">
           <div className="flex items-start gap-3 space-y-0">
-            {icon && (
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/40">
-                {icon}
-              </div>
-            )}
-            <div className="space-y-1">
-              <CardTitle className="text-base font-medium">{title}</CardTitle>
-              {description && <CardDescription>{description}</CardDescription>}
+            {icon && <IconTile size="sm">{icon}</IconTile>}
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-base font-semibold tracking-tight">{title}</CardTitle>
+              {description && <CardDescription className="leading-relaxed">{description}</CardDescription>}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -53,6 +45,6 @@ export function DashboardCard({
         </CardHeader>
         <CardContent className={cn("pt-0", contentClassName)}>{children}</CardContent>
       </Card>
-    </motion.div>
+    </MotionCard>
   );
 }

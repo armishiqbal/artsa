@@ -10,14 +10,14 @@ artsa:
   # Default LLM settings (Supports: groq, mistral, huggingface, custom, openai)
   llm:
     provider: "groq"  # Free Tier Cloud API (e.g., groq, mistral, huggingface, custom)
-    model: "llama-3.3-70b-versatile"
+    model: "openai/gpt-oss-120b"
     temperature: 0.7
     max_tokens: 4096
 
   # Red Team Agent settings
   red_team:
     provider: "groq"
-    model: "llama-3.3-70b-versatile"
+    model: "openai/gpt-oss-120b"
     temperature: 0.9
     exploration_rate: 0.2
     max_retries: 2
@@ -25,7 +25,7 @@ artsa:
   # Judge Agent settings
   judge:
     provider: "groq"
-    model: "llama-3.3-70b-versatile"
+    model: "openai/gpt-oss-120b"
     temperature: 0.1
     use_llm: true  # Real LLM structured evaluation enabled
 
