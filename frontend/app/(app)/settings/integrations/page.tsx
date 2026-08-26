@@ -16,7 +16,7 @@ import {
   Cpu,
   ArrowRight,
 } from "lucide-react";
-import { fetchFromBackend, unwrapEnvelope } from "@/lib/api";
+import { fetchFromBackend, unwrapEnvelope, buildHeaders } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { Badge } from "@/components/ui/badge";
@@ -367,18 +367,40 @@ export default function IntegrationsPage() {
 
   const onTestProvider = async (name: string) => {
     setTesting(name);
-    setTestResults((prev) => ({ ...prev, [name]: { ok: true, detail: "testing..." } }));
+    setTestResults((prev) => ({
+      ...prev,
+      [name]: { ok: true, detail: "Calling provider… (may take a few seconds)" },
+    }));
     try {
-      const raw = await fetch(`/api/backend/api/v1/providers/${name}/test`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const raw = await fetch(`/api/backend/api/v1/providers/${encodeURIComponent(name)}/test`, {
+        method: "POST",
+        headers: buildHeaders(),
+        body: JSON.stringify({}),
+        signal: AbortSignal.timeout(40_000),
+      });
       const body = await raw.json().catch(() => ({}));
       const unwrapped = (unwrapEnvelope(body) ?? {}) as { status?: string; reply?: string; detail?: string };
       if (raw.ok && unwrapped?.status === "ok") {
-        setTestResults((prev) => ({ ...prev, [name]: { ok: true, detail: `replied: ${String(unwrapped.reply).slice(0, 80)}` } }));
+        setTestResults((prev) => ({
+          ...prev,
+          [name]: { ok: true, detail: `replied: ${String(unwrapped.reply).slice(0, 80)}` },
+        }));
+        toast("Provider test passed", { description: name, variant: "success" });
       } else {
-        setTestResults((prev) => ({ ...prev, [name]: { ok: false, detail: unwrapped?.detail || "test failed" } }));
+        const detail =
+          (typeof unwrapped?.detail === "string" && unwrapped.detail) ||
+          (body && typeof body === "object" && typeof (body as { detail?: string }).detail === "string"
+            ? (body as { detail: string }).detail
+            : null) ||
+          "Test failed — check the API key and default model (base URL is usually fine).";
+        setTestResults((prev) => ({ ...prev, [name]: { ok: false, detail } }));
+        toast("Provider test failed", { description: detail.slice(0, 160), variant: "error" });
       }
     } catch {
-      setTestResults((prev) => ({ ...prev, [name]: { ok: false, detail: "network error — could not reach the backend" } }));
+      setTestResults((prev) => ({
+        ...prev,
+        [name]: { ok: false, detail: "network error — could not reach the backend" },
+      }));
     } finally {
       setTesting(null);
     }

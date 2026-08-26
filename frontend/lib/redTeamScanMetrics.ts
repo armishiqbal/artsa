@@ -23,11 +23,13 @@ export interface ScanMetrics {
   avgBypassDepth: string;
   blockedCount: number;
   successCount: number;
+  /** Target API/billing failures — not security blocks. */
+  errorCount: number;
   riskBand: RiskBand;
   verdicts: Record<string, number>;
 }
 
-/** Derive Lakera-style scan KPIs from summary + live transcript. */
+/** Derive scan KPIs from summary + live transcript. */
 export function deriveScanMetrics(
   summary: Record<string, unknown> | null | undefined,
   turns: TranscriptTurn[]
@@ -49,8 +51,15 @@ export function deriveScanMetrics(
     }
   }
 
-  const blockedCount = turns.filter((t) => t.blocked || t.verdict.toUpperCase().includes("BLOCKED")).length;
+  const blockedCount = turns.filter((t) => {
+    const v = t.verdict.toUpperCase();
+    if (v.includes("ERROR") || t.targetError) return false;
+    return t.blocked || v.includes("BLOCKED");
+  }).length;
   const successCount = turns.filter((t) => t.verdict.toUpperCase().includes("SUCCESS")).length;
+  const errorCount = turns.filter(
+    (t) => t.targetError || t.verdict.toUpperCase().includes("ERROR")
+  ).length;
 
   const roundsCompleted = Number(summary?.completed_rounds ?? summary?.total_rounds ?? turns.length) || turns.length;
 
@@ -62,6 +71,7 @@ export function deriveScanMetrics(
     avgBypassDepth: num(summary?.avg_bypass_depth),
     blockedCount,
     successCount,
+    errorCount,
     riskBand,
     verdicts,
   };

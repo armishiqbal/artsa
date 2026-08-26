@@ -12,7 +12,7 @@ import {
 import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
 import { LandingSectionHeader } from "./LandingSectionHeader";
 
-/** Lakera-style benefit pillars */
+/** benefit pillars */
 const BENEFITS = [
   {
     icon: Ban,
@@ -53,7 +53,7 @@ export function LandingBenefits() {
         <LandingSectionHeader
           badge="Why ARTSA"
           title="Security designed for AI — not retrofitted onto it"
-          description="The outcomes Lakera promises for runtime and red team — continuous protection, ultra-low latency, and collaborative remediation — built into one command center."
+          description="The outcomes security teams need for runtime and red team — continuous protection, ultra-low latency, and collaborative remediation — built into one command center."
           align="center"
           className="mx-auto max-w-3xl"
         />

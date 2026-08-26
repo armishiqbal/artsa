@@ -9,10 +9,14 @@ import {
   FileCode,
   X,
   Loader2,
+  Download,
+  Pause,
+  Play,
+  Shield,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
-import { LiveTelemetryStream, type TelemetryEvent } from "@/components/shared/LiveTelemetryStream";
+import type { TelemetryEvent } from "@/components/shared/LiveTelemetryStream";
 import { StatCard } from "@/components/shared/StatCard";
 import { LiveIndicator } from "@/components/shared/LiveIndicator";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
@@ -23,15 +27,24 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { fetchFromBackend } from "@/lib/api";
-import { severityFromScore } from "@/lib/severity";
+import { severityFromScore, type SeverityLabel } from "@/lib/severity";
 import { READINESS_UI } from "@/lib/getStartedLabels";
 import type { Session, ToolCallEvent } from "@/lib/types";
 import { PageStack } from "@/components/shared/PageStack";
 import { LogsSetupEmpty } from "@/components/logs/LogsSetupEmpty";
+import { SecurityEventTable } from "@/components/logs/SecurityEventTable";
+import { SecurityEventInspector } from "@/components/logs/SecurityEventInspector";
 import { SessionLayerStrip } from "@/components/shared/SessionLayerStrip";
+import {
+  downloadSecurityExport,
+  filterSecurityRows,
+  toSecurityLogRows,
+  type ActionFilter,
+  type SecurityLogRow,
+} from "@/lib/securityLog";
 import { cn } from "@/lib/utils";
 
-type SeverityFilter = "all" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+type SeverityFilter = "all" | SeverityLabel;
 
 interface TimelineEntry {
   event: ToolCallEvent;
@@ -39,6 +52,8 @@ interface TimelineEntry {
 }
 
 type LogEvent = TelemetryEvent;
+
+const MAX_ROWS = 500;
 
 function timelineToLogEvent(entry: TimelineEntry): LogEvent {
   const evt = entry.event;
@@ -65,10 +80,6 @@ function timelineToLogEvent(entry: TimelineEntry): LogEvent {
   };
 }
 
-function streamEventToLogEvent(evt: LogEvent): LogEvent {
-  return evt;
-}
-
 export default function LogsContent() {
   const searchParams = useSearchParams();
   const sessionParam = searchParams.get("session")?.trim() ?? "";
@@ -77,9 +88,13 @@ export default function LogsContent() {
   const { apiOnline, wsConnected } = useConnection();
   const [query, setQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
   const [sessionDetail, setSessionDetail] = useState<Session | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<LogEvent[]>([]);
   const [sessionLoading, setSessionLoading] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [frozenEvents, setFrozenEvents] = useState<LogEvent[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!apiOnline || sessionParam) return;
@@ -112,8 +127,8 @@ export default function LogsContent() {
     void loadSession(sessionParam);
   }, [sessionParam, loadSession]);
 
-  const baseEvents = useMemo(() => {
-    const stream = liveEvents.map(streamEventToLogEvent);
+  const liveBaseEvents = useMemo(() => {
+    const stream = liveEvents as LogEvent[];
     if (!sessionParam) return stream;
 
     const filteredStream = stream.filter(
@@ -121,15 +136,13 @@ export default function LogsContent() {
     );
 
     if (timelineEvents.length > 0) {
-      const streamIds = new Set(
-        filteredStream.map((e) => String(e.event_id ?? e.id ?? ""))
-      );
-      const merged = [...timelineEvents];
-      for (const e of filteredStream) {
+      const byId = new Map<string, LogEvent>();
+      for (const e of [...timelineEvents, ...filteredStream]) {
         const id = String(e.event_id ?? e.id ?? "");
-        if (!id || !streamIds.has(id)) merged.push(e);
+        if (id) byId.set(id, e);
+        else byId.set(`anon-${byId.size}`, e);
       }
-      return merged.sort((a, b) =>
+      return Array.from(byId.values()).sort((a, b) =>
         String(a.triggered_at ?? a.ts ?? "").localeCompare(String(b.triggered_at ?? b.ts ?? ""))
       );
     }
@@ -137,28 +150,47 @@ export default function LogsContent() {
     return filteredStream;
   }, [liveEvents, sessionParam, timelineEvents]);
 
-  const filteredEvents = useMemo(() => {
-    return baseEvents.filter((evt) => {
-      const score = Number(evt.risk_score ?? 0);
-      const band = severityFromScore(score);
-      const tool = String(evt.tool_name ?? evt.event_type ?? "").toLowerCase();
-      const verdict = String(evt.verdict ?? "").toLowerCase();
-      const session = String(evt.session_id ?? "").toLowerCase();
-      const q = query.toLowerCase().trim();
+  const baseEvents = paused && frozenEvents ? frozenEvents : liveBaseEvents;
 
-      if (severityFilter !== "all" && band !== severityFilter) return false;
-      if (q && !tool.includes(q) && !verdict.includes(q) && !session.includes(q)) return false;
-      return true;
-    });
-  }, [baseEvents, query, severityFilter]);
+  const togglePause = () => {
+    if (paused) {
+      setFrozenEvents(null);
+      setPaused(false);
+      return;
+    }
+    setFrozenEvents(liveBaseEvents);
+    setPaused(true);
+  };
+
+  const rows = useMemo(() => toSecurityLogRows(baseEvents).slice(0, MAX_ROWS), [baseEvents]);
+
+  const filteredRows = useMemo(
+    () =>
+      filterSecurityRows(rows, {
+        query,
+        severity: severityFilter,
+        action: actionFilter,
+      }),
+    [rows, query, severityFilter, actionFilter]
+  );
+
+  const selected = useMemo(
+    () => filteredRows.find((r) => r.id === selectedId) ?? null,
+    [filteredRows, selectedId]
+  );
 
   const counts = metrics?.severity_counts ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
 
-  const getEventHref = useCallback((evt: LogEvent) => {
-    const sid = String(evt.session_id ?? sessionParam ?? "");
-    if (sid) return `/replay?session=${encodeURIComponent(sid)}`;
-    return undefined;
-  }, [sessionParam]);
+  const actionCounts = useMemo(() => {
+    const c = { KILL: 0, QUARANTINE: 0, FLAG: 0, ALLOW: 0 };
+    for (const r of rows) {
+      if (r.action === "KILL") c.KILL += 1;
+      else if (r.action === "QUARANTINE") c.QUARANTINE += 1;
+      else if (r.action === "FLAG" || r.action === "ESCALATE") c.FLAG += 1;
+      else if (r.action === "ALLOW") c.ALLOW += 1;
+    }
+    return c;
+  }, [rows]);
 
   const sessionEvaluation = useMemo(() => {
     if (!timelineEvents.length) return null;
@@ -173,23 +205,60 @@ export default function LogsContent() {
     } as Record<string, unknown>;
   }, [timelineEvents]);
 
+  const onSelectRow = (row: SecurityLogRow) => setSelectedId(row.id);
+
   return (
     <PageStack>
       <PageHeader
-        title={READINESS_UI.activityLogTitle}
-        description={READINESS_UI.activityLogDescription}
+        title="Security event log"
+        description="SOC-grade stream of screened agent tool calls — severity, containment action, and forensic drill-down. Export for SIEM without raw argument payloads."
         icon={<ScrollText className="h-5 w-5" />}
-        badge={<LiveIndicator connected={apiOnline && wsConnected} className="meta-badge" />}
+        badge={<LiveIndicator connected={apiOnline && wsConnected && !paused} className="meta-badge" />}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button asChild size="sm" variant="outline">
-              <Link href="/get-started">Get Started</Link>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={togglePause}
+              disabled={baseEvents.length === 0 && !paused}
+            >
+              {paused ? (
+                <>
+                  <Play className="h-3.5 w-3.5" aria-hidden />
+                  Resume live
+                </>
+              ) : (
+                <>
+                  <Pause className="h-3.5 w-3.5" aria-hidden />
+                  Pause
+                </>
+              )}
             </Button>
             <Button asChild size="sm" variant="outline">
               <Link href="/replay">
                 <FileCode className="h-4 w-4" />
                 Session replay
               </Link>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={filteredRows.length === 0}
+              onClick={() => downloadSecurityExport(filteredRows, "ndjson")}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              Export NDJSON
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={filteredRows.length === 0}
+              onClick={() => downloadSecurityExport(filteredRows, "csv")}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              Export CSV
             </Button>
           </div>
         }
@@ -198,12 +267,14 @@ export default function LogsContent() {
       {sessionParam && (
         <div
           className={cn(
-            "rounded-xl border border-border bg-card p-4 shadow-card sm:flex sm:items-center sm:justify-between sm:gap-4"
+            "rounded-[8px] border border-[#313131] bg-[#1e1e1e] p-4 sm:flex sm:items-center sm:justify-between sm:gap-4"
           )}
         >
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">{READINESS_UI.sessionFocus}</p>
-            <p className="mt-1 font-mono text-sm truncate">{sessionParam}</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#6798ff]">
+              {READINESS_UI.sessionFocus}
+            </p>
+            <p className="mt-1 truncate font-mono text-sm text-white">{sessionParam}</p>
             {sessionLoading ? (
               <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -211,8 +282,12 @@ export default function LogsContent() {
               </p>
             ) : sessionDetail ? (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="text-[10px]">{sessionDetail.agent_id}</Badge>
-                <Badge variant="secondary" className="text-[10px]">{sessionDetail.status}</Badge>
+                <Badge variant="secondary" className="text-[10px]">
+                  {sessionDetail.agent_id}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px]">
+                  {sessionDetail.status}
+                </Badge>
                 <SeverityBadge severity={severityFromScore(sessionDetail.max_risk_score)} />
                 <span className="text-xs text-muted-foreground">
                   Peak risk {sessionDetail.max_risk_score.toFixed(0)}/100
@@ -256,75 +331,144 @@ export default function LogsContent() {
           onClick={() => setSeverityFilter("HIGH")}
         />
         <StatCard
-          label="Medium"
-          value={counts.MEDIUM ?? 0}
-          severity="MEDIUM"
-          onClick={() => setSeverityFilter("MEDIUM")}
+          label="Quarantine / Kill"
+          value={actionCounts.KILL + actionCounts.QUARANTINE}
+          icon={Shield}
+          subtitle={`${actionCounts.KILL} kill · ${actionCounts.QUARANTINE} quarantine`}
+          onClick={() => setActionFilter("QUARANTINE")}
         />
         <StatCard
-          label={sessionParam ? "This session" : "Stream events"}
-          value={baseEvents.length}
+          label={sessionParam ? "This session" : "Events in view"}
+          value={rows.length}
           icon={ScrollText}
-          subtitle="Click to show all"
-          onClick={() => setSeverityFilter("all")}
+          subtitle={paused ? "Frozen snapshot" : "Click to clear filters"}
+          onClick={() => {
+            setSeverityFilter("all");
+            setActionFilter("all");
+            setQuery("");
+          }}
         />
       </div>
 
-      <DashboardCard
-        title="Screening requests"
-        description="Filter by severity or search tool, verdict, session id"
-        contentClassName="space-y-4"
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-md flex-1">
-            <Search
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search tool, verdict, session…"
-              className="pl-9"
-              aria-label="Search logs"
-            />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <DashboardCard
+          title="Containment events"
+          description="Filter by severity or action · search agent, tool, session, event id"
+          contentClassName="space-y-3 !p-0"
+        >
+          <div className="space-y-3 border-b border-[#313131] px-4 pt-1 pb-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative max-w-md flex-1">
+                <Search
+                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search agent, tool, session, event id…"
+                  className="pl-9"
+                  aria-label="Search security log"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Tabs
+                  value={severityFilter}
+                  onValueChange={(v) => setSeverityFilter(v as SeverityFilter)}
+                >
+                  <TabsList>
+                    <TabsTrigger value="all" className="text-xs">
+                      All
+                    </TabsTrigger>
+                    <TabsTrigger value="CRITICAL" className="text-xs">
+                      Crit
+                    </TabsTrigger>
+                    <TabsTrigger value="HIGH" className="text-xs">
+                      High
+                    </TabsTrigger>
+                    <TabsTrigger value="MEDIUM" className="text-xs">
+                      Med
+                    </TabsTrigger>
+                    <TabsTrigger value="LOW" className="text-xs">
+                      Low
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Tabs
+                  value={actionFilter}
+                  onValueChange={(v) => setActionFilter(v as ActionFilter)}
+                >
+                  <TabsList>
+                    <TabsTrigger value="all" className="text-xs">
+                      Any action
+                    </TabsTrigger>
+                    <TabsTrigger value="KILL" className="text-xs">
+                      Kill
+                    </TabsTrigger>
+                    <TabsTrigger value="QUARANTINE" className="text-xs">
+                      Quarantine
+                    </TabsTrigger>
+                    <TabsTrigger value="FLAG" className="text-xs">
+                      Flag
+                    </TabsTrigger>
+                    <TabsTrigger value="ALLOW" className="text-xs">
+                      Allow
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[#7c7c7c]">
+              <span>
+                Showing {filteredRows.length} of {rows.length}
+                {sessionParam ? " · session scoped" : ""}
+                {paused ? " · paused" : " · live"}
+              </span>
+              <div className="flex items-center gap-2">
+                {!apiOnline && (
+                  <Badge variant="warning" className="text-[10px] normal-case tracking-normal">
+                    Backend offline
+                  </Badge>
+                )}
+                <button
+                  type="button"
+                  className="text-[#6798ff] hover:underline"
+                  onClick={() => downloadSecurityExport(filteredRows, "json")}
+                  disabled={filteredRows.length === 0}
+                >
+                  JSON
+                </button>
+              </div>
+            </div>
           </div>
-          <Tabs value={severityFilter} onValueChange={(v) => setSeverityFilter(v as SeverityFilter)}>
-            <TabsList>
-              <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-              <TabsTrigger value="CRITICAL" className="text-xs">Critical</TabsTrigger>
-              <TabsTrigger value="HIGH" className="text-xs">High</TabsTrigger>
-              <TabsTrigger value="MEDIUM" className="text-xs">Med</TabsTrigger>
-              <TabsTrigger value="LOW" className="text-xs">Low</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            Showing {filteredEvents.length} of {baseEvents.length} events
-            {sessionParam ? " in this session" : ""}
-          </span>
-          {!apiOnline && (
-            <Badge variant="warning" className="text-[10px]">Backend offline</Badge>
-          )}
-        </div>
-
-        <LiveTelemetryStream
-          events={filteredEvents}
-          loading={loading || sessionLoading}
-          height="h-[520px]"
-          highlightSessionId={sessionParam || undefined}
-          getEventHref={getEventHref}
-          emptyAction={
-            <LogsSetupEmpty
-              apiOnline={apiOnline}
-              wsConnected={wsConnected}
-              hasEvents={baseEvents.length > 0}
+          {filteredRows.length === 0 && !loading && !sessionLoading ? (
+            <div className="px-4 py-8">
+              <LogsSetupEmpty
+                apiOnline={apiOnline}
+                wsConnected={wsConnected}
+                hasEvents={baseEvents.length > 0}
+              />
+              {baseEvents.length > 0 ? (
+                <p className="mt-3 text-center text-[13px] text-[#7c7c7c]">
+                  No events match the current filters.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <SecurityEventTable
+              rows={filteredRows}
+              selectedId={selectedId}
+              onSelect={onSelectRow}
+              loading={loading || sessionLoading}
+              className="h-[560px]"
             />
-          }
-        />
-      </DashboardCard>
+          )}
+        </DashboardCard>
+
+        <SecurityEventInspector row={selected} className="min-h-[560px]" />
+      </div>
     </PageStack>
   );
 }

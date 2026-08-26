@@ -1,63 +1,83 @@
 "use client";
 
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import type { DetectionPoint } from "@/lib/detectionAnalytics";
+import {
+  CHART_AXIS_TICK,
+  CHART_GRID,
+  CHART_MUTED,
+  CHART_PRIMARY,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/chartTheme";
 
 export default function DetectionRateChartInner({ data }: { data: DetectionPoint[] }) {
   return (
-    <div className="h-48 w-full" aria-hidden>
+    <div className="h-[260px] w-full" role="img" aria-label="Detection rate versus static baseline">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+        <ComposedChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="detectFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={CHART_PRIMARY} stopOpacity={0.28} />
+              <stop offset="100%" stopColor={CHART_PRIMARY} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid {...CHART_GRID} />
+          <XAxis
+            dataKey="label"
+            tick={CHART_AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            minTickGap={24}
+          />
           <YAxis
             domain={[0, 100]}
-            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tick={CHART_AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            width={40}
             tickFormatter={(v) => `${v}%`}
           />
           <Tooltip
-            contentStyle={{
-              background: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
-              borderRadius: "8px",
-              fontSize: "12px",
-            }}
+            contentStyle={CHART_TOOLTIP_STYLE}
             formatter={(value: number, name: string) => [
-              `${value.toFixed(1)}%`,
+              `${Number(value).toFixed(1)}%`,
               name === "artsaRate" ? "ARTSA detection" : "Static baseline",
             ]}
           />
           <Legend
-            wrapperStyle={{ fontSize: "11px" }}
-            formatter={(value) => (value === "artsaRate" ? "ARTSA (live)" : "Static baseline")}
+            wrapperStyle={{ fontSize: "11px", color: "#7c7c7c" }}
+            formatter={(value) => (value === "artsaRate" ? "ARTSA (live)" : "Static baseline 62%")}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="artsaRate"
-            stroke="hsl(var(--primary))"
-            strokeWidth={2}
-            dot={false}
+            stroke={CHART_PRIMARY}
+            fill="url(#detectFill)"
+            strokeWidth={2.25}
             name="artsaRate"
+            dot={false}
+            activeDot={{ r: 4 }}
           />
           <Line
             type="monotone"
             dataKey="baselineRate"
-            stroke="hsl(var(--muted-foreground))"
-            strokeWidth={1.5}
+            stroke={CHART_MUTED}
+            strokeWidth={1.75}
             strokeDasharray="6 4"
             dot={false}
             name="baselineRate"
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

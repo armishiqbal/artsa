@@ -9,6 +9,7 @@ import type { TranscriptTurn } from "@/lib/campaignTranscript";
 
 function verdictVariant(verdict: string): "critical" | "warning" | "success" | "secondary" {
   const v = verdict.toUpperCase();
+  if (v.includes("ERROR")) return "warning";
   if (v.includes("SUCCESS")) return "critical";
   if (v.includes("PARTIAL")) return "warning";
   if (v.includes("BLOCKED")) return "success";
@@ -24,7 +25,7 @@ interface RedTeamTranscriptProps {
   className?: string;
 }
 
-/** Lakera-style multi-turn attack transcript — attacker vs target blocks. */
+/** multi-turn attack transcript — attacker vs target blocks. */
 export function RedTeamTranscript({
   turns,
   loading,
@@ -121,6 +122,23 @@ function AttackBlock({ turn }: { turn: TranscriptTurn }) {
         <AgentRoleBadge agentId="redteam" />
         <span className="truncate text-[11px] text-muted-foreground">{turn.attackName}</span>
       </div>
+      {(turn.objective || turn.templateId || turn.mutationsApplied.length > 0) && (
+        <p className="mb-1.5 truncate text-[10px] text-muted-foreground">
+          {turn.objective ? <span>{turn.objective}</span> : null}
+          {turn.templateId ? (
+            <span className="font-mono">
+              {turn.objective ? " · " : ""}
+              {turn.templateId}
+            </span>
+          ) : null}
+          {turn.mutationsApplied.length > 0 ? (
+            <span>
+              {" "}
+              · mut: {turn.mutationsApplied.join(", ")}
+            </span>
+          ) : null}
+        </p>
+      )}
       <pre className="code-block max-h-28 overflow-auto whitespace-pre-wrap break-words p-2 text-[11px] leading-relaxed">
         {turn.attackPrompt}
       </pre>
@@ -129,20 +147,24 @@ function AttackBlock({ turn }: { turn: TranscriptTurn }) {
 }
 
 function TargetBlock({ turn }: { turn: TranscriptTurn }) {
+  const infra = turn.targetError || turn.verdict.toUpperCase().includes("ERROR");
   return (
     <div
       className={cn(
         "rounded-lg border border-border/80 bg-card/60 p-2",
-        turn.blocked && "border-l-2 border-l-status-warning"
+        infra && "border-l-2 border-l-status-warning",
+        !infra && turn.blocked && "border-l-2 border-l-status-success"
       )}
     >
       <div className="mb-1">
         <AgentRoleBadge agentId="target" />
       </div>
       <pre className="code-block max-h-28 overflow-auto whitespace-pre-wrap break-words p-2 text-[11px] leading-relaxed">
-        {turn.blocked
-          ? `[BLOCKED${turn.blockedBy ? ` · ${turn.blockedBy}` : ""}]\n${turn.targetResponse || "—"}`
-          : turn.targetResponse || "—"}
+        {infra
+          ? `[TARGET ERROR${turn.errorDetail ? ` · ${turn.errorDetail}` : ""}]\n${turn.targetResponse || "—"}`
+          : turn.blocked
+            ? `[BLOCKED${turn.blockedBy ? ` · ${turn.blockedBy}` : ""}]\n${turn.targetResponse || "—"}`
+            : turn.targetResponse || "—"}
       </pre>
     </div>
   );

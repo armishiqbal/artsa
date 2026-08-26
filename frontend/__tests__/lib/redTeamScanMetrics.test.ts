@@ -9,9 +9,14 @@ function turn(partial: Partial<TranscriptTurn> & { roundNumber: number }): Trans
     category: "PROMPT_INJECTION",
     asiCode: "ASI01",
     asiLabel: "Goal hijack",
+    templateId: null,
+    objective: null,
+    mutationsApplied: [],
     targetResponse: "ok",
     blocked: false,
     blockedBy: null,
+    targetError: false,
+    errorDetail: null,
     verdict: "ATTACK_SUCCESS",
     attackSuccessScore: 8,
     defenseQualityScore: 2,
@@ -31,6 +36,22 @@ describe("redTeamScanMetrics", () => {
     expect(metrics.findingsCount).toBe(1);
     expect(metrics.verdicts.ATTACK_SUCCESS).toBe(1);
     expect(metrics.verdicts.BLOCKED).toBe(1);
+  });
+
+  it("does not count API ERROR as a defensive block", () => {
+    const metrics = deriveScanMetrics(null, [
+      turn({
+        roundNumber: 1,
+        verdict: "ERROR",
+        attackSuccessScore: 0,
+        blocked: false,
+        targetError: true,
+        errorDetail: "402 Insufficient Balance",
+      }),
+    ]);
+    expect(metrics.blockedCount).toBe(0);
+    expect(metrics.errorCount).toBe(1);
+    expect(metrics.findingsCount).toBe(0);
   });
 
   it("reads summary averages when present", () => {

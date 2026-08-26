@@ -16,7 +16,7 @@ function verdictBarClass(verdict: string): string {
   return "";
 }
 
-/** Horizontal verdict distribution — Lakera results overview. */
+/** Horizontal verdict distribution — Results overview. */
 export function RedTeamVerdictBreakdown({ verdicts, className }: RedTeamVerdictBreakdownProps) {
   const entries = Object.entries(verdicts).filter(([, n]) => n > 0);
   const total = entries.reduce((acc, [, n]) => acc + n, 0);

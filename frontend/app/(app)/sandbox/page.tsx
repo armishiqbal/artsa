@@ -3,13 +3,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ShieldAlert, Flame, Loader2, ShieldCheck, Sparkles, ShieldPlus, CheckCircle2, Crosshair } from "lucide-react";
+import {
+  ShieldAlert,
+  Flame,
+  Loader2,
+  ShieldCheck,
+  Sparkles,
+  ShieldPlus,
+  CheckCircle2,
+  Crosshair,
+  Swords,
+  ArrowRight,
+} from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PresetCard } from "@/components/shared/PresetCard";
 import PromptEditor from "@/components/shared/PromptEditor";
-import AttackChainVisualization from "@/components/AttackChainVisualization";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,9 +27,37 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageStack } from "@/components/shared/PageStack";
 import { SANDBOX_PRESETS, presetByCaseId, presetById } from "@/lib/sandboxPresets";
+import { expandTemplateVariables } from "@/lib/attackLibrary";
 import { fetchFromBackend } from "@/lib/api";
 import { API_UNAVAILABLE } from "@/lib/getStartedLabels";
 import { highlightClassName, splitWithHighlights, type HighlightSpan } from "@/lib/highlight";
+
+const RED_TEAM_CATEGORIES = new Set(["DPI", "JBK", "SPE", "DEX", "MSE"]);
+
+/** Map sandbox preset / flags → Red Team scan category for promote deep-link. */
+function categoryForPromote(
+  activePreset: string,
+  templateCategory?: string | null,
+  flags: string[] = []
+): string {
+  const fromTemplate = (templateCategory ?? "").toUpperCase();
+  if (RED_TEAM_CATEGORIES.has(fromTemplate)) return fromTemplate;
+
+  const presetMap: Record<string, string> = {
+    prompt_injection: "DPI",
+    jailbreak: "JBK",
+    data_exfil: "DEX",
+    credential_theft: "DEX",
+    destructive_tool: "MSE",
+    sql_injection: "MSE",
+  };
+  if (activePreset && presetMap[activePreset]) return presetMap[activePreset];
+
+  const joined = flags.join(" ").toUpperCase();
+  if (joined.includes("JAILBREAK")) return "JBK";
+  if (joined.includes("EXFIL") || joined.includes("PII") || joined.includes("SECRET")) return "DEX";
+  return "DPI";
+}
 
 // Guard against non-finite values from the backend — `.toFixed` throws on NaN/null.
 function fmtScore(value: number, digits = 1): string {
@@ -32,6 +70,7 @@ interface AttackTemplate {
   category: string;
   description?: string;
   template: string;
+  variables?: Record<string, string>;
 }
 
 interface SecurityEvent {
@@ -101,6 +140,8 @@ export default function PlaygroundPage() {
   const [suggesting, setSuggesting] = useState(false);
   const [enforced, setEnforced] = useState(false);
   const [activePreset, setActivePreset] = useState(SANDBOX_PRESETS[0].id);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [apiLive, setApiLive] = useState(false);
 
   const loadTemplates = useCallback(async () => {
     setTemplatesLoading(true);
@@ -146,7 +187,7 @@ export default function PlaygroundPage() {
     if (!templateId || templates.length === 0) return;
     const match = templates.find((t) => t.id === templateId);
     if (match) {
-      setUserInput(match.template);
+      setUserInput(expandTemplateVariables(match.template, match.variables ?? {}));
       setActivePreset("");
     }
   }, [templateId, templates]);
@@ -156,16 +197,24 @@ export default function PlaygroundPage() {
     setError(null);
     setSuggestion(null);
     setEnforced(false);
+    setLatencyMs(null);
     const payload: Record<string, string> = { system_prompt: systemPrompt, user_input: userInput };
     if (templateId) payload.template_id = templateId;
+    const start = performance.now();
     const data = await fetchFromBackend<ScanResult>("/api/v1/playground/evaluate", {
       method: "POST",
       body: JSON.stringify(payload),
       silent: false,
+      timeoutMs: 20_000,
     });
+    const elapsed = Math.round(performance.now() - start);
     if (data === null) {
+      setResult(null);
+      setApiLive(false);
       setError(API_UNAVAILABLE.sandbox);
     } else {
+      setApiLive(true);
+      setLatencyMs(elapsed);
       setResult(data);
     }
     setLoading(false);
@@ -232,6 +281,16 @@ export default function PlaygroundPage() {
 
   const verdictTone = result ? (VERDICT_STYLES[result.verdict] ?? "secondary") : "secondary";
 
+  const promoteHref = useMemo(() => {
+    const category = categoryForPromote(
+      activePreset,
+      result?.template?.category,
+      result?.flags ?? []
+    );
+    const params = new URLSearchParams({ new: "1", category });
+    return `/campaigns?${params.toString()}`;
+  }, [activePreset, result]);
+
   return (
     <PageStack>
       <PageHeader
@@ -239,9 +298,20 @@ export default function PlaygroundPage() {
         description="Test prompt injections, jailbreaks, and extraction payloads against the live guard stack."
         icon={<Crosshair className="h-5 w-5" />}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {apiLive && result && !error ? (
+              <Badge variant="success" className="font-mono text-[10px]">
+                Live API{latencyMs != null ? ` · ${latencyMs} ms` : ""}
+              </Badge>
+            ) : null}
             <Button asChild variant="outline" size="sm">
               <Link href="/guides/guard-capabilities">Guard capabilities</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={promoteHref}>
+                <Swords className="h-4 w-4" aria-hidden />
+                Red Team
+              </Link>
             </Button>
             <Button size="sm" onClick={() => void fireAttack()} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Flame className="h-4 w-4" aria-hidden />}
@@ -322,7 +392,7 @@ export default function PlaygroundPage() {
           {error ? (
             <EmptyState
               icon={ShieldAlert}
-              title="Evaluation failed"
+              title="API unavailable"
               description={error}
               action={
                 <Button size="sm" onClick={() => void fireAttack()}>
@@ -374,6 +444,15 @@ export default function PlaygroundPage() {
                     ))}
                   </div>
                 )}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={promoteHref}>
+                      <Swords className="h-4 w-4" aria-hidden />
+                      Promote to Red Team scan
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                    </Link>
+                  </Button>
+                </div>
               </DashboardCard>
 
               {/* Closed loop: turn this finding into an enforced policy rule */}
@@ -450,7 +529,6 @@ export default function PlaygroundPage() {
                   <TabsTrigger value="layers">Guardrail Layers</TabsTrigger>
                   <TabsTrigger value="events">Security Events</TabsTrigger>
                   <TabsTrigger value="tokens">Token Highlights</TabsTrigger>
-                  <TabsTrigger value="chain">Attack Chain</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="layers">
@@ -528,28 +606,6 @@ export default function PlaygroundPage() {
                           )
                         )}
                       </pre>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="chain">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-xs font-medium text-muted-foreground">
-                        Multi-step attack flow visualization
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <AttackChainVisualization
-                        systemPrompt={systemPrompt}
-                        userInput={userInput}
-                        templateName={result.template?.name}
-                        flags={result.flags}
-                        verdict={result.verdict}
-                        riskScore={result.risk_score}
-                        layerScores={result.layer_scores}
-                        securityEvents={result.security_events}
-                      />
                     </CardContent>
                   </Card>
                 </TabsContent>

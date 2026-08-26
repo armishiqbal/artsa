@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, Command, Play, FileText, Shield, Crosshair, Database, Rocket } from "lucide-react";
-import { navSections } from "@/lib/navigation";
+import { navSections, flattenNavItems } from "@/lib/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,7 @@ export default function CommandPalette() {
   const navCommands = useMemo(
     () =>
       navSections.flatMap((section) =>
-        section.items.map((item) => ({
+        flattenNavItems(section.items).map((item) => ({
           name: item.name,
           href: item.href,
           icon: item.icon,

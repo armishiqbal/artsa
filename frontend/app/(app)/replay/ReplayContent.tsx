@@ -276,7 +276,7 @@ export default function RoundReplayPage() {
           <EmptyState
             icon={Shield}
             title="Nothing to replay in this session"
-            description="This session has no tool calls yet. Run a practice wargame or finish setup to generate activity."
+            description="This session has no tool calls yet. Connect agents or complete a red-team scan to generate activity."
             action={
               <Button asChild size="sm">
                 <Link href="/get-started">{EMPTY_STATE_UI.openSetup}</Link>

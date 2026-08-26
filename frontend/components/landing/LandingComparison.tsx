@@ -10,7 +10,7 @@ type CellValue = "full" | "partial" | "none";
 interface ComparisonRow {
   feature: string;
   artsa: CellValue;
-  lakera: CellValue;
+  peer: CellValue;
   hiddenlayer: CellValue;
   note?: string;
 }
@@ -19,55 +19,55 @@ const ROWS: ComparisonRow[] = [
   {
     feature: "Sub-50ms runtime containment",
     artsa: "full",
-    lakera: "partial",
+    peer: "partial",
     hiddenlayer: "partial",
     note: "Inline KILL / QUARANTINE at ingest",
   },
   {
     feature: "Red-team campaign console",
     artsa: "full",
-    lakera: "full",
+    peer: "full",
     hiddenlayer: "partial",
   },
   {
     feature: "Multi-agent topology & pipeline DAG",
     artsa: "full",
-    lakera: "partial",
+    peer: "partial",
     hiddenlayer: "partial",
   },
   {
     feature: "Findings → versioned playbooks",
     artsa: "full",
-    lakera: "partial",
+    peer: "partial",
     hiddenlayer: "partial",
   },
   {
     feature: "Session autopsy / film replay",
     artsa: "full",
-    lakera: "none",
+    peer: "none",
     hiddenlayer: "partial",
   },
   {
     feature: "OWASP LLM + MITRE ATLAS mapping",
     artsa: "full",
-    lakera: "full",
+    peer: "full",
     hiddenlayer: "full",
   },
   {
     feature: "Unified command center",
     artsa: "full",
-    lakera: "partial",
+    peer: "partial",
     hiddenlayer: "partial",
   },
   {
     feature: "Readiness & audit exports",
     artsa: "full",
-    lakera: "partial",
+    peer: "partial",
     hiddenlayer: "full",
   },
 ];
 
-const VENDORS = ["ARTSA", "Lakera Guard", "HiddenLayer"] as const;
+const VENDORS = ["ARTSA", "Peer Guard", "HiddenLayer"] as const;
 
 function CellIcon({ value }: { value: CellValue }) {
   if (value === "full") {
@@ -166,7 +166,7 @@ export function LandingComparison() {
                       <CellIcon value={row.artsa} />
                     </td>
                     <td className="px-3 py-3.5 text-center sm:px-4">
-                      <CellIcon value={row.lakera} />
+                      <CellIcon value={row.peer} />
                     </td>
                     <td className="px-3 py-3.5 text-center sm:px-4">
                       <CellIcon value={row.hiddenlayer} />

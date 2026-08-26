@@ -25,7 +25,7 @@ const FEATURES = [
     icon: Crosshair,
     title: "Red Team Console",
     description:
-      "Run adversarial campaigns against your agents with Lakera-style scan metrics, coverage grids, and judge verdicts.",
+      "Run adversarial campaigns against your agents with scan metrics, coverage grids, and judge verdicts.",
     tag: "Adversarial",
   },
   {

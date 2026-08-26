@@ -67,7 +67,7 @@ export function DemoPlayground() {
           Try ARTSA — no account needed
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
-          Lakera-style playground: run guard scans, explore red-team coverage, triage findings, and
+          playground: run guard scans, explore red-team coverage, triage findings, and
           scrub session replays — all in your browser.
         </p>
       </div>
@@ -300,7 +300,7 @@ function RedTeamDemo() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-medium">Red team coverage grid</p>
-          <p className="text-sm text-muted-foreground">Simulated Lakera-style adversarial scan across attack categories.</p>
+          <p className="text-sm text-muted-foreground">Simulated adversarial scan across attack categories.</p>
         </div>
         <Button onClick={runScan} disabled={running} className="gap-2 rounded-full">
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

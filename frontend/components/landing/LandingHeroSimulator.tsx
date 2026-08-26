@@ -241,7 +241,7 @@ export function LandingHeroSimulator() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
           <p className="text-xs text-muted-foreground">
-            This is a preview — open the full Lakera-style playground for red team, findings, and replay.
+            This is a preview — open the full playground for red team, findings, and replay.
           </p>
           <Button asChild size="sm" variant="outline" className="rounded-full gap-2">
             <Link href={demoHref("guard")}>

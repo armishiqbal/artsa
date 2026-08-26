@@ -180,28 +180,28 @@ export const COACHMARK_UI = {
 export const EMPTY_STATE_UI = {
   allClearTitle: "All clear",
   allClearDescription:
-    "No risky sessions right now. Finish setup or run a practice wargame to see live activity.",
+    "No risky sessions in live telemetry. Connect agents or run a red-team scan to generate activity.",
   noRiskTrendTitle: "No trends yet",
   noRiskTrendDescription:
-    "Send a test event from Get Started or run a practice wargame to chart risk over time.",
+    "Risk charts populate from live ingest events and completed scans — none recorded yet.",
   noActivityTitle: "No activity yet",
-  noActivityDescription: "When your agents connect, screened tool calls will appear here.",
+  noActivityDescription: "When agents connect and emit tool calls, screened events appear here.",
   noTopologyTitle: "No agent map yet",
   noTopologyDescription:
-    "Connect your agents or run a practice wargame to see how sessions link together.",
+    "Topology builds from live session telemetry. Connect agents or ingest tool-call traffic.",
   noAnalyticsTitle: "No analytics yet",
   noAnalyticsDescription:
-    "Complete setup or run a practice wargame to build risk trends and defense depth charts.",
+    "Analytics require live events or completed red-team scans. Nothing to chart yet.",
   openSetup: "Open setup guide",
-  runWargame: "Run practice wargame",
+  runWargame: "Launch wargame",
   viewCommandCenter: "Command Center",
 } as const;
 
 export const FILTER_LABELS: Record<CaseCategory | "all", string> = {
   all: "All tests",
-  attack: "Fake attacks",
+  attack: "Attack cases",
   safe: "Safe requests",
-  edge: "Tricky cases",
+  edge: "Edge cases",
 };
 
 export function guardDecisionLabel(verdict: string): string {

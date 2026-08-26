@@ -29,7 +29,7 @@ interface RedTeamConsoleHeroProps {
   className?: string;
 }
 
-/** Lakera Red — command strip with target chip, live KPIs, and primary scan CTA. */
+/** Red Team — command strip with target chip, live KPIs, and primary scan CTA. */
 export function RedTeamConsoleHero({
   isRunning,
   completed,

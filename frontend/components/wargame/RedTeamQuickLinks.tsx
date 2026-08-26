@@ -10,7 +10,7 @@ interface RedTeamQuickLinksProps {
   className?: string;
 }
 
-/** Lakera-style workflow shortcuts from the console. */
+/** workflow shortcuts from the console. */
 export function RedTeamQuickLinks({ campaignId, findingsCount, className }: RedTeamQuickLinksProps) {
   const replayHref = campaignId
     ? `/replay?session=${encodeURIComponent(campaignId)}`

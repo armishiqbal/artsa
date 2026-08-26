@@ -11,9 +11,18 @@ export interface TranscriptTurn {
   category: string;
   asiCode: string | null;
   asiLabel: string | null;
+  /** Attack library template id that seeded this probe (if any). */
+  templateId: string | null;
+  /** What the red team was trying to achieve this round. */
+  objective: string | null;
+  /** Mutations applied after template render (encoding, obfuscation, etc.). */
+  mutationsApplied: string[];
   targetResponse: string;
   blocked: boolean;
   blockedBy: string | null;
+  /** Target LLM/API infrastructure failure — not a security block. */
+  targetError: boolean;
+  errorDetail: string | null;
   verdict: string;
   attackSuccessScore: number;
   defenseQualityScore: number;
@@ -39,6 +48,11 @@ export function roundToTranscriptTurn(raw: Record<string, unknown>): TranscriptT
   const category = String(attack.category ?? "");
   const asi = asiForAttackCategory(category);
 
+  const mutationsRaw = attack.mutations_applied;
+  const mutationsApplied = Array.isArray(mutationsRaw)
+    ? mutationsRaw.map((m) => String(m)).filter(Boolean)
+    : [];
+
   return {
     roundNumber: Number(raw.round_number ?? 0),
     attackPrompt: String(attack.prompt ?? ""),
@@ -46,9 +60,14 @@ export function roundToTranscriptTurn(raw: Record<string, unknown>): TranscriptT
     category,
     asiCode: asi?.code ?? null,
     asiLabel: asi?.label ?? null,
+    templateId: attack.template_id ? String(attack.template_id) : null,
+    objective: attack.objective ? String(attack.objective) : null,
+    mutationsApplied,
     targetResponse: String(response.response ?? response.raw_response ?? ""),
     blocked: Boolean(response.blocked),
     blockedBy: response.blocked_by ? String(response.blocked_by) : null,
+    targetError: Boolean(response.error),
+    errorDetail: response.error_detail ? String(response.error_detail) : null,
     verdict: String(score.verdict ?? "UNKNOWN"),
     attackSuccessScore: Number(score.attack_success_score ?? 0),
     defenseQualityScore: Number(score.defense_quality_score ?? 0),
@@ -64,10 +83,12 @@ export function topFindingToTurn(raw: Record<string, unknown>): TranscriptTurn {
 
 export function pickFeaturedTurn(turns: TranscriptTurn[]): TranscriptTurn | null {
   if (!turns.length) return null;
+  const scored = turns.filter((t) => !t.verdict.toUpperCase().includes("ERROR"));
+  const pool = scored.length ? scored : turns;
   return (
-    turns.find((t) => t.verdict.toUpperCase().includes("SUCCESS")) ??
-    turns.find((t) => t.verdict.toUpperCase().includes("PARTIAL")) ??
-    turns[turns.length - 1]
+    pool.find((t) => t.verdict.toUpperCase().includes("SUCCESS")) ??
+    pool.find((t) => t.verdict.toUpperCase().includes("PARTIAL")) ??
+    pool[pool.length - 1]
   );
 }
 

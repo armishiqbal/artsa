@@ -30,7 +30,7 @@ export function LandingIntegrations() {
         <LandingSectionHeader
           badge="Integration & scale"
           title="API-first deployment that scales with your stack"
-          description="Like Lakera's cloud-native architecture and HiddenLayer's CI/CD hooks — wire ARTSA into ingest, providers, and export pipelines without rip-and-replace."
+          description="Like cloud-native architectures and CI/CD hooks — wire ARTSA into ingest, providers, and export pipelines without rip-and-replace."
           align="center"
           className="mx-auto max-w-3xl"
         />

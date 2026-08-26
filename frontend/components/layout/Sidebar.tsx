@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { LogoIcon, LogoWordmark } from "@/components/shared/Logo";
-import { navSections } from "@/lib/navigation";
+import {
+  filterNavItemsByCapability,
+  navSections,
+} from "@/lib/navigation";
+import { NavItemsList } from "@/components/layout/NavItemsList";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -12,16 +15,13 @@ import { Separator } from "@/components/ui/separator";
 import { Rocket } from "lucide-react";
 
 export default function Sidebar() {
-  const pathname = usePathname();
   const { identity, capabilities } = useAuthRole();
 
   const visibleSections = navSections
     .filter((section) => !section.adminOnly || identity.role === "admin")
     .map((section) => ({
       ...section,
-      items: section.items.filter(
-        (item) => !item.capability || capabilities[item.capability]
-      ),
+      items: filterNavItemsByCapability(section.items, capabilities),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -51,40 +51,7 @@ export default function Sidebar() {
               className={cn(sectionIndex > 0 && "nav-section-block", sectionIndex === 0 && "pb-1")}
             >
               <p className="nav-section-label">{section.label}</p>
-              <ul className="space-y-0.5">
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href !== "/dashboard" &&
-                      item.href !== "/get-started" &&
-                      pathname.startsWith(`${item.href}/`));
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        data-active={isActive ? "true" : "false"}
-                        className={cn(
-                          "interactive-nav flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium tracking-[-0.17px] transition-colors",
-                          isActive
-                            ? "text-foreground"
-                            : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                        )}
-                        aria-current={isActive ? "page" : undefined}
-                      >
-                        <Icon
-                          className={cn(
-                            "h-4 w-4 shrink-0",
-                            isActive ? "text-foreground" : "text-muted-foreground"
-                          )}
-                          aria-hidden
-                        />
-                        <span className="truncate">{item.name}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <NavItemsList items={section.items} variant="desktop" />
             </div>
           ))}
         </nav>

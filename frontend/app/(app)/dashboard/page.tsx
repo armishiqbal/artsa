@@ -249,7 +249,6 @@ export default function CommandCenter() {
       {/* Primary ops surface — Palantir-style mission graph */}
       <CommandGraphPanel
         events={displayEvents}
-        pipeline={pipeline}
         apiOnline={apiOnline}
       />
 

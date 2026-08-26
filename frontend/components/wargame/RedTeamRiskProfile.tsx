@@ -61,7 +61,7 @@ function RiskRow({ row }: { row: CategoryRiskRow }) {
   );
 }
 
-/** Lakera-style asset risk profile — category vulnerability bars. */
+/** asset risk profile — category vulnerability bars. */
 export function RedTeamRiskProfile({ turns, className }: RedTeamRiskProfileProps) {
   const rows = buildCategoryRiskProfile(turns);
   const band = overallRiskBand(rows);

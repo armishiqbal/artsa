@@ -1,8 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { LucideIcon } from "lucide-react";
-import { easeOut } from "@/lib/motionPresets";
 import { cn } from "@/lib/utils";
 
 interface PresetCardProps {
@@ -27,13 +25,11 @@ export function PresetCard({
   badge,
 }: PresetCardProps) {
   return (
-    <motion.button
+    <button
       type="button"
       onClick={onClick}
-      whileHover={{ y: -2, transition: { duration: 0.2, ease: easeOut } }}
-      whileTap={{ scale: 0.98 }}
       className={cn(
-        "w-full surface-panel p-3.5 text-left transition-colors motion-card",
+        "w-full surface-panel p-3.5 text-left transition-colors",
         active
           ? "border-foreground/25 bg-muted ring-1 ring-foreground/10"
           : "hover:border-foreground/15 hover:bg-muted/30",
@@ -61,6 +57,6 @@ export function PresetCard({
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
         </div>
       </div>
-    </motion.button>
+    </button>
   );
 }

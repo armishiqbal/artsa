@@ -30,6 +30,7 @@ from src.api.routes.agents import router as agents_router
 from src.api.routes.alerts import router as alerts_router
 from src.api.routes.attack_library import router as attack_library_router
 from src.api.routes.auth import router as auth_router
+from src.api.routes.api_keys import router as api_keys_router
 from src.api.routes.benchmark import router as benchmark_router
 from src.api.routes.campaigns import router as campaigns_router
 from src.api.routes.config_status import router as config_status_router
@@ -62,6 +63,7 @@ ROUTERS = [
     ingest_router,
     integrations_router,
     auth_router,
+    api_keys_router,
     sessions_router,
     agents_router,
     alerts_router,
@@ -118,6 +120,18 @@ async def lifespan(app: FastAPI):
             logger.info("Provider registry loaded: %s", provider_registry.names())
         except Exception as exc:
             logger.warning("Provider registry load skipped: %s", exc)
+
+        # Load partner ingest API keys into the auth registry.
+        try:
+            from src.data.db import get_async_session
+            from src.data.partner_api_key_store import load_registry
+
+            async for session in get_async_session():
+                n = await load_registry(session)
+                logger.info("Partner API keys loaded: %s", n)
+                break
+        except Exception as exc:
+            logger.warning("Partner API key load skipped: %s", exc)
 
         # Load custom outbound connectors + start the background dispatcher.
         try:

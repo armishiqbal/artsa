@@ -21,7 +21,7 @@ const TABS: { id: DemoTab; label: string; title: string; description: string }[]
     id: "redteam",
     label: "Red team",
     title: "Adversarial scans with coverage grids",
-    description: "Run Lakera-style campaigns, map bypasses, and feed verdicts straight into your findings registry.",
+    description: "Run campaigns, map bypasses, and feed verdicts straight into your findings registry.",
   },
   {
     id: "findings",

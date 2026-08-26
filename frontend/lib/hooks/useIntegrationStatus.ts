@@ -28,27 +28,46 @@ export function useIntegrationStatus(apiOnline: boolean) {
 
     setLoading(true);
     void (async () => {
-      const [custom, alerts, keys] = await Promise.all([
-        fetchFromBackend<{ integrations?: Array<{ enabled?: boolean }> }>("/api/v1/integrations", {
-          silent: true,
-        }),
-        fetchFromBackend<{ integrations?: Array<{ enabled?: boolean }> }>("/api/v1/alerts/integrations", {
-          silent: true,
-        }),
-        fetchFromBackend<{ keys?: Array<{ id: string; configured?: boolean }> }>("/api/v1/config/keys", {
-          silent: true,
-        }),
-      ]);
-      const customList = custom?.integrations ?? [];
-      const alertList = alerts?.integrations ?? [];
-      const keyList = keys?.keys ?? [];
-      const ingestKey = keyList.find((k) => k.id === "ARTSA_API_KEY");
-      setStatus({
-        customConnectors: customList.filter((c) => c.enabled).length,
-        alertChannels: alertList.filter((c) => c.enabled).length,
-        ingestKeyConfigured: Boolean(ingestKey?.configured),
-      });
-      setLoading(false);
+      try {
+        const [custom, alerts, keys] = await Promise.all([
+          fetchFromBackend<{ integrations?: Array<{ enabled?: boolean }> }>("/api/v1/integrations", {
+            silent: true,
+          }),
+          fetchFromBackend<{ integrations?: Array<{ enabled?: boolean }> }>("/api/v1/alerts/integrations", {
+            silent: true,
+          }),
+          fetchFromBackend<Record<string, unknown>>("/api/v1/config/keys", {
+            silent: true,
+          }),
+        ]);
+
+        const customList = Array.isArray(custom?.integrations) ? custom.integrations : [];
+        const alertList = Array.isArray(alerts?.integrations) ? alerts.integrations : [];
+
+        // Safely resolve ingestKeyConfigured regardless of whether keys is an array or object map
+        let isConfigured = false;
+        if (keys && typeof keys === "object") {
+          const rawKeys = keys.keys ?? keys;
+          if (Array.isArray(rawKeys)) {
+            const match = rawKeys.find(
+              (k) => k && typeof k === "object" && (k as { id?: string }).id === "ARTSA_API_KEY"
+            );
+            isConfigured = Boolean((match as { configured?: boolean })?.configured ?? true);
+          } else if (typeof rawKeys === "object" && rawKeys !== null) {
+            isConfigured = Boolean((rawKeys as Record<string, unknown>)["ARTSA_API_KEY"]);
+          }
+        }
+
+        setStatus({
+          customConnectors: customList.filter((c) => c?.enabled).length,
+          alertChannels: alertList.filter((c) => c?.enabled).length,
+          ingestKeyConfigured: isConfigured,
+        });
+      } catch {
+        setStatus(EMPTY);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [apiOnline]);
 

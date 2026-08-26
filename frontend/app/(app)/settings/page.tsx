@@ -167,7 +167,7 @@ export default function SettingsOverviewPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-44 animate-pulse rounded-lg border border-border bg-muted/40" />
+            <div key={i} className="h-44 animate-pulse rounded-2xl border border-border/70 bg-[#0B101E]/60" />
           ))}
         </div>
       )}

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { Sparkline } from "@/components/shared/Sparkline";
@@ -59,14 +58,10 @@ export function StatCard({
   const interactive = Boolean(href || onClick);
 
   const card = (
-    <motion.div
+    <div
       data-severity={severity}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={interactive ? { y: -2, transition: { duration: 0.2 } } : undefined}
       className={cn(
-        "metric-result-card motion-card",
+        "metric-result-card",
         interactive && "cursor-pointer transition-colors hover:border-foreground/20",
         active && "ring-1 ring-inset ring-foreground/10",
         compact && "metric-result-card--compact",
@@ -146,7 +141,7 @@ export function StatCard({
           />
         )}
       </div>
-    </motion.div>
+    </div>
   );
 
   if (href) {

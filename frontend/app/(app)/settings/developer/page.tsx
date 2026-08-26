@@ -1,10 +1,10 @@
 "use client";
 
-import { Code2 } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageStack } from "@/components/shared/PageStack";
 import { LiveIndicator } from "@/components/shared/LiveIndicator";
-import { LakeraDeveloperHub } from "@/components/get-started/LakeraDeveloperHub";
+import { PartnerDeveloperHub } from "@/components/get-started/PartnerDeveloperHub";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 
 export default function DeveloperApiSetupPage() {
@@ -13,18 +13,18 @@ export default function DeveloperApiSetupPage() {
   return (
     <PageStack>
       <PageHeader
-        title="Developer Quickstart & API Setup"
-        description="Connect your AI agents to ARTSA with API keys and drop-in code snippets."
-        icon={<Code2 className="h-5 w-5" />}
+        title="Partner API keys"
+        description="Create a key, share it with a partner, and they protect their agents with ARTSA."
+        icon={<KeyRound className="h-5 w-5" />}
         badge={
           <LiveIndicator
             connected={apiOnline}
-            label={apiOnline ? "Gateway Live" : "Offline Fallback"}
+            label={apiOnline ? "API online" : "API offline"}
             className="text-[10px]"
           />
         }
       />
-      <LakeraDeveloperHub />
+      <PartnerDeveloperHub />
     </PageStack>
   );
 }

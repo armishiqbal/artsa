@@ -21,7 +21,7 @@ interface RedTeamTheaterProps {
   className?: string;
 }
 
-/** Lakera-style split theater — adversarial prompt vs model response. */
+/** split theater — adversarial prompt vs model response. */
 export function RedTeamTheater({ turn, loading, className }: RedTeamTheaterProps) {
   if (loading) {
     return <Skeleton className={cn("min-h-[360px] w-full rounded-xl", className)} />;

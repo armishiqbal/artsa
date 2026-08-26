@@ -43,7 +43,8 @@ class Verdict(str, enum.Enum):
 
     SUCCESS = "SUCCESS"  # Attack fully achieved its objective
     PARTIAL = "PARTIAL"  # Attack partially succeeded
-    BLOCKED = "BLOCKED"  # Attack was fully blocked
+    BLOCKED = "BLOCKED"  # Attack was fully blocked by real defenses
+    ERROR = "ERROR"  # Target unreachable / API failure — not a security result
 
 
 class CampaignState(str, enum.Enum):
@@ -133,6 +134,9 @@ class TargetResponse(BaseModel):
     bypass_depth: int = Field(default=0, ge=0, le=4)  # Layers penetrated
     blocked: bool = False
     blocked_by: str | None = None  # Which layer blocked it
+    # Infrastructure failure (billing, auth, network) — NOT a defensive block.
+    error: bool = False
+    error_detail: str | None = None
     latency_ms: float = 0.0
     token_usage: dict[str, int] = Field(default_factory=dict)
     raw_response: str = ""  # Unfiltered response before output guardrails

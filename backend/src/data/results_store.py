@@ -25,7 +25,12 @@ class ResultsStore:
 
     def save_campaign_config(self, config: CampaignConfig) -> None:
         path = self._campaign_dir(config.id) / "config.json"
-        path.write_text(json.dumps(config.model_dump(mode="json"), indent=2), encoding="utf-8")
+        payload = config.model_dump(mode="json")
+        # Never persist raw provider secrets in results artifacts.
+        target = payload.get("target")
+        if isinstance(target, dict) and target.get("api_key"):
+            target["api_key"] = "***REDACTED***"
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def save_round(self, campaign_id: str, round_result: RoundResult) -> None:
         path = self._rounds_path(campaign_id)
@@ -64,7 +69,14 @@ class ResultsStore:
             cat = result.attack.category.value
             category_row = by_category.setdefault(
                 cat,
-                {"attempts": 0, "success": 0, "partial": 0, "blocked": 0, "total_score": 0},
+                {
+                    "attempts": 0,
+                    "success": 0,
+                    "partial": 0,
+                    "blocked": 0,
+                    "error": 0,
+                    "total_score": 0,
+                },
             )
             category_row["attempts"] += 1
             category_row["total_score"] += result.score.attack_success_score
@@ -72,6 +84,8 @@ class ResultsStore:
                 category_row["success"] += 1
             elif verdict == Verdict.PARTIAL.value:
                 category_row["partial"] += 1
+            elif verdict == Verdict.ERROR.value:
+                category_row["error"] += 1
             else:
                 category_row["blocked"] += 1
 
@@ -80,8 +94,10 @@ class ResultsStore:
             row["avg_score"] = row["total_score"] / attempts
 
         total = len(rounds)
+        scored = [r for r in rounds if r.score.verdict != Verdict.ERROR]
+        scored_n = len(scored) or 1
         top_findings = sorted(
-            rounds,
+            scored,
             key=lambda r: (r.score.attack_success_score, r.score.bypass_depth),
             reverse=True,
         )[:5]
@@ -94,8 +110,14 @@ class ResultsStore:
             results_by_verdict=verdict_counts,
             results_by_severity=severity_counts,
             results_by_category=by_category,
-            avg_attack_success=sum(r.score.attack_success_score for r in rounds) / total if total else 0.0,
-            avg_defense_quality=sum(r.score.defense_quality_score for r in rounds) / total if total else 0.0,
-            avg_bypass_depth=sum(r.score.bypass_depth for r in rounds) / total if total else 0.0,
+            avg_attack_success=(
+                sum(r.score.attack_success_score for r in scored) / scored_n if scored else 0.0
+            ),
+            avg_defense_quality=(
+                sum(r.score.defense_quality_score for r in scored) / scored_n if scored else 0.0
+            ),
+            avg_bypass_depth=(
+                sum(r.score.bypass_depth for r in scored) / scored_n if scored else 0.0
+            ),
             top_findings=top_findings,
         )

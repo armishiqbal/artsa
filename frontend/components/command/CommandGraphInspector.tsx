@@ -66,7 +66,9 @@ export function CommandGraphInspector({
             <div className="grid grid-cols-2 gap-2">
               <Metric label="Nodes" value={String(graph.nodes.length)} />
               <Metric label="Edges" value={String(graph.edges.length)} />
-              <Metric label="Elevated" value={String(graph.compromisedCount)} hot />
+              <Metric label="Elevated" value={String(graph.compromisedCount)} hot={graph.compromisedCount > 0} />
+              <Metric label="Max risk" value={String(Math.round(graph.maxRisk))} hot={graph.maxRisk >= 60} />
+              <Metric label="Events" value={String(graph.totalEvents)} />
               <Metric
                 label="Source"
                 value={
@@ -74,13 +76,13 @@ export function CommandGraphInspector({
                     ? "Live topo"
                     : graph.source === "telemetry"
                       ? "Telemetry"
-                      : "Control"
+                      : "Idle"
                 }
               />
             </div>
             <p className="leading-relaxed">
-              {graph.source === "control_plane"
-                ? "Showing control-plane loop until ingest traffic arrives. Run a test ingest or campaign to populate the mission graph."
+              {graph.source === "idle"
+                ? "No live topology or ingest events yet. Point partners at /api/v1/ingest or run sandbox traffic to populate this map."
                 : "Graph is live from containment telemetry. Select a hot node to open replay or logs."}
             </p>
           </div>

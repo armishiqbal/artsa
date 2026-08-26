@@ -6,9 +6,12 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X, Rocket } from "lucide-react";
 import Logo from "@/components/shared/Logo";
-import { navSections } from "@/lib/navigation";
+import {
+  filterNavItemsByCapability,
+  navSections,
+} from "@/lib/navigation";
+import { NavItemsList } from "@/components/layout/NavItemsList";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -22,9 +25,7 @@ export default function MobileNav() {
     .filter((section) => !section.adminOnly || identity.role === "admin")
     .map((section) => ({
       ...section,
-      items: section.items.filter(
-        (item) => !item.capability || capabilities[item.capability]
-      ),
+      items: filterNavItemsByCapability(section.items, capabilities),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -118,29 +119,11 @@ export default function MobileNav() {
                       {section.label}
                     </p>
                     <ul className="space-y-0.5">
-                      {section.items.map((item) => {
-                        const Icon = item.icon;
-                        const isActive =
-                          pathname === item.href ||
-                          (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
-                        return (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              className={cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                                isActive
-                                  ? "bg-muted text-foreground font-medium"
-                                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                              )}
-                              aria-current={isActive ? "page" : undefined}
-                            >
-                              <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                              {item.name}
-                            </Link>
-                          </li>
-                        );
-                      })}
+                      <NavItemsList
+                        items={section.items}
+                        variant="mobile"
+                        onNavigate={() => setOpen(false)}
+                      />
                     </ul>
                   </div>
                 ))}

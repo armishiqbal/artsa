@@ -1,6 +1,6 @@
-/** Lakera Guard / Check Point AI Guardrails — full public feature catalog mapped to ARTSA. */
+/** AI Guardrails — full public feature catalog mapped to ARTSA. */
 
-export interface LakeraFeatureRow {
+export interface GuardFeatureRow {
   id: string;
   name: string;
   description: string;
@@ -8,14 +8,14 @@ export interface LakeraFeatureRow {
   href: string;
 }
 
-export interface LakeraFeatureCategory {
+export interface GuardFeatureCategory {
   id: string;
   name: string;
   summary: string;
-  features: LakeraFeatureRow[];
+  features: GuardFeatureRow[];
 }
 
-export const LAKERA_FEATURE_CATEGORIES: LakeraFeatureCategory[] = [
+export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
   {
     id: "platform",
     name: "Platform & API",
@@ -106,10 +106,10 @@ export const LAKERA_FEATURE_CATEGORIES: LakeraFeatureCategory[] = [
         href: "/campaigns",
       },
       {
-        id: "lakera-adapter",
-        name: "Optional Lakera API passthrough",
-        description: "Call external Lakera Guard when LAKERA_API_KEY is configured.",
-        artsa: "LakeraGuardAdapter in detector stack",
+        id: "external-guard-adapter",
+        name: "Optional external guard API passthrough",
+        description: "Call external guard API when LAKERA_API_KEY is configured.",
+        artsa: "ExternalGuardAdapter in detector stack",
         href: "/admin/system",
       },
     ],
@@ -453,10 +453,10 @@ export const LAKERA_FEATURE_CATEGORIES: LakeraFeatureCategory[] = [
 ];
 
 /** Flat list for counts and simple consumers. */
-export const LAKERA_GUARD_FEATURES = LAKERA_FEATURE_CATEGORIES.flatMap((category) =>
+export const LAKERA_GUARD_FEATURES = GUARD_FEATURE_CATEGORIES.flatMap((category) =>
   category.features.map((feature) => ({
     category: category.name,
-    lakera: feature.name,
+    peer: feature.name,
     description: feature.description,
     artsa: feature.artsa,
     href: feature.href,

@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Download, Rocket } from "lucide-react";
+import { ArrowRight, Download, Rocket, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import {
@@ -31,39 +30,51 @@ export function ReadinessSnapshotPanel({ hasTraffic = false }: { hasTraffic?: bo
 
   return (
     <DashboardCard
-      title="Go-live readiness"
-      description="Suite tests, connection setup, and wargame results for your compliance export."
+      title="Go-Live Compliance Readiness"
+      description="Automated security suite tests, gateway integration, and wargame results."
+      icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" />}
       contentClassName="space-y-4"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-3xl font-semibold tabular-nums">{flow.score}%</span>
-            <Badge variant={flow.productionReady ? "outline" : "secondary"} className="text-[10px]">
-              {flow.productionReady ? "Production ready" : phaseMeta.title}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-lg bg-muted/40 border border-border">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-3xl font-semibold font-mono tabular-nums text-foreground">
+              {flow.score}%
+            </span>
+            <Badge variant="outline" className="text-xs font-mono">
+              {flow.productionReady ? "PRODUCTION READY" : phaseMeta.title.toUpperCase()}
             </Badge>
             {wargameCount > 0 && (
-              <Badge variant="outline" className="text-[10px]">
-                {wargameCount} wargame{wargameCount === 1 ? "" : "s"} in export
+              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                {wargameCount} wargame{wargameCount === 1 ? "" : "s"} archived
               </Badge>
             )}
           </div>
-          <Progress value={flow.score} className="mt-3 h-2 max-w-md" />
+          <div className="w-full max-w-lg bg-muted rounded-full h-2 overflow-hidden border border-border">
+            <div
+              className="bg-foreground h-full transition-all duration-300 rounded-full"
+              style={{ width: `${Math.max(flow.score, 5)}%` }}
+            />
+          </div>
           {flow.blockers.length > 0 && !flow.productionReady && (
-            <p className="mt-2 text-xs text-muted-foreground">{flow.blockers[0]}</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Zap className="h-3 w-3 text-amber-400 shrink-0" />
+              {flow.blockers[0]}
+            </p>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="outline">
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button asChild size="sm" variant="outline" className="text-xs h-8">
             <Link href={flow.nextAction.href}>
               <Rocket className="h-3.5 w-3.5" />
               {flow.nextAction.label}
             </Link>
           </Button>
-          <Button asChild size="sm">
+          <Button asChild size="sm" className="text-xs h-8 font-medium">
             <Link href="/get-started">
               <Download className="h-3.5 w-3.5" />
-              Export readiness
+              Export Readiness
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>

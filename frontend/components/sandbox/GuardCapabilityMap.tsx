@@ -3,28 +3,28 @@
 import Link from "next/link";
 import { ChevronDown, ExternalLink, Shield } from "lucide-react";
 import {
-  LAKERA_FEATURE_CATEGORIES,
+  GUARD_FEATURE_CATEGORIES,
   LAKERA_FEATURE_COUNT,
-} from "@/lib/lakeraFeatures";
+} from "@/lib/guardCapabilities";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-interface LakeraFeatureMapProps {
+interface GuardCapabilityMapProps {
   className?: string;
   /** Collapse categories by default (reference page). */
   defaultCollapsed?: boolean;
 }
 
-export function LakeraFeatureMap({
+export function GuardCapabilityMap({
   className,
   defaultCollapsed = false,
-}: LakeraFeatureMapProps) {
+}: GuardCapabilityMapProps) {
   return (
     <div className={cn("rounded-xl border border-border bg-card shadow-card", className)}>
       <div className="border-b border-border px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-2">
           <Shield className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h2 className="text-base font-semibold tracking-tight">Lakera Guard capability map</h2>
+          <h2 className="text-base font-semibold tracking-tight">Guard capability map</h2>
           <Badge variant="secondary" className="text-[10px]">
             {LAKERA_FEATURE_COUNT} items
           </Badge>
@@ -35,7 +35,7 @@ export function LakeraFeatureMap({
       </div>
 
       <div className="divide-y divide-border">
-        {LAKERA_FEATURE_CATEGORIES.map((category, index) => (
+        {GUARD_FEATURE_CATEGORIES.map((category, index) => (
           <details
             key={category.id}
             className="group"

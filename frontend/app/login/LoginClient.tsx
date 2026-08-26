@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Lock, Mail, Sparkles } from "lucide-react";
+import { Loader2, Lock, Mail } from "lucide-react";
 import { AuthShell, authFieldClass, authLabelClass } from "@/components/auth/AuthShell";
 import {
   type AuthResponse,
@@ -73,20 +73,6 @@ function LoginFormInner() {
       );
       setLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    setError(null);
-    finishWithSession({
-      access_token: "demo_preview_token",
-      token_type: "bearer",
-      expires_in: 86400,
-      user: {
-        email: "admin@artsa.ai",
-        role: "admin",
-        display_name: "Admin (Live Preview)",
-      },
-    });
   };
 
   const handleSsoLogin = async () => {
@@ -186,19 +172,6 @@ function LoginFormInner() {
           </button>
         </div>
       ) : null}
-
-      <div className="mt-4">
-        <p className="mb-3 text-center text-[12px] uppercase tracking-[0.08em] text-[#7c7c7c]">or</p>
-        <button
-          type="button"
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[8px] border border-[#454545] text-[14px] font-medium text-white hover:border-[#a7a7a7] disabled:opacity-50"
-          onClick={handleDemoLogin}
-          disabled={loading}
-        >
-          <Sparkles className="h-4 w-4 text-[#6798ff]" aria-hidden />
-          Explore live preview
-        </button>
-      </div>
 
       <p className="mt-6 text-center text-[14px] text-[#a7a7a7]">
         {registrationOpen === false ? (

@@ -34,7 +34,7 @@ const LIFECYCLE = [
     step: "03",
     icon: Crosshair,
     title: "Attack simulation",
-    body: "Red Team Console with Lakera-style scans, coverage grids, LLM judge verdicts, and direct + indirect attack templates.",
+    body: "Red Team Console with scans, coverage grids, LLM judge verdicts, and direct + indirect attack templates.",
     href: demoHref("redteam"),
     tag: "Red team",
   },
@@ -55,7 +55,7 @@ export function LandingLifecycle() {
         <LandingSectionHeader
           badge="Full lifecycle"
           title="One platform across the AI security lifecycle"
-          description="Discovery, runtime protection, adversarial testing, and audit — the same pillars Lakera and HiddenLayer sell separately, unified in ARTSA."
+          description="Discovery, runtime protection, adversarial testing, and audit — the same pillars peer platforms sell separately, unified in ARTSA."
           align="center"
           className="mx-auto max-w-3xl"
         />

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { navSections, type NavItem } from "@/lib/navigation";
+import { navSections, flattenNavItems, type NavItem } from "@/lib/navigation";
 import { formatPayload, formatResponse } from "@/lib/replayFormat";
 
 describe("cn (className merge)", () => {
@@ -44,7 +44,7 @@ describe("navigation", () => {
   });
 
   it("gives every nav item a name, href and a renderable icon", () => {
-    const items = navSections.flatMap((s) => s.items);
+    const items = navSections.flatMap((s) => flattenNavItems(s.items));
     expect(items.length).toBeGreaterThanOrEqual(10);
     for (const item of items) {
       expect(typeof item.name).toBe("string");
@@ -57,11 +57,24 @@ describe("navigation", () => {
 
   it("gates privileged routes behind RBAC capabilities", () => {
     const byHref = new Map<string, NavItem>(
-      navSections.flatMap((s) => s.items).map((i) => [i.href, i])
+      navSections.flatMap((s) => flattenNavItems(s.items)).map((i) => [i.href, i])
     );
     expect(byHref.get("/admin/policies")?.capability).toBe("can_manage_policies");
     expect(byHref.get("/campaigns")?.capability).toBe("can_run_campaigns");
     expect(byHref.get("/replay")?.capability).toBeUndefined();
+  });
+
+  it("nests wargame workflow items under a parent group", () => {
+    const testSection = navSections.find((s) => s.label === "Test");
+    const wargame = testSection?.items.find((i) => i.name === "Wargame");
+    expect(wargame?.children?.map((c) => c.name)).toEqual([
+      "Campaigns",
+      "Targets",
+      "Compare",
+      "Attack Library",
+      "Sandbox",
+      "Replay",
+    ]);
   });
 });
 

@@ -55,7 +55,19 @@ def resolve_role(api_key: str | None) -> Role | None:
     if settings.ARTSA_READONLY_API_KEY and api_key == settings.ARTSA_READONLY_API_KEY:
         return Role.READONLY
 
+    # Partner / Lakera-style keys issued from Settings → API Setup
+    from src.services.partner_key_registry import resolve as resolve_partner_key
+
+    partner_role = resolve_partner_key(api_key)
+    if partner_role is not None:
+        return partner_role
+
     if settings.ARTSA_API_KEY and settings.is_key_configured("ARTSA_API_KEY"):
+        return None
+
+    from src.services.partner_key_registry import has_any as partner_keys_exist
+
+    if partner_keys_exist():
         return None
 
     return Role.ADMIN

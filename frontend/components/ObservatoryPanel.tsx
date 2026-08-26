@@ -170,7 +170,7 @@ export default function ObservatoryPanel() {
                 title={`${cell.day}: ${cell.rounds} rounds`}
                 aria-label={`${cell.day}: ${cell.rounds} rounds, intensity ${cell.intensity}`}
                 className={cn(
-                  "aspect-square rounded-sm transition-transform hover:scale-110",
+                  "aspect-square rounded-sm",
                   cell.intensity >= 4 && "bg-severity-critical/80",
                   cell.intensity === 3 && "bg-severity-high/80",
                   cell.intensity === 2 && "bg-severity-medium/70",
@@ -184,7 +184,7 @@ export default function ObservatoryPanel() {
           <EmptyState
             icon={Calendar}
             title="No campaign data"
-            description="Run a practice wargame to fill the activity heatmap."
+            description="Run a red-team scan to fill the activity heatmap."
             action={
               <Button asChild size="sm">
                 <Link href="/campaigns">{EMPTY_STATE_UI.runWargame}</Link>

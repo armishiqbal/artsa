@@ -37,13 +37,16 @@ export function buildDetectionSeries(
     });
   }
 
+  // Single live point from defense score — never invent a fake time series
   if (defenseScore != null && defenseScore > 0) {
-    return Array.from({ length: 8 }, (_, i) => ({
-      index: i + 1,
-      label: `#${i + 1}`,
-      artsaRate: defenseScore,
-      baselineRate: STATIC_DETECTION_BASELINE,
-    }));
+    return [
+      {
+        index: 1,
+        label: "Live",
+        artsaRate: Math.max(0, Math.min(100, defenseScore)),
+        baselineRate: STATIC_DETECTION_BASELINE,
+      },
+    ];
   }
 
   return [];

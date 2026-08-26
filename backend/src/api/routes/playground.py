@@ -61,6 +61,7 @@ async def playground_templates() -> dict[str, Any]:
                 or template.get("description")
                 or template.get("template", "")[:120],
                 "template": template.get("template", ""),
+                "variables": template.get("variables") or {},
             }
         )
     return {"categories": CATEGORIES, "total_templates": len(templates), "templates": templates}

@@ -2,6 +2,12 @@ import { describe, it, expect } from "vitest";
 import { PIPELINE_AGENTS, PIPELINE_AGENT_BY_ID, agentRoleClass } from "@/lib/agentRoles";
 import { derivePipelineSnapshot } from "@/lib/pipelineState";
 import { deriveCommandCenterKpis } from "@/lib/commandCenterKpis";
+import {
+  CHAIN_HOPS,
+  nextAgent,
+  previousAgent,
+  summarizeChain,
+} from "@/lib/pipelineChain";
 
 describe("agentRoles", () => {
   it("defines six agents in closed-loop order", () => {
@@ -13,6 +19,32 @@ describe("agentRoles", () => {
     for (const agent of PIPELINE_AGENTS) {
       expect(agentRoleClass(agent.id)).toBe(`agent-role-${agent.id}`);
     }
+  });
+});
+
+describe("pipelineChain", () => {
+  it("defines six handoff hops closing the loop", () => {
+    expect(CHAIN_HOPS).toHaveLength(6);
+    expect(CHAIN_HOPS[5]?.from).toBe("defender");
+    expect(CHAIN_HOPS[5]?.to).toBe("research");
+    expect(nextAgent("judge")).toBe("defender");
+    expect(previousAgent("research")).toBe("defender");
+  });
+
+  it("summarizes chain integrity from snapshot", () => {
+    const snap = derivePipelineSnapshot({
+      apiOnline: true,
+      wsConnected: true,
+      activeSessions: 2,
+      defenseScore: 80,
+      criticalCount: 0,
+      highCount: 0,
+      campaigns: [],
+      playbookRuleCount: 3,
+    });
+    const summary = summarizeChain(snap);
+    expect(summary.activeHop?.from).toBe("target");
+    expect(summary.offlineCount).toBe(0);
   });
 });
 

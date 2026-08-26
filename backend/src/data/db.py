@@ -53,6 +53,7 @@ async def init_db() -> None:
         CampaignJobORM,
         CustomIntegrationORM,
         EventEvaluationORM,
+        PartnerApiKeyORM,
         ProviderORM,
         SessionORM,
         ToolCallEventORM,

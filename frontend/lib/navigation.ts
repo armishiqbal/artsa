@@ -17,6 +17,8 @@ import {
   GitBranch,
   FileSearch,
   ScrollText,
+  Target,
+  GitCompare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,12 +27,54 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
   capability?: keyof import("@/lib/hooks/useAuthRole").AuthCapabilities;
+  /** Nested items — parent href remains the default landing route. */
+  children?: NavItem[];
 }
 
 export interface NavSection {
   label: string;
   items: NavItem[];
   adminOnly?: boolean;
+}
+
+export function isNavHrefActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  // Exact-only for hubs that have sibling child routes under the same prefix.
+  if (
+    href === "/dashboard" ||
+    href === "/get-started" ||
+    href === "/campaigns"
+  ) {
+    return false;
+  }
+  return pathname.startsWith(`${href}/`);
+}
+
+export function isNavItemActive(pathname: string, item: NavItem): boolean {
+  if (isNavHrefActive(pathname, item.href)) return true;
+  return item.children?.some((child) => isNavHrefActive(pathname, child.href)) ?? false;
+}
+
+/** Leaf nav entries for command palette, smoke tests, etc. */
+export function flattenNavItems(items: NavItem[]): NavItem[] {
+  return items.flatMap((item) => (item.children?.length ? item.children : [item]));
+}
+
+export function filterNavItemsByCapability(
+  items: NavItem[],
+  capabilities: import("@/lib/hooks/useAuthRole").AuthCapabilities
+): NavItem[] {
+  return items
+    .map((item) => {
+      if (item.children?.length) {
+        const children = filterNavItemsByCapability(item.children, capabilities);
+        if (children.length === 0) return null;
+        return { ...item, children };
+      }
+      if (item.capability && !capabilities[item.capability]) return null;
+      return item;
+    })
+    .filter((item): item is NavItem => item != null);
 }
 
 export const navSections: NavSection[] = [
@@ -51,12 +95,26 @@ export const navSections: NavSection[] = [
   {
     label: "Test",
     items: [
-      { name: "Red Team Console", href: "/campaigns", icon: Swords, capability: "can_run_campaigns" },
-      { name: "Attack Sandbox", href: "/sandbox", icon: Crosshair },
+      {
+        name: "Wargame",
+        href: "/campaigns",
+        icon: Swords,
+        children: [
+          {
+            name: "Campaigns",
+            href: "/campaigns",
+            icon: Swords,
+            capability: "can_run_campaigns",
+          },
+          { name: "Targets", href: "/campaigns/targets", icon: Target },
+          { name: "Compare", href: "/campaigns/compare", icon: GitCompare },
+          { name: "Attack Library", href: "/library", icon: BookOpen },
+          { name: "Sandbox", href: "/sandbox", icon: Crosshair },
+          { name: "Replay", href: "/replay", icon: FileCode },
+        ],
+      },
       { name: "Guard capabilities", href: "/guides/guard-capabilities", icon: Shield },
       { name: "RAG Scanner", href: "/rag-scanner", icon: Database },
-      { name: "Attack Library", href: "/library", icon: BookOpen },
-      { name: "Replay", href: "/replay", icon: FileCode },
     ],
   },
   {

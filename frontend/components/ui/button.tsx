@@ -13,17 +13,17 @@ const buttonVariants = cva(
         destructive:
           "rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-none",
         outline:
-          "rounded-lg border border-[hsl(0_0%_27%)] bg-transparent text-foreground hover:border-muted-foreground shadow-none",
+          "rounded-lg border border-border bg-transparent text-foreground hover:border-muted-foreground hover:bg-muted/30 shadow-none",
         secondary:
           "rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted shadow-none",
         ghost: "rounded-lg text-foreground hover:bg-muted/70 shadow-none",
         link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-10 px-4 text-[14px]",
+        default: "h-9 px-4 text-xs sm:text-sm font-medium",
         sm: "h-8 rounded-lg px-3 text-xs",
         lg: "h-11 rounded-lg px-6 text-sm",
-        icon: "h-10 w-10 rounded-lg",
+        icon: "h-9 w-9 rounded-lg",
       },
     },
     defaultVariants: {

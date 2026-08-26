@@ -18,7 +18,7 @@ interface RedTeamRoundStripProps {
   className?: string;
 }
 
-/** Horizontal round navigator — Lakera multi-turn session picker. */
+/** Horizontal round navigator — Multi-turn session picker. */
 export function RedTeamRoundStrip({
   turns,
   selectedRound,

@@ -94,7 +94,7 @@ function agentState(
         lastRun = "In progress";
       } else {
         status = "online";
-        currentTask = "Idle — launch a wargame from Red Team Console";
+        currentTask = "Idle — launch a scan from Red Team";
         lastRun = formatRelative(latest?.summary?.completed_at as string | undefined);
       }
       hmacVerified = running ? true : null;

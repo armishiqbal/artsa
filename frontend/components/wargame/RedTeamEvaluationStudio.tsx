@@ -20,7 +20,7 @@ export interface AttackProfileOption {
   icon: LucideIcon;
   categories: readonly string[];
   mutations: boolean;
-  lakeraBadge?: string;
+  depthBadge?: string;
 }
 
 interface ProviderRow {
@@ -62,7 +62,7 @@ interface RedTeamEvaluationStudioProps {
   profileLabel?: string;
 }
 
-/** Lakera Evaluation Studio — target + scan configuration rail. */
+/** Evaluation Studio — target + scan configuration rail. */
 export function RedTeamEvaluationStudio({
   campaignName,
   onCampaignNameChange,
@@ -127,7 +127,7 @@ export function RedTeamEvaluationStudio({
           className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-xs leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
         />
         <p className="mt-1 text-[10px] text-muted-foreground">
-          Lakera-style attack intent — scopes judge evaluation and labels the scan.
+          attack intent — scopes judge evaluation and labels the scan.
         </p>
       </section>
 
@@ -223,7 +223,7 @@ export function RedTeamEvaluationStudio({
               label={profile.label}
               description={profile.description}
               icon={profile.icon}
-              badge={profile.lakeraBadge}
+              badge={profile.depthBadge}
               active={attackProfile === profile.id}
               onClick={() => !isRunning && onAttackProfileChange(profile.id)}
               className={cn(isRunning && "pointer-events-none opacity-60")}

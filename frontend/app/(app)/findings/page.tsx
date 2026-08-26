@@ -82,7 +82,7 @@ export default function FindingsPage() {
           description="Run a campaign or ingest telemetry. Findings are stored and tracked on the server."
           action={
             <Button asChild size="sm">
-              <Link href="/campaigns">Red Team Console</Link>
+              <Link href="/campaigns">Red Team</Link>
             </Button>
           }
           variant="hero"

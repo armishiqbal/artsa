@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Lock, LogIn, Mail, Sparkles, UserPlus, X } from "lucide-react";
+import { Loader2, Lock, LogIn, Mail, UserPlus, X } from "lucide-react";
 import { LogoIcon } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,20 +90,6 @@ export function LandingSignInPanel({
   const finishWithSession = (session: AuthResponse) => {
     setSession({ access_token: session.access_token, expires_in: session.expires_in }, session.user);
     router.replace(dest);
-  };
-
-  const handleDemoLogin = () => {
-    setError(null);
-    finishWithSession({
-      access_token: "demo_preview_token",
-      token_type: "bearer",
-      expires_in: 86400,
-      user: {
-        email: "admin@artsa.ai",
-        role: "admin",
-        display_name: "Admin (Live Preview)",
-      },
-    });
   };
 
   const handlePasswordLogin = async () => {
@@ -335,22 +322,11 @@ export function LandingSignInPanel({
               )}
 
               <div className="mt-5 w-full">
-                <p className="mb-2 text-center text-xs uppercase tracking-wider text-muted-foreground">
-                  or
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  className="w-full gap-2"
-                  onClick={handleDemoLogin}
-                  disabled={loading}
-                >
-                  <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-                  Explore Live Preview
-                </Button>
-                <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                  Demo admin session to browse the dashboard before a backend is connected.
+                <p className="mb-2 text-center text-xs text-muted-foreground">
+                  Sign in requires a running ARTSA API. Public product tour:{" "}
+                  <Link href="/demo" className="font-medium text-foreground underline-offset-4 hover:underline">
+                    /demo
+                  </Link>
                 </p>
               </div>
 

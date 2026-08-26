@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 
 describe("navigation", () => {
   it("exports all primary routes", async () => {
-    const { navSections } = await import("@/lib/navigation");
-    const hrefs = navSections.flatMap((s) => s.items.map((i) => i.href));
+    const { navSections, flattenNavItems } = await import("@/lib/navigation");
+    const hrefs = navSections.flatMap((s) => flattenNavItems(s.items).map((i) => i.href));
     expect(hrefs).toContain("/dashboard");
     expect(hrefs).toContain("/pipeline");
     expect(hrefs).toContain("/analytics");
@@ -11,6 +11,8 @@ describe("navigation", () => {
     expect(hrefs).toContain("/sandbox");
     expect(hrefs).toContain("/findings");
     expect(hrefs).toContain("/campaigns");
+    expect(hrefs).toContain("/campaigns/targets");
+    expect(hrefs).toContain("/campaigns/compare");
     expect(hrefs).toContain("/admin/policies");
     expect(hrefs).toContain("/replay");
     expect(hrefs).toContain("/guides/guard-capabilities");

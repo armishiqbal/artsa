@@ -223,6 +223,14 @@ class CampaignManager:
                 )
                 self._update_history_stats(result)
 
+                # Abort real runs when the target cannot answer — never fake a green scorecard.
+                if score.verdict == Verdict.ERROR:
+                    detail = getattr(target_response, "error_detail", None) or score.reasoning
+                    raise ValueError(
+                        "Target model unreachable — campaign aborted (invalid for security scoring). "
+                        f"{detail}. Fix provider billing/API key or use a funded/local target, then re-run."
+                    )
+
                 # ─── 6. Feed into evolution engine ───────────────────
                 self.red_team.feed_result(attack_payload, score)
 

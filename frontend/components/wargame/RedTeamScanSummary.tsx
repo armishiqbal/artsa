@@ -26,7 +26,7 @@ interface RedTeamScanSummaryProps {
   className?: string;
 }
 
-/** Lakera-style post-scan KPI strip — defense, findings, risk band. */
+/** post-scan KPI strip — defense, findings, risk band. */
 export function RedTeamScanSummary({ metrics, visible, className }: RedTeamScanSummaryProps) {
   if (!visible) return null;
 
@@ -67,7 +67,9 @@ export function RedTeamScanSummary({ metrics, visible, className }: RedTeamScanS
           </Badge>
           {metrics.roundsCompleted > 0 && (
             <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-              {metrics.roundsCompleted} rounds · {metrics.blockedCount} blocked · {metrics.successCount} breached
+              {metrics.roundsCompleted} rounds · {metrics.blockedCount} blocked ·{" "}
+              {metrics.successCount} breached
+              {metrics.errorCount > 0 ? ` · ${metrics.errorCount} target errors` : ""}
             </span>
           )}
         </div>

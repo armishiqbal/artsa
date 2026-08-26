@@ -32,9 +32,12 @@ export interface CommandGraphEdge {
 export interface CommandGraphModel {
   nodes: CommandGraphNode[];
   edges: CommandGraphEdge[];
-  source: "topology" | "telemetry" | "control_plane";
+  /** Live sources only — never synthetic demo nodes. */
+  source: "topology" | "telemetry" | "idle";
   compromisedCount: number;
   activeCount: number;
+  maxRisk: number;
+  totalEvents: number;
 }
 
 export interface TopologyApiPayload {
@@ -54,8 +57,8 @@ export interface TopologyApiPayload {
 
 type LiveEventLike = Record<string, unknown>;
 
-const VIEW_W = 960;
-const VIEW_H = 520;
+const VIEW_W = 1000;
+const VIEW_H = 560;
 
 function scoreToSeverity(score: number, status?: string): CommandNodeSeverity {
   const s = (status ?? "").toUpperCase();
@@ -76,7 +79,7 @@ function edgeStatusFromRisk(score: number, verdict?: string): CommandEdgeStatus 
   return "SAFE";
 }
 
-/** Deterministic radial/ring layout — stable across renders. */
+/** Deterministic grid layout — stable across renders. */
 export function layoutNodes(
   count: number,
   width = VIEW_W,
@@ -100,6 +103,60 @@ export function layoutNodes(
   }));
 }
 
+/**
+ * Ops swimlane layout: sessions (top) → agents (left) → tools (right).
+ * Reads like a ops blast-radius map.
+ */
+export function layoutByKind(
+  nodes: Array<Omit<CommandGraphNode, "x" | "y">>,
+  width = VIEW_W,
+  height = VIEW_H
+): CommandGraphNode[] {
+  const sessions = nodes.filter((n) => n.kind === "session");
+  const agents = nodes.filter((n) => n.kind === "agent" || n.kind === "control");
+  const tools = nodes.filter((n) => n.kind === "tool");
+  const other = nodes.filter(
+    (n) => n.kind !== "session" && n.kind !== "agent" && n.kind !== "control" && n.kind !== "tool"
+  );
+
+  const placeColumn = (
+    list: Array<Omit<CommandGraphNode, "x" | "y">>,
+    x: number,
+    yStart: number,
+    yEnd: number
+  ): CommandGraphNode[] => {
+    if (!list.length) return [];
+    const span = yEnd - yStart;
+    const step = list.length === 1 ? 0 : span / (list.length - 1);
+    return list.map((n, i) => ({
+      ...n,
+      x,
+      y: list.length === 1 ? (yStart + yEnd) / 2 : yStart + i * step,
+    }));
+  };
+
+  // If we only have one kind, fall back to grid.
+  const kindCount =
+    Number(sessions.length > 0) + Number(agents.length > 0) + Number(tools.length > 0);
+  if (kindCount <= 1 && other.length === 0) {
+    return applyLayout(nodes);
+  }
+
+  const topY = 88;
+  const midTop = 140;
+  const midBot = height - 72;
+  const leftX = 160;
+  const rightX = width - 160;
+  const centerX = width / 2;
+
+  return [
+    ...placeColumn(sessions, centerX, topY - 10, topY + 10),
+    ...placeColumn(agents.length ? agents : other, leftX, midTop, midBot),
+    ...placeColumn(tools, rightX, midTop, midBot),
+    ...(agents.length ? placeColumn(other, centerX, midTop, midBot) : []),
+  ];
+}
+
 function applyLayout<T extends { id: string }>(
   items: T[]
 ): Array<T & { x: number; y: number }> {
@@ -111,7 +168,7 @@ export function buildGraphFromTopology(payload: TopologyApiPayload): CommandGrap
   const rawNodes = payload.nodes ?? [];
   if (!rawNodes.length) return null;
 
-  const positioned = applyLayout(
+  const positioned = layoutByKind(
     rawNodes.map((n) => {
       const risk = Number(n.risk_score ?? 0);
       const kind: CommandNodeKind =
@@ -222,7 +279,7 @@ export function buildGraphFromTelemetry(events: LiveEventLike[]): CommandGraphMo
     });
   }
 
-  const positioned = applyLayout(rawNodes);
+  const positioned = layoutByKind(rawNodes);
   const edges: CommandGraphEdge[] = [];
   let i = 0;
   for (const [key, meta] of linkMap) {
@@ -240,55 +297,9 @@ export function buildGraphFromTelemetry(events: LiveEventLike[]): CommandGraphMo
   return finalize(positioned, edges, "telemetry");
 }
 
-/** Six-role control plane when no live topology/telemetry yet. */
-export function buildControlPlaneGraph(
-  agents: Array<{ id: string; label: string; status: string }>
-): CommandGraphModel {
-  const n = agents.length || 6;
-  const cx = VIEW_W / 2;
-  const cy = VIEW_H / 2;
-  const r = 170;
-  const fallback = [
-    { id: "research", label: "Research" },
-    { id: "curator", label: "Curator" },
-    { id: "redteam", label: "Red Team" },
-    { id: "target", label: "Target" },
-    { id: "judge", label: "Judge" },
-    { id: "defender", label: "Defender" },
-  ];
-  const list = agents.length
-    ? agents
-    : fallback.map((f) => ({ ...f, status: "offline" }));
-
-  const nodes: CommandGraphNode[] = list.map((a, i) => {
-    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-    const hot = a.status === "alert" || a.status === "degraded";
-    return {
-      id: `ctrl-${a.id}`,
-      label: a.label,
-      kind: "control",
-      severity: hot ? "HIGH" : a.status === "online" ? "SAFE" : "LOW",
-      riskScore: hot ? 55 : a.status === "online" ? 10 : 0,
-      status: a.status,
-      eventCount: 0,
-      x: cx + Math.cos(angle) * r,
-      y: cy + Math.sin(angle) * r,
-    };
-  });
-
-  const edges: CommandGraphEdge[] = nodes.map((node, i) => {
-    const next = nodes[(i + 1) % nodes.length]!;
-    return {
-      id: `ctrl-e${i}`,
-      source: node.id,
-      target: next.id,
-      label: "handoff",
-      status: "SAFE",
-      count: 1,
-    };
-  });
-
-  return finalize(nodes, edges, "control_plane");
+/** Empty live graph — waiting for topology API or ingest telemetry. */
+export function emptyCommandGraph(): CommandGraphModel {
+  return finalize([], [], "idle");
 }
 
 function finalize(
@@ -300,19 +311,20 @@ function finalize(
     (n) => n.severity === "CRITICAL" || n.severity === "HIGH"
   ).length;
   const activeCount = nodes.filter((n) => n.kind !== "control" || n.riskScore > 0).length;
-  return { nodes, edges, source, compromisedCount, activeCount };
+  const maxRisk = nodes.reduce((m, n) => Math.max(m, n.riskScore), 0);
+  const totalEvents = nodes.reduce((s, n) => s + n.eventCount, 0);
+  return { nodes, edges, source, compromisedCount, activeCount, maxRisk, totalEvents };
 }
 
 export function deriveCommandGraph(input: {
   topology: TopologyApiPayload | null;
   events: LiveEventLike[];
-  controlAgents?: Array<{ id: string; label: string; status: string }>;
 }): CommandGraphModel {
   const fromTopo = input.topology ? buildGraphFromTopology(input.topology) : null;
   if (fromTopo) return fromTopo;
   const fromTel = buildGraphFromTelemetry(input.events);
   if (fromTel) return fromTel;
-  return buildControlPlaneGraph(input.controlAgents ?? []);
+  return emptyCommandGraph();
 }
 
 export const COMMAND_GRAPH_VIEW = { width: VIEW_W, height: VIEW_H } as const;

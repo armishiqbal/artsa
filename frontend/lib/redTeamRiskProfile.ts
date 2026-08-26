@@ -32,7 +32,7 @@ function categoryKey(turn: TranscriptTurn): string {
   return turn.asiCode ?? turn.category ?? "unknown";
 }
 
-/** Lakera-style per-category vulnerability rows from transcript turns. */
+/** per-category vulnerability rows from transcript turns. */
 export function buildCategoryRiskProfile(turns: TranscriptTurn[]): CategoryRiskRow[] {
   const buckets = new Map<string, TranscriptTurn[]>();
 

@@ -99,7 +99,7 @@ export default function ReportsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm">
-              <Link href="/campaigns">Red Team Console</Link>
+              <Link href="/campaigns">Red Team</Link>
             </Button>
             <Badge variant="secondary">{loading ? "…" : campaigns.length} campaigns</Badge>
           </div>
@@ -133,7 +133,7 @@ export default function ReportsPage() {
                 action={
                   <div className="flex flex-wrap justify-center gap-2">
                     <Button asChild size="sm">
-                      <Link href="/campaigns">Red Team Console</Link>
+                      <Link href="/campaigns">Red Team</Link>
                     </Button>
                     <Button asChild size="sm" variant="outline">
                       <Link href="/get-started">Get Started checklist</Link>
@@ -205,7 +205,7 @@ export default function ReportsPage() {
               )}
             </>
           ) : (
-            <EmptyState icon={FileText} title="Select a campaign" description="Choose a campaign or launch from Red Team Console." action={<Button asChild size="sm"><Link href="/campaigns">Red Team Console</Link></Button>} />
+            <EmptyState icon={FileText} title="Select a campaign" description="Choose a campaign or launch from Red Team." action={<Button asChild size="sm"><Link href="/campaigns">Red Team</Link></Button>} />
           )}
         </DashboardCard>
       </div>

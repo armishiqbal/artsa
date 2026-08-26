@@ -18,6 +18,10 @@ def extract_bearer_token(authorization_header: str | None) -> str | None:
 
 
 def any_static_api_key_configured() -> bool:
+    from src.services.partner_key_registry import has_any as partner_keys_exist
+
+    if partner_keys_exist():
+        return True
     return any(
         settings.is_key_configured(k)
         for k in (

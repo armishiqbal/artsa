@@ -47,6 +47,21 @@ class TestJudgeHeuristic:
         assert result.attack_success_score == 0
         assert result.defense_quality_score == 10
 
+    def test_generation_error_is_not_blocked(self, sample_attack_payload):
+        """API/billing failures must score ERROR — never a defensive BLOCKED win."""
+        judge = _make_judge()
+        response = TargetResponse(
+            response="[GENERATION ERROR]",
+            blocked=False,
+            error=True,
+            error_detail="Error code: 402 - Insufficient Balance",
+        )
+        result = judge.evaluate(sample_attack_payload, response)
+        assert result.verdict == Verdict.ERROR
+        assert result.attack_success_score == 0
+        assert result.defense_quality_score == 0
+        assert "not a security block" in result.reasoning.lower() or "not a security" in result.reasoning.lower()
+
     def test_heuristic_detects_refusal(self):
         """Heuristic detects refusal patterns and returns BLOCKED."""
         judge = _make_judge()

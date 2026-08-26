@@ -11,7 +11,7 @@ import {
   Loader2,
   Server,
 } from "lucide-react";
-import { fetchFromBackend, unwrapEnvelope } from "@/lib/api";
+import { fetchFromBackend, unwrapEnvelope, buildHeaders } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { PageStack } from "@/components/shared/PageStack";
@@ -46,6 +46,21 @@ const FORM_INITIAL = {
   enabled: true,
 };
 
+function extractDetail(body: unknown, fallback: string): string {
+  const unwrapped = unwrapEnvelope(body);
+  if (typeof unwrapped === "string" && unwrapped.trim()) return unwrapped;
+  if (unwrapped && typeof unwrapped === "object") {
+    const rec = unwrapped as Record<string, unknown>;
+    const detail = rec.detail ?? rec.message;
+    if (typeof detail === "string" && detail.trim()) return detail;
+  }
+  if (body && typeof body === "object") {
+    const rec = body as Record<string, unknown>;
+    if (typeof rec.detail === "string" && rec.detail.trim()) return rec.detail;
+  }
+  return fallback;
+}
+
 export default function AdminProvidersPage() {
   const [providers, setProviders] = useState<RegisteredProvider[]>([]);
   const [catalog, setCatalog] = useState<Record<string, CatalogMeta>>({});
@@ -53,6 +68,7 @@ export default function AdminProvidersPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; detail: string }>>({});
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const loadProviders = useCallback(() => {
     fetchFromBackend<{ providers?: RegisteredProvider[] }>("/api/v1/providers", { silent: true }).then(
@@ -79,20 +95,34 @@ export default function AdminProvidersPage() {
       return;
     }
     setSaving(true);
-    const res = await fetchFromBackend<{ status?: string }>("/api/v1/providers", {
-      method: "POST",
-      body: JSON.stringify({
-        name: form.name,
-        api_key: form.api_key,
-        provider_type: form.provider_type,
-        base_url: form.base_url.trim() || (selectedCatalog?.base_url ?? null),
-        default_model: form.default_model.trim() || (selectedCatalog?.default_model ?? null),
-        enabled: form.enabled,
-      }),
-    });
+    setSaveNotice(null);
+    const slug = form.name.trim();
+    const wasUpdate = providers.some((p) => p.name === slug);
+    const res = await fetchFromBackend<{ status?: string; provider?: RegisteredProvider }>(
+      "/api/v1/providers",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: slug,
+          api_key: form.api_key,
+          provider_type: form.provider_type,
+          base_url: form.base_url.trim() || (selectedCatalog?.base_url ?? null),
+          default_model: form.default_model.trim() || (selectedCatalog?.default_model ?? null),
+          enabled: form.enabled,
+        }),
+        timeoutMs: 12_000,
+      }
+    );
     setSaving(false);
     if (res?.status === "ok") {
-      toast("Provider saved", { description: `${form.name} is ready to use via X-ARTSA-Provider.` });
+      const msg = wasUpdate
+        ? `Updated “${slug}” — key stored encrypted. Click Test to verify the live API.`
+        : `Added “${slug}” — key stored encrypted. Click Test to verify the live API.`;
+      setSaveNotice(msg);
+      toast(wasUpdate ? "Provider updated" : "Provider added", {
+        description: `${slug} is ready. Use X-ARTSA-Provider: ${slug} on proxy calls.`,
+        variant: "success",
+      });
       setForm(FORM_INITIAL);
       loadProviders();
     }
@@ -102,36 +132,61 @@ export default function AdminProvidersPage() {
     const res = await fetchFromBackend<{ status?: string }>(`/api/v1/providers/${name}`, {
       method: "DELETE",
       silent: true,
+      timeoutMs: 8_000,
     });
     if (res?.status === "ok") {
-      toast("Provider removed", { description: name });
+      toast("Provider removed", { description: name, variant: "success" });
+      setTestResults((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
       loadProviders();
     }
   };
 
   const onTest = async (name: string) => {
     setTesting(name);
-    setTestResults((prev) => ({ ...prev, [name]: { ok: true, detail: "testing..." } }));
+    setTestResults((prev) => ({
+      ...prev,
+      [name]: { ok: true, detail: "Calling provider… (may take a few seconds)" },
+    }));
     try {
-      const raw = await fetch(`/api/backend/api/v1/providers/${name}/test`, {
+      const raw = await fetch(`/api/backend/api/v1/providers/${encodeURIComponent(name)}/test`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildHeaders(),
         body: JSON.stringify({}),
+        signal: AbortSignal.timeout(40_000),
       });
       const body = await raw.json().catch(() => ({}));
-      const unwrapped = (unwrapEnvelope(body) ?? {}) as { status?: string; reply?: string; detail?: string };
+      const unwrapped = (unwrapEnvelope(body) ?? {}) as {
+        status?: string;
+        reply?: string;
+        detail?: string;
+        model?: string;
+      };
       if (raw.ok && unwrapped?.status === "ok") {
-        setTestResults((prev) => ({
-          ...prev,
-          [name]: { ok: true, detail: `model replied: ${String(unwrapped.reply).slice(0, 80)}` },
-        }));
+        const reply = String(unwrapped.reply ?? "").slice(0, 80) || "(empty reply)";
+        const detail = unwrapped.model
+          ? `OK · ${unwrapped.model} · ${reply}`
+          : `OK · ${reply}`;
+        setTestResults((prev) => ({ ...prev, [name]: { ok: true, detail } }));
+        toast("Provider test passed", { description: `${name} responded.`, variant: "success" });
       } else {
-        const detail =
-          unwrapped?.detail || "test failed — check the key and base URL";
+        const detail = extractDetail(
+          body,
+          "Test failed — the base URL is fine; check the API key and default model."
+        );
         setTestResults((prev) => ({ ...prev, [name]: { ok: false, detail } }));
+        toast("Provider test failed", { description: detail.slice(0, 160), variant: "error" });
       }
-    } catch {
-      setTestResults((prev) => ({ ...prev, [name]: { ok: false, detail: "network error — could not reach the backend" } }));
+    } catch (err) {
+      const detail =
+        err instanceof Error && err.name === "TimeoutError"
+          ? "Timed out waiting for the provider — key/model may be invalid or the API is slow."
+          : "Network error — could not reach the backend.";
+      setTestResults((prev) => ({ ...prev, [name]: { ok: false, detail } }));
+      toast("Provider test failed", { description: detail, variant: "error" });
     } finally {
       setTesting(null);
     }
@@ -147,9 +202,26 @@ export default function AdminProvidersPage() {
       />
 
       <DashboardCard title="Add provider" description="Any provider type, any model, any OpenAI-compatible base URL.">
+        {saveNotice ? (
+          <div
+            className="mb-4 flex items-start gap-2 rounded-[8px] border border-[hsl(var(--status-success-border))] bg-[hsl(var(--status-success-subtle))] px-3 py-2.5 text-sm text-foreground"
+            role="status"
+          >
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-success" aria-hidden />
+            <div className="min-w-0">
+              <p className="font-medium">{saveNotice}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Auto-filled base URL only sets the endpoint — Test still needs a valid key and model for that provider.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Name (slug, used as X-ARTSA-Provider)</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Name (slug, used as X-ARTSA-Provider)
+            </label>
             <Input
               placeholder="e.g. my-groq"
               value={form.name}
@@ -198,7 +270,7 @@ export default function AdminProvidersPage() {
           </div>
           <div className="md:col-span-2">
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Base URL (custom OpenAI-compatible endpoint — leave empty for the provider default)
+              Base URL (auto-filled from catalog — correct endpoint ≠ valid key)
             </label>
             <Input
               placeholder={selectedCatalog?.base_url ?? "https://api.example.com/v1"}
@@ -217,14 +289,17 @@ export default function AdminProvidersPage() {
             />
             Enabled (visible to the proxy)
           </label>
-          <Button onClick={onSave} disabled={saving} className="gap-2">
+          <Button onClick={() => void onSave()} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
             {providers.some((p) => p.name === form.name.trim()) ? "Update provider" : "Add provider"}
           </Button>
         </div>
       </DashboardCard>
 
-      <DashboardCard title="Registered providers" description="Keys are stored encrypted and shown masked only.">
+      <DashboardCard
+        title="Registered providers"
+        description="Keys are stored encrypted and shown masked only. Test sends a live chat completion to the base URL."
+      >
         {providers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No runtime providers yet. Add one above — DeepSeek and other env-configured keys are still
@@ -269,7 +344,13 @@ export default function AdminProvidersPage() {
                       </td>
                       <td className="py-2.5 text-right">
                         <div className="flex justify-end gap-1.5">
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onTest(p.name)} disabled={testing === p.name}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 text-xs"
+                            onClick={() => void onTest(p.name)}
+                            disabled={testing === p.name}
+                          >
                             {testing === p.name ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                             ) : (
@@ -281,16 +362,24 @@ export default function AdminProvidersPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 gap-1 text-xs text-destructive hover:text-destructive"
-                            onClick={() => onDelete(p.name)}
+                            onClick={() => void onDelete(p.name)}
                             aria-label={`Delete provider ${p.name}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
                           </Button>
                         </div>
                         {test && (
-                          <p className={`mt-1 flex items-center gap-1 text-right text-[11px] ${test.ok ? "text-status-success" : "text-destructive"}`}>
-                            {test.ok ? <CheckCircle2 className="h-3 w-3" aria-hidden /> : <XCircle className="h-3 w-3" aria-hidden />}
-                            {test.detail}
+                          <p
+                            className={`mt-1 flex max-w-[280px] items-start justify-end gap-1 text-right text-[11px] ${
+                              test.ok ? "text-status-success" : "text-destructive"
+                            }`}
+                          >
+                            {test.ok ? (
+                              <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                            ) : (
+                              <XCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                            )}
+                            <span className="break-words">{test.detail}</span>
                           </p>
                         )}
                       </td>
@@ -303,7 +392,10 @@ export default function AdminProvidersPage() {
         )}
       </DashboardCard>
 
-      <DashboardCard title="All supported APIs" description="Pick a type above or register any custom OpenAI-compatible endpoint.">
+      <DashboardCard
+        title="All supported APIs"
+        description="Pick a type above or register any custom OpenAI-compatible endpoint."
+      >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(catalog).map(([key, meta]) => (
             <div key={key} className="flex items-start gap-2.5 rounded-lg border border-border/60 p-3">
@@ -311,7 +403,9 @@ export default function AdminProvidersPage() {
               <div className="min-w-0">
                 <p className="font-mono text-xs font-semibold">{key}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
-                <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/70">{meta.base_url ?? "custom"}</p>
+                <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/70">
+                  {meta.base_url ?? "custom"}
+                </p>
               </div>
             </div>
           ))}

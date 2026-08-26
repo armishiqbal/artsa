@@ -7,14 +7,15 @@ import {
   type CommandGraphModel,
   type TopologyApiPayload,
 } from "@/lib/commandGraph";
-import { PIPELINE_AGENT_BY_ID } from "@/lib/agentRoles";
-import type { PipelineSnapshot } from "@/lib/pipelineState";
 
-const POLL_MS = 8_000;
+const POLL_MS = 5_000;
 
+/**
+ * Live containment map from topology API + telemetry events.
+ * No synthetic / demo nodes — idle when traffic has not arrived yet.
+ */
 export function useCommandGraph(
   events: Array<Record<string, unknown>>,
-  pipeline: PipelineSnapshot | null,
   apiOnline: boolean
 ) {
   const [topology, setTopology] = useState<TopologyApiPayload | null>(null);
@@ -40,24 +41,14 @@ export function useCommandGraph(
     return () => window.clearInterval(id);
   }, [apiOnline, refresh]);
 
-  const controlAgents = useMemo(() => {
-    if (!pipeline) return [];
-    return pipeline.agents.map((a) => ({
-      id: a.id,
-      label: PIPELINE_AGENT_BY_ID[a.id]?.label ?? a.id,
-      status: a.status,
-    }));
-  }, [pipeline]);
-
   const graph: CommandGraphModel = useMemo(
     () =>
       deriveCommandGraph({
         topology,
         events,
-        controlAgents,
       }),
-    [topology, events, controlAgents]
+    [topology, events]
   );
 
-  return { graph, loading, refresh };
+  return { graph, loading, refresh, hasLiveData: graph.source !== "idle" };
 }

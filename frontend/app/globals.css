@@ -268,14 +268,12 @@
 
   /* ── Unified surfaces (both themes) ─────────────────────────────────── */
   .surface-panel {
-    @apply rounded-lg border border-border bg-card text-card-foreground;
-    box-shadow: none;
+    @apply rounded-xl border border-border bg-card text-card-foreground transition-colors duration-150;
   }
 
   [data-theme="dark"] .surface-panel,
   :root:not([data-theme="light"]) .surface-panel {
     background: hsl(var(--card));
-    backdrop-filter: none;
     box-shadow: none;
   }
 
@@ -858,7 +856,7 @@
   }
 
   .motion-card {
-    will-change: transform;
+    /* No transform promotion — cards no longer lift on hover in the app shell. */
   }
 
   .motion-page-header {
@@ -920,7 +918,8 @@
   }
 
   .hover-lift {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elevated;
+    /* Kept as a no-op alias — product UI stays still; landing uses LandingMotionCard. */
+    @apply transition-colors duration-200;
   }
 
   /* Panels stay still — use buttons, tabs, and .interactive-pill for CTAs. */
@@ -929,7 +928,7 @@
   }
 
   .interactive-surface:hover {
-    @apply shadow-sm;
+    /* Color-only feedback — no shadow “jump” when scanning cards with the mouse. */
   }
 
   .interactive-surface:active {
@@ -937,7 +936,7 @@
   }
 
   .interactive-row {
-    @apply transition-all duration-150 ease-out;
+    @apply transition-colors duration-150 ease-out;
   }
 
   .interactive-row:hover {
@@ -949,7 +948,7 @@
   }
 
   .interactive-row:active {
-    @apply scale-[0.998] bg-muted/70;
+    @apply bg-muted/70;
   }
 
   .interactive-nav {
@@ -1030,10 +1029,10 @@
   .stagger-in > *:nth-child(12) { animation-delay: 440ms; }
 
   .metric-result-card {
-    @apply rounded-xl border text-card-foreground;
-    background-color: hsl(var(--metric-bg));
-    border-color: hsl(var(--metric-border));
-    box-shadow: var(--shadow-card);
+    @apply rounded-xl border text-card-foreground transition-colors duration-150;
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+    box-shadow: none;
   }
 
   .metric-result-card--compact {
@@ -1052,20 +1051,20 @@
   }
 
   [data-theme="light"] .metric-result-card:hover {
-    border-color: hsl(var(--primary));
+    border-color: hsl(var(--muted-foreground));
   }
 
   [data-theme="dark"] .metric-result-card,
   :root:not([data-theme="light"]) .metric-result-card {
     background: hsl(var(--card));
-    border-color: hsl(var(--metric-border));
+    border-color: hsl(var(--border));
     box-shadow: none;
   }
 
   [data-theme="dark"] .metric-result-card--compact,
   :root:not([data-theme="light"]) .metric-result-card--compact {
     background: hsl(var(--muted));
-    border-color: hsl(var(--metric-border));
+    border-color: hsl(var(--border));
   }
 
   .metric-result-label {

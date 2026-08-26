@@ -60,7 +60,7 @@ export default function AccuracyPage() {
         <p className="mt-2 text-muted-foreground">
           These numbers use the real semantic layer and a held-out independent set; the canary
           labels are hashed so nobody can tune against them. Read the full methodology, the
-          1,100+ sample independent set, and the Lakera/Azure comparison below.
+          1,100+ sample independent set, and the vendor/Azure comparison below.
         </p>
       </section>
 

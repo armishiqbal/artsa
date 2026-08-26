@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Shield, ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageStack } from "@/components/shared/PageStack";
-import { LakeraFeatureMap } from "@/components/sandbox/LakeraFeatureMap";
+import { GuardCapabilityMap } from "@/components/sandbox/GuardCapabilityMap";
 import { Button } from "@/components/ui/button";
 
 export default function GuardCapabilitiesPage() {
@@ -10,7 +10,7 @@ export default function GuardCapabilitiesPage() {
     <PageStack>
       <PageHeader
         title="Guard capabilities"
-        description="Lakera Guard / Check Point AI Guardrails reference — mapped to ARTSA surfaces for evaluation and rollout planning."
+        description="AI Guardrails reference — mapped to ARTSA surfaces for evaluation and rollout planning."
         icon={<Shield className="h-5 w-5" />}
         actions={
           <Button asChild variant="outline" size="sm">
@@ -21,7 +21,7 @@ export default function GuardCapabilitiesPage() {
           </Button>
         }
       />
-      <LakeraFeatureMap defaultCollapsed className="surface-panel" />
+      <GuardCapabilityMap defaultCollapsed className="surface-panel" />
     </PageStack>
   );
 }

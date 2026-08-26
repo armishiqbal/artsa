@@ -44,6 +44,7 @@ CATEGORIES = [
     {"code": "SPE", "name": "System Prompt Extraction", "description": "Reconstructing hidden system instructions"},
     {"code": "DEX", "name": "Data Extraction", "description": "Extracting training artifacts or PII from RAG context"},
     {"code": "PEX", "name": "Privilege Escalation", "description": "Unauthorized tool and administrative function invocation"},
+    {"code": "MSE", "name": "Model / Social Engineering", "description": "Authority impersonation and multi-turn social escalation"},
 ]
 
 

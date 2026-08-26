@@ -1,19 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Lock, ShieldAlert } from "lucide-react";
-import { DashboardCard } from "@/components/shared/DashboardCard";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, CheckCircle2, Lock, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  AgentRoleBadge,
-} from "@/components/pipeline/AgentStatusStrip";
+import { Button } from "@/components/ui/button";
 import {
   PIPELINE_AGENT_BY_ID,
   statusLabel,
   type PipelineAgentId,
 } from "@/lib/agentRoles";
 import type { AgentRuntimeState } from "@/lib/pipelineState";
+import {
+  chainPosition,
+  hopFromAgent,
+  nextAgent,
+  previousAgent,
+} from "@/lib/pipelineChain";
+import { cn } from "@/lib/utils";
 
 interface AgentDetailPanelProps {
   agent: AgentRuntimeState | null;
@@ -23,100 +26,153 @@ interface AgentDetailPanelProps {
 export function AgentDetailPanel({ agent, className }: AgentDetailPanelProps) {
   if (!agent) {
     return (
-      <DashboardCard
-        title="Agent detail"
-        description="Select a node in the pipeline to inspect its current task and trust signals."
-        className={className}
+      <aside
+        className={cn(
+          "flex min-h-[420px] flex-col rounded-[8px] border border-[#313131] bg-[#1e1e1e]",
+          className
+        )}
       >
-        <p className="text-sm text-muted-foreground">
-          The closed loop runs Research → Curator → Red Team → Target → Judge → Defender → Research.
-        </p>
-      </DashboardCard>
+        <header className="border-b border-[#313131] px-4 py-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.85px] text-[#6798ff]">
+            Chain inspector
+          </p>
+          <h3 className="mt-1 text-[15px] font-medium text-white">Select a hop</h3>
+          <p className="mt-1 text-[12px] text-[#a7a7a7]">
+            Inspect handoff, integrity, and downstream chaining.
+          </p>
+        </header>
+      </aside>
     );
   }
 
   const def = PIPELINE_AGENT_BY_ID[agent.id];
+  const hop = hopFromAgent(agent.id);
+  const prev = previousAgent(agent.id);
+  const next = nextAgent(agent.id);
+  const pos = chainPosition(agent.id);
 
   return (
-    <DashboardCard
-      title={def.label}
-      description={def.headline}
-      badge={
-        <Badge variant="outline" className="meta-badge font-mono text-[10px] uppercase">
-          {statusLabel(agent.status)}
-        </Badge>
-      }
-      className={className}
+    <aside
+      className={cn(
+        "flex min-h-[420px] flex-col rounded-[8px] border border-[#313131] bg-[#1e1e1e]",
+        className
+      )}
     >
-      <div className="space-y-4">
+      <header className="border-b border-[#313131] px-4 py-3">
+        <p className="font-mono text-[10px] uppercase tracking-[0.85px] text-[#6798ff]">
+          Chain inspector · hop {pos}/6
+        </p>
+        <h3 className="mt-1 text-[15px] font-medium tracking-[-0.19px] text-white">
+          {def.label}
+        </h3>
+        <p className="mt-1 text-[12px] text-[#a7a7a7]">{def.headline}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Badge variant="outline" className="font-mono text-[10px] uppercase">
+            {statusLabel(agent.status)}
+          </Badge>
+          <Badge variant="secondary" className="font-mono text-[10px] uppercase">
+            {hop.edgeTag}
+          </Badge>
+        </div>
+      </header>
+
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         <div>
-          <p className="section-label mb-1.5">Current task</p>
-          <p className="text-sm text-foreground">{agent.currentTask}</p>
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.08em] text-[#7c7c7c]">
+            Current task
+          </p>
+          <p className="text-[13px] text-white">{agent.currentTask}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-lg border border-border bg-muted/20 p-3">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Last run
-            </p>
-            <p className="mt-1 font-mono text-xs text-foreground">
-              {agent.lastRun ?? "—"}
-            </p>
+        <div className="rounded-[6px] border border-[#313131] bg-[#0a0a0a] px-3 py-2.5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#7c7c7c]">
+            Handoff chain
+          </p>
+          <div className="mt-2 flex items-center gap-2 text-[12px]">
+            <span className="text-[#a7a7a7]">{PIPELINE_AGENT_BY_ID[prev].label}</span>
+            <ArrowRight className="h-3 w-3 text-[#454545]" aria-hidden />
+            <span className="font-medium text-white">{def.label}</span>
+            <ArrowRight className="h-3 w-3 text-[#454545]" aria-hidden />
+            <span className="text-[#a7a7a7]">{PIPELINE_AGENT_BY_ID[next].label}</span>
           </div>
-          <div className="rounded-lg border border-border bg-muted/20 p-3">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="mt-2 text-[11px] leading-relaxed text-[#7c7c7c]">{hop.label}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Metric label="Last run" value={agent.lastRun ?? "—"} />
+          <div className="rounded-[6px] border border-[#313131] bg-[#0a0a0a] px-2.5 py-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#7c7c7c]">
               Integrity
             </p>
-            <div className="mt-1 flex items-center gap-1.5 text-xs">
+            <div className="mt-1 flex items-center gap-1.5 text-[12px] text-white">
               {agent.hmacVerified === true ? (
                 <>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-status-success" aria-hidden />
-                  <span>HMAC verified</span>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#4ade80]" aria-hidden />
+                  HMAC ok
                 </>
               ) : agent.hmacVerified === false ? (
                 <>
-                  <ShieldAlert className="h-3.5 w-3.5 text-status-warning" aria-hidden />
-                  <span>Signature mismatch</span>
+                  <ShieldAlert className="h-3.5 w-3.5 text-[hsl(var(--severity-high))]" aria-hidden />
+                  Mismatch
                 </>
               ) : (
                 <>
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                  <span>Not applicable</span>
+                  <Lock className="h-3.5 w-3.5 text-[#7c7c7c]" aria-hidden />
+                  N/A
                 </>
               )}
             </div>
           </div>
         </div>
 
-        <p className="text-xs leading-relaxed text-muted-foreground">{def.description}</p>
+        <p className="text-[12px] leading-relaxed text-[#a7a7a7]">{def.description}</p>
 
-        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        <div className="space-y-2 border-t border-[#313131] pt-3">
           {agent.id === "redteam" && (
-            <Button asChild size="sm" className="interactive-pill">
-              <Link href="/campaigns">Open Red Team Console</Link>
+            <Button asChild size="sm" className="w-full justify-start">
+              <Link href="/campaigns">Open Red Team</Link>
             </Button>
           )}
           {agent.id === "defender" && (
-            <Button asChild size="sm" variant="outline" className="interactive-pill">
+            <Button asChild size="sm" variant="outline" className="w-full justify-start">
               <Link href="/admin/policies">View playbook</Link>
             </Button>
           )}
           {agent.id === "curator" && (
-            <Button asChild size="sm" variant="outline" className="interactive-pill">
+            <Button asChild size="sm" variant="outline" className="w-full justify-start">
               <Link href="/library">Attack library</Link>
             </Button>
           )}
           {agent.id === "target" && (
-            <Button asChild size="sm" variant="outline" className="interactive-pill">
+            <Button asChild size="sm" variant="outline" className="w-full justify-start">
               <Link href="/sandbox">Scan payload</Link>
+            </Button>
+          )}
+          {agent.id === "judge" && (
+            <Button asChild size="sm" variant="outline" className="w-full justify-start">
+              <Link href="/findings">Findings custody</Link>
+            </Button>
+          )}
+          {agent.id === "research" && (
+            <Button asChild size="sm" variant="outline" className="w-full justify-start">
+              <Link href="/analytics">Security analytics</Link>
             </Button>
           )}
         </div>
       </div>
-    </DashboardCard>
+    </aside>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[6px] border border-[#313131] bg-[#0a0a0a] px-2.5 py-2">
+      <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#7c7c7c]">{label}</p>
+      <p className="mt-0.5 font-mono text-[12px] text-white">{value}</p>
+    </div>
   );
 }
 
 export function AgentDetailPanelHeader({ agentId }: { agentId: PipelineAgentId }) {
-  return <AgentRoleBadge agentId={agentId} />;
+  return <span className="text-sm font-medium">{PIPELINE_AGENT_BY_ID[agentId].label}</span>;
 }

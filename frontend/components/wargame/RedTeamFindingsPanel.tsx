@@ -28,7 +28,7 @@ interface RedTeamFindingsPanelProps {
   className?: string;
 }
 
-/** Lakera-style findings rail — ranked security issues from the scan. */
+/** findings rail — ranked security issues from the scan. */
 export function RedTeamFindingsPanel({
   turns,
   selectedRound,

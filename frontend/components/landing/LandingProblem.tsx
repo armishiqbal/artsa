@@ -35,7 +35,7 @@ export function LandingProblem() {
         <LandingSectionHeader
           badge="The gap"
           title="Traditional security wasn't built for agentic AI"
-          description="Lakera, HiddenLayer, and Zenity all converge on the same truth: you need runtime defense, adversarial testing, and governance in one lifecycle — not three disconnected dashboards."
+          description="Leading AI security vendors all converge on the same truth: you need runtime defense, adversarial testing, and governance in one lifecycle — not three disconnected dashboards."
           align="center"
           className="mx-auto max-w-3xl"
         />

@@ -6,13 +6,19 @@ test.describe("ARTSA frontend pages", () => {
     await seedAuth(page);
   });
 
-  test("campaigns page renders red team console", async ({ page }) => {
+  test("campaigns page renders scans list", async ({ page }) => {
     await page.goto("/campaigns");
-    await expect(page.getByRole("heading", { name: /red team console/i }).first()).toBeVisible({
+    await expect(page.getByRole("heading", { name: /^scans$/i }).first()).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByRole("button", { name: /start scan/i })).toBeVisible();
-    await expect(page.getByText(/run output/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /new scan/i }).first()).toBeVisible();
+  });
+
+  test("new scan opens as modal from scans", async ({ page }) => {
+    await page.goto("/campaigns");
+    await page.getByRole("button", { name: /new scan/i }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: /start red team/i })).toBeVisible();
   });
 
   test("replay page renders session replay UI", async ({ page }) => {
@@ -92,10 +98,10 @@ test.describe("ARTSA frontend pages", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("logs page renders activity log", async ({ page }) => {
+  test("logs page renders security event log", async ({ page }) => {
     await page.goto("/logs");
     await expect(
-      page.getByRole("heading", { name: /activity log/i }).first()
+      page.getByRole("heading", { name: /security event log|activity log/i }).first()
     ).toBeVisible({ timeout: 15_000 });
   });
 

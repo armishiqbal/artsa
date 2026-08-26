@@ -275,3 +275,26 @@ class UserORM(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+
+class PartnerApiKeyORM(Base):
+    """Partner ingest API key (Lakera-style).
+
+    Only the SHA-256 hash is stored — the plaintext ``artsa_live_…`` secret is
+    shown once at creation time for the partner to copy into their system.
+    """
+
+    __tablename__ = "partner_api_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    key_prefix: Mapped[str] = mapped_column(String(24), default="artsa_live_")
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    key_last4: Mapped[str] = mapped_column(String(4), default="")
+    role: Mapped[str] = mapped_column(String(16), default="analyst")
+    tenant_id: Mapped[str] = mapped_column(String(255), default="default_org", index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -1,8 +1,9 @@
 import {
-  buildControlPlaneGraph,
   buildGraphFromTelemetry,
   buildGraphFromTopology,
   deriveCommandGraph,
+  emptyCommandGraph,
+  layoutByKind,
   layoutNodes,
 } from "@/lib/commandGraph";
 
@@ -12,6 +13,43 @@ describe("commandGraph", () => {
     const b = layoutNodes(4);
     expect(a).toEqual(b);
     expect(a).toHaveLength(4);
+  });
+
+  it("swimlanes agents left and tools right", () => {
+    const laid = layoutByKind([
+      {
+        id: "a1",
+        label: "scout",
+        kind: "agent",
+        severity: "SAFE",
+        riskScore: 0,
+        status: "ACTIVE",
+        eventCount: 1,
+      },
+      {
+        id: "t1",
+        label: "query",
+        kind: "tool",
+        severity: "SAFE",
+        riskScore: 0,
+        status: "ACTIVE",
+        eventCount: 1,
+      },
+      {
+        id: "s1",
+        label: "sess",
+        kind: "session",
+        severity: "SAFE",
+        riskScore: 0,
+        status: "ACTIVE",
+        eventCount: 1,
+      },
+    ]);
+    const agent = laid.find((n) => n.kind === "agent")!;
+    const tool = laid.find((n) => n.kind === "tool")!;
+    const session = laid.find((n) => n.kind === "session")!;
+    expect(agent.x).toBeLessThan(tool.x);
+    expect(session.y).toBeLessThan(agent.y);
   });
 
   it("builds graph from topology payload", () => {
@@ -31,6 +69,8 @@ describe("commandGraph", () => {
     expect(graph!.nodes).toHaveLength(3);
     expect(graph!.edges).toHaveLength(2);
     expect(graph!.compromisedCount).toBeGreaterThan(0);
+    expect(graph!.maxRisk).toBe(90);
+    expect(graph!.totalEvents).toBe(3);
   });
 
   it("builds graph from telemetry events", () => {
@@ -63,11 +103,12 @@ describe("commandGraph", () => {
     expect(graph!.edges.some((e) => e.label === "query_db" && e.count === 2)).toBe(true);
   });
 
-  it("falls back to control plane when empty", () => {
+  it("stays idle when empty — no demo nodes", () => {
     const graph = deriveCommandGraph({ topology: null, events: [] });
-    expect(graph.source).toBe("control_plane");
-    expect(graph.nodes.length).toBe(6);
-    expect(graph.edges.length).toBe(6);
+    expect(graph.source).toBe("idle");
+    expect(graph.nodes).toHaveLength(0);
+    expect(graph.edges).toHaveLength(0);
+    expect(emptyCommandGraph().source).toBe("idle");
   });
 
   it("prefers topology over telemetry", () => {
@@ -80,14 +121,5 @@ describe("commandGraph", () => {
     });
     expect(graph.source).toBe("topology");
     expect(graph.nodes[0]?.label).toBe("live");
-  });
-
-  it("builds control plane from agent statuses", () => {
-    const graph = buildControlPlaneGraph([
-      { id: "research", label: "Research", status: "online" },
-      { id: "curator", label: "Curator", status: "alert" },
-    ]);
-    expect(graph.nodes).toHaveLength(2);
-    expect(graph.nodes.find((n) => n.id === "ctrl-curator")?.severity).toBe("HIGH");
   });
 });

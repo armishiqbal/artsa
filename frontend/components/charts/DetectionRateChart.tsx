@@ -8,7 +8,7 @@ export const DetectionRateChart = dynamic(
   () => import("./DetectionRateChartInner"),
   {
     ssr: false,
-    loading: () => <Skeleton className="h-48 w-full rounded-lg" />,
+    loading: () => <Skeleton className="h-[260px] w-full rounded-lg" />,
   }
 );
 
