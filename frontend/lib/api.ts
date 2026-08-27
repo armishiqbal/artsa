@@ -161,8 +161,13 @@ export async function fetchFromBackend<T = unknown>(
           errorMsg =
             "Frontend API proxy failed (stale dev cache). Stop the dev server and run: npm run dev:clean";
         }
-        toast("Request failed", {
-          description: errorMsg,
+        toast(res.status === 429 ? "Slow down" : "Request failed", {
+          description:
+            res.status === 429
+              ? String(errorMsg).includes("Quota") || String(errorMsg).includes("Rate")
+                ? errorMsg
+                : "Too many requests — wait a minute and try again."
+              : errorMsg,
           variant: "error",
         });
       }

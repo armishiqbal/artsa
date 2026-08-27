@@ -26,6 +26,15 @@ class ArtsaBlockedError(RuntimeError):
         self.result = result
 
 
+class ArtsaQuotaError(RuntimeError):
+    """Raised on HTTP 429 — slow down; not a containment verdict."""
+
+    def __init__(self, message: str, *, retry_after_sec: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_sec = retry_after_sec
+        self.status_code = 429
+
+
 class ArtsaClient:
     """Client for instrumenting AI agents with real-time escape containment monitoring."""
 
@@ -126,8 +135,30 @@ class ArtsaClient:
                         "risk_score": {"overall_score": 100.0, "flags": ["session_contained"]},
                         "session_status": detail.get("session_status", "BREACHED"),
                     }
+                if res.status_code == 429:
+                    # Quota / rate limit — not a containment block; do not fail-closed as BREACHED
+                    detail_msg = "ARTSA quota exceeded — slow down and retry"
+                    try:
+                        body = res.json()
+                        raw = body.get("detail") or body.get("error") or body
+                        if isinstance(raw, dict):
+                            detail_msg = str(raw.get("message") or raw.get("detail") or detail_msg)
+                        elif raw:
+                            detail_msg = str(raw)
+                    except Exception:
+                        pass
+                    retry_raw = res.headers.get("Retry-After")
+                    retry_after: float | None = None
+                    if retry_raw:
+                        try:
+                            retry_after = float(retry_raw)
+                        except ValueError:
+                            retry_after = None
+                    raise ArtsaQuotaError(detail_msg, retry_after_sec=retry_after)
                 res.raise_for_status()
                 return self._unwrap(res.json())
+            except ArtsaQuotaError:
+                raise
             except Exception as e:
                 last_error = e
                 if attempt < self.max_retries:
@@ -281,3 +312,70 @@ class ArtsaClient:
             "/api/v1/playground/evaluate",
             {"user_input": content, "agent_id": agent_id},
         )
+
+    def evaluate_situation(
+        self,
+        message: str,
+        *,
+        agent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        persist: bool = True,
+        use_llm: bool = False,
+    ) -> Dict[str, Any]:
+        """Phase 3: paste free text — ARTSA picks tool/agent and scores (optional persist).
+
+        Customers do not invent ``tool_name``; the situations API classifies the message.
+        """
+        body: Dict[str, Any] = {
+            "message": message,
+            "persist": persist,
+            "use_llm": use_llm,
+        }
+        if agent_id:
+            body["agent_id"] = agent_id
+        if session_id:
+            body["session_id"] = session_id
+        return self._post("/api/v1/situations/evaluate", body)
+
+    def guard_message(
+        self,
+        message: str,
+        *,
+        agent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        persist: bool = True,
+        use_llm: bool = False,
+        enforce: bool = True,
+    ) -> Dict[str, Any]:
+        """Classify + score a free-text message; raise ArtsaBlockedError when blocked."""
+        result = self.evaluate_situation(
+            message,
+            agent_id=agent_id,
+            session_id=session_id,
+            persist=persist,
+            use_llm=use_llm,
+        )
+        if enforce and self.is_blocked(result):
+            tool = (result.get("classification") or {}).get("tool_name") or "message"
+            raise ArtsaBlockedError(str(tool), result)
+        return result
+
+    def start_baseline_scan(
+        self,
+        *,
+        name: str = "Baseline quick scan",
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        max_rounds: int = 3,
+    ) -> Dict[str, Any]:
+        """Phase 3: kick off an auto wargame baseline against a configured target."""
+        body: Dict[str, Any] = {
+            "name": name,
+            "attack_profile": "quick_scan",
+            "max_rounds": max_rounds,
+        }
+        if provider:
+            body["provider"] = provider
+        if model:
+            body["model"] = model
+        return self._post("/api/v1/campaigns/baseline", body)

@@ -10,14 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  CHART_AXIS_TICK,
-  CHART_CRITICAL,
-  CHART_GRID,
-  CHART_HIGH,
-  CHART_PRIMARY,
-  CHART_TOOLTIP_STYLE,
-} from "@/lib/chartTheme";
+import { CHART_AXIS_TICK, CHART_CRITICAL, CHART_GRID, CHART_HIGH, CHART_PRIMARY, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 interface RiskTrendChartInnerProps {
   data: Array<{ name: number; label?: string; score: number }>;
@@ -66,7 +59,7 @@ export default function RiskTrendChartInner({ data }: RiskTrendChartInnerProps) 
             label={{ value: "HIGH", fill: CHART_HIGH, fontSize: 9, position: "insideTopRight" }}
           />
           <Tooltip
-            contentStyle={CHART_TOOLTIP_STYLE}
+            {...CHART_TOOLTIP_PROPS}
             labelFormatter={(_, payload) => {
               const p = payload?.[0]?.payload as { label?: string } | undefined;
               return p?.label ?? "Sample";

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "artsa-guard"
-version = "0.3.0"
+version = "0.4.1"
 description = "ARTSA Agent Risk-Scoring SDK — fail-closed live tool containment for AI agents"
 readme = "README.md"
 requires-python = ">=3.11"

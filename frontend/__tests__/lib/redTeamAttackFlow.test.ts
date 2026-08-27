@@ -28,6 +28,13 @@ function turn(partial: Partial<TranscriptTurn>): TranscriptTurn {
     bypassDepth: 0,
     reasoning: "",
     severity: "MEDIUM",
+    timestamp: null,
+    durationMs: 0,
+    latencyMs: 0,
+    informationLeakageScore: 0,
+    mitreAtlas: null,
+    owaspLlm: null,
+    guardrailTrace: [],
     ...partial,
   };
 }

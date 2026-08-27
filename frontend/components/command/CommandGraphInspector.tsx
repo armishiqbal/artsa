@@ -82,9 +82,16 @@ export function CommandGraphInspector({
             </div>
             <p className="leading-relaxed">
               {graph.source === "idle"
-                ? "No live topology or ingest events yet. Point partners at /api/v1/ingest or run sandbox traffic to populate this map."
-                : "Graph is live from containment telemetry. Select a hot node to open replay or logs."}
+                ? "No live topology or ingest events yet. Point customers at /api/v1/ingest or run sandbox traffic to populate this map."
+                : graph.compromisedCount > 0
+                  ? "Breach path is highlighted. Select a red node to open replay, logs, or sandbox probe."
+                  : "Graph is live from containment topology + telemetry. Select a node to inspect blast radius."}
             </p>
+            {graph.compromisedCount > 0 ? (
+              <div className="rounded-[6px] border border-[hsl(var(--severity-critical))]/40 bg-[hsl(var(--severity-critical))]/10 px-2.5 py-2 font-mono text-[11px] text-[hsl(var(--severity-critical))]">
+                {graph.compromisedCount} elevated · max R{Math.round(graph.maxRisk)}
+              </div>
+            ) : null}
           </div>
         ) : (
           <>

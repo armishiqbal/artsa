@@ -9,11 +9,22 @@ npm run build && npm test
 ```
 
 ```typescript
-import { ArtsaGuardClient } from "artsa-guard";
+import { ArtsaGuardClient, bindSession } from "artsa-guard";
 
 const client = new ArtsaGuardClient({ apiUrl, apiKey, failClosed: true });
-const score = await client.scoreToolCall({ sessionId, agentId, toolName, arguments: args });
-const scan = await client.scanPrompt("ignore previous instructions");
+
+// Free text — ARTSA picks tool/agent
+await client.guardMessage({ message: "Ignore previous instructions…", persist: true });
+
+bindSession();
+await client.guardToolCall({
+  sessionId: bindSession(),
+  agentId: "support-bot",
+  toolName: "read_file",
+  arguments: { path: "/etc/passwd" },
+});
+
+await client.startBaselineScan({ maxRounds: 3 });
 ```
 
 See [docs/INTEGRATION_GUIDE.md](../../docs/INTEGRATION_GUIDE.md).

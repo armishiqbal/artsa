@@ -10,7 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import type { RankedItem } from "@/lib/enterpriseAnalytics";
-import { CHART_AXIS_TICK, CHART_GRID, CHART_PRIMARY, CHART_TOOLTIP_STYLE } from "@/lib/chartTheme";
+import { CHART_AXIS_TICK, CHART_GRID, CHART_PRIMARY, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 export default function RankedBarChartInner({
   data,
@@ -41,7 +41,7 @@ export default function RankedBarChartInner({
             tickLine={false}
           />
           <Tooltip
-            contentStyle={CHART_TOOLTIP_STYLE}
+            {...CHART_TOOLTIP_PROPS}
             formatter={(v: number, _n, item) => {
               const row = item?.payload as RankedItem | undefined;
               return [

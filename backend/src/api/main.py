@@ -51,6 +51,7 @@ from src.api.routes.rag_scanner import router as rag_scanner_router
 from src.api.routes.risks import router as risks_router
 from src.api.routes.sessions import router as sessions_router
 from src.api.routes.settings import router as settings_router
+from src.api.routes.situations import router as situations_router
 from src.api.routes.topology import router as topology_router
 from src.api.routes.websocket import router as ws_router
 from src.core.config import settings
@@ -88,6 +89,7 @@ ROUTERS = [
     proxy_router,
     playground_router,
     rag_scanner_router,
+    situations_router,
 ]
 
 
@@ -196,6 +198,17 @@ async def lifespan(app: FastAPI):
 
             asyncio.create_task(start_scheduled_ablation())
             logger.info("Scheduled ablation task registered")
+
+        if settings.BASELINE_SCHEDULE_TICK_SEC > 0:
+            import asyncio
+
+            from src.services.scheduled_baseline import start_baseline_schedule_ticker
+
+            asyncio.create_task(start_baseline_schedule_ticker())
+            logger.info(
+                "Baseline schedule ticker registered (every %ss)",
+                settings.BASELINE_SCHEDULE_TICK_SEC,
+            )
 
     yield
 

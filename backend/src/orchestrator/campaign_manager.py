@@ -248,7 +248,11 @@ class CampaignManager:
 
                 progress.advance(task)
                 if on_round_complete:
-                    on_round_complete(round_idx, self.config.max_rounds)
+                    try:
+                        on_round_complete(round_idx, self.config.max_rounds, result)
+                    except TypeError:
+                        # Legacy callbacks that only accept (completed, total).
+                        on_round_complete(round_idx, self.config.max_rounds)
 
                 if round_idx < self.config.max_rounds:
                     time.sleep(delay)

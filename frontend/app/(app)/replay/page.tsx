@@ -1,11 +1,13 @@
-import { Suspense } from "react";
-import RoundReplayPage from "./ReplayContent";
-import { PageSuspenseFallback } from "@/components/shared/PageSuspenseFallback";
+import { redirect } from "next/navigation";
 
-export default function ReplayPage() {
-  return (
-    <Suspense fallback={<PageSuspenseFallback label="Loading session replay…" />}>
-      <RoundReplayPage />
-    </Suspense>
-  );
+export default function ReplayRedirect({
+  searchParams,
+}: {
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
+  const session = searchParams.session;
+  if (typeof session === "string") {
+    redirect(`/red-team/evidence?session=${encodeURIComponent(session)}`);
+  }
+  redirect("/red-team/evidence");
 }

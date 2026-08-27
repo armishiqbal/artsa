@@ -17,11 +17,36 @@ async def get_topology_graph(
     """Build live multi-agent topology from session tracker state."""
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
-    seen_agents: set[str] = set()
+    seen_node_ids: set[str] = set()
+    seen_edge_keys: set[str] = set()
+
+    def upsert_node(node: dict[str, Any]) -> None:
+        nid = str(node["id"])
+        if nid in seen_node_ids:
+            # Keep hottest risk / status when the same agent/tool appears across sessions.
+            for existing in nodes:
+                if existing["id"] != nid:
+                    continue
+                existing["risk_score"] = max(
+                    float(existing.get("risk_score") or 0),
+                    float(node.get("risk_score") or 0),
+                )
+                if str(node.get("status", "")).upper() in {"BREACHED", "KILL", "QUARANTINED"}:
+                    existing["status"] = node["status"]
+                return
+        seen_node_ids.add(nid)
+        nodes.append(node)
+
+    def add_edge(source: str, target: str, edge_type: str) -> None:
+        key = f"{source}|{target}|{edge_type}"
+        if key in seen_edge_keys:
+            return
+        seen_edge_keys.add(key)
+        edges.append({"source": source, "target": target, "type": edge_type})
 
     for session in tracker.active_sessions.values():
         sid = str(session.id)
-        nodes.append(
+        upsert_node(
             {
                 "id": sid,
                 "label": session.agent_id,
@@ -30,47 +55,33 @@ async def get_topology_graph(
                 "risk_score": session.max_risk_score,
             }
         )
-        seen_agents.add(session.agent_id)
 
         graph = tracker.get_session_graph(session.id)
         for agent_id, tools in graph.items():
-            if agent_id not in seen_agents:
-                nodes.append(
-                    {
-                        "id": f"agent-{agent_id}",
-                        "label": agent_id,
-                        "type": "agent",
-                        "status": "ACTIVE",
-                        "risk_score": session.max_risk_score,
-                    }
-                )
-                seen_agents.add(agent_id)
+            agent_node_id = f"agent-{agent_id}"
+            upsert_node(
+                {
+                    "id": agent_node_id,
+                    "label": agent_id,
+                    "type": "agent",
+                    "status": session.status if session.status == "BREACHED" else "ACTIVE",
+                    "risk_score": session.max_risk_score,
+                }
+            )
+            add_edge(sid, agent_node_id, "session_link")
 
             for tool in tools:
                 tool_id = f"tool-{agent_id}-{tool}"
-                nodes.append(
+                upsert_node(
                     {
                         "id": tool_id,
                         "label": tool,
                         "type": "tool",
-                        "status": "ACTIVE",
-                        "risk_score": 0,
+                        "status": session.status if session.status == "BREACHED" else "ACTIVE",
+                        "risk_score": session.max_risk_score,
                     }
                 )
-                edges.append(
-                    {
-                        "source": f"agent-{agent_id}",
-                        "target": tool_id,
-                        "type": "tool_call",
-                    }
-                )
-                edges.append(
-                    {
-                        "source": sid,
-                        "target": f"agent-{agent_id}",
-                        "type": "session_link",
-                    }
-                )
+                add_edge(agent_node_id, tool_id, "tool_call")
 
     threats = sorted(
         [

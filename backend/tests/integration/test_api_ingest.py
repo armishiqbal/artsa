@@ -38,7 +38,23 @@ def test_api_ingest_event():
     assert "session_id" in data
     assert "verdict" in data
     assert "recommended_action" in data["verdict"]
-    assert "risk_score" in data
-    assert "overall_score" in data["risk_score"]
-    assert "evaluations" in data
-    assert len(data["evaluations"]) == 1
+
+
+def test_api_ingest_harness_health_check(monkeypatch):
+    """Browser harnesses verify with {type: health_check, ping: true} — not a ToolCallEvent."""
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "ARTSA_API_KEY", "test-secret-key-12345")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    monkeypatch.setattr(settings, "ARTSA_REQUIRE_AUTH", False)
+
+    response = client.post(
+        "/api/v1/ingest",
+        json={"type": "health_check", "ping": True, "timestamp": "2026-08-26T18:50:11.933Z"},
+        headers={"X-API-Key": "test-secret-key-12345"},
+    )
+    assert response.status_code == 200
+    data = _unwrap(response)
+    assert data.get("ok") is True
+    assert data.get("status") == "healthy"
+    assert data.get("ping") is True

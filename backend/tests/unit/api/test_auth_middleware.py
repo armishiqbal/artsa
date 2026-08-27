@@ -48,3 +48,25 @@ def test_production_requires_api_key(monkeypatch):
     client = TestClient(app)
     response = client.get("/api/v1/sessions")
     assert response.status_code == 503
+
+
+def test_cors_preflight_options_not_blocked_by_auth(monkeypatch):
+    """Harness (browser) sends OPTIONS before POST; must not 401 without key."""
+    monkeypatch.setattr(settings, "ARTSA_API_KEY", "test-secret-key-12345")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    monkeypatch.setattr(settings, "ARTSA_REQUIRE_AUTH", False)
+
+    client = TestClient(app)
+    response = client.options(
+        "/api/v1/ingest",
+        headers={
+            "Origin": "http://localhost:3080",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,x-api-key,authorization",
+        },
+    )
+    assert response.status_code in (200, 204)
+    assert response.status_code != 401
+    # Starlette CORS should reflect allow headers for preflight
+    allow_origin = response.headers.get("access-control-allow-origin")
+    assert allow_origin in ("*", "http://localhost:3080")

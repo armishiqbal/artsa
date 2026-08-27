@@ -76,11 +76,32 @@ export function CommandMissionGraph({
   }, [graph.nodes]);
 
   const showLanes = graph.nodes.some((n) => n.kind === "tool") && graph.nodes.some((n) => n.kind === "agent");
+  const hasSessions = graph.nodes.some((n) => n.kind === "session");
+  const hotPathIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of graph.edges) {
+      if (e.status !== "COMPROMISED" && e.status !== "QUARANTINED") continue;
+      set.add(e.source);
+      set.add(e.target);
+    }
+    for (const n of graph.nodes) {
+      if (n.severity === "CRITICAL" || n.severity === "HIGH") set.add(n.id);
+    }
+    return set;
+  }, [graph.edges, graph.nodes]);
+  const hottest = useMemo(
+    () =>
+      [...graph.nodes].sort(
+        (a, b) => b.riskScore - a.riskScore || b.eventCount - a.eventCount
+      )[0] ?? null,
+    [graph.nodes]
+  );
 
   return (
     <div
       className={cn(
         "command-mission-graph relative h-full min-h-[520px] w-full overflow-hidden rounded-[8px] border border-[#313131] bg-[#0a0a0a]",
+        graph.compromisedCount > 0 && "border-[hsl(var(--severity-critical))]/35",
         className
       )}
     >
@@ -99,8 +120,9 @@ export function CommandMissionGraph({
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "radial-gradient(ellipse 50% 40% at 50% 50%, hsl(221 100% 70% / 0.04), transparent 70%)",
+          background: graph.compromisedCount
+            ? "radial-gradient(ellipse 55% 45% at 50% 48%, hsl(var(--severity-critical) / 0.07), transparent 72%)"
+            : "radial-gradient(ellipse 50% 40% at 50% 50%, hsl(221 100% 70% / 0.04), transparent 70%)",
         }}
         aria-hidden
       />
@@ -108,7 +130,9 @@ export function CommandMissionGraph({
       {/* HUD top bar */}
       <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between gap-3 border-b border-[#313131]/80 bg-[#0a0a0a]/85 px-3 py-2 backdrop-blur-sm">
         <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] uppercase tracking-[0.08em] text-[#7c7c7c]">
-          <span className="text-[#6798ff]">Containment map</span>
+          <span className={graph.compromisedCount > 0 ? "text-[hsl(var(--severity-critical))]" : "text-[#6798ff]"}>
+            {graph.compromisedCount > 0 ? "Breach path live" : "Containment map"}
+          </span>
           <span className="text-[#454545]">|</span>
           <span>
             nodes <span className="text-white">{graph.nodes.length}</span>
@@ -133,6 +157,24 @@ export function CommandMissionGraph({
               {Math.round(graph.maxRisk)}
             </span>
           </span>
+          {hottest && hottest.riskScore >= 50 ? (
+            <>
+              <span className="text-[#454545]">|</span>
+              <span className="normal-case tracking-normal text-[#a7a7a7]">
+                hot{" "}
+                <button
+                  type="button"
+                  className="pointer-events-auto text-[hsl(var(--severity-critical))] underline-offset-2 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(hottest);
+                  }}
+                >
+                  {hottest.label.length > 18 ? `${hottest.label.slice(0, 16)}…` : hottest.label}
+                </button>
+              </span>
+            </>
+          ) : null}
         </div>
         <div className="flex items-center gap-1.5" aria-hidden>
           {(["CRITICAL", "HIGH", "MEDIUM", "SAFE"] as const).map((s) => (
@@ -156,19 +198,22 @@ export function CommandMissionGraph({
         </div>
       </div>
 
-      {/* Corner brackets — ops chrome */}
+      {/* Kill-chain lane chrome */}
       <div className="pointer-events-none absolute left-2 top-10 z-20 h-3 w-3 border-l border-t border-[#454545]" aria-hidden />
       <div className="pointer-events-none absolute right-2 top-10 z-20 h-3 w-3 border-r border-t border-[#454545]" aria-hidden />
       <div className="pointer-events-none absolute bottom-10 left-2 z-20 h-3 w-3 border-b border-l border-[#454545]" aria-hidden />
       <div className="pointer-events-none absolute bottom-10 right-2 z-20 h-3 w-3 border-b border-r border-[#454545]" aria-hidden />
-      <div className="pointer-events-none absolute left-3 top-11 z-20 font-mono text-[9px] text-[#454545]">
-        AGENTS
-      </div>
       {showLanes ? (
-        <div className="pointer-events-none absolute right-3 top-11 z-20 font-mono text-[9px] text-[#454545]">
-          TOOLS
+        <div className="pointer-events-none absolute left-0 right-0 top-11 z-20 flex justify-between px-3 font-mono text-[9px] uppercase tracking-[0.14em] text-[#454545]">
+          <span>Agents</span>
+          {hasSessions ? <span className="text-[#6798ff]/80">Session → Agent → Tool</span> : <span />}
+          <span>Tools</span>
         </div>
-      ) : null}
+      ) : (
+        <div className="pointer-events-none absolute left-3 top-11 z-20 font-mono text-[9px] text-[#454545]">
+          NODES
+        </div>
+      )}
 
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -227,6 +272,11 @@ export function CommandMissionGraph({
           const s = byId.get(edge.source);
           const t = byId.get(edge.target);
           if (!s || !t) return null;
+          const onHotPath =
+            !selected &&
+            hotPathIds.has(edge.source) &&
+            hotPathIds.has(edge.target) &&
+            (edge.status === "COMPROMISED" || edge.status === "QUARANTINED");
           return (
             <EdgeLayer
               key={edge.id}
@@ -235,7 +285,9 @@ export function CommandMissionGraph({
               target={t}
               dimmed={Boolean(selected && !neighborIds.has(s.id) && !neighborIds.has(t.id))}
               highlighted={Boolean(
-                selected && (edge.source === selected.id || edge.target === selected.id)
+                selected
+                  ? edge.source === selected.id || edge.target === selected.id
+                  : onHotPath
               )}
             />
           );
@@ -246,7 +298,11 @@ export function CommandMissionGraph({
             key={node.id}
             node={node}
             selected={selectedId === node.id}
-            dimmed={Boolean(selected && !neighborIds.has(node.id))}
+            dimmed={Boolean(
+              selected
+                ? !neighborIds.has(node.id)
+                : hotPathIds.size > 0 && !hotPathIds.has(node.id) && graph.compromisedCount > 0
+            )}
             onSelect={onSelect}
           />
         ))}

@@ -99,31 +99,34 @@ async def websocket_endpoint(websocket: WebSocket):
         history = telemetry_bus.get_history(limit=20)
         await websocket.send_text(json.dumps({"type": "history", "events": history}))
 
+        # Shared liveness stamp — any client frame (ping/pong/reconnect) keeps the socket open.
+        last_client_seen = time.monotonic()
+
         async def receive_loop():
             """Handle client messages: pings (heartbeat) and reconnection requests."""
-            nonlocal client_alive
+            nonlocal client_alive, last_client_seen
             while True:
                 raw = await websocket.receive_text()
+                last_client_seen = time.monotonic()
                 try:
                     msg = json.loads(raw)
                 except json.JSONDecodeError:
                     continue
 
                 msg_type = msg.get("type", "")
-                if msg_type == "ping":
-                    # Client heartbeat — respond with pong
-                    await websocket.send_text(json.dumps({
-                        "type": "pong",
-                        "timestamp": time.time(),
-                        "seq": msg.get("seq", 0),
-                    }))
+                if msg_type in {"ping", "pong"}:
+                    if msg_type == "ping":
+                        await websocket.send_text(json.dumps({
+                            "type": "pong",
+                            "timestamp": time.time(),
+                            "seq": msg.get("seq", 0),
+                        }))
                 elif msg_type == "reconnect":
                     token = msg.get("reconnect_token", "")
                     from_seq = msg.get("from_seq", 0)
                     _prune_reconnect_tokens()
                     entry = _reconnect_store.get(token)
                     if entry and entry["expires_at"] > time.monotonic():
-                        # Replay events from the requested sequence
                         replay = telemetry_bus.get_history_from(from_seq, limit=200)
                         await websocket.send_text(json.dumps({
                             "type": "replay",
@@ -138,17 +141,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             "message": "Reconnection token expired or invalid",
                         }))
                 elif msg_type == "subscribe":
-                    # Client can filter events
                     pass  # future: per-client event filtering
 
         async def send_loop():
             """Send telemetry events and server heartbeats."""
-            nonlocal last_sequence, client_alive
-            last_pong = time.monotonic()
+            nonlocal last_sequence, client_alive, last_client_seen
 
             while True:
                 try:
-                    # Wait for next event with a timeout (for heartbeat)
                     event = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_INTERVAL)
                     last_sequence += 1
                     await websocket.send_text(json.dumps({
@@ -157,8 +157,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "event": event,
                     }))
                 except TimeoutError:
-                    # No events — send server heartbeat ping
-                    if time.monotonic() - last_pong > HEARTBEAT_INTERVAL + HEARTBEAT_TIMEOUT:
+                    if time.monotonic() - last_client_seen > HEARTBEAT_INTERVAL + HEARTBEAT_TIMEOUT:
                         logger.warning("WebSocket client heartbeat timeout — disconnecting")
                         client_alive = False
                         break
@@ -175,12 +174,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         client_alive = False
                         break
 
-        async def heartbeat_monitor():
-            """Monitor client heartbeat responses and disconnect if stale."""
-            # This is handled inside receive_loop by tracking pong responses
-            while client_alive:
-                await asyncio.sleep(HEARTBEAT_INTERVAL)
-
         receive_task = asyncio.create_task(receive_loop())
         send_task = asyncio.create_task(send_loop())
         _, pending = await asyncio.wait(
@@ -188,7 +181,6 @@ async def websocket_endpoint(websocket: WebSocket):
         )
         for task in pending:
             task.cancel()
-
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected (clean)")
     except Exception as exc:

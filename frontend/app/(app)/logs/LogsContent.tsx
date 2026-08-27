@@ -84,7 +84,7 @@ export default function LogsContent() {
   const searchParams = useSearchParams();
   const sessionParam = searchParams.get("session")?.trim() ?? "";
 
-  const { liveEvents, loading, metrics, pullTelemetryRecent } = useDashboardMetrics();
+  const { liveEvents, loading, metrics, pullTelemetryRecent, connected } = useDashboardMetrics();
   const { apiOnline, wsConnected } = useConnection();
   const [query, setQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
@@ -98,10 +98,15 @@ export default function LogsContent() {
 
   useEffect(() => {
     if (!apiOnline || sessionParam) return;
-    if (liveEvents.length === 0) {
-      void pullTelemetryRecent(true);
-    }
-  }, [apiOnline, sessionParam, liveEvents.length, pullTelemetryRecent]);
+    void pullTelemetryRecent(true);
+    // When WS is live, events arrive in ms — skip aggressive REST spam.
+    // When WS is down, poll every 400ms so the stream still feels instant.
+    if (connected || wsConnected) return;
+    const id = window.setInterval(() => {
+      if (!paused) void pullTelemetryRecent(true);
+    }, 400);
+    return () => window.clearInterval(id);
+  }, [apiOnline, sessionParam, pullTelemetryRecent, paused, connected, wsConnected]);
 
   const loadSession = useCallback(async (sessionId: string) => {
     setSessionLoading(true);

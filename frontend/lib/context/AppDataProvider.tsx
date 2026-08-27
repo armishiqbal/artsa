@@ -60,7 +60,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       "/api/v1/campaigns",
       { silent: true }
     );
-    if (data?.campaigns) setCampaigns(data.campaigns);
+    if (data && Array.isArray(data.campaigns)) {
+      setCampaigns(data.campaigns);
+    }
     setCampaignsLoading(false);
   }, []);
 

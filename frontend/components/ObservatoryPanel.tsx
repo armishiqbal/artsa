@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Activity, Calendar, Flame, CheckCircle2, AlertTriangle, Layers, Loader2, Server } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
+import { CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 import { fetchFromBackend } from "@/lib/api";
 import { EMPTY_STATE_UI } from "@/lib/getStartedLabels";
 import { formatDateTime } from "@/lib/dates";
@@ -206,14 +207,7 @@ export default function ObservatoryPanel() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="generation" tickFormatter={(g) => `G${g}`} stroke="hsl(var(--muted-foreground))" fontSize={10} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
+                  <Tooltip {...CHART_TOOLTIP_PROPS} />
                   <Bar dataKey="attack_success" fill="hsl(var(--severity-critical))" radius={[4, 4, 0, 0]} name="Attack success" />
                 </BarChart>
               </ResponsiveContainer>
@@ -322,12 +316,7 @@ export default function ObservatoryPanel() {
                   fontSize={10}
                 />
                 <Tooltip
-                  contentStyle={{
-                    background: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
+                  {...CHART_TOOLTIP_PROPS}
                   formatter={(value: number) => [value.toFixed(4), "Recall delta"]}
                 />
                 <Bar dataKey="recall_delta" name="Recall delta vs baseline" radius={[0, 4, 4, 0]}>

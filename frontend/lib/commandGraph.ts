@@ -164,46 +164,143 @@ function applyLayout<T extends { id: string }>(
   return items.map((item, i) => ({ ...item, ...positions[i]! }));
 }
 
+function shortId(id: string): string {
+  return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+}
+
+function kindFromTopologyType(type?: string, id?: string): CommandNodeKind {
+  const t = (type ?? "").toLowerCase();
+  if (t === "tool" || id?.startsWith("tool-")) return "tool";
+  if (t === "session") return "session";
+  if (t === "control") return "control";
+  return "agent";
+}
+
+function mergeNodeMeta(
+  existing: Omit<CommandGraphNode, "x" | "y">,
+  incoming: Omit<CommandGraphNode, "x" | "y">
+): Omit<CommandGraphNode, "x" | "y"> {
+  const risk = Math.max(existing.riskScore, incoming.riskScore);
+  const status =
+    scoreToSeverity(incoming.riskScore, incoming.status) === "CRITICAL" ||
+    scoreToSeverity(incoming.riskScore, incoming.status) === "HIGH"
+      ? incoming.status
+      : existing.riskScore >= incoming.riskScore
+        ? existing.status
+        : incoming.status;
+  return {
+    ...existing,
+    label: existing.label || incoming.label,
+    riskScore: risk,
+    status,
+    severity: scoreToSeverity(risk, status),
+    eventCount: Math.max(existing.eventCount, incoming.eventCount),
+    sessionId: existing.sessionId ?? incoming.sessionId,
+  };
+}
+
+/** Infer a missing node referenced by an edge (backend may omit agent stubs). */
+function stubNodeFromEdgeRef(id: string): Omit<CommandGraphNode, "x" | "y"> {
+  const kind = kindFromTopologyType(undefined, id);
+  let label = id;
+  if (id.startsWith("agent-")) label = id.slice("agent-".length);
+  else if (id.startsWith("tool-")) {
+    const rest = id.slice("tool-".length);
+    const parts = rest.split("-");
+    label = parts.length > 1 ? parts.slice(1).join("-") : rest;
+  } else if (kind === "session") label = shortId(id);
+  return {
+    id,
+    label,
+    kind,
+    severity: "SAFE",
+    riskScore: 0,
+    status: "ACTIVE",
+    eventCount: 1,
+    sessionId: kind === "session" ? id : undefined,
+  };
+}
+
 export function buildGraphFromTopology(payload: TopologyApiPayload): CommandGraphModel | null {
   const rawNodes = payload.nodes ?? [];
   if (!rawNodes.length) return null;
 
-  const positioned = layoutByKind(
-    rawNodes.map((n) => {
-      const risk = Number(n.risk_score ?? 0);
-      const kind: CommandNodeKind =
-        n.type === "tool"
-          ? "tool"
-          : n.type === "session"
-            ? "session"
-            : "agent";
-      return {
-        id: String(n.id),
-        label: String(n.label || n.id),
-        kind,
-        severity: scoreToSeverity(risk, n.status),
-        riskScore: risk,
-        status: String(n.status ?? "ACTIVE"),
-        eventCount: 1,
-        sessionId: n.type === "session" ? String(n.id) : undefined,
-      };
-    })
-  );
+  const byId = new Map<string, Omit<CommandGraphNode, "x" | "y">>();
 
-  const edges: CommandGraphEdge[] = (payload.edges ?? []).map((e, i) => ({
-    id: `topo-e${i}`,
-    source: String(e.source),
-    target: String(e.target),
-    label: String(e.type ?? "call"),
-    status: "ACTIVE" as const,
-    count: 1,
-  }));
+  for (const n of rawNodes) {
+    const id = String(n.id);
+    const risk = Number(n.risk_score ?? 0);
+    const kind = kindFromTopologyType(n.type, id);
+    const label =
+      kind === "session"
+        ? `${String(n.label || "session")} · ${shortId(id)}`
+        : String(n.label || id);
+    const next: Omit<CommandGraphNode, "x" | "y"> = {
+      id,
+      label,
+      kind,
+      severity: scoreToSeverity(risk, n.status),
+      riskScore: risk,
+      status: String(n.status ?? "ACTIVE"),
+      eventCount: 1,
+      sessionId: kind === "session" ? id : undefined,
+    };
+    const prev = byId.get(id);
+    byId.set(id, prev ? mergeNodeMeta(prev, next) : next);
+  }
 
-  // Elevate edge status from connected node risk
-  const byId = new Map(positioned.map((n) => [n.id, n]));
-  for (const edge of edges) {
+  const edgeAcc = new Map<string, CommandGraphEdge>();
+  for (const e of payload.edges ?? []) {
+    const source = String(e.source);
+    const target = String(e.target);
+    if (!byId.has(source)) byId.set(source, stubNodeFromEdgeRef(source));
+    if (!byId.has(target)) byId.set(target, stubNodeFromEdgeRef(target));
+    const key = `${source}→${target}`;
+    const label = String(e.type ?? "call").replace(/_/g, " ");
+    const prev = edgeAcc.get(key);
+    if (prev) {
+      prev.count += 1;
+      continue;
+    }
+    edgeAcc.set(key, {
+      id: `topo-${edgeAcc.size}`,
+      source,
+      target,
+      label,
+      status: "ACTIVE",
+      count: 1,
+    });
+  }
+
+  // Propagate session/agent risk onto linked tools so breach paths light up.
+  for (const edge of edgeAcc.values()) {
     const src = byId.get(edge.source);
     const tgt = byId.get(edge.target);
+    if (!src || !tgt) continue;
+    if (tgt.kind === "tool" && src.riskScore > tgt.riskScore) {
+      byId.set(tgt.id, {
+        ...tgt,
+        riskScore: src.riskScore,
+        status: src.status,
+        severity: scoreToSeverity(src.riskScore, src.status),
+      });
+    }
+    if (src.kind === "session" && tgt.kind === "agent" && src.riskScore > tgt.riskScore) {
+      byId.set(tgt.id, {
+        ...tgt,
+        riskScore: src.riskScore,
+        status: src.status,
+        severity: scoreToSeverity(src.riskScore, src.status),
+      });
+    }
+  }
+
+  const positioned = layoutByKind([...byId.values()]);
+  const edges = [...edgeAcc.values()];
+  const placed = new Map(positioned.map((n) => [n.id, n]));
+  for (const edge of edges) {
+    const src = placed.get(edge.source);
+    const tgt = placed.get(edge.target);
     const maxRisk = Math.max(src?.riskScore ?? 0, tgt?.riskScore ?? 0);
     edge.status = edgeStatusFromRisk(maxRisk, src?.status ?? tgt?.status);
   }
@@ -316,12 +413,67 @@ function finalize(
   return { nodes, edges, source, compromisedCount, activeCount, maxRisk, totalEvents };
 }
 
+/** Fold live telemetry counts/risk into a topology graph without inventing nodes. */
+export function enrichTopologyWithTelemetry(
+  topology: CommandGraphModel,
+  events: LiveEventLike[]
+): CommandGraphModel {
+  if (!events.length) return topology;
+
+  const byId = new Map(topology.nodes.map((n) => [n.id, { ...n }]));
+  const edgeByKey = new Map(
+    topology.edges.map((e) => [`${e.source}→${e.target}`, { ...e }])
+  );
+
+  for (const evt of events) {
+    const agentId = String(evt.agent_id ?? "").trim();
+    const toolName = String(evt.tool_name ?? "").trim();
+    const risk = Number(evt.risk_score ?? 0);
+    const verdict = String(evt.verdict ?? evt.action ?? "");
+    const sessionId = evt.session_id != null ? String(evt.session_id) : undefined;
+
+    const bump = (id: string | undefined) => {
+      if (!id) return;
+      const node = byId.get(id);
+      if (!node) return;
+      const nextRisk = Math.max(node.riskScore, risk);
+      byId.set(id, {
+        ...node,
+        riskScore: nextRisk,
+        eventCount: node.eventCount + 1,
+        status: risk >= node.riskScore ? verdict || node.status : node.status,
+        severity: scoreToSeverity(nextRisk, risk >= node.riskScore ? verdict : node.status),
+        sessionId: node.sessionId ?? sessionId,
+      });
+    };
+
+    if (sessionId) bump(sessionId);
+    if (agentId) bump(`agent-${agentId}`);
+    if (agentId && toolName) {
+      bump(`tool-${agentId}-${toolName}`);
+      bump(`tool-${toolName}`);
+      const key = `agent-${agentId}→tool-${agentId}-${toolName}`;
+      const alt = `agent-${agentId}→tool-${toolName}`;
+      const edge = edgeByKey.get(key) ?? edgeByKey.get(alt);
+      if (edge) {
+        edge.count += 1;
+        edge.status = edgeStatusFromRisk(Math.max(edge.count > 0 ? risk : 0, risk), verdict);
+        edgeByKey.set(`${edge.source}→${edge.target}`, edge);
+      }
+    }
+  }
+
+  return finalize([...byId.values()], [...edgeByKey.values()], "topology");
+}
+
 export function deriveCommandGraph(input: {
   topology: TopologyApiPayload | null;
   events: LiveEventLike[];
 }): CommandGraphModel {
   const fromTopo = input.topology ? buildGraphFromTopology(input.topology) : null;
-  if (fromTopo) return fromTopo;
+  if (fromTopo) {
+    return enrichTopologyWithTelemetry(fromTopo, input.events);
+  }
   const fromTel = buildGraphFromTelemetry(input.events);
   if (fromTel) return fromTel;
   return emptyCommandGraph();

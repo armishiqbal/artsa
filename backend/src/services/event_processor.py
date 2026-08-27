@@ -9,6 +9,9 @@ from src.core.models.scores import ContainmentVerdict, RiskScore
 
 logger = logging.getLogger(__name__)
 
+# Live Harness chat checkpoints — prefer speed; skip LLM judge + heavy detectors.
+_FAST_PATH_TOOLS = frozenset({"user_prompt", "model_output"})
+
 
 class EventProcessor:
     """Processes tool call events and updates session containment metrics."""
@@ -24,17 +27,36 @@ class EventProcessor:
             self._judge = JudgeVerifier()
         return self._judge
 
-    def process_event(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
-        """Route tool call event to containment evaluation engine."""
+    def process_event(
+        self,
+        event: ToolCallEvent,
+        *,
+        fast: bool | None = None,
+    ) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
+        """Route tool call event to containment evaluation engine.
+
+        ``fast=True`` (default for user_prompt / model_output) uses the
+        prompt-only detector set and skips the LLM judge so live Harness
+        scans stay near the sub‑50ms SLO.
+        """
+        use_fast = event.tool_name in _FAST_PATH_TOOLS if fast is None else fast
+        if use_fast:
+            return self.monitor.process_event_fast(event)
+
         risk, verdict, sec_events = self.monitor.process_event(event)
         # WS-2.3: optional LLM confirmation of borderline verdicts (no-op when
         # ARTSA_JUDGE_ENABLED=false or the judge cannot confirm).
         risk, verdict, _ = self._judge_verifier().verify(event, risk, verdict)
         return risk, verdict, sec_events
 
-    def process(self, event: ToolCallEvent) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
+    def process(
+        self,
+        event: ToolCallEvent,
+        *,
+        fast: bool | None = None,
+    ) -> tuple[RiskScore, ContainmentVerdict, list[SecurityEvent]]:
         """Alias for process_event."""
-        return self.process_event(event)
+        return self.process_event(event, fast=fast)
 
     def update_session_metrics(self, session_id: uuid.UUID, risk_score: float) -> None:
         """Update active session risk score metrics."""

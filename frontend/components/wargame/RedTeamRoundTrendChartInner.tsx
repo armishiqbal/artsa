@@ -11,13 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { RoundTrendPoint } from "@/lib/redTeamAnalytics";
-import {
-  CHART_AXIS_TICK,
-  CHART_CRITICAL,
-  CHART_GRID,
-  CHART_PRIMARY,
-  CHART_TOOLTIP_STYLE,
-} from "@/lib/chartTheme";
+import { CHART_AXIS_TICK, CHART_CRITICAL, CHART_GRID, CHART_PRIMARY, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 export default function RedTeamRoundTrendChartInner({ data }: { data: RoundTrendPoint[] }) {
   return (
@@ -33,7 +27,7 @@ export default function RedTeamRoundTrendChartInner({ data }: { data: RoundTrend
             tickLine={false}
             width={28}
           />
-          <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+          <Tooltip {...CHART_TOOLTIP_PROPS} />
           <Legend wrapperStyle={{ fontSize: 11, color: "#7c7c7c" }} />
           <Line
             type="monotone"

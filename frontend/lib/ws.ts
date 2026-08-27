@@ -29,7 +29,14 @@ export async function buildWebSocketUrl(
   let base: string;
 
   if (configured) {
-    base = configured;
+    try {
+      const u = new URL(configured);
+      // Host from WS_URL; path from argument (supports /campaigns/{id}/live).
+      base = `${u.protocol}//${u.host}${path.startsWith("/") ? path : `/${path}`}`;
+    } catch {
+      const httpBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      base = httpBase.replace(/^http/, "ws") + path;
+    }
   } else {
     const httpBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     base = httpBase.replace(/^http/, "ws") + path;

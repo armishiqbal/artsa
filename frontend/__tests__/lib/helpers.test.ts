@@ -60,20 +60,22 @@ describe("navigation", () => {
       navSections.flatMap((s) => flattenNavItems(s.items)).map((i) => [i.href, i])
     );
     expect(byHref.get("/admin/policies")?.capability).toBe("can_manage_policies");
-    expect(byHref.get("/campaigns")?.capability).toBe("can_run_campaigns");
-    expect(byHref.get("/replay")?.capability).toBeUndefined();
+    expect(byHref.get("/red-team/campaigns")?.capability).toBe("can_run_campaigns");
+    const redTeam = navSections
+      .find((s) => s.label === "Test")
+      ?.items.find((i) => i.name === "Red Team");
+    expect(redTeam?.capability).toBe("can_run_campaigns");
   });
 
-  it("nests wargame workflow items under a parent group", () => {
+  it("nests Red Team workflow items under a parent group", () => {
     const testSection = navSections.find((s) => s.label === "Test");
-    const wargame = testSection?.items.find((i) => i.name === "Wargame");
-    expect(wargame?.children?.map((c) => c.name)).toEqual([
+    const redTeam = testSection?.items.find((i) => i.name === "Red Team");
+    expect(redTeam?.href).toBe("/red-team");
+    expect(redTeam?.children?.map((c) => c.name)).toEqual([
+      "Attack Lab",
       "Campaigns",
-      "Targets",
-      "Compare",
-      "Attack Library",
-      "Sandbox",
-      "Replay",
+      "Live Monitor",
+      "AI Activity",
     ]);
   });
 });
@@ -106,8 +108,8 @@ describe("workspace relatedness", () => {
     const { workspaceFor } = await import("@/lib/workspace");
     const dash = workspaceFor("/dashboard");
     expect(dash.related.length).toBeGreaterThan(0);
-    expect(dash.next?.href).toBe("/sandbox");
-    expect(workspaceFor("/logs").next?.href).toBe("/replay");
-    expect(workspaceFor("/library").next?.href).toBe("/sandbox");
+    expect(dash.next?.href).toBe("/red-team/lab");
+    expect(workspaceFor("/logs").next?.href).toBe("/red-team/monitor");
+    expect(workspaceFor("/library").next?.href).toBe("/red-team/lab");
   });
 });

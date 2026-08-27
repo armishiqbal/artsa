@@ -24,7 +24,7 @@ load_dotenv()
 
 HOST = os.getenv("ARTSA_HOST", "127.0.0.1")
 PORT = int(os.getenv("ARTSA_PORT", "8000"))
-RELOAD = os.getenv("ARTSA_RELOAD", "true").lower() in ("1", "true", "yes")
+RELOAD = os.getenv("ARTSA_RELOAD", "false").lower() in ("1", "true", "yes")
 
 if __name__ == "__main__":
     print(f"🧠 Starting ARTSA Backend API on http://{HOST}:{PORT} ...")

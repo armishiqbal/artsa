@@ -39,6 +39,11 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
     """Validates X-API-Key or OIDC Bearer token when auth is required."""
 
     async def dispatch(self, request: Request, call_next):
+        # Browser CORS preflight must not require credentials — otherwise
+        # clients (e.g. Harness on :3080) see opaque "Failed to fetch".
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         path = request.url.path
         if path in _PUBLIC_PATHS:
             return await call_next(request)

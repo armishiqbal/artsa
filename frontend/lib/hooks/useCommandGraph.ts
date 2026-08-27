@@ -8,7 +8,7 @@ import {
   type TopologyApiPayload,
 } from "@/lib/commandGraph";
 
-const POLL_MS = 5_000;
+const POLL_MS = 8_000;
 
 /**
  * Live containment map from topology API + telemetry events.

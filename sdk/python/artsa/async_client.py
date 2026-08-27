@@ -23,6 +23,8 @@ from typing import Any, Dict, Optional, Sequence, Self
 
 import httpx
 
+from artsa.client import ArtsaQuotaError
+
 logger = logging.getLogger("artsa.sdk.async")
 
 BLOCKING_ACTIONS = frozenset({"KILL", "QUARANTINE"})
@@ -154,13 +156,30 @@ class AsyncArtsaClient:
                         "risk_score": {"overall_score": 100.0, "flags": ["session_contained"]},
                         "session_status": detail.get("session_status", "BREACHED"),
                     }
+                if res.status_code == 429:
+                    detail_msg = "ARTSA quota exceeded — slow down and retry"
+                    try:
+                        body = res.json()
+                        raw = body.get("detail") or body.get("error") or body
+                        if isinstance(raw, dict):
+                            detail_msg = str(raw.get("message") or raw.get("detail") or detail_msg)
+                        elif raw:
+                            detail_msg = str(raw)
+                    except Exception:
+                        pass
+                    retry_raw = res.headers.get("Retry-After")
+                    retry_after: float | None = None
+                    if retry_raw:
+                        try:
+                            retry_after = float(retry_raw)
+                        except ValueError:
+                            retry_after = None
+                    raise ArtsaQuotaError(detail_msg, retry_after_sec=retry_after)
                 res.raise_for_status()
                 return self._unwrap(res.json())
-            except httpx.HTTPStatusError as e:
-                last_error = e
-                if attempt < self.max_retries:
-                    await self._sleep(self.retry_backoff_sec * (2**attempt))
-            except (httpx.RequestError, httpx.TimeoutException) as e:
+            except ArtsaQuotaError:
+                raise
+            except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
                 last_error = e
                 if attempt < self.max_retries:
                     await self._sleep(self.retry_backoff_sec * (2**attempt))

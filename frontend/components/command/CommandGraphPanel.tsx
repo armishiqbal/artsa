@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { LayoutGrid, Network, Table2 } from "lucide-react";
 import { CommandMissionGraph } from "@/components/command/CommandMissionGraph";
@@ -26,11 +26,22 @@ export function CommandGraphPanel({
   const { graph, loading, hasLiveData } = useCommandGraph(events, apiOnline);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"graph" | "list">("graph");
+  const autoSelectedRef = useRef(false);
 
   const selected = useMemo(
     () => graph.nodes.find((n) => n.id === selectedId) ?? null,
     [graph.nodes, selectedId]
   );
+
+  // Focus the hottest live node once when traffic first appears.
+  useEffect(() => {
+    if (autoSelectedRef.current || !graph.nodes.length) return;
+    const hot = [...graph.nodes].sort((a, b) => b.riskScore - a.riskScore)[0];
+    if (hot && hot.riskScore >= 50) {
+      setSelectedId(hot.id);
+      autoSelectedRef.current = true;
+    }
+  }, [graph.nodes]);
 
   const sourceLabel =
     graph.source === "topology"
@@ -80,7 +91,9 @@ export function CommandGraphPanel({
             ) : null}
           </div>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            Live blast radius from topology and ingest — no simulated nodes
+            {hasLiveData
+              ? "Live session → agent → tool blast radius from topology + ingest"
+              : "Waiting for live topology or ingest — no simulated nodes"}
           </p>
         </div>
 

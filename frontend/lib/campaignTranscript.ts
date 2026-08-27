@@ -1,8 +1,16 @@
 /**
  * Normalise campaign round payloads into Red Team Console transcript turns.
+ * Scores are always 0–1 for downstream security math and gauges.
  */
 
 import { asiForAttackCategory } from "@/lib/asiCategories";
+
+export type GuardrailLayerEvent = {
+  layer: string;
+  passed: boolean;
+  details: string;
+  latencyMs: number;
+};
 
 export interface TranscriptTurn {
   roundNumber: number;
@@ -24,26 +32,56 @@ export interface TranscriptTurn {
   targetError: boolean;
   errorDetail: string | null;
   verdict: string;
+  /** 0–1 */
   attackSuccessScore: number;
+  /** 0–1 */
   defenseQualityScore: number;
   bypassDepth: number;
   reasoning: string;
   severity: string;
+  /** ISO timestamp from results store when present. */
+  timestamp: string | null;
+  /** End-to-end round duration (ms). */
+  durationMs: number;
+  /** Target / pipeline latency (ms). */
+  latencyMs: number;
+  /** 0–1 information leakage from judge score. */
+  informationLeakageScore: number;
+  mitreAtlas: string | null;
+  owaspLlm: string | null;
+  /** Ordered containment layers from guardrail_trace. */
+  guardrailTrace: GuardrailLayerEvent[];
 }
 
-function dig(obj: Record<string, unknown>, ...path: string[]): unknown {
-  let cur: unknown = obj;
-  for (const key of path) {
-    if (!cur || typeof cur !== "object") return undefined;
-    cur = (cur as Record<string, unknown>)[key];
-  }
-  return cur;
+function asRecord(obj: unknown): Record<string, unknown> | null {
+  return obj && typeof obj === "object" ? (obj as Record<string, unknown>) : null;
+}
+
+/** Backend stores many scores on 0–10; normalize to 0–1. */
+export function score01(raw: unknown): number {
+  const n = Number(raw ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  if (n > 1) return Math.max(0, Math.min(1, n / 10));
+  return Math.max(0, Math.min(1, n));
+}
+
+function parseGuardrailTrace(raw: unknown): GuardrailLayerEvent[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
+    .map((row) => ({
+      layer: String(row.layer ?? "UNKNOWN"),
+      passed: Boolean(row.passed),
+      details: String(row.details ?? ""),
+      latencyMs: Number(row.latency_ms ?? 0) || 0,
+    }));
 }
 
 export function roundToTranscriptTurn(raw: Record<string, unknown>): TranscriptTurn {
-  const attack = (raw.attack as Record<string, unknown>) ?? {};
-  const response = (raw.response as Record<string, unknown>) ?? {};
-  const score = (raw.score as Record<string, unknown>) ?? {};
+  const attack = asRecord(raw.attack) ?? {};
+  const response = asRecord(raw.response) ?? {};
+  const score = asRecord(raw.score) ?? {};
+  const metadata = asRecord(attack.metadata) ?? {};
 
   const category = String(attack.category ?? "");
   const asi = asiForAttackCategory(category);
@@ -52,6 +90,10 @@ export function roundToTranscriptTurn(raw: Record<string, unknown>): TranscriptT
   const mutationsApplied = Array.isArray(mutationsRaw)
     ? mutationsRaw.map((m) => String(m)).filter(Boolean)
     : [];
+
+  const targetResponse = String(response.response ?? response.raw_response ?? "");
+  const detailsFromTrace = parseGuardrailTrace(response.guardrail_trace);
+  const failedLayer = detailsFromTrace.find((l) => !l.passed);
 
   return {
     roundNumber: Number(raw.round_number ?? 0),
@@ -63,17 +105,39 @@ export function roundToTranscriptTurn(raw: Record<string, unknown>): TranscriptT
     templateId: attack.template_id ? String(attack.template_id) : null,
     objective: attack.objective ? String(attack.objective) : null,
     mutationsApplied,
-    targetResponse: String(response.response ?? response.raw_response ?? ""),
+    targetResponse,
     blocked: Boolean(response.blocked),
     blockedBy: response.blocked_by ? String(response.blocked_by) : null,
-    targetError: Boolean(response.error),
-    errorDetail: response.error_detail ? String(response.error_detail) : null,
+    targetError: Boolean(response.error) || /GENERATION ERROR/i.test(targetResponse),
+    errorDetail:
+      response.error_detail
+        ? String(response.error_detail)
+        : failedLayer && !failedLayer.passed
+          ? failedLayer.details
+          : null,
     verdict: String(score.verdict ?? "UNKNOWN"),
-    attackSuccessScore: Number(score.attack_success_score ?? 0),
-    defenseQualityScore: Number(score.defense_quality_score ?? 0),
-    bypassDepth: Number(score.bypass_depth ?? 0),
+    attackSuccessScore: score01(score.attack_success_score),
+    defenseQualityScore: score01(score.defense_quality_score),
+    bypassDepth: Number(score.bypass_depth ?? response.bypass_depth ?? 0) || 0,
     reasoning: String(score.reasoning ?? ""),
-    severity: String(score.severity ?? "MEDIUM"),
+    severity: String(score.severity ?? metadata.severity ?? "MEDIUM"),
+    timestamp: raw.timestamp ? String(raw.timestamp) : null,
+    durationMs: Number(raw.duration_ms ?? 0) || 0,
+    latencyMs: Number(response.latency_ms ?? 0) || 0,
+    informationLeakageScore: score01(score.information_leakage_score),
+    mitreAtlas:
+      score.mitre_atlas_mapping
+        ? String(score.mitre_atlas_mapping)
+        : metadata.mitre_atlas
+          ? String(metadata.mitre_atlas)
+          : null,
+    owaspLlm:
+      score.owasp_llm_mapping
+        ? String(score.owasp_llm_mapping)
+        : metadata.owasp_llm
+          ? String(metadata.owasp_llm)
+          : null,
+    guardrailTrace: detailsFromTrace,
   };
 }
 

@@ -18,8 +18,7 @@ interface ReconnectingWebSocketOptions {
 
 /**
  * WebSocket hook with exponential backoff reconnect.
- * Reconnects when `url` changes (e.g. after SSO token refresh) or, when
- * `resolveUrl` is provided, re-resolves the URL before every connect attempt.
+ * Replies to server `ping` frames so the containment feed stays open.
  */
 export function useReconnectingWebSocket(
   url: string = "",
@@ -52,9 +51,18 @@ export function useReconnectingWebSocket(
     let cancelled = false;
     let attempt = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let clientPingTimer: ReturnType<typeof setInterval> | null = null;
+
+    const clearClientPing = () => {
+      if (clientPingTimer) {
+        clearInterval(clientPingTimer);
+        clientPingTimer = null;
+      }
+    };
 
     const scheduleReconnect = () => {
       if (cancelled) return;
+      clearClientPing();
       const delay = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
       attempt += 1;
       retryTimer = setTimeout(connect, delay);
@@ -86,10 +94,18 @@ export function useReconnectingWebSocket(
         attempt = 0;
         setConnected(true);
         onOpenRef.current?.();
+        clearClientPing();
+        // Keep the server's last_client_seen fresh even when the UI is idle.
+        clientPingTimer = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
+          }
+        }, 20_000);
       };
 
       ws.onclose = () => {
         if (cancelled) return;
+        clearClientPing();
         setConnected(false);
         onCloseRef.current?.();
         scheduleReconnect();
@@ -101,7 +117,12 @@ export function useReconnectingWebSocket(
 
       ws.onmessage = (event) => {
         try {
-          onMessageRef.current(JSON.parse(event.data));
+          const payload = JSON.parse(event.data) as { type?: string };
+          // Answer server heartbeats so the feed is not dropped after ~35s idle.
+          if (payload?.type === "ping" && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+          }
+          onMessageRef.current(payload);
         } catch {
           // ignore malformed payloads
         }
@@ -112,6 +133,7 @@ export function useReconnectingWebSocket(
 
     return () => {
       cancelled = true;
+      clearClientPing();
       if (retryTimer) clearTimeout(retryTimer);
       ws?.close();
       setConnected(false);

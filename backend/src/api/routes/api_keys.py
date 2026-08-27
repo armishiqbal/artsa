@@ -1,4 +1,4 @@
-"""Partner API keys — Lakera-style secrets partners paste into their systems.
+"""API keys for customers using ARTSA as a service.
 
 - ``GET  /api-keys``           — list keys (masked)
 - ``POST /api-keys``           — create key (returns plaintext **once**)
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,8 +21,16 @@ router = APIRouter(tags=["API Keys"])
 
 
 class CreateApiKeyPayload(BaseModel):
-    name: str = Field(default="partner-key", max_length=128)
+    name: str = Field(default="customer-key", max_length=128)
     role: str = Field(default="analyst", description="analyst (ingest) | redteam | readonly")
+    run_baseline: bool = Field(
+        default=False,
+        description="Phase 4: start a baseline quick scan after creating the key",
+    )
+    enable_weekly_baseline: bool = Field(
+        default=False,
+        description="Phase 4: enable a weekly baseline schedule for this tenant",
+    )
 
 
 def _require_admin(request: Request) -> None:
@@ -43,7 +51,7 @@ async def api_keys_list(
     return {
         "keys": rows,
         "count": len(rows),
-        "note": "Partners send X-API-Key on POST /api/v1/ingest. Keys are shown once at creation.",
+        "note": "Customers send X-API-Key on POST /api/v1/ingest. Keys are shown once at creation.",
     }
 
 
@@ -51,6 +59,7 @@ async def api_keys_list(
 async def api_keys_create(
     request: Request,
     payload: CreateApiKeyPayload,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_async_session),
 ) -> dict[str, Any]:
     _require_admin(request)
@@ -65,10 +74,42 @@ async def api_keys_create(
         role=payload.role,
         tenant_id=str(tenant_id),
     )
+    extras: dict[str, Any] = {}
+    if payload.enable_weekly_baseline:
+        from src.data.baseline_schedule_store import baseline_schedule_store
+
+        extras["schedule"] = baseline_schedule_store.upsert(
+            tenant_id=str(tenant_id),
+            enabled=True,
+            interval_days=7,
+            name=f"Weekly baseline · {payload.name}",
+        )
+    if payload.run_baseline:
+        try:
+            from src.api.routes.campaigns import _launch_baseline, _resolve_baseline_target
+            from src.services.endpoint_quota import enforce_baseline_start_quota
+
+            enforce_baseline_start_quota(str(tenant_id))
+            provider, model = _resolve_baseline_target(None, None)
+            extras["baseline"] = _launch_baseline(
+                background_tasks=background_tasks,
+                tenant_id=str(tenant_id),
+                name=f"Onboard baseline · {payload.name}",
+                provider=provider,
+                model=model,
+                max_rounds=3,
+                use_llm_judge=False,
+            )
+        except HTTPException as exc:
+            extras["baseline_error"] = exc.detail
+        except Exception as exc:  # pragma: no cover
+            extras["baseline_error"] = str(exc)
+
     return {
         "status": "ok",
         "key": created,
         "warning": "Copy api_key now — it will not be shown again.",
+        **extras,
     }
 
 

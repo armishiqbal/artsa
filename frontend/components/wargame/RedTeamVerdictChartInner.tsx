@@ -2,7 +2,7 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { VerdictSlice } from "@/lib/redTeamAnalytics";
-import { CHART_TOOLTIP_STYLE } from "@/lib/chartTheme";
+import { CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 export default function RedTeamVerdictChartInner({ data }: { data: VerdictSlice[] }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -24,7 +24,7 @@ export default function RedTeamVerdictChartInner({ data }: { data: VerdictSlice[
               <Cell key={entry.key} fill={entry.fill} />
             ))}
           </Pie>
-          <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+          <Tooltip {...CHART_TOOLTIP_PROPS} />
         </PieChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">

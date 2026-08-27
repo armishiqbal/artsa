@@ -1,6 +1,6 @@
 {
   "name": "artsa-guard",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "description": "ARTSA Agent Risk-Scoring SDK — detection-gated LLM proxy + tool containment for OpenAI/Anthropic-compatible stacks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

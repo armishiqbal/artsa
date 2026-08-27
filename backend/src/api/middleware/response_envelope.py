@@ -44,6 +44,11 @@ EXCLUDED_PATHS: frozenset[str] = frozenset({
     "/v1/ready",
     "/api/v1/metrics/prometheus",
     "/v1/metrics/prometheus",
+    # Harness Custom Security Service reads top-level allowed/blocked; keep flat.
+    "/api/v1/ingest",
+    "/v1/ingest",
+    "/api/v1/inspect",
+    "/v1/inspect",
     "/api/v1/websocket",
     "/v1/websocket",
     "/docs",

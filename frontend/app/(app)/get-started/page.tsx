@@ -7,7 +7,7 @@ import { Shield, ArrowRight, Key, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { LiveIndicator } from "@/components/shared/LiveIndicator";
 import { OnboardingHub } from "@/components/get-started/OnboardingHub";
-import { PartnerDeveloperHub } from "@/components/get-started/PartnerDeveloperHub";
+import { CustomerApiHub } from "@/components/get-started/CustomerApiHub";
 import { Button } from "@/components/ui/button";
 import { fetchFromBackend } from "@/lib/api";
 import { useConnection } from "@/lib/context/ConnectionProvider";
@@ -245,7 +245,7 @@ export default function GetStartedPage() {
       </div>
 
       {activeTab === "keys" ? (
-        <PartnerDeveloperHub />
+        <CustomerApiHub />
       ) : (
         <OnboardingHub
           flow={flow}

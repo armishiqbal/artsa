@@ -30,6 +30,10 @@ class RBACMiddleware(BaseHTTPMiddleware):
     """Deny requests when the resolved role lacks permission for method+path."""
 
     async def dispatch(self, request: Request, call_next):
+        # CORS preflight is unauthenticated; RBAC applies to the real request.
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         path = normalize_path(request.url.path)
         if path in _PUBLIC_PATHS:
             return await call_next(request)

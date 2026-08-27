@@ -111,6 +111,55 @@ describe("commandGraph", () => {
     expect(emptyCommandGraph().source).toBe("idle");
   });
 
+  it("synthesizes missing agent nodes and dedupes topology", () => {
+    const graph = buildGraphFromTopology({
+      nodes: [
+        { id: "sess-1", label: "harness", type: "session", risk_score: 95, status: "BREACHED" },
+        { id: "tool-harness-user_prompt", label: "user_prompt", type: "tool", risk_score: 0 },
+        { id: "tool-harness-user_prompt", label: "user_prompt", type: "tool", risk_score: 0 },
+      ],
+      edges: [
+        { source: "sess-1", target: "agent-harness", type: "session_link" },
+        { source: "agent-harness", target: "tool-harness-user_prompt", type: "tool_call" },
+        { source: "agent-harness", target: "tool-harness-user_prompt", type: "tool_call" },
+      ],
+    });
+    expect(graph).not.toBeNull();
+    expect(graph!.nodes.some((n) => n.id === "agent-harness")).toBe(true);
+    expect(graph!.nodes.filter((n) => n.id === "tool-harness-user_prompt")).toHaveLength(1);
+    expect(graph!.edges).toHaveLength(2);
+    const tool = graph!.nodes.find((n) => n.id === "tool-harness-user_prompt");
+    expect(tool?.riskScore).toBe(95);
+    expect(tool?.severity).toBe("CRITICAL");
+  });
+
+  it("enriches topology with telemetry event counts", () => {
+    const graph = deriveCommandGraph({
+      topology: {
+        nodes: [
+          { id: "agent-harness", label: "harness", type: "agent", risk_score: 10, status: "ACTIVE" },
+          { id: "tool-harness-user_prompt", label: "user_prompt", type: "tool", risk_score: 0 },
+        ],
+        edges: [
+          { source: "agent-harness", target: "tool-harness-user_prompt", type: "tool_call" },
+        ],
+      },
+      events: [
+        {
+          agent_id: "harness",
+          tool_name: "user_prompt",
+          risk_score: 95,
+          verdict: "BREACHED",
+          session_id: "s1",
+        },
+      ],
+    });
+    expect(graph.source).toBe("topology");
+    const agent = graph.nodes.find((n) => n.id === "agent-harness");
+    expect(agent?.riskScore).toBe(95);
+    expect(agent?.eventCount).toBeGreaterThan(1);
+  });
+
   it("prefers topology over telemetry", () => {
     const graph = deriveCommandGraph({
       topology: {

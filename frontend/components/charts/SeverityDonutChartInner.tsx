@@ -2,7 +2,7 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { SeveritySlice } from "@/lib/enterpriseAnalytics";
-import { CHART_TOOLTIP_STYLE } from "@/lib/chartTheme";
+import { CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 export default function SeverityDonutChartInner({ data }: { data: SeveritySlice[] }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -27,7 +27,7 @@ export default function SeverityDonutChartInner({ data }: { data: SeveritySlice[
             ))}
           </Pie>
           <Tooltip
-            contentStyle={CHART_TOOLTIP_STYLE}
+            {...CHART_TOOLTIP_PROPS}
             formatter={(value: number, name: string) => [`${value}`, name]}
           />
         </PieChart>

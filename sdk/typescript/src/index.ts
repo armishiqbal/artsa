@@ -34,6 +34,7 @@ export enum ArtsaErrorCode {
   PROXY_BLOCKED = "ARTSA_PROXY_BLOCKED",
   INVALID_RESPONSE = "ARTSA_INVALID_RESPONSE",
   SERVER_ERROR = "ARTSA_SERVER_ERROR",
+  RATE_LIMITED = "ARTSA_RATE_LIMITED",
 }
 
 export class ArtsaBlockedError extends Error {
@@ -54,13 +55,21 @@ export class ArtsaClientError extends Error {
   readonly code: ArtsaErrorCode;
   readonly statusCode?: number;
   readonly cause?: unknown;
+  readonly retryAfterSec?: number;
 
-  constructor(message: string, code: ArtsaErrorCode, statusCode?: number, cause?: unknown) {
+  constructor(
+    message: string,
+    code: ArtsaErrorCode,
+    statusCode?: number,
+    cause?: unknown,
+    retryAfterSec?: number,
+  ) {
     super(message);
     this.name = "ArtsaClientError";
     this.code = code;
     this.statusCode = statusCode;
     this.cause = cause;
+    this.retryAfterSec = retryAfterSec;
   }
 }
 
@@ -181,6 +190,25 @@ export class ArtsaClient {
             risk_score: { overall_score: 100, flags: ["session_contained"] },
             session_status: d.session_status ?? "BREACHED",
           };
+        }
+
+        if (res.status === 429) {
+          const errorBody = (await res.json().catch(() => ({}))) as {
+            detail?: string | { message?: string };
+          };
+          const detail =
+            typeof errorBody.detail === "string"
+              ? errorBody.detail
+              : errorBody.detail?.message ?? "ARTSA quota exceeded — slow down and retry";
+          const retryRaw = res.headers.get("Retry-After");
+          const retryAfterSec = retryRaw ? Number.parseFloat(retryRaw) : undefined;
+          throw new ArtsaClientError(
+            detail,
+            ArtsaErrorCode.RATE_LIMITED,
+            429,
+            undefined,
+            Number.isFinite(retryAfterSec) ? retryAfterSec : undefined,
+          );
         }
 
         if (res.status >= 500) {
@@ -329,6 +357,100 @@ export class ArtsaClient {
       agent_id: agentId,
     })) as Record<string, unknown>;
   }
+
+  /** Phase 3/4: free text — ARTSA classifies tool/agent and scores. */
+  async evaluateSituation(input: {
+    message: string;
+    agentId?: string;
+    sessionId?: string;
+    persist?: boolean;
+    useLlm?: boolean;
+  }): Promise<ArtsaSituationResult> {
+    const body: Record<string, unknown> = {
+      message: input.message,
+      persist: input.persist ?? true,
+      use_llm: input.useLlm ?? false,
+    };
+    if (input.agentId) body.agent_id = input.agentId;
+    if (input.sessionId) body.session_id = input.sessionId;
+    return (await this.post("/api/v1/situations/evaluate", body)) as ArtsaSituationResult;
+  }
+
+  async guardMessage(
+    input: {
+      message: string;
+      agentId?: string;
+      sessionId?: string;
+      persist?: boolean;
+      useLlm?: boolean;
+    },
+    enforce = true
+  ): Promise<ArtsaSituationResult> {
+    const result = await this.evaluateSituation(input);
+    if (enforce && this.isBlocked(result)) {
+      const tool = String(result.classification?.tool_name ?? "message");
+      throw new ArtsaBlockedError(tool, result);
+    }
+    return result;
+  }
+
+  async startBaselineScan(input?: {
+    name?: string;
+    provider?: string;
+    model?: string;
+    maxRounds?: number;
+  }): Promise<ArtsaBaselineResult> {
+    return (await this.post("/api/v1/campaigns/baseline", {
+      name: input?.name ?? "Baseline quick scan",
+      provider: input?.provider,
+      model: input?.model,
+      max_rounds: input?.maxRounds ?? 3,
+    })) as ArtsaBaselineResult;
+  }
+}
+
+/** Sticky session id for nested tool calls in one request. */
+let _boundSessionId: string | undefined;
+
+export function bindSession(sessionId?: string): string {
+  _boundSessionId = sessionId ?? _boundSessionId ?? crypto.randomUUID();
+  return _boundSessionId;
+}
+
+export function currentSessionId(): string | undefined {
+  return _boundSessionId;
+}
+
+export function clearSession(): void {
+  _boundSessionId = undefined;
+}
+
+export interface ArtsaSituationResult extends ArtsaIngestResult {
+  phase?: number;
+  persisted?: boolean;
+  classification?: {
+    situation?: string;
+    tool_name?: string;
+    agent_id?: string;
+    arguments?: Record<string, unknown>;
+    confidence?: number;
+    reason?: string;
+    source?: string;
+  };
+  ingest_event?: Record<string, unknown>;
+  logs_href?: string;
+  note?: string;
+}
+
+export interface ArtsaBaselineResult {
+  phase?: number;
+  campaign_id?: string;
+  status?: string;
+  provider?: string;
+  model?: string;
+  wargame_href?: string;
+  message?: string;
+  [key: string]: unknown;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

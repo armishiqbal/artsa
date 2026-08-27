@@ -3,9 +3,7 @@ import {
   Activity,
   Network,
   Swords,
-  BookOpen,
   Database,
-  FileCode,
   FileText,
   Users,
   Shield,
@@ -17,8 +15,7 @@ import {
   GitBranch,
   FileSearch,
   ScrollText,
-  Target,
-  GitCompare,
+  FlaskConical,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +40,7 @@ export function isNavHrefActive(pathname: string, href: string): boolean {
   if (
     href === "/dashboard" ||
     href === "/get-started" ||
+    href === "/red-team" ||
     href === "/campaigns"
   ) {
     return false;
@@ -96,21 +94,35 @@ export const navSections: NavSection[] = [
     label: "Test",
     items: [
       {
-        name: "Wargame",
-        href: "/campaigns",
+        name: "Red Team",
+        href: "/red-team",
         icon: Swords,
+        capability: "can_run_campaigns",
         children: [
           {
-            name: "Campaigns",
-            href: "/campaigns",
-            icon: Swords,
+            name: "Attack Lab",
+            href: "/red-team/lab",
+            icon: Crosshair,
             capability: "can_run_campaigns",
           },
-          { name: "Targets", href: "/campaigns/targets", icon: Target },
-          { name: "Compare", href: "/campaigns/compare", icon: GitCompare },
-          { name: "Attack Library", href: "/library", icon: BookOpen },
-          { name: "Sandbox", href: "/sandbox", icon: Crosshair },
-          { name: "Replay", href: "/replay", icon: FileCode },
+          {
+            name: "Campaigns",
+            href: "/red-team/campaigns",
+            icon: FlaskConical,
+            capability: "can_run_campaigns",
+          },
+          {
+            name: "Live Monitor",
+            href: "/red-team/monitor",
+            icon: Activity,
+            capability: "can_run_campaigns",
+          },
+          {
+            name: "AI Activity",
+            href: "/red-team/monitor/live",
+            icon: Activity,
+            capability: "can_run_campaigns",
+          },
         ],
       },
       { name: "Guard capabilities", href: "/guides/guard-capabilities", icon: Shield },

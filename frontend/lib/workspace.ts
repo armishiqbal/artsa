@@ -37,12 +37,12 @@ const L = {
   analytics: { name: "Analytics", href: "/analytics", icon: BarChart3 },
   logs: { name: "Logs", href: "/logs", icon: ScrollText },
   topology: { name: "Topology", href: "/dashboard/topology", icon: Network },
-  wargame: { name: "Wargame", href: "/campaigns", icon: Swords },
-  sandbox: { name: "Attack Sandbox", href: "/sandbox", icon: Crosshair },
+  wargame: { name: "Red Team", href: "/red-team", icon: Swords },
+  sandbox: { name: "Attack Lab", href: "/red-team/lab", icon: Crosshair },
   capabilities: { name: "Guard capabilities", href: "/guides/guard-capabilities", icon: Shield },
   rag: { name: "RAG Scanner", href: "/rag-scanner", icon: Database },
-  library: { name: "Attack Library", href: "/library", icon: BookOpen },
-  replay: { name: "Replay", href: "/replay", icon: FileCode },
+  library: { name: "Attack Library", href: "/red-team/library", icon: BookOpen },
+  replay: { name: "Live Monitor", href: "/red-team/monitor", icon: FileCode },
   risks: { name: "Agentic Risks", href: "/risks", icon: ShieldAlert },
   reports: { name: "Reports", href: "/reports", icon: FileText },
   policies: { name: "Policies", href: "/admin/policies", icon: Shield },
@@ -94,14 +94,14 @@ export function workspaceFor(pathname: string): WorkspaceContext {
   if (match(pathname, "/logs")) {
     return { related: [L.dash, L.replay, L.risks], next: L.replay, hint: "Filter severity · click a row for replay" };
   }
-  if (match(pathname, "/campaigns")) {
+  if (match(pathname, "/red-team") || match(pathname, "/campaigns")) {
     return { related: [L.library, L.sandbox, L.reports], next: L.library, hint: HINT };
   }
   if (match(pathname, "/sandbox")) {
     return {
       related: [L.library, L.rag, L.start],
       next: L.start,
-      hint: "Sandbox tests the guard — ingest wires Command Center",
+      hint: "Attack Lab tests the guard — ingest wires Command Center",
     };
   }
   if (match(pathname, "/rag-scanner")) {

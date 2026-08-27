@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { ActionSlice } from "@/lib/enterpriseAnalytics";
-import { CHART_AXIS_TICK, CHART_GRID, CHART_TOOLTIP_STYLE } from "@/lib/chartTheme";
+import { CHART_AXIS_TICK, CHART_GRID, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 export default function ActionMixChartInner({ data }: { data: ActionSlice[] }) {
   return (
@@ -27,7 +27,7 @@ export default function ActionMixChartInner({ data }: { data: ActionSlice[] }) {
             tickLine={false}
             width={28}
           />
-          <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={(v: number) => [v, "Events"]} />
+          <Tooltip {...CHART_TOOLTIP_PROPS} formatter={(v: number) => [v, "Events"]} />
           <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
             {data.map((entry) => (
               <Cell key={entry.key} fill={entry.fill} />

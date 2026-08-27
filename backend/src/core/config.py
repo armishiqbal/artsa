@@ -108,6 +108,10 @@ class Settings(BaseSettings):
     ARTSA_OIDC_DEFAULT_ROLE: str | None = None
     ARTSA_CORS_ORIGINS: str = "*"
     ARTSA_RATE_LIMIT_RPM: int = 600
+    # Phase 6 — tighter buckets for expensive Situation / baseline APIs (0=off).
+    SITUATION_EVAL_PER_MIN: int = 60
+    SITUATION_LLM_PER_MIN: int = 10
+    BASELINE_STARTS_PER_HOUR: int = 6
     # Short-lived, single-use WebSocket auth tickets. ARTSA_WS_TICKET_SECRET
     # signs the ticket; falls back to SECRET_KEY when unset.
     ARTSA_WS_TICKET_SECRET: str | None = None
@@ -119,6 +123,8 @@ class Settings(BaseSettings):
     WARM_BENCHMARK_ON_START: bool = False
     SEED_ATTACK_LIBRARY_ON_START: bool = False
     SCHEDULED_ABLATION_INTERVAL_SEC: int = 0  # 0=disabled; e.g. 3600 for hourly refresh
+    # In-process baseline schedule checker (0=disabled). 3600 = hourly look for due weekly jobs.
+    BASELINE_SCHEDULE_TICK_SEC: int = 3600
 
     # ── Supabase (optional managed Postgres) ────────────────────────────
     SUPABASE_URL: str | None = None

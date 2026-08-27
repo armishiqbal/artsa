@@ -21,6 +21,7 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
         {
             "GET:",
             "POST:/ingest",
+            "POST:/situations",
             "POST:/forensics",
             "POST:/sessions",
             "PATCH:/auth",
@@ -31,6 +32,7 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
         {
             "GET:",
             "POST:/ingest",
+            "POST:/situations",
             "POST:/campaigns",
             "POST:/benchmark",
             "PATCH:/auth",

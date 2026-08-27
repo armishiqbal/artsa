@@ -44,7 +44,12 @@ class TelemetryBus:
         self._subscribers.discard(queue)
 
     def get_history(self, limit: int = 100) -> list[dict[str, Any]]:
-        return list(self._history)[-limit:]
+        # Newest first — dashboards/logs expect live head of the stream.
+        items = list(self._history)
+        if limit < len(items):
+            items = items[-limit:]
+        items.reverse()
+        return items
 
     def get_severity_counts(self) -> dict[str, int]:
         return dict(self._severity_counts)

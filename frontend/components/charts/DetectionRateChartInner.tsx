@@ -12,13 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { DetectionPoint } from "@/lib/detectionAnalytics";
-import {
-  CHART_AXIS_TICK,
-  CHART_GRID,
-  CHART_MUTED,
-  CHART_PRIMARY,
-  CHART_TOOLTIP_STYLE,
-} from "@/lib/chartTheme";
+import { CHART_AXIS_TICK, CHART_GRID, CHART_MUTED, CHART_PRIMARY, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 export default function DetectionRateChartInner({ data }: { data: DetectionPoint[] }) {
   return (
@@ -48,7 +42,7 @@ export default function DetectionRateChartInner({ data }: { data: DetectionPoint
             tickFormatter={(v) => `${v}%`}
           />
           <Tooltip
-            contentStyle={CHART_TOOLTIP_STYLE}
+            {...CHART_TOOLTIP_PROPS}
             formatter={(value: number, name: string) => [
               `${Number(value).toFixed(1)}%`,
               name === "artsaRate" ? "ARTSA detection" : "Static baseline",

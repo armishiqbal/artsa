@@ -26,6 +26,13 @@ function turn(partial: Partial<TranscriptTurn> & { roundNumber: number }): Trans
     bypassDepth: 3,
     reasoning: "",
     severity: "HIGH",
+    timestamp: null,
+    durationMs: 0,
+    latencyMs: 0,
+    informationLeakageScore: 0,
+    mitreAtlas: null,
+    owaspLlm: null,
+    guardrailTrace: [],
     ...partial,
   };
 }

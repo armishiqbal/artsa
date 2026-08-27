@@ -70,7 +70,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return False
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path.endswith("/health"):
+        if request.method == "OPTIONS" or request.url.path.endswith("/health"):
             return await call_next(request)
 
         tenant_id = self._tenant_key(request)
@@ -82,6 +82,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 content={
                     "detail": f"Rate limit exceeded ({self.rate_limit} requests/minute per tenant)"
                 },
+                headers={"Retry-After": "60"},
             )
         if redis_result is None and not self._check_memory(tenant_id):
             return JSONResponse(
@@ -89,6 +90,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 content={
                     "detail": f"Rate limit exceeded ({self.rate_limit} requests/minute per tenant)"
                 },
+                headers={"Retry-After": "60"},
             )
 
         return await call_next(request)

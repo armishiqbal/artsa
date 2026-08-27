@@ -11,14 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { VolumeBucket } from "@/lib/enterpriseAnalytics";
-import {
-  CHART_AXIS_TICK,
-  CHART_CRITICAL,
-  CHART_GRID,
-  CHART_HIGH,
-  CHART_MUTED,
-  CHART_TOOLTIP_STYLE,
-} from "@/lib/chartTheme";
+import { CHART_AXIS_TICK, CHART_CRITICAL, CHART_GRID, CHART_HIGH, CHART_MUTED, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 
 export default function VolumeStackedChartInner({ data }: { data: VolumeBucket[] }) {
   const rows = data.map((b) => ({
@@ -33,7 +26,7 @@ export default function VolumeStackedChartInner({ data }: { data: VolumeBucket[]
           <CartesianGrid {...CHART_GRID} />
           <XAxis dataKey="label" tick={CHART_AXIS_TICK} axisLine={false} tickLine={false} minTickGap={20} />
           <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} axisLine={false} tickLine={false} width={28} />
-          <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+          <Tooltip {...CHART_TOOLTIP_PROPS} />
           <Legend wrapperStyle={{ fontSize: 11, color: "#7c7c7c" }} />
           <Bar dataKey="critical" stackId="v" fill={CHART_CRITICAL} name="Critical" maxBarSize={36} />
           <Bar dataKey="high" stackId="v" fill={CHART_HIGH} name="High" maxBarSize={36} />

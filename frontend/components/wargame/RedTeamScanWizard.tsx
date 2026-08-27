@@ -79,7 +79,7 @@ export function RedTeamScanWizard({
   useEffect(() => {
     if (isRunning && campaignId) {
       onOpenChange(false);
-      router.push(`/campaigns/${campaignId}`);
+      router.push(`/red-team/monitor/${campaignId}`);
     }
   }, [isRunning, campaignId, router, onOpenChange]);
 
@@ -165,7 +165,7 @@ export function RedTeamScanWizard({
             ) : providers.length === 0 ? (
               <p className="text-[13px] text-[#7c7c7c]">
                 No providers.{" "}
-                <Link href="/campaigns/targets" className="text-[#6798ff] hover:underline">
+                <Link href="/red-team/surface" className="text-[#6798ff] hover:underline">
                   Add a target
                 </Link>
               </p>
