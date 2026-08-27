@@ -10,7 +10,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_current_tenant
@@ -337,7 +344,7 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest) -> No
 
             emit_campaign_status(campaign_id, "FAILED", agents=default_agents("idle"))
         except Exception:
-            pass
+            logger.exception("Failed to emit FAILED status for campaign %s", campaign_id)
 
 
 @router.get("/campaigns")

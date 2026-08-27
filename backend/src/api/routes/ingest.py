@@ -96,8 +96,8 @@ async def _handle_ingest_body(
             status_code=200,
             content={
                 "ok": True,
-                "allowed": True if monitor_only else False,
-                "blocked": False if monitor_only else True,
+                "allowed": bool(monitor_only),
+                "blocked": not monitor_only,
                 "action": "NONE" if monitor_only else "KILL",
                 "status": "monitored" if monitor_only else "blocked",
                 "mode": "monitor" if monitor_only else "enforce",
