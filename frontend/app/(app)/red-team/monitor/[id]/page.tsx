@@ -181,17 +181,17 @@ function TheaterInner() {
       <div className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border px-3 py-2.5">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Campaign live · attack theater
+            Live campaign run
           </p>
           <p className="mt-0.5 text-[14px] font-medium text-foreground">
             {campaign?.name || id.slice(0, 8)}
           </p>
           <p className="mt-0.5 text-[12px] text-muted-foreground">
-            Watch Red Team → Target → Judge as rounds launch.{" "}
+            Watch attack → target → judge as rounds play. For all agent traffic, open{" "}
             <Link href="/red-team/monitor/live" className="underline-offset-2 hover:underline">
-              AI Activity
-            </Link>{" "}
-            is for connected-app ingest.
+              Activity
+            </Link>
+            .
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -201,7 +201,7 @@ function TheaterInner() {
               ? ` · ${campaign.rounds_completed}/${campaign.total_rounds}`
               : ""}
             {" · "}
-            {transport === "ws" ? "ws" : transport === "poll" ? "poll" : "off"}
+            {transport === "ws" ? "live" : transport === "poll" ? "refreshing" : "offline"}
           </span>
           <Button
             size="sm"

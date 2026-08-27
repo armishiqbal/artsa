@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useCampaigns } from "@/lib/hooks/useCampaigns";
 import { parseTopFindings } from "@/lib/campaignTranscript";
 
-/** Scoring view from live campaign judge verdicts — no “Admin · soon” demo tiles. */
+/** Scoring view from live campaign judge verdicts — actions to produce the next scores. */
 export default function ScoringPage() {
   const { campaigns, loading } = useCampaigns();
 
@@ -17,10 +17,12 @@ export default function ScoringPage() {
     let withReasoning = 0;
     let successSum = 0;
     let defenseSum = 0;
+    let hotCampaignId: string | null = null;
 
     for (const c of campaigns) {
       for (const f of parseTopFindings(c.summary ?? null)) {
         scored += 1;
+        if (!hotCampaignId) hotCampaignId = c.id;
         const v = String(f.verdict || "UNKNOWN").toUpperCase();
         verdicts.set(v, (verdicts.get(v) ?? 0) + 1);
         const sev = String(f.severity || "MEDIUM").toUpperCase();
@@ -38,33 +40,49 @@ export default function ScoringPage() {
       avgDefense: scored ? Math.round((defenseSum / scored) * 1000) / 10 : null,
       verdicts: [...verdicts.entries()].sort((a, b) => b[1] - a[1]),
       severities: [...severities.entries()].sort((a, b) => b[1] - a[1]),
+      hotCampaignId,
     };
   }, [campaigns]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Scoring & Judges</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Live judge outputs from campaign API summaries — not placeholder scorer cards.
-          </p>
+        <p className="max-w-xl text-[13px] text-muted-foreground">
+          Judge outputs from live campaigns — probe or launch to score the next round.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" asChild>
+            <Link href="/red-team/lab">Probe in Lab</Link>
+          </Button>
+          <Button size="sm" asChild>
+            <Link href="/red-team/campaigns/new">Launch campaign</Link>
+          </Button>
+          {stats.hotCampaignId ? (
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/red-team/monitor/${stats.hotCampaignId}?follow=1`}>Open theater</Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/red-team/monitor">Monitor</Link>
+            </Button>
+          )}
         </div>
-        <Button size="sm" variant="outline" asChild>
-          <Link href="/red-team/monitor">Live Monitor</Link>
-        </Button>
       </div>
 
       {loading && campaigns.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">Loading campaigns…</p>
       ) : stats.scored === 0 ? (
-        <p className="rounded-md border border-dashed border-border px-4 py-8 text-center text-[13px] text-muted-foreground">
-          No scored rounds yet.{" "}
-          <Link href="/red-team/campaigns/new" className="underline-offset-2 hover:underline">
-            Launch a campaign
-          </Link>{" "}
-          to populate judge verdicts.
-        </p>
+        <div className="rounded-md border border-dashed border-border px-4 py-8 text-center">
+          <p className="text-[13px] text-muted-foreground">No scored rounds yet.</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <Button size="sm" asChild>
+              <Link href="/red-team/lab">Probe now</Link>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/red-team/campaigns/new">Launch campaign</Link>
+            </Button>
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

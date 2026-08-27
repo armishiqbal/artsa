@@ -72,10 +72,12 @@ describe("navigation", () => {
     const redTeam = testSection?.items.find((i) => i.name === "Red Team");
     expect(redTeam?.href).toBe("/red-team");
     expect(redTeam?.children?.map((c) => c.name)).toEqual([
-      "Attack Lab",
-      "Campaigns",
-      "Live Monitor",
-      "AI Activity",
+      "Try a message",
+      "Safety tests",
+      "Live results",
+      "Activity",
+      "Outcomes",
+      "Attack Graph",
     ]);
   });
 });

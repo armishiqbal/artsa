@@ -242,3 +242,355 @@ export function buildLiveAiActivity(
 }
 
 export { LIVE_FEED_ID };
+
+function percentile(sorted: number[], p: number): number | null {
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return sorted[idx] ?? null;
+}
+
+function mean(nums: number[]): number | null {
+  if (!nums.length) return null;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+export type LiveResearchAnalytics = {
+  n: number;
+  meanRisk: number | null;
+  medianRisk: number | null;
+  p95Risk: number | null;
+  maxRisk: number;
+  breachRate: number | null;
+  flagRate: number | null;
+  containRate: number | null;
+  criticalShare: number | null;
+  eventsPerMin: number | null;
+  riskDelta: number | null;
+  topToolShare: number | null;
+  topTool: string | null;
+  topDetector: string | null;
+  histogram: Array<{ bin: string; count: number; fill: string }>;
+  rollingRisk: Array<{ i: number; label: string; risk: number; rolling: number }>;
+  toolExposure: Array<{
+    tool: string;
+    count: number;
+    share: number;
+    meanRisk: number;
+    maxRisk: number;
+  }>;
+  agentExposure: Array<{
+    agent: string;
+    count: number;
+    share: number;
+    meanRisk: number;
+    maxRisk: number;
+  }>;
+  detectorShare: Array<{ name: string; hits: number; share: number }>;
+  outcomeMix: Array<{ name: string; value: number; fill: string }>;
+  /** Newest-first rows for the live blotter (real ingest fields only). */
+  eventRows: LiveMonitorEventRow[];
+  sessionCount: number;
+  latestAgeSec: number | null;
+  finding: string;
+  posture: "calm" | "elevated" | "critical" | "empty";
+};
+
+export type LiveMonitorEventRow = {
+  id: string;
+  ts: string;
+  ageSec: number | null;
+  agent: string;
+  tool: string;
+  session: string;
+  verdict: string;
+  action: string;
+  risk: number;
+  severity: string;
+  detectors: string[];
+  outcome: LiveOutcome;
+};
+
+function eventAgeSec(ts: string, now = Date.now()): number | null {
+  const t = Date.parse(ts);
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.round((now - t) / 1000));
+}
+
+export type LiveMonitorWindow = "all" | "15m" | "1h" | "session";
+
+/** Filter ingest events by analysis window before deriving Monitor analytics. */
+export function filterEventsByWindow(
+  events: Array<Record<string, unknown>>,
+  window: LiveMonitorWindow,
+  now = Date.now()
+): Array<Record<string, unknown>> {
+  if (window === "all" || events.length === 0) return events;
+
+  if (window === "session") {
+    const latest = events[0];
+    const session = String(latest?.session_id ?? latest?.sessionId ?? "");
+    if (!session || session === "—") return events.slice(0, 1);
+    return events.filter((e) => String(e.session_id ?? e.sessionId ?? "") === session);
+  }
+
+  const maxAgeSec = window === "15m" ? 15 * 60 : 60 * 60;
+  return events.filter((e) => {
+    const ts = String(e.timestamp ?? e.triggered_at ?? "");
+    const age = eventAgeSec(ts, now);
+    return age != null && age <= maxAgeSec;
+  });
+}
+
+export function buildLiveMonitorEventRows(
+  events: Array<Record<string, unknown>>,
+  limit = 80
+): LiveMonitorEventRow[] {
+  const now = Date.now();
+  return events.slice(0, limit).map((e, i) => {
+    const risk = Number(e.risk_score ?? 0);
+    const verdict = String(e.verdict ?? e.action ?? "");
+    const ts = String(e.timestamp ?? e.triggered_at ?? "");
+    const dets = Array.isArray(e.detectors)
+      ? (e.detectors as unknown[]).map((d) => String(d).replace(/Detector$/i, ""))
+      : [];
+    return {
+      id: String(e.event_id ?? e.id ?? `${ts}-${i}`),
+      ts,
+      ageSec: eventAgeSec(ts, now),
+      agent: String(e.agent_id ?? "—"),
+      tool: String(e.tool_name ?? "—"),
+      session: String(e.session_id ?? "—"),
+      verdict: verdict || "—",
+      action: String(e.recommended_action ?? e.action ?? "—"),
+      risk: Math.round(risk),
+      severity: String(e.severity ?? "").toUpperCase() || (risk >= 80 ? "CRITICAL" : risk >= 60 ? "HIGH" : risk >= 40 ? "MEDIUM" : "LOW"),
+      detectors: dets.slice(0, 6),
+      outcome: verdictToOutcome(verdict, risk),
+    };
+  });
+}
+
+/** Research / DS desk: rates, distribution, concentration, narrative finding. */
+export function deriveLiveResearchAnalytics(
+  events: Array<Record<string, unknown>>
+): LiveResearchAnalytics {
+  const n = events.length;
+  if (!n) {
+    return {
+      n: 0,
+      meanRisk: null,
+      medianRisk: null,
+      p95Risk: null,
+      maxRisk: 0,
+      breachRate: null,
+      flagRate: null,
+      containRate: null,
+      criticalShare: null,
+      eventsPerMin: null,
+      riskDelta: null,
+      topToolShare: null,
+      topTool: null,
+      topDetector: null,
+      histogram: [],
+      rollingRisk: [],
+      toolExposure: [],
+      agentExposure: [],
+      detectorShare: [],
+      outcomeMix: [],
+      eventRows: [],
+      sessionCount: 0,
+      latestAgeSec: null,
+      finding: "Nothing is flowing yet. Run a quick probe above, or start a campaign — activity will appear here as it arrives.",
+      posture: "empty",
+    };
+  }
+
+  const chronological = [...events].reverse();
+  const risks = chronological.map((e) => Number(e.risk_score ?? 0));
+  const sorted = [...risks].sort((a, b) => a - b);
+  const meanRisk = mean(risks);
+  const medianRisk = percentile(sorted, 50);
+  const p95Risk = percentile(sorted, 95);
+  const maxRisk = Math.max(...risks);
+
+  const mapped = telemetryToLiveMonitorEvents(events);
+  const breaches = mapped.filter((e) => e.outcome === "fail").length;
+  const flags = mapped.filter((e) => e.outcome === "flag").length;
+  const contains = mapped.filter((e) => e.outcome === "pass").length;
+  const judged = breaches + flags + contains;
+  const breachRate = judged > 0 ? round1((breaches / judged) * 100) : null;
+  const flagRate = judged > 0 ? round1((flags / judged) * 100) : null;
+  const containRate = judged > 0 ? round1((contains / judged) * 100) : null;
+
+  const sev = severityBuckets(events);
+  const criticalShare = round1((sev.CRITICAL / n) * 100);
+
+  let eventsPerMin: number | null = null;
+  const t0 = Date.parse(String(chronological[0]?.timestamp ?? chronological[0]?.triggered_at ?? ""));
+  const t1 = Date.parse(
+    String(chronological[chronological.length - 1]?.timestamp ?? chronological[chronological.length - 1]?.triggered_at ?? "")
+  );
+  if (Number.isFinite(t0) && Number.isFinite(t1) && t1 > t0) {
+    eventsPerMin = round1(n / ((t1 - t0) / 60000));
+  }
+
+  const half = Math.floor(risks.length / 2);
+  const early = mean(risks.slice(0, Math.max(1, half)));
+  const late = mean(risks.slice(half));
+  const riskDelta =
+    early != null && late != null ? round1(late - early) : null;
+
+  const bins = [
+    { bin: "0–20", lo: 0, hi: 20, fill: "#6b7280" },
+    { bin: "20–40", lo: 20, hi: 40, fill: "hsl(var(--severity-low))" },
+    { bin: "40–60", lo: 40, hi: 60, fill: "hsl(var(--severity-medium))" },
+    { bin: "60–80", lo: 60, hi: 80, fill: "hsl(var(--severity-high))" },
+    { bin: "80–100", lo: 80, hi: 101, fill: "hsl(var(--severity-critical))" },
+  ];
+  const histogram = bins.map((b) => ({
+    bin: b.bin,
+    count: risks.filter((r) => r >= b.lo && r < b.hi).length,
+    fill: b.fill,
+  }));
+
+  const window = chronological.slice(-40);
+  let rollSum = 0;
+  const rollingRisk = window.map((e, i) => {
+    const risk = Number(e.risk_score ?? 0);
+    rollSum += risk;
+    return {
+      i: i + 1,
+      label: String(i + 1),
+      risk,
+      rolling: round1(rollSum / (i + 1)),
+    };
+  });
+
+  const toolMap = new Map<string, { count: number; sum: number; maxRisk: number }>();
+  const agentMap = new Map<string, { count: number; sum: number; maxRisk: number }>();
+  const detectorMap = new Map<string, number>();
+  const sessions = new Set<string>();
+  for (const e of events) {
+    const tool = String(e.tool_name ?? "unknown");
+    const agent = String(e.agent_id ?? "unknown");
+    const risk = Number(e.risk_score ?? 0);
+    const sid = String(e.session_id ?? "");
+    if (sid) sessions.add(sid);
+    const t = toolMap.get(tool) ?? { count: 0, sum: 0, maxRisk: 0 };
+    toolMap.set(tool, {
+      count: t.count + 1,
+      sum: t.sum + risk,
+      maxRisk: Math.max(t.maxRisk, risk),
+    });
+    const a = agentMap.get(agent) ?? { count: 0, sum: 0, maxRisk: 0 };
+    agentMap.set(agent, {
+      count: a.count + 1,
+      sum: a.sum + risk,
+      maxRisk: Math.max(a.maxRisk, risk),
+    });
+    const dets = e.detectors;
+    if (Array.isArray(dets)) {
+      for (const d of dets) {
+        const name = String(d).replace(/Detector$/i, "");
+        detectorMap.set(name, (detectorMap.get(name) ?? 0) + 1);
+      }
+    }
+  }
+
+  const toolExposure = [...toolMap.entries()]
+    .map(([tool, m]) => ({
+      tool,
+      count: m.count,
+      share: round1((m.count / n) * 100),
+      meanRisk: round1(m.sum / m.count),
+      maxRisk: Math.round(m.maxRisk),
+    }))
+    .sort((a, b) => b.count - a.count || b.maxRisk - a.maxRisk)
+    .slice(0, 10);
+
+  const agentExposure = [...agentMap.entries()]
+    .map(([agent, m]) => ({
+      agent,
+      count: m.count,
+      share: round1((m.count / n) * 100),
+      meanRisk: round1(m.sum / m.count),
+      maxRisk: Math.round(m.maxRisk),
+    }))
+    .sort((a, b) => b.count - a.count || b.maxRisk - a.maxRisk)
+    .slice(0, 10);
+
+  const detHits = [...detectorMap.values()].reduce((a, b) => a + b, 0) || 1;
+  const detectorShare = [...detectorMap.entries()]
+    .map(([name, hits]) => ({ name, hits, share: round1((hits / detHits) * 100) }))
+    .sort((a, b) => b.hits - a.hits)
+    .slice(0, 8);
+
+  const topTool = toolExposure[0] ?? null;
+  const topToolShare = topTool?.share ?? null;
+  const topDetector = detectorShare[0]?.name ?? null;
+
+  const outcomeMix = [
+    { name: "Breach", value: breaches, fill: "hsl(var(--severity-critical))" },
+    { name: "Flag", value: flags, fill: "hsl(var(--severity-medium))" },
+    { name: "Contain", value: contains, fill: "hsl(var(--severity-low))" },
+  ].filter((d) => d.value > 0);
+
+  let posture: LiveResearchAnalytics["posture"] = "calm";
+  if (sev.CRITICAL > 0 || maxRisk >= 80 || (breachRate ?? 0) >= 25) posture = "critical";
+  else if (maxRisk >= 60 || (breachRate ?? 0) >= 10 || (criticalShare ?? 0) >= 10) posture = "elevated";
+
+  const parts: string[] = [];
+  parts.push(`n=${n}`);
+  if (meanRisk != null) parts.push(`μ risk ${round1(meanRisk)}`);
+  if (p95Risk != null) parts.push(`p95 ${Math.round(p95Risk)}`);
+  if (breachRate != null) parts.push(`breach ${breachRate}%`);
+  if (topTool) parts.push(`${topTool.tool} dominates ${topTool.share}% of volume`);
+  if (riskDelta != null && Math.abs(riskDelta) >= 5) {
+    parts.push(riskDelta > 0 ? `risk rising +${riskDelta}` : `risk easing ${riskDelta}`);
+  }
+  if (topDetector) parts.push(`top detector ${topDetector}`);
+  if (sessions.size) parts.push(`${sessions.size} session${sessions.size === 1 ? "" : "s"}`);
+
+  let finding: string;
+  if (posture === "critical") {
+    finding = `Critical window: ${parts.join(" · ")}. Open a live campaign theater or run another probe to pressure-test containment.`;
+  } else if (posture === "elevated") {
+    finding = `Elevated posture: ${parts.join(" · ")}. Drift is material — watch the risk path and which tools stand out.`;
+  } else {
+    finding = `Stable sample: ${parts.join(" · ")}. Keep watching; launch a campaign when you want multi-round pressure.`;
+  }
+
+  const latestTs = String(events[0]?.timestamp ?? events[0]?.triggered_at ?? "");
+
+  return {
+    n,
+    meanRisk: meanRisk != null ? round1(meanRisk) : null,
+    medianRisk: medianRisk != null ? round1(medianRisk) : null,
+    p95Risk: p95Risk != null ? round1(p95Risk) : null,
+    maxRisk: Math.round(maxRisk),
+    breachRate,
+    flagRate,
+    containRate,
+    criticalShare,
+    eventsPerMin,
+    riskDelta,
+    topToolShare,
+    topTool: topTool?.tool ?? null,
+    topDetector,
+    histogram,
+    rollingRisk,
+    toolExposure,
+    agentExposure,
+    detectorShare,
+    outcomeMix,
+    eventRows: buildLiveMonitorEventRows(events, 100),
+    sessionCount: sessions.size,
+    latestAgeSec: eventAgeSec(latestTs),
+    finding,
+    posture,
+  };
+}

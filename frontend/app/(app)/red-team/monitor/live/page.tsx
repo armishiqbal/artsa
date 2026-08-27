@@ -2,64 +2,167 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDashboardMetrics } from "@/lib/context/DashboardMetricsProvider";
-import { useConnection } from "@/lib/context/ConnectionProvider";
 import { publishRedTeamChrome } from "@/components/red-team/RedTeamShell";
-import { LiveAiActivityViz } from "@/components/red-team/LiveAiActivityViz";
 import { Button } from "@/components/ui/button";
+import { useConnection } from "@/lib/context/ConnectionProvider";
+import { useDashboardMetrics } from "@/lib/context/DashboardMetricsProvider";
 import {
-  LIVE_AGENTS,
   formatEventTime,
   type LiveMonitorEvent,
   type LiveOutcome,
 } from "@/lib/liveMonitorEvents";
 import {
-  agentsFromTelemetry,
   buildLiveAiActivity,
-  ingestDetectionStats,
+  deriveLiveResearchAnalytics,
   liveIngestStreamNewestFirst,
-  severityBuckets,
 } from "@/lib/redTeamLiveIngest";
 import { cn } from "@/lib/utils";
 
-const ROW_H = 40;
-const VIEWPORT_H = 320;
+const ROW_H = 44;
+const VIEWPORT_H = 420;
 
-function outcomeBorder(outcome: LiveOutcome | null | undefined): string {
-  if (outcome === "pass") return "border-l-[hsl(var(--severity-low))]";
-  if (outcome === "fail") return "border-l-[hsl(var(--severity-critical))]";
-  if (outcome === "flag") return "border-l-[hsl(var(--severity-medium))]";
-  return "border-l-border";
+function outcomeTone(outcome: LiveOutcome | null | undefined) {
+  if (outcome === "fail") return "fail";
+  if (outcome === "pass") return "pass";
+  if (outcome === "flag") return "flag";
+  return "neutral";
 }
 
-function RiskPulseRail({ events }: { events: LiveMonitorEvent[] }) {
-  const recent = events.slice(0, 40);
+function WorkingBlotter({
+  activity,
+  working,
+  hot,
+}: {
+  activity: ReturnType<typeof buildLiveAiActivity>;
+  working: boolean;
+  hot: boolean;
+}) {
+  const latest = activity.latest;
+  const risk = Number(latest?.risk_score ?? 0);
+  const fields = [
+    { k: "Agent", v: String(latest?.agent_id ?? "—") },
+    { k: "Tool", v: String(latest?.tool_name ?? "—") },
+    { k: "Verdict", v: String(latest?.verdict ?? latest?.action ?? "—") },
+    { k: "Action", v: String(latest?.recommended_action ?? latest?.action ?? "NONE") },
+    { k: "Risk", v: latest ? `R${Math.round(risk)}` : "—" },
+  ];
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-4 py-3",
+        working
+          ? hot
+            ? "border-[hsl(var(--severity-critical))]/55 bg-[hsl(var(--severity-critical))]/12"
+            : "border-[hsl(var(--severity-critical))]/35 bg-[hsl(var(--severity-critical))]/6"
+          : "border-border"
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              working
+                ? "animate-pulse bg-[hsl(var(--severity-critical))] shadow-[0_0_10px_hsl(var(--severity-critical)/0.6)]"
+                : "bg-muted-foreground/35"
+            )}
+          />
+          <p
+            className={cn(
+              "font-mono text-[11px] font-semibold uppercase tracking-[0.12em]",
+              working ? "text-[hsl(var(--severity-critical))]" : "text-muted-foreground"
+            )}
+          >
+            {working ? (hot ? "AI working · hot path" : "AI working") : "AI idle"}
+          </p>
+        </div>
+        <p className="font-mono text-[10px] text-muted-foreground">
+          live hop · input → agent → detect → verdict
+        </p>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {fields.map((f) => (
+          <div key={f.k} className="min-w-0">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              {f.k}
+            </p>
+            <p
+              className={cn(
+                "mt-0.5 truncate font-mono text-[13px]",
+                working && (f.k === "Risk" || f.k === "Verdict") && hot
+                  ? "text-[hsl(var(--severity-critical))]"
+                  : "text-foreground"
+              )}
+            >
+              {f.v}
+            </p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1">
+        {activity.pipeline.map((node, i) => (
+          <span key={node.id} className="flex items-center gap-1">
+            <span
+              className={cn(
+                "rounded-sm border px-2 py-1 font-mono text-[10px]",
+                node.hot
+                  ? "border-[hsl(var(--severity-critical))]/50 text-[hsl(var(--severity-critical))]"
+                  : node.active
+                    ? "border-border text-foreground"
+                    : "border-border/50 text-muted-foreground"
+              )}
+            >
+              {node.label}
+            </span>
+            {i < activity.pipeline.length - 1 ? (
+              <span className="text-muted-foreground" aria-hidden>
+                →
+              </span>
+            ) : null}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OutcomePulse({ events }: { events: LiveMonitorEvent[] }) {
+  const recent = events.slice(0, 64);
   if (!recent.length) {
     return (
-      <div className="flex h-14 items-center justify-center rounded-md border border-dashed border-border text-[12px] text-muted-foreground">
-        Waiting for live AI activity…
+      <div className="flex h-16 items-center justify-center rounded-md border border-dashed border-[hsl(var(--severity-critical))]/25 text-[12px] text-muted-foreground">
+        Waiting for AI activity…
       </div>
     );
   }
+  const fails = recent.filter((e) => e.outcome === "fail").length;
+  const flags = recent.filter((e) => e.outcome === "flag").length;
+  const passes = recent.filter((e) => e.outcome === "pass").length;
+
   return (
-    <div className="rounded-md border border-border p-3">
-      <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-        <span>Live event pulse</span>
-        <span className="font-mono tabular-nums">{recent.length} recent</span>
+    <div className="rounded-md border border-[hsl(var(--severity-critical))]/30 bg-[#0c0c0c] p-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--severity-critical))]">
+          Activity sequence · newest left
+        </p>
+        <p className="font-mono text-[10px] text-muted-foreground">
+          fail {fails} · flag {flags} · pass {passes}
+        </p>
       </div>
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <div className="flex gap-0.5 overflow-x-auto pb-0.5">
         {recent.map((e) => {
-          const tone =
-            e.outcome === "fail" ? "bad" : e.outcome === "pass" ? "ok" : "warn";
+          const tone = outcomeTone(e.outcome);
           return (
             <div
               key={`${e.seq}-${e.ts}`}
               title={e.summary}
               className={cn(
-                "h-9 w-2.5 shrink-0 rounded-sm",
-                tone === "bad" && "animate-pulse bg-[hsl(var(--severity-critical))]",
-                tone === "ok" && "bg-[hsl(var(--severity-low))]",
-                tone === "warn" && "bg-[hsl(var(--severity-medium))]"
+                "h-10 w-2 shrink-0 rounded-[1px]",
+                tone === "fail" && "animate-pulse bg-[hsl(var(--severity-critical))]",
+                tone === "pass" && "bg-[hsl(var(--severity-low))]",
+                tone === "flag" && "bg-[hsl(var(--severity-medium))]",
+                tone === "neutral" && "bg-muted-foreground/25"
               )}
             />
           );
@@ -69,7 +172,7 @@ function RiskPulseRail({ events }: { events: LiveMonitorEvent[] }) {
   );
 }
 
-function VirtualStream({ events }: { events: LiveMonitorEvent[] }) {
+function EvidenceStream({ events }: { events: LiveMonitorEvent[] }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
 
@@ -88,42 +191,63 @@ function VirtualStream({ events }: { events: LiveMonitorEvent[] }) {
   return (
     <div
       ref={scrollerRef}
-      className="relative overflow-y-auto rounded-md border border-border bg-[#0a0a0a]/40"
+      className="relative overflow-y-auto rounded-md border border-[hsl(var(--severity-critical))]/25 bg-[#080808]"
       style={{ height: VIEWPORT_H }}
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       role="log"
       aria-live="polite"
-      aria-label="Live AI activity stream"
+      aria-label="Live AI working evidence stream"
     >
       {total === 0 ? (
-        <p className="px-4 py-12 text-center text-[13px] text-muted-foreground">
-          No live AI activity yet. Connect any app to{" "}
-          <span className="font-mono">/api/v1/ingest</span> (SDK or HTTP) and send traffic — every
-          scan appears here with full visualization.
-        </p>
+        <div className="space-y-3 px-4 py-12 text-center">
+          <p className="text-[14px] text-foreground">No AI activity yet</p>
+          <p className="mx-auto max-w-sm text-[13px] text-muted-foreground">
+            When agents are tested, each scan shows up here as it happens. Start from Attack Lab or
+            run a campaign.
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Link
+              href="/red-team/lab"
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-[12px] text-foreground hover:bg-muted/40"
+            >
+              Open Attack Lab
+            </Link>
+            <Link
+              href="/red-team/campaigns/new"
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-[12px] text-foreground hover:bg-muted/40"
+            >
+              Start a campaign
+            </Link>
+          </div>
+        </div>
       ) : (
         <div style={{ height: total * ROW_H, position: "relative" }}>
           {slice.map((e, i) => {
             const idx = start + i;
+            const tone = outcomeTone(e.outcome);
             return (
               <div
                 key={`${e.seq}-${e.ts}-${e.summary}`}
                 className={cn(
-                  "absolute left-0 right-0 flex items-start gap-3 border-l-2 px-3 py-2 text-[13px]",
-                  outcomeBorder(e.outcome)
+                  "absolute left-0 right-0 grid grid-cols-[4.75rem_minmax(0,1fr)_3.5rem] items-center gap-2 border-l-2 px-3 text-[13px]",
+                  tone === "fail" && "border-l-[hsl(var(--severity-critical))]",
+                  tone === "pass" && "border-l-[hsl(var(--severity-low))]",
+                  tone === "flag" && "border-l-[hsl(var(--severity-medium))]",
+                  tone === "neutral" && "border-l-[hsl(var(--severity-critical))]/30"
                 )}
                 style={{ top: idx * ROW_H, height: ROW_H }}
               >
-                <span className="w-[4.5rem] shrink-0 font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-[11px] text-muted-foreground">
                   {formatEventTime(e.ts)}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-foreground">{e.summary}</span>
+                <span className="truncate text-foreground">{e.summary}</span>
                 <span
                   className={cn(
-                    "shrink-0 font-mono text-[10px] uppercase",
-                    e.outcome === "fail" && "text-[hsl(var(--severity-critical))]",
-                    e.outcome === "pass" && "text-[hsl(var(--severity-low))]",
-                    e.outcome === "flag" && "text-[hsl(var(--severity-medium))]"
+                    "text-right font-mono text-[10px] uppercase",
+                    tone === "fail" && "text-[hsl(var(--severity-critical))]",
+                    tone === "pass" && "text-[hsl(var(--severity-low))]",
+                    tone === "flag" && "text-[hsl(var(--severity-medium))]",
+                    tone === "neutral" && "text-muted-foreground"
                   )}
                 >
                   {e.outcome ?? "—"}
@@ -137,17 +261,20 @@ function VirtualStream({ events }: { events: LiveMonitorEvent[] }) {
   );
 }
 
-/** Full live AI activity theater — path, charts, agents, detectors, stream. */
+/** AI Activity — red live working console; evidence stream for analysts on-call. */
 export default function RedTeamLiveIngestMonitorPage() {
   const { liveEvents, connected, metrics } = useDashboardMetrics();
   const { apiOnline, wsConnected } = useConnection();
 
   const stream = useMemo(() => liveIngestStreamNewestFirst(liveEvents), [liveEvents]);
-  const agents = useMemo(() => agentsFromTelemetry(liveEvents), [liveEvents]);
-  const stats = useMemo(() => ingestDetectionStats(liveEvents), [liveEvents]);
-  const sev = useMemo(() => severityBuckets(liveEvents), [liveEvents]);
   const activity = useMemo(() => buildLiveAiActivity(liveEvents), [liveEvents]);
+  const research = useMemo(() => deriveLiveResearchAnalytics(liveEvents), [liveEvents]);
   const live = apiOnline && (connected || wsConnected);
+  const working = live && stream.length > 0;
+  const hot =
+    research.posture === "critical" ||
+    stream[0]?.outcome === "fail" ||
+    (metrics.max_risk_score || 0) >= 80;
 
   useEffect(() => {
     publishRedTeamChrome(
@@ -158,143 +285,146 @@ export default function RedTeamLiveIngestMonitorPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-12rem)] flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">AI Activity</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Live traffic from any application wired to ARTSA ingest. Campaign attack rounds live
-            under Campaign Monitor.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-[11px]",
-              live
-                ? "border-[hsl(var(--severity-low-border))] text-[hsl(var(--severity-low))]"
-                : "border-border text-muted-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                live ? "animate-pulse bg-[hsl(var(--severity-low))]" : "bg-muted-foreground/40"
-              )}
-            />
-            {live ? "LIVE" : "OFFLINE"}
-            {" · "}
-            {connected || wsConnected ? "ws" : "poll"}
-            {" · "}
-            {stats.total} evt
-          </span>
-          <Button size="sm" variant="outline" asChild>
-            <Link href="/red-team/monitor">Monitor hub</Link>
-          </Button>
-          <Button size="sm" variant="outline" asChild>
-            <Link href="/red-team/campaigns/new">Run campaign</Link>
-          </Button>
-          <Button size="sm" variant="outline" asChild>
-            <Link href="/dashboard">Command Center</Link>
-          </Button>
-        </div>
+      <div className="flex justify-end">
+        <Button size="sm" variant="outline" asChild>
+          <Link href="/red-team/monitor">Open Monitor</Link>
+        </Button>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {(
-          [
-            ["Events", String(stats.total)],
-            ["Detect", stats.detectPct != null ? `${stats.detectPct}%` : "—"],
-            ["Max risk", String(Math.round(metrics.max_risk_score || 0))],
-            [
-              "Critical",
-              String(sev.CRITICAL),
-            ],
-          ] as const
-        ).map(([label, value]) => (
-          <div key={label} className="rounded-md border border-border px-3 py-2.5">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              {label}
-            </p>
-            <p
-              className={cn(
-                "mt-0.5 font-mono text-[20px] font-semibold tabular-nums",
-                label === "Critical" && sev.CRITICAL > 0
-                  ? "text-[hsl(var(--severity-critical))]"
-                  : "text-foreground"
-              )}
-            >
-              {value}
-            </p>
-          </div>
-        ))}
+      <WorkingBlotter activity={activity} working={working} hot={hot} />
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Mini label="Window n" value={String(research.n)} />
+        <Mini
+          label="Breach %"
+          value={research.breachRate != null ? `${research.breachRate}%` : "—"}
+          hot={(research.breachRate ?? 0) >= 20}
+        />
+        <Mini label="μ risk" value={research.meanRisk != null ? String(research.meanRisk) : "—"} />
+        <Mini
+          label="p95"
+          value={research.p95Risk != null ? String(research.p95Risk) : "—"}
+          hot={(research.p95Risk ?? 0) >= 80}
+        />
+        <Mini
+          label="Δ risk"
+          value={
+            research.riskDelta == null
+              ? "—"
+              : research.riskDelta > 0
+                ? `+${research.riskDelta}`
+                : String(research.riskDelta)
+          }
+          hot={(research.riskDelta ?? 0) > 8}
+        />
       </div>
 
-      <RiskPulseRail events={stream} />
+      <OutcomePulse events={stream} />
 
-      <div className="flex flex-wrap items-center gap-4 rounded-md border border-border px-3 py-2">
-        {LIVE_AGENTS.map((a) => {
-          const st = agents[a.id] ?? "idle";
-          return (
-            <div key={a.id} className="flex items-center gap-1.5 text-[11px]">
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  st === "running" && "animate-pulse bg-[#6798ff]",
-                  st === "done" && "bg-[hsl(var(--severity-low))]",
-                  st === "idle" && "bg-muted-foreground/35"
-                )}
-              />
-              <span className="text-muted-foreground">{a.label}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Full AI activity visualization */}
-      <LiveAiActivityViz model={activity} />
-
-      {/* Stream + severity */}
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_200px]">
         <section className="min-w-0 space-y-2">
           <div className="flex items-baseline justify-between">
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Live activity stream
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--severity-critical))]">
+              Evidence stream
             </h3>
-            <span className="font-mono text-[10px] text-muted-foreground">{stream.length}</span>
+            <span className="font-mono text-[10px] text-muted-foreground">{stream.length} rows</span>
           </div>
-          <VirtualStream events={stream} />
+          <EvidenceStream events={stream} />
         </section>
 
-        <aside className="rounded-md border border-border px-3 py-3 lg:sticky lg:top-2 lg:self-start">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Severity mix
-          </p>
-          <div className="space-y-2 font-mono text-[11px]">
-            {(
-              [
-                ["CRITICAL", sev.CRITICAL, "bg-[hsl(var(--severity-critical))]"],
-                ["HIGH", sev.HIGH, "bg-[hsl(var(--severity-high))]"],
-                ["MEDIUM", sev.MEDIUM, "bg-[hsl(var(--severity-medium))]"],
-                ["LOW", sev.LOW, "bg-muted-foreground/40"],
-              ] as const
-            ).map(([label, n, bar]) => {
-              const pct = stats.total > 0 ? Math.round((n / stats.total) * 100) : 0;
-              return (
-                <div key={label}>
-                  <div className="mb-0.5 flex justify-between">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="text-foreground">{n}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div className={cn("h-full rounded-full", bar)} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+        <aside className="space-y-3 lg:sticky lg:top-2 lg:self-start">
+          <div className="rounded-md border border-[hsl(var(--severity-critical))]/25 px-3 py-3">
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Live mix
+            </p>
+            <div className="space-y-2.5 font-mono text-[11px]">
+              {research.outcomeMix.length === 0 ? (
+                <p className="text-muted-foreground">No outcomes yet</p>
+              ) : (
+                research.outcomeMix.map((o) => {
+                  const pct = research.n > 0 ? Math.round((o.value / research.n) * 100) : 0;
+                  return (
+                    <div key={o.name}>
+                      <div className="mb-0.5 flex justify-between">
+                        <span className="text-muted-foreground">{o.name}</span>
+                        <span className="text-foreground">
+                          {o.value} · {pct}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, background: o.fill }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
+
+          <div className="rounded-md border border-border px-3 py-3">
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Hot tools
+            </p>
+            {research.toolExposure.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">—</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {research.toolExposure.slice(0, 5).map((t) => (
+                  <li key={t.tool} className="flex justify-between gap-2 font-mono text-[11px]">
+                    <span className="truncate text-muted-foreground">{t.tool}</span>
+                    <span
+                      className={cn(
+                        "shrink-0 tabular-nums",
+                        t.maxRisk >= 80
+                          ? "text-[hsl(var(--severity-critical))]"
+                          : "text-foreground"
+                      )}
+                    >
+                      R{t.maxRisk}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {research.finding && research.posture !== "empty" ? (
+            <p className="rounded-md border border-border px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-[hsl(var(--severity-critical))]">
+                Note
+              </span>
+              <br />
+              {research.finding}
+            </p>
+          ) : null}
         </aside>
       </div>
+    </div>
+  );
+}
+
+function Mini({ label, value, hot }: { label: string; value: string; hot?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-2.5 py-2",
+        hot && value !== "—"
+          ? "border-[hsl(var(--severity-critical))]/35"
+          : "border-border"
+      )}
+    >
+      <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "mt-0.5 font-mono text-[16px] font-semibold tabular-nums",
+          hot && value !== "—" ? "text-[hsl(var(--severity-critical))]" : "text-foreground"
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }

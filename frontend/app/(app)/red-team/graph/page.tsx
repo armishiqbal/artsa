@@ -155,10 +155,8 @@ function AttackGraphInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Attack path analysis</h2>
-          <p className="mt-1 max-w-xl text-[13px] text-muted-foreground">
-            Kill-chain view of where adversarial traffic crossed agent control planes — Detection,
-            Prevention, and Data leak stay independent.
+          <p className="max-w-xl text-[13px] text-muted-foreground">
+            Kill-chain from the selected campaign — open the theater or retest a hot stage in Lab.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -183,10 +181,16 @@ function AttackGraphInner() {
             )}
           </select>
           {campaign ? (
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/red-team/monitor/${campaign.id}`}>Open theater</Link>
+            <Button asChild size="sm">
+              <Link href={`/red-team/monitor/${campaign.id}?follow=1`}>Open theater</Link>
             </Button>
           ) : null}
+          <Button asChild size="sm" variant="outline">
+            <Link href="/red-team/lab">Retest in Lab</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/red-team/campaigns/new">Launch</Link>
+          </Button>
         </div>
       </div>
 

@@ -1,49 +1,24 @@
-/** Red Team v2 navigation — security-testing IA. */
+/** Red Team workspace rail — core workflow only. */
 
 export type RedTeamNavGroup = {
   label: string;
   items: { name: string; href: string; exact?: boolean }[];
 };
 
+/** Subfolders: Run → lab/campaigns, Watch → monitor/activity. Reports live in main app nav. */
 export const redTeamNav: RedTeamNavGroup[] = [
   {
-    label: "Red Team",
+    label: "Test",
     items: [
-      { name: "Attack Lab", href: "/red-team/lab" },
-      { name: "Campaigns", href: "/red-team/campaigns" },
-      { name: "Live Monitor", href: "/red-team/monitor", exact: true },
-      { name: "AI Activity", href: "/red-team/monitor/live" },
-      { name: "Attack Graph", href: "/red-team/graph" },
+      { name: "Try a message", href: "/red-team/lab" },
+      { name: "Safety tests", href: "/red-team/campaigns" },
     ],
   },
   {
-    label: "Findings",
+    label: "Watch",
     items: [
-      { name: "Findings", href: "/red-team/findings" },
-      { name: "Evidence", href: "/red-team/evidence" },
-    ],
-  },
-  {
-    label: "Analysis",
-    items: [
-      { name: "Coverage", href: "/red-team/coverage" },
-      { name: "Attack Surface", href: "/red-team/surface" },
-      { name: "Result Matrix", href: "/red-team/matrix" },
-    ],
-  },
-  {
-    label: "Assets",
-    items: [
-      { name: "Scoring & Judges", href: "/red-team/scoring" },
-      { name: "Targets", href: "/red-team/targets" },
-      { name: "Library", href: "/red-team/library" },
-    ],
-  },
-  {
-    label: "Reports",
-    items: [
-      { name: "Reports", href: "/reports?module=red-team" },
-      { name: "Research", href: "/red-team/research" },
+      { name: "Live results", href: "/red-team/monitor", exact: true },
+      { name: "Activity", href: "/red-team/monitor/live" },
     ],
   },
 ];

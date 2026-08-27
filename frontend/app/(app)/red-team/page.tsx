@@ -14,6 +14,8 @@ import {
 import { KpiTile } from "@/components/red-team/KpiTile";
 import { OutcomeBadge } from "@/components/red-team/OutcomeBadge";
 import { RedTeamHomeCharts } from "@/components/red-team/RedTeamHomeCharts";
+import { RedTeamGlossary } from "@/components/red-team/RedTeamGlossary";
+import { RedTeamServiceReady } from "@/components/red-team/RedTeamServiceReady";
 import { SecurityBoundaryViz } from "@/components/red-team/SecurityBoundaryViz";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,10 +28,10 @@ import { deriveRedTeamOverview } from "@/lib/redTeamOverview";
 import { cn } from "@/lib/utils";
 
 const WORKFLOW = [
-  { href: "/red-team/lab", label: "Attack Lab", desc: "Craft a probe" },
-  { href: "/red-team/campaigns/new", label: "Campaign", desc: "Run matrix" },
-  { href: "/red-team/monitor", label: "Monitor", desc: "Watch rounds" },
-  { href: "/red-team/monitor/live", label: "AI Activity", desc: "Live ingest" },
+  { href: "/red-team/lab", label: "Attack Lab", desc: "Probe now" },
+  { href: "/red-team/campaigns/new", label: "Campaign", desc: "Launch run" },
+  { href: "/red-team/monitor", label: "Monitor", desc: "Open theaters" },
+  { href: "/red-team/monitor/live", label: "Activity", desc: "Live stream" },
   { href: "/red-team/findings", label: "Findings", desc: "Triage hits" },
 ] as const;
 
@@ -69,12 +71,15 @@ export default function RedTeamHomePage() {
 
   return (
     <div className="space-y-6">
+      <RedTeamServiceReady />
+      <RedTeamGlossary />
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Red Team</h2>
           <p className="mt-1 max-w-xl text-[13px] text-muted-foreground">
-            AI security testing posture — campaigns, detections, and live agent traffic. Charts use
-            real runs and ingest only (no demo filler).
+            Probe containment, launch campaigns, open live theaters — posture numbers support the next
+            action.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -97,10 +102,10 @@ export default function RedTeamHomePage() {
             {ingestStats.total} evt
           </span>
           <Button asChild size="sm" variant="outline">
-            <Link href="/red-team/lab">Attack Lab</Link>
+            <Link href="/red-team/lab">Probe in Lab</Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/red-team/campaigns/new">Create campaign</Link>
+            <Link href="/red-team/campaigns/new">Launch campaign</Link>
           </Button>
         </div>
       </div>
@@ -157,7 +162,7 @@ export default function RedTeamHomePage() {
         <KpiTile
           label="Live risk"
           value={Math.round(metrics.max_risk_score || 0)}
-          hint="Max ingest risk"
+          hint="Highest live risk"
           tone={(metrics.max_risk_score || 0) >= 80 ? "critical" : "neutral"}
         />
       </div>
@@ -173,7 +178,7 @@ export default function RedTeamHomePage() {
               href="/red-team/monitor/live"
               className="text-[11px] text-muted-foreground hover:text-foreground"
             >
-              Open AI Activity →
+              Open Activity →
             </Link>
           </div>
           {activity.riskSeries.length >= 2 ? (
@@ -211,10 +216,16 @@ export default function RedTeamHomePage() {
             </div>
           ) : (
             <div className="flex h-[180px] flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border text-center text-[12px] text-muted-foreground">
-              <p>No live ingest yet — wire any app to <span className="font-mono">/api/v1/ingest</span>.</p>
-              <Button size="sm" variant="outline" asChild>
-                <Link href="/get-started">Connect an app</Link>
-              </Button>
+              <p className="text-[13px] text-foreground">No live activity yet</p>
+              <p className="max-w-xs">Run a check in Attack Lab or start a campaign — risk over time will show here.</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="sm" variant="outline" asChild>
+                  <Link href="/red-team/lab">Attack Lab</Link>
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href="/red-team/campaigns/new">Start campaign</Link>
+                </Button>
+              </div>
             </div>
           )}
           {overview.untested.length > 0 ? (
@@ -259,7 +270,7 @@ export default function RedTeamHomePage() {
         {overview.posture === "mixed" && "Mixed — several attacks landed; tighten policies."}
         {overview.posture === "weak" && "Weak — breach rate is high; prioritize remediations."}
         {overview.posture === "unknown" &&
-          "Unknown — run a campaign or connect ingest to measure detection."}
+          "Unknown — run a campaign or check an attack message to measure detection."}
       </div>
 
       {/* Recent findings */}
@@ -313,7 +324,7 @@ export default function RedTeamHomePage() {
         <p className="text-[12px] text-muted-foreground">
           {overview.runningCount} campaign{overview.runningCount === 1 ? "" : "s"} running —{" "}
           <Link href="/red-team/monitor" className="underline-offset-2 hover:underline">
-            open Live Monitor
+            open Monitor
           </Link>
         </p>
       ) : null}

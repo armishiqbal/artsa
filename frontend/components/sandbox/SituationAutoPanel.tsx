@@ -5,7 +5,7 @@
  * optionally persists to Logs like ingest.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Sparkles, ShieldAlert, Bot, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,14 +50,27 @@ const EXAMPLES = [
   "What is the weather in London?",
 ];
 
-export function SituationAutoPanel({ className }: { className?: string }) {
-  const [message, setMessage] = useState(EXAMPLES[0]);
+export function SituationAutoPanel({
+  className,
+  initialMessage,
+}: {
+  className?: string;
+  /** When set (e.g. Attack Lab payload), replaces the textarea content. */
+  initialMessage?: string;
+}) {
+  const [message, setMessage] = useState(initialMessage?.trim() || EXAMPLES[0]);
   const [persist, setPersist] = useState(true);
   const [useLlm, setUseLlm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SituationResult | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (initialMessage != null && initialMessage.trim()) {
+      setMessage(initialMessage);
+    }
+  }, [initialMessage]);
 
   const run = async () => {
     setLoading(true);

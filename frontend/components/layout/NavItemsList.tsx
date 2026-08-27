@@ -91,7 +91,7 @@ function NavGroup({
         >
           {item.children!.map((child) => {
             const ChildIcon = child.icon;
-            const childActive = isNavHrefActive(pathname, child.href);
+            const childActive = isNavHrefActive(pathname, child.href, child.exact);
             return (
               <li key={`${item.href}-${child.href}-${child.name}`}>
                 <Link
@@ -153,7 +153,7 @@ export function NavItemsList({
         }
 
         const Icon = item.icon;
-        const isActive = isNavHrefActive(pathname, item.href);
+        const isActive = isNavHrefActive(pathname, item.href, item.exact);
         return (
           <li key={item.href}>
             <Link

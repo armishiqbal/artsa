@@ -42,7 +42,7 @@ const L = {
   capabilities: { name: "Guard capabilities", href: "/guides/guard-capabilities", icon: Shield },
   rag: { name: "RAG Scanner", href: "/rag-scanner", icon: Database },
   library: { name: "Attack Library", href: "/red-team/library", icon: BookOpen },
-  replay: { name: "Live Monitor", href: "/red-team/monitor", icon: FileCode },
+  replay: { name: "Monitor", href: "/red-team/monitor", icon: FileCode },
   risks: { name: "Agentic Risks", href: "/risks", icon: ShieldAlert },
   reports: { name: "Reports", href: "/reports", icon: FileText },
   policies: { name: "Policies", href: "/admin/policies", icon: Shield },

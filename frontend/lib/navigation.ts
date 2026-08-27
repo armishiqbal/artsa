@@ -16,6 +16,8 @@ import {
   FileSearch,
   ScrollText,
   FlaskConical,
+  Radio,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +28,8 @@ export interface NavItem {
   capability?: keyof import("@/lib/hooks/useAuthRole").AuthCapabilities;
   /** Nested items — parent href remains the default landing route. */
   children?: NavItem[];
+  /** When true, only exact pathname match counts as active (no prefix). */
+  exact?: boolean;
 }
 
 export interface NavSection {
@@ -34,23 +38,34 @@ export interface NavSection {
   adminOnly?: boolean;
 }
 
-export function isNavHrefActive(pathname: string, href: string): boolean {
-  if (pathname === href) return true;
-  // Exact-only for hubs that have sibling child routes under the same prefix.
+export function isNavHrefActive(pathname: string, href: string, exact?: boolean): boolean {
+  const pathOnly = href.split("?")[0] ?? href;
+  if (pathname === pathOnly) return true;
+  if (exact) return false;
+
+  // Exact-only hubs that have sibling child routes under the same prefix.
   if (
-    href === "/dashboard" ||
-    href === "/get-started" ||
-    href === "/red-team" ||
-    href === "/campaigns"
+    pathOnly === "/dashboard" ||
+    pathOnly === "/get-started" ||
+    pathOnly === "/red-team" ||
+    pathOnly === "/campaigns" ||
+    pathOnly === "/red-team/monitor"
   ) {
+    // Live Monitor owns campaign theaters (/monitor/:id) but not AI Activity (/monitor/live).
+    if (pathOnly === "/red-team/monitor") {
+      return (
+        pathname.startsWith("/red-team/monitor/") &&
+        !pathname.startsWith("/red-team/monitor/live")
+      );
+    }
     return false;
   }
-  return pathname.startsWith(`${href}/`);
+  return pathname.startsWith(`${pathOnly}/`);
 }
 
 export function isNavItemActive(pathname: string, item: NavItem): boolean {
-  if (isNavHrefActive(pathname, item.href)) return true;
-  return item.children?.some((child) => isNavHrefActive(pathname, child.href)) ?? false;
+  if (isNavHrefActive(pathname, item.href, item.exact)) return true;
+  return item.children?.some((child) => isNavHrefActive(pathname, child.href, child.exact)) ?? false;
 }
 
 /** Leaf nav entries for command palette, smoke tests, etc. */
@@ -100,27 +115,39 @@ export const navSections: NavSection[] = [
         capability: "can_run_campaigns",
         children: [
           {
-            name: "Attack Lab",
+            name: "Try a message",
             href: "/red-team/lab",
             icon: Crosshair,
             capability: "can_run_campaigns",
           },
           {
-            name: "Campaigns",
+            name: "Safety tests",
             href: "/red-team/campaigns",
             icon: FlaskConical,
             capability: "can_run_campaigns",
           },
           {
-            name: "Live Monitor",
+            name: "Live results",
             href: "/red-team/monitor",
+            icon: Radio,
+            capability: "can_run_campaigns",
+          },
+          {
+            name: "Activity",
+            href: "/red-team/monitor/live",
             icon: Activity,
             capability: "can_run_campaigns",
           },
           {
-            name: "AI Activity",
-            href: "/red-team/monitor/live",
-            icon: Activity,
+            name: "Outcomes",
+            href: "/red-team/matrix",
+            icon: BarChart3,
+            capability: "can_run_campaigns",
+          },
+          {
+            name: "Attack Graph",
+            href: "/red-team/graph",
+            icon: Waypoints,
             capability: "can_run_campaigns",
           },
         ],
