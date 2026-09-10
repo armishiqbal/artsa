@@ -49,6 +49,7 @@ function proxyTimeoutMs(path: string, method: string): number {
   if (lower.includes("playground/evaluate") || lower.includes("rag")) {
     return LONG_PROXY_TIMEOUT_MS;
   }
+  if (lower.includes("playground/chat")) return LONG_PROXY_TIMEOUT_MS;
   if (method !== "GET" && method !== "HEAD" && lower.includes("providers")) {
     return 8_000;
   }
@@ -121,6 +122,19 @@ async function proxy(
       signal: AbortSignal.timeout(timeoutMs),
     });
 
+    // SSE must remain a stream. Buffering it here would defeat the Playground
+    // output holdback UX and can expose an incomplete response only after the
+    // upstream has finished.
+    if (path.toLowerCase().includes("playground/chat") && res.body) {
+      return new NextResponse(res.body, {
+        status: res.status,
+        headers: {
+          "content-type": res.headers.get("content-type") || "text/event-stream",
+          "cache-control": "no-store",
+          "x-artsa-session-id": res.headers.get("x-artsa-session-id") || "",
+        },
+      });
+    }
     const responseBody = await res.arrayBuffer();
     return new NextResponse(responseBody, {
       status: res.status,

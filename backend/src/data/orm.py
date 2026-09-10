@@ -429,3 +429,29 @@ class RuntimeEnforcementAuditORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+class PlaygroundRunAuditORM(Base):
+    """Digest-only evidence and quota accounting for AI Security Playground."""
+
+    __tablename__ = "playground_run_audit"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(255), index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    session_id: Mapped[str] = mapped_column(String(36), index=True)
+    mode: Mapped[str] = mapped_column(String(16))
+    channel: Mapped[str] = mapped_column(String(32))
+    provider_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    request_sha256: Mapped[str] = mapped_column(String(64))
+    response_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    action: Mapped[str] = mapped_column(String(32))
+    findings: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    estimated_tokens: Mapped[bool] = mapped_column(Boolean, default=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )

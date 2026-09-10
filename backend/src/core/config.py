@@ -132,6 +132,13 @@ class Settings(BaseSettings):
     SITUATION_EVAL_PER_MIN: int = 60
     SITUATION_LLM_PER_MIN: int = 10
     BASELINE_STARTS_PER_HOUR: int = 6
+    # AI Security Playground: interactive live-provider runs are deliberately
+    # bounded independently of the general API limit.  The limits are tenant
+    # scoped; raw playground content is never used for accounting.
+    ARTSA_PLAYGROUND_USER_RPM: int = 10
+    ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS: int = 250
+    ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS: int = 500_000
+    ARTSA_PLAYGROUND_MAX_OUTPUT_TOKENS: int = 512
     # Short-lived, single-use WebSocket auth tickets. ARTSA_WS_TICKET_SECRET
     # signs the ticket; falls back to SECRET_KEY when unset.
     ARTSA_WS_TICKET_SECRET: str | None = None

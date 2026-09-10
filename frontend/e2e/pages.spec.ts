@@ -59,9 +59,12 @@ test.describe("ARTSA frontend pages", () => {
     await page.goto("/wargame");
     await expect(page).toHaveURL(/\/campaigns/);
 
-    // /playground → /sandbox → /red-team/lab
+    // /playground is the primary AI Security Playground; /sandbox is legacy.
     await page.goto("/playground");
-    await expect(page).toHaveURL(/\/red-team\/lab/);
+    await expect(page).toHaveURL(/\/playground/);
+    await expect(page.getByRole("heading", { name: /ai security playground/i })).toBeVisible();
+    await page.goto("/sandbox");
+    await expect(page).toHaveURL(/\/playground/);
 
     // /attack-library → /library → /red-team/library
     await page.goto("/attack-library");

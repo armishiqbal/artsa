@@ -26,7 +26,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "POST /v2/guard",
         description: "One API call screens user input, RAG/reference docs, assistant output, tool_calls, and tool responses.",
         artsa: "Sandbox evaluate + POST /api/v1/ingest",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "projects",
@@ -47,7 +47,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Detector breakdown & confidence",
         description: "Optional per-guardrail detected flag and confidence in the API response.",
         artsa: "Layer scores + fired_detectors on each verdict",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "metadata",
@@ -61,7 +61,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Masking payload",
         description: "Return match locations for PII/profanity/regex so apps can redact before LLM or user.",
         artsa: "Highlights + recommended_action on scan results",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "streaming",
@@ -124,7 +124,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Prompt injection",
         description: "Instructions that override system or user intent (ignore previous, leak prompt, etc.).",
         artsa: "Rule + semantic detectors, sandbox presets",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "jailbreak",
@@ -187,7 +187,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Profanity",
         description: "Obscene language including leet-speak and intentional obfuscation.",
         artsa: "Keyword / regex rule detectors",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "mod-sexual",
@@ -201,7 +201,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Violence descriptions",
         description: "Injury, death, graphic violence, accidents, war reporting.",
         artsa: "Semantic + template-based detection",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "mod-weapons",
@@ -222,7 +222,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Custom moderation guardrails",
         description: "Natural-language or regex policies for org-specific unwanted content.",
         artsa: "Org policies + suggested rules from sandbox",
-        href: "/sandbox",
+        href: "/playground",
       },
     ],
   },
@@ -236,7 +236,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Full names",
         description: "Multi-cultural full names; resilient to typos; not single given names.",
         artsa: "Semantic + regex canary patterns",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "pii-address",
@@ -257,7 +257,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Email addresses",
         description: "Standard formats including [AT]/[DOT] obfuscation variants.",
         artsa: "Rule + semantic leakage detection",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "pii-ip",
@@ -271,7 +271,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Credit card numbers",
         description: "Major card formats validated with Luhn algorithm.",
         artsa: "Canary tokens + pattern rules",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "pii-iban",
@@ -292,7 +292,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "System prompt extraction",
         description: "Custom guardrails to block system/developer prompt leakage in outputs.",
         artsa: "Prompt leak attack presets",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "custom-dlp",
@@ -320,7 +320,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         name: "Unknown links detector",
         description: "Flags URLs outside top ~1M popular domains (phishing/typosquat risk).",
         artsa: "URL pattern rules + semantic indirect injection",
-        href: "/sandbox",
+        href: "/playground",
       },
       {
         id: "allowed-domains",

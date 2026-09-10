@@ -129,6 +129,11 @@ export const navSections: NavSection[] = [
     label: "Red Team",
     items: [
       {
+        name: "AI Security Playground",
+        href: "/playground",
+        icon: Shield,
+      },
+      {
         name: "Attack Lab",
         href: "/red-team/lab",
         icon: Crosshair,

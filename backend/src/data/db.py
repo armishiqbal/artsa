@@ -56,6 +56,7 @@ async def init_db() -> None:
         EventEvaluationORM,
         HmacHandoffAuditORM,
         RuntimeEnforcementAuditORM,
+        PlaygroundRunAuditORM,
         PartnerApiKeyORM,
         ProviderORM,
         SessionORM,

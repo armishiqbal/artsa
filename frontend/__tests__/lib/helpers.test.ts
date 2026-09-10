@@ -77,6 +77,7 @@ describe("navigation", () => {
   it("lists Red Team items as a flat section", () => {
     const redTeam = navSections.find((s) => s.label === "Red Team");
     expect(redTeam?.items.map((c) => c.name)).toEqual([
+      "AI Security Playground",
       "Attack Lab",
       "Campaigns",
       "Attack Library",

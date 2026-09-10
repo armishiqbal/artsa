@@ -32,14 +32,14 @@ const nextConfig = {
       // Legacy routes → new enterprise URL scheme (301 permanent)
       { source: "/topology", destination: "/command-center/topology", permanent: true },
       { source: "/wargame", destination: "/campaigns", permanent: true },
-      { source: "/playground", destination: "/sandbox", permanent: true },
+      { source: "/sandbox", destination: "/playground", permanent: true },
       { source: "/attack-library", destination: "/library", permanent: true },
       { source: "/policies", destination: "/admin/policies", permanent: true },
       { source: "/providers", destination: "/admin/providers", permanent: true },
 
       // Deep legacy paths
       { source: "/wargame/:path*", destination: "/campaigns/:path*", permanent: true },
-      { source: "/playground/:path*", destination: "/sandbox/:path*", permanent: true },
+      { source: "/sandbox/:path*", destination: "/playground/:path*", permanent: true },
       { source: "/attack-library/:path*", destination: "/library/:path*", permanent: true },
       { source: "/policies/:path*", destination: "/admin/policies/:path*", permanent: true },
       { source: "/providers/:path*", destination: "/admin/providers/:path*", permanent: true },

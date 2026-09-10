@@ -16,6 +16,7 @@ const actionCommands = [
   { name: "Integrations", href: "/settings/integrations", category: "Admin", icon: Command },
   { name: "Start a campaign", href: "/red-team/campaigns", category: "Red Team", icon: Play },
   { name: "Open Attack Lab", href: "/red-team/lab", category: "Red Team", icon: Crosshair },
+  { name: "AI Security Playground", href: "/playground", category: "Red Team", icon: Shield },
   { name: "View Reports", href: "/reports", category: "Report", icon: FileText },
   { name: "View Activity", href: "/logs", category: "Detect", icon: FileText },
   { name: "Open Sessions", href: "/replay", category: "Investigate", icon: Shield },
