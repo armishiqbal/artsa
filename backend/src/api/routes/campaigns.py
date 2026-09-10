@@ -317,6 +317,7 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest, tenan
         target_cfg = TargetConfig(
             provider=req.provider,
             model=resolved.model,
+            api_key=resolved.api_key,
             base_url=resolved.base_url,
             system_prompt=req.system_prompt or "",
             target_id=req.target_id,
@@ -344,6 +345,18 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest, tenan
         )
         if req.use_llm_judge is not None:
             app_config["artsa"]["judge"]["use_llm"] = req.use_llm_judge
+
+        # Pass resolved credentials and active model to Red Team and Judge agents
+        if resolved_model:
+            app_config["artsa"]["red_team"]["model"] = resolved_model
+            app_config["artsa"]["judge"]["model"] = resolved_model
+        if api_key:
+            app_config["artsa"]["red_team"]["api_key"] = api_key
+            app_config["artsa"]["judge"]["api_key"] = api_key
+        if cred_base_url:
+            app_config["artsa"]["red_team"]["base_url"] = cred_base_url
+            app_config["artsa"]["judge"]["base_url"] = cred_base_url
+
         manager = CampaignManager(config=camp_cfg, app_config=app_config)
         summary = manager.run(on_round_complete=on_round_complete)
         job_store.complete(campaign_id, summary.model_dump(mode="json"))

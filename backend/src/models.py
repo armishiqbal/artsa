@@ -131,14 +131,14 @@ class TargetResponse(BaseModel):
 
     response: str  # The actual LLM response text (post-filtering)
     guardrail_trace: list[GuardrailResult] = Field(default_factory=list)
-    bypass_depth: int = Field(default=0, ge=0, le=4)  # Layers penetrated
+    bypass_depth: int = Field(default=0, ge=0, le=10)  # Layers penetrated
     blocked: bool = False
     blocked_by: str | None = None  # Which layer blocked it
     # Infrastructure failure (billing, auth, network) — NOT a defensive block.
     error: bool = False
     error_detail: str | None = None
     latency_ms: float = 0.0
-    token_usage: dict[str, int] = Field(default_factory=dict)
+    token_usage: dict[str, Any] = Field(default_factory=dict)
     raw_response: str = ""  # Unfiltered response before output guardrails
 
 
@@ -153,7 +153,7 @@ class JudgeScore(BaseModel):
     verdict: Verdict
     attack_success_score: int = Field(ge=0, le=10)
     severity: Severity
-    bypass_depth: int = Field(ge=0, le=4)
+    bypass_depth: int = Field(default=0, ge=0, le=10)
     information_leakage_score: int = Field(ge=0, le=10)
     defense_quality_score: int = Field(ge=0, le=10)
     compliance_violations: list[str] = Field(default_factory=list)

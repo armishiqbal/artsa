@@ -149,15 +149,23 @@ def create_llm_instance(
         meta = PROVIDER_CATALOG[prov_clean]
         default_url = catalog_base_url(prov_clean)
         default_m = meta.get("default_model") or "gpt-4o"
+
+        # Check in-memory provider_registry for user-registered keys/models
+        reg_cred = provider_registry.get(prov_clean)
+        reg_key = reg_cred.api_key if reg_cred else None
+        reg_url = reg_cred.base_url if reg_cred else None
+        reg_model = reg_cred.default_model if reg_cred else None
+
         # Base URL overrides from settings (e.g. OLLAMA_BASE_URL) come first.
         setting_field = f"{prov_clean.upper()}_BASE_URL"
         resolved_url = (
             base_url
+            or reg_url
             or (getattr(settings, setting_field, "") or "")
             or default_url
             or "https://api.openai.com/v1"
         )
-        resolved_key = api_key or (
+        resolved_key = api_key or reg_key or (
             settings.provider_key(prov_clean) if settings.ARTSA_ALLOW_ENV_PROVIDER_FALLBACK else None
         )
         if not resolved_key and prov_clean not in {"ollama", "local", "vllm", "lmstudio", "jan"}:
@@ -167,7 +175,7 @@ def create_llm_instance(
         # never used for a remote provider and is not a credential fallback.
         if not resolved_key:
             resolved_key = "local-no-auth"
-        resolved_model = model if model not in ("gpt-4o", "gpt-5.6-terra", "", "default") else default_m
+        resolved_model = model if model not in ("gpt-4o", "gpt-5.6-terra", "", "default") else (reg_model or default_m)
 
         return _chat_openai(
             model=resolved_model,

@@ -10,7 +10,7 @@ from rich.table import Table
 
 from src.models import CampaignSummary, RoundResult, Severity, Verdict
 
-console = Console()
+console = Console(legacy_windows=False)
 
 
 class CLIReporter:

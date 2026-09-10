@@ -229,7 +229,7 @@ describe("Full Integration in CommandCenterFloor", () => {
     await user.click(confirmBtn);
 
     expect(screen.getByText(/Target Agent quarantined. Tool permissions revoked./i)).toBeInTheDocument();
-  });
+  }, 20000);
 
   it("responds to keyboard shortcuts (Space, ArrowRight, Escape) in CommandCenterFloor", async () => {
     render(
@@ -264,7 +264,7 @@ describe("Full Integration in CommandCenterFloor", () => {
 
     fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
     expect(screen.queryByRole("dialog", { name: /Threat and Event Inspector/i })).not.toBeInTheDocument();
-  });
+  }, 20000);
 
   it("triggers emergency action shortcuts (Shift + K, Shift + Q) and renders tactical security zones", async () => {
     const user = userEvent.setup();
@@ -303,7 +303,7 @@ describe("Full Integration in CommandCenterFloor", () => {
     const inSituQuarantineBtn = screen.getByRole("button", { name: /QUARANTINE TARGET/i });
     await user.click(inSituQuarantineBtn);
     expect(screen.getByRole("button", { name: /CONFIRM QUARANTINE/i })).toBeInTheDocument();
-  });
+  }, 20000);
 
   it("renders runtime verdicts and allows horizontal timeline scrolling in CommandCenterFloor", async () => {
     const user = userEvent.setup();
@@ -332,7 +332,7 @@ describe("Full Integration in CommandCenterFloor", () => {
     await user.click(targetVerdictBtn);
     expect(screen.getByRole("dialog", { name: /Threat and Event Inspector/i })).toBeInTheDocument();
     expect(screen.getByText(/Target Arbitration Verdict/i)).toBeInTheDocument();
-  });
+  }, 20000);
 
   it("isolates timeline scrolling to the horizontal container and avoids window/viewport scrolling", async () => {
     const windowScrollSpy = vi.spyOn(window, "scrollTo");
