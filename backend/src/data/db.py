@@ -109,6 +109,23 @@ async def init_db() -> None:
                 cols = [row[1] for row in await conn.execute(text("PRAGMA table_info(providers)"))]
                 if "tenant_id" not in cols:
                     await conn.execute(text("ALTER TABLE providers ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_org'"))
+                # Early ARTSA installations made ``providers.name`` globally
+                # unique.  That silently defeats the tenant-scoped provider
+                # contract: tenant B cannot register the same local alias as
+                # tenant A.  ``create_all`` cannot alter an existing SQLite
+                # index, so repair the development schema explicitly.
+                indexes = [
+                    row[1]
+                    for row in await conn.execute(text("PRAGMA index_list(providers)"))
+                ]
+                if "ix_providers_name" in indexes:
+                    await conn.execute(text("DROP INDEX ix_providers_name"))
+                await conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS "
+                        "uq_providers_tenant_name ON providers (tenant_id, name)"
+                    )
+                )
 
             if "hmac_handoff_audit" in tables:
                 hmac_cols = [

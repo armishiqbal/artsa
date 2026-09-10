@@ -156,10 +156,16 @@ export async function fetchFromBackend<T = unknown>(
         } catch {
           // can't parse — use status-only message
         }
-        // Corrupted Next dev cache surfaces as proxy 500 with no JSON — point to fix.
-        if (res.status >= 500 && errorMsg.includes("returned 5")) {
+        // Do not relabel arbitrary upstream 5xx responses as a stale Next
+        // cache.  That hid real API/database failures behind misleading UI
+        // guidance.  Only name the cache when Next actually reports its
+        // module-resolution signature.
+        if (
+          res.status >= 500 &&
+          /MODULE_NOT_FOUND|Cannot find module|webpack runtime/i.test(errorMsg)
+        ) {
           errorMsg =
-            "Frontend API proxy failed (stale dev cache). Stop the dev server and run: npm run dev:clean";
+            "Frontend API proxy could not load a module. Stop the dev server and run: npm run dev:clean";
         }
         toast(res.status === 429 ? "Slow down" : "Request failed", {
           description:
