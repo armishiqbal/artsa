@@ -191,7 +191,10 @@ class Settings(BaseSettings):
     OLLAMA_API_KEY: str | None = None
     OLLAMA_BASE_URL: str | None = "http://localhost:11434/v1"
     VLLM_API_KEY: str | None = None
-    VLLM_BASE_URL: str | None = "http://localhost:8000/v1"
+    # Port 8000 belongs to ARTSA itself.  A vLLM default on that port routes
+    # provider traffic back into this API (``POST /v1`` / 404) instead of to a
+    # model server.  Deployments may still override this explicitly.
+    VLLM_BASE_URL: str | None = "http://localhost:8001/v1"
     LMSTUDIO_API_KEY: str | None = None
     LMSTUDIO_BASE_URL: str | None = "http://localhost:1234/v1"
     JAN_API_KEY: str | None = None

@@ -74,7 +74,7 @@ PROVIDER_CATALOG: dict[str, dict[str, str | None]] = {
         "description": "Ollama — local models",
     },
     "vllm": {
-        "base_url": "http://localhost:8000/v1",
+        "base_url": "http://localhost:8001/v1",
         "env_key": "VLLM_API_KEY",
         "default_model": "default",
         "description": "vLLM local server",

@@ -127,6 +127,38 @@ async def init_db() -> None:
                     )
                 )
 
+            # Phase 2.5 added digest-only post-execution evidence to tool
+            # events.  Existing local SQLite databases need an explicit ALTER
+            # because metadata.create_all() does not evolve an old table.
+            # Defaults ensure historical rows remain valid and no raw result
+            # body is manufactured during migration.
+            if "tool_call_events" in tables:
+                tool_event_cols = [
+                    row[1]
+                    for row in await conn.execute(text("PRAGMA table_info(tool_call_events)"))
+                ]
+                if "post_exec_redacted" not in tool_event_cols:
+                    await conn.execute(
+                        text(
+                            "ALTER TABLE tool_call_events "
+                            "ADD COLUMN post_exec_redacted BOOLEAN NOT NULL DEFAULT 0"
+                        )
+                    )
+                if "response_sha256" not in tool_event_cols:
+                    await conn.execute(
+                        text(
+                            "ALTER TABLE tool_call_events "
+                            "ADD COLUMN response_sha256 VARCHAR(64)"
+                        )
+                    )
+                if "response_findings" not in tool_event_cols:
+                    await conn.execute(
+                        text(
+                            "ALTER TABLE tool_call_events "
+                            "ADD COLUMN response_findings JSON NOT NULL DEFAULT '[]'"
+                        )
+                    )
+
             if "hmac_handoff_audit" in tables:
                 hmac_cols = [
                     row[1]

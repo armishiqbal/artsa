@@ -28,6 +28,22 @@ def test_init_db_replaces_legacy_global_provider_name_index(monkeypatch, tmp_pat
             """
         )
         connection.execute("CREATE UNIQUE INDEX ix_providers_name ON providers (name)")
+        connection.execute(
+            """
+            CREATE TABLE tool_call_events (
+                id VARCHAR(36) PRIMARY KEY,
+                session_id VARCHAR(36) NOT NULL,
+                agent_id VARCHAR(255) NOT NULL,
+                tool_name VARCHAR(255) NOT NULL,
+                arguments JSON NOT NULL,
+                timestamp DATETIME NOT NULL,
+                trace_id VARCHAR(255) NOT NULL,
+                response JSON,
+                latency_ms FLOAT,
+                tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_tenant'
+            )
+            """
+        )
 
     database_url = f"sqlite+aiosqlite:///{database}"
     monkeypatch.setattr(settings, "DATABASE_URL", database_url)
@@ -43,6 +59,10 @@ def test_init_db_replaces_legacy_global_provider_name_index(monkeypatch, tmp_pat
             indexes = {row[1] for row in connection.execute("PRAGMA index_list(providers)")}
             assert "ix_providers_name" not in indexes
             assert "uq_providers_tenant_name" in indexes
+            tool_event_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(tool_call_events)")
+            }
+            assert {"post_exec_redacted", "response_sha256", "response_findings"} <= tool_event_columns
             connection.execute(
                 """
                 INSERT INTO providers

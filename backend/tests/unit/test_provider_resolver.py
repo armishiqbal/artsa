@@ -7,9 +7,15 @@ from sqlalchemy import create_engine
 from src.core.config import settings
 from src.data.db import Base
 from src.data.orm import ProviderORM
+from src.gateway.provider_catalog import catalog_base_url
 from src.models import TargetConfig
 from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
 from src.utils.crypto import encrypt_secret
+
+
+def test_vllm_default_does_not_target_artsa_api_port():
+    """The local model default must not loop traffic into ARTSA on port 8000."""
+    assert catalog_base_url("vllm") == "http://localhost:8001/v1"
 
 
 def test_resolver_is_tenant_scoped_and_uses_provider_default(monkeypatch, tmp_path):
