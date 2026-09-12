@@ -26,11 +26,10 @@ from src.data.orm import SessionORM
 from src.data.redis_client import get_redis_stream_client
 from src.runtime.actions import RuntimeAction
 from src.runtime.audit import record_runtime_audit
-from src.runtime.gate import get_runtime_gate
 from src.runtime.circuit_breaker import circuit_breaker, record_breaker_trip
+from src.runtime.gate import get_runtime_gate
 from src.services.approval_service import consume_retry_token, create_request
 from src.services.mcp_proxy import MCPJsonRpcRequest, MCPProxyInterceptor
-
 
 _TOOL_METHOD = "tools/call"
 _BLOCK_CODE = -32003
@@ -64,7 +63,7 @@ def _clean_params(params: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
 
 
 def _tool_name(params: dict[str, Any]) -> str:
-    return f"mcp.tools/call:{str(params.get('name') or params.get('tool') or 'unknown')}"
+    return f"mcp.tools/call:{params.get('name') or params.get('tool') or 'unknown'!s}"
 
 
 def _result_scan_text(value: Any) -> str:
@@ -353,6 +352,9 @@ async def run_wrapper(command: list[str]) -> int:
     process = await asyncio.create_subprocess_exec(
         *command, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL, start_new_session=True,
+        # Match the protocol cap rather than asyncio's 64 KiB default, which
+        # would reject valid frames before our explicit fail-closed check.
+        limit=max(65_536, int(settings.ARTSA_MCP_STDIO_MAX_LINE_BYTES) + 1),
     )
     assert process.stdin and process.stdout
     client_writer = _StdoutWriter()
@@ -389,7 +391,7 @@ async def run_wrapper(command: list[str]) -> int:
                             wrapper.stop.set()
                         break
                     obj = json.loads(line)
-                    if not isinstance(obj, dict): raise ValueError("JSON-RPC frame must be an object")
+                    if not isinstance(obj, dict): raise TypeError("JSON-RPC frame must be an object")
                     if str(obj.get("method", "")).startswith("notifications/") and len(line) > settings.ARTSA_MCP_STDIO_MAX_NOTIFICATION_BYTES:
                         raise ValueError("MCP notification exceeds configured limit")
                     await wrapper.handle_client(obj, process.stdin, client_writer)
@@ -404,7 +406,7 @@ async def run_wrapper(command: list[str]) -> int:
                     if line is None:
                         wrapper.stop.set(); break
                     obj = json.loads(line)
-                    if not isinstance(obj, dict): raise ValueError("child JSON-RPC frame must be an object")
+                    if not isinstance(obj, dict): raise TypeError("child JSON-RPC frame must be an object")
                     if str(obj.get("method", "")).startswith("notifications/") and len(line) > settings.ARTSA_MCP_STDIO_MAX_NOTIFICATION_BYTES:
                         raise ValueError("child MCP notification exceeds configured limit")
                     await wrapper.handle_child(obj, client_writer)

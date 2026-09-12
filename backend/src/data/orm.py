@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     Integer,
+    Index,
     PrimaryKeyConstraint,
     String,
     Text,
@@ -435,6 +436,10 @@ class PlaygroundRunAuditORM(Base):
     """Digest-only evidence and quota accounting for AI Security Playground."""
 
     __tablename__ = "playground_run_audit"
+    __table_args__ = (
+        Index("ix_playground_audit_tenant_created", "tenant_id", "created_at"),
+        Index("ix_playground_audit_tenant_channel_created", "tenant_id", "channel", "created_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(255), index=True)

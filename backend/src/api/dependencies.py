@@ -10,12 +10,12 @@ from src.core.config import settings
 from src.data.db import get_async_session
 from src.data.redis_client import RedisStreamProtocol, get_redis_stream_client
 from src.services.event_processor import EventProcessor
-from src.services.session_tracker import SessionTracker
+from src.services.session_tracker import SessionTracker, session_tracker
 
 logger = logging.getLogger(__name__)
 
 _processor = EventProcessor()
-_tracker = SessionTracker()
+_tracker = session_tracker
 
 
 class MockAsyncSession:

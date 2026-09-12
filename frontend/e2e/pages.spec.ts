@@ -43,6 +43,23 @@ test.describe("ARTSA frontend pages", () => {
     await expect(page.getByRole("link", { name: /open attack lab/i })).toBeVisible();
   });
 
+  test("AI Security Playground runs Guard Tester and Chat Simulator", async ({ page }) => {
+    await page.goto("/playground");
+    await expect(page.getByRole("heading", { name: /ai security playground/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /guard tester/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /chat simulator/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /screen content/i }).click();
+    await expect(page.getByText("BLOCK", { exact: true })).toBeVisible();
+    await expect(page.getByText(/PromptInjectionDetector/).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /chat simulator/i }).click();
+    await expect(page.getByText(/deterministic simulation.*will not contact an llm/i)).toBeVisible();
+    await page.getByRole("button", { name: /run simulation/i }).click();
+    await expect(page.getByText("Fixture response")).toBeVisible();
+    await expect(page.getByText(/output screened/i)).toBeVisible();
+  });
+
   test("landing page renders at root", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL("/");

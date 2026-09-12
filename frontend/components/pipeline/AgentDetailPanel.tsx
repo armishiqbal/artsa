@@ -145,7 +145,7 @@ export function AgentDetailPanel({ agent, className }: AgentDetailPanelProps) {
           )}
           {agent.id === "target" && (
             <Button asChild size="sm" variant="outline" className="w-full justify-start">
-              <Link href="/sandbox">Scan payload</Link>
+              <Link href="/playground">Scan payload</Link>
             </Button>
           )}
           {agent.id === "judge" && (

@@ -102,7 +102,7 @@ export const SANDBOX_PRESETS: SandboxPreset[] = [
 ];
 
 export function sandboxHrefForCase(caseDef: ValidationCase): string {
-  return `/sandbox?case=${encodeURIComponent(caseDef.id)}`;
+  return `/playground?case=${encodeURIComponent(caseDef.id)}`;
 }
 
 export function presetByCaseId(caseId: string): SandboxPreset | undefined {

@@ -2,7 +2,7 @@ import type { SixAgentName } from "@/lib/commandCenterOps";
 
 export const LIVE_ROUND_MS = 4000;
 
-export type AgentLiveState = "idle" | "active" | "responding" | "waiting" | "contained" | "not wired";
+export type AgentLiveState = "idle" | "active" | "responding" | "waiting" | "contained" | "not wired" | "not_wired";
 export type HighlightTone = "inject" | "tool";
 
 export type PromptHighlight = {
@@ -73,7 +73,7 @@ export type LiveRound = {
   highlights: PromptHighlight[];
   bars: AsiBar[];
   agents: Record<SixAgentName, AgentLiveState>;
-  latencies?: Record<SixAgentName, number>;
+  latencies?: Partial<Record<SixAgentName, number | null>>;
   verdicts: VerdictItem[];
   log: string;
   statusBadge?: string;

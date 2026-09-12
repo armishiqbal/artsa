@@ -22,8 +22,31 @@ flowchart TB
   Ingest --> Engine
   Engine -->|"SAFE / SUSPICIOUS / BREACHED"| Agent
   Agent -->|"only if allowed"| Tools
-  Engine --> Bus --> Dash
+Engine --> Bus --> Dash
 ```
+
+## 0. AI Security Playground
+
+The authenticated `/playground` is the safe, browser-based entry point for
+interactive checks. **Guard Tester** scans input, model-output, or tool-result
+text without contacting a provider. **Chat Simulator** is text-only, defaults
+to Block mode, and resolves an explicitly selected tenant provider; Monitor
+mode is labelled as “would block” and has no tools, MCP, RAG, browser, files,
+or campaign execution.
+
+The Playground API is tenant-scoped:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/v1/playground/catalog` | Enabled provider/template metadata and remaining budget (never keys) |
+| `POST /api/v1/playground/scan` | Digest-only Guard Tester verdict and redacted findings |
+| `POST /api/v1/playground/chat` | SSE text simulation with input/output holdback and containment |
+
+Submitted prompts, streamed deltas, and model responses are transient. Durable
+records contain only SHA-256 digests, redacted detector metadata, usage, and
+latency. `QUARANTINE` returns an approval request; an approved retry is
+single-use and bound to the same tenant, session, provider, model, and content
+digest.
 
 ---
 
@@ -518,9 +541,29 @@ tool results before the client receives them.
 }
 ```
 
+The same shape works in Claude Desktop (`claude_desktop_config.json`) and in
+Cursor's MCP server settings. Keep the real server command after `--`; the
+wrapper must be the configured command so the client cannot bypass the wire
+boundary.
+
 `QUARANTINE` returns a digest-only `approval_required` JSON-RPC error. After
 an operator approves it through ARTSA, retry the exact `tools/call` with the
-one-time token in `params._meta.artsa.retry_token`. ARTSA strips that extension
+one-time token in `params._meta.artsa.retry_token`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "tools/call",
+  "params": {
+    "name": "read_file",
+    "arguments": {"path": "/data/report.txt"},
+    "_meta": {"artsa": {"retry_token": "<single-use-token>"}}
+  }
+}
+```
+
+ARTSA strips that extension
 before forwarding the request to the real server, binds it to the wrapper
 session and canonical tool parameters, and scans the rerun result again.
 

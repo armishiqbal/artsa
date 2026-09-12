@@ -33,6 +33,12 @@ class Settings(BaseSettings):
         if self.ENVIRONMENT != "production":
             return self
 
+        if self.ARTSA_ALLOW_ENV_PROVIDER_FALLBACK:
+            raise ValueError(
+                "ARTSA_ALLOW_ENV_PROVIDER_FALLBACK must remain false in production; "
+                "configure an encrypted tenant provider instead"
+            )
+
         if self.SECRET_KEY == "change-me-in-production" or len(self.SECRET_KEY) < 32:
             raise ValueError(
                 "SECRET_KEY must be a strong random value (≥32 chars) in production. "

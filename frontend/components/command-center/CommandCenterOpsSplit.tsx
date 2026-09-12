@@ -12,6 +12,7 @@ function agentTone(state: AgentLiveState): string {
   if (state === "active") return "text-rose-600 dark:text-rose-400 font-medium";
   if (state === "responding") return "text-amber-600 dark:text-amber-400 font-medium";
   if (state === "contained") return "text-emerald-600 dark:text-emerald-400 font-medium";
+  if (state === "not wired" || state === "not_wired") return "text-muted-foreground/60 italic";
   return "text-muted-foreground";
 }
 
@@ -35,7 +36,7 @@ export function CommandCenterOpsSplit({
   onSelectAgent?: (agent: SixAgentName) => void;
   onSelectLogLine?: (line: string) => void;
 }) {
-  const latencies = round.latencies ?? DEFAULT_LATENCIES;
+  const latencies = round.latencies !== undefined ? round.latencies : DEFAULT_LATENCIES;
 
   return (
     <div
@@ -74,13 +75,17 @@ export function CommandCenterOpsSplit({
                 </div>
                 <div className="flex items-center gap-4 font-mono text-[11px] tabular-nums">
                   <span className={cn("lowercase", agentTone(state))}>
-                    {state}
+                    {state.replace("_", " ")}
                   </span>
                   {latency != null ? (
                     <span className="text-foreground/80 dark:text-slate-300 font-medium min-w-[36px] text-right">
                       {latency}ms
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="text-muted-foreground/50 font-medium min-w-[36px] text-right">
+                      N/A
+                    </span>
+                  )}
                 </div>
               </li>
             );

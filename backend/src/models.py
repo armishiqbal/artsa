@@ -153,7 +153,9 @@ class JudgeScore(BaseModel):
     verdict: Verdict
     attack_success_score: int = Field(ge=0, le=10)
     severity: Severity
-    bypass_depth: int = Field(default=0, ge=0, le=10)
+    # Four defense layers are modeled by the judge contract; accepting larger
+    # values would make reports and scoring silently disagree.
+    bypass_depth: int = Field(default=0, ge=0, le=4)
     information_leakage_score: int = Field(ge=0, le=10)
     defense_quality_score: int = Field(ge=0, le=10)
     compliance_violations: list[str] = Field(default_factory=list)

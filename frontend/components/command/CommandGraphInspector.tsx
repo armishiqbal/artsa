@@ -82,9 +82,9 @@ export function CommandGraphInspector({
             </div>
             <p className="leading-relaxed">
               {graph.source === "idle"
-                ? "No live topology or ingest events yet. Point customers at /api/v1/ingest or run sandbox traffic to populate this map."
+                ? "No live topology or ingest events yet. Point customers at /api/v1/ingest or run a Playground check to populate this map."
                 : graph.compromisedCount > 0
-                  ? "Breach path is highlighted. Select a red node to open replay, logs, or sandbox probe."
+                  ? "Breach path is highlighted. Select a red node to open replay, logs, or a Playground probe."
                   : "Graph is live from containment topology + telemetry. Select a node to inspect blast radius."}
             </p>
             {graph.compromisedCount > 0 ? (
@@ -163,9 +163,9 @@ export function CommandGraphInspector({
               </Button>
               {selected.severity === "CRITICAL" || selected.severity === "HIGH" ? (
                 <Button asChild variant="outline" size="sm" className="w-full justify-start gap-2">
-                  <Link href="/sandbox">
+                  <Link href="/playground">
                     <Crosshair className="h-3.5 w-3.5" aria-hidden />
-                    Probe in sandbox
+                    Probe in AI Security Playground
                   </Link>
                 </Button>
               ) : null}

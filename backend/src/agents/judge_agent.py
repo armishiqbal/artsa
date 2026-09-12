@@ -287,7 +287,7 @@ Do NOT wrap the JSON in markdown code blocks. Return ONLY the raw JSON."""
             verdict=verdict,
             attack_success_score=success_score,
             severity=severity,
-            bypass_depth=response.bypass_depth,
+            bypass_depth=min(4, max(0, response.bypass_depth)),
             information_leakage_score=leakage_score,
             defense_quality_score=defense_score,
             mitre_atlas_mapping=attack.metadata.get("mitre_atlas", ""),

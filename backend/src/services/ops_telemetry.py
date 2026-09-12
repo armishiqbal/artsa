@@ -6,6 +6,7 @@ Does not invent detections, HMAC verifies, or LIVE freshness.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -50,6 +51,19 @@ _ROLE_LABEL = {
     AgentRole.JUDGE: "Judge",
     AgentRole.DEFENDER: "Defender",
 }
+
+_BEARER_PATTERN = re.compile(r"bearer\s+[A-Za-z0-9._~+/-]+", re.IGNORECASE)
+_API_KEY_PATTERN = re.compile(r"api[_-]?key[:=\s]+['\"]?[A-Za-z0-9_-]+['\"]?", re.IGNORECASE)
+_SECRET_PATTERN = re.compile(r"(?:secret|token|password|passwd)[:=\s]+['\"]?[A-Za-z0-9_-]+['\"]?", re.IGNORECASE)
+
+
+def _sanitize_payload(text: str) -> str:
+    if not text:
+        return ""
+    text = _BEARER_PATTERN.sub("bearer [REDACTED]", text)
+    text = _API_KEY_PATTERN.sub("api_key=[REDACTED]", text)
+    text = _SECRET_PATTERN.sub(lambda m: m.group(0).split("=")[0].split(":")[0] + "=[REDACTED]", text)
+    return text[:2000]
 
 
 def _parse_ts(raw: Any) -> datetime:
@@ -235,7 +249,7 @@ def project_ingest_event(raw: dict[str, Any]) -> SecurityOpsEvent:
         threat_code=asi,
         threat_status=threat_status,  # type: ignore[arg-type]
         severity=_severity(raw.get("severity")),  # type: ignore[arg-type]
-        payload=str(raw.get("tool_name") or raw.get("type") or ""),
+        payload=_sanitize_payload(str(raw.get("tool_name") or raw.get("type") or "")),
         detection_signal=",".join(detectors) if detectors else str(raw.get("type") or "tool_call"),
         verdict=str(raw.get("verdict") or ""),
         mitigation=str(raw.get("action") or raw.get("recommended_action") or ""),
@@ -251,6 +265,8 @@ def project_ingest_event(raw: dict[str, Any]) -> SecurityOpsEvent:
 
 def project_ingest_event_safe(raw: dict[str, Any]) -> SecurityOpsEvent | None:
     try:
+        if "source_agent" in raw and "target_agent" in raw:
+            return SecurityOpsEvent.model_validate(raw)
         return project_ingest_event(raw)
     except Exception as exc:
         logger.warning("Skipping malformed ingest telemetry: %s", exc)
@@ -292,7 +308,7 @@ def _project_campaign_hop(raw: dict[str, Any], hop: dict[str, Any]) -> SecurityO
     return SecurityOpsEvent(
         event_id=f"hop-{event_id}-{kind}",
         campaign_id=campaign_id or None,
-        session_id=None,
+        session_id=campaign_id or None,
         round_id=round_id,
         timestamp=_parse_ts(raw.get("ts") or hop.get("timestamp")),
         source_agent=source,
@@ -300,7 +316,7 @@ def _project_campaign_hop(raw: dict[str, Any], hop: dict[str, Any]) -> SecurityO
         threat_code=asi,
         threat_status=threat_status,  # type: ignore[arg-type]
         severity="INFO",
-        payload=str(raw.get("summary") or ""),
+        payload=_sanitize_payload(str(raw.get("summary") or "")),
         detection_signal=kind,
         verdict=str(hop.get("verdict") or raw.get("outcome") or ""),
         mitigation="",

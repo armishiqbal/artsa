@@ -72,9 +72,9 @@ export function expandedProbe(t: AttackTemplateLike): string {
 
 export function sandboxHrefForTemplate(t: AttackTemplateLike): string {
   const id = String(t.id ?? "").trim();
-  if (id) return `/sandbox?template=${encodeURIComponent(id)}`;
+  if (id) return `/playground?template=${encodeURIComponent(id)}`;
   const user = expandedProbe(t);
-  return `/sandbox?user=${encodeURIComponent(user.slice(0, 1800))}`;
+  return `/playground?user=${encodeURIComponent(user.slice(0, 1800))}`;
 }
 
 export function campaignHrefForTemplate(t: AttackTemplateLike): string {

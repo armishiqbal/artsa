@@ -52,8 +52,8 @@ describe("attackLibrary deep links", () => {
     });
   });
 
-  it("builds sandbox and campaign hrefs", () => {
-    expect(sandboxHrefForTemplate(sample)).toBe("/sandbox?template=dpi-ignore-001");
+  it("builds playground and campaign hrefs", () => {
+    expect(sandboxHrefForTemplate(sample)).toBe("/playground?template=dpi-ignore-001");
     expect(campaignHrefForTemplate(sample)).toBe("/campaigns?new=1&category=DPI");
   });
 });

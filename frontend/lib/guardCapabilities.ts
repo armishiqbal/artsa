@@ -25,7 +25,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         id: "guard-api",
         name: "POST /v2/guard",
         description: "One API call screens user input, RAG/reference docs, assistant output, tool_calls, and tool responses.",
-        artsa: "Sandbox evaluate + POST /api/v1/ingest",
+        artsa: "Playground scan + POST /api/v1/ingest",
         href: "/playground",
       },
       {
@@ -123,7 +123,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         id: "prompt-injection",
         name: "Prompt injection",
         description: "Instructions that override system or user intent (ignore previous, leak prompt, etc.).",
-        artsa: "Rule + semantic detectors, sandbox presets",
+        artsa: "Rule + semantic detectors, Playground presets",
         href: "/playground",
       },
       {
@@ -221,7 +221,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         id: "mod-custom",
         name: "Custom moderation guardrails",
         description: "Natural-language or regex policies for org-specific unwanted content.",
-        artsa: "Org policies + suggested rules from sandbox",
+        artsa: "Org policies + suggested rules from Playground",
         href: "/playground",
       },
     ],
@@ -298,7 +298,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         id: "custom-dlp",
         name: "Custom DLP (NL / regex)",
         description: "Trigger words, document types, or entity patterns unique to your org.",
-        artsa: "Org YAML rules + sandbox policy suggestions",
+        artsa: "Org YAML rules + Playground policy suggestions",
         href: "/admin/policies",
       },
       {
@@ -417,7 +417,7 @@ export const GUARD_FEATURE_CATEGORIES: GuardFeatureCategory[] = [
         id: "custom-guardrails",
         name: "Custom guardrails (NL + regex)",
         description: "Bespoke security or content policies beyond managed detectors.",
-        artsa: "Custom YAML rules + sandbox suggestions",
+        artsa: "Custom YAML rules + Playground suggestions",
         href: "/admin/policies",
       },
       {

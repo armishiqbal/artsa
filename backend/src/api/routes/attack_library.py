@@ -8,8 +8,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from src.api.dependencies import get_current_tenant
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Attack Library"])
@@ -87,10 +89,21 @@ def _save_custom_templates(templates: list[dict[str, Any]]) -> None:
         json.dump(templates, f, indent=2)
 
 
-@router.get("/attack-library")
-async def get_attack_library() -> dict[str, Any]:
+def _visible_templates(tenant_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return builtins and only custom templates owned by this tenant.
+
+    Older custom-file rows without an owner are intentionally not exposed to
+    an authenticated tenant; they must be recreated or explicitly migrated.
+    """
     builtin = _load_builtin_templates()
-    custom = _load_custom_templates()
+    custom = [item for item in _load_custom_templates() if item.get("tenant_id") == tenant_id]
+    return builtin, custom
+
+
+@router.get("/attack-library")
+async def get_attack_library(tenant_id: str = Depends(get_current_tenant)) -> dict[str, Any]:
+    builtin = _load_builtin_templates()
+    custom = [item for item in _load_custom_templates() if item.get("tenant_id") == tenant_id]
     templates = builtin + custom
     vstore = _get_vector_store()
     return {
@@ -106,13 +119,15 @@ async def search_attack_library(
     q: str = Query(..., min_length=1, max_length=500, description="Semantic search query"),
     limit: int = Query(10, ge=1, le=50),
     category: str | None = Query(None, description="Optional category filter (DPI, JBK, …)"),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
     """Semantic search over attack templates using Chroma or in-memory embeddings."""
     vstore = _get_vector_store()
     hits = vstore.search_templates(q, limit=limit, category=category)
 
     by_id: dict[str, dict[str, Any]] = {}
-    for row in _load_builtin_templates() + _load_custom_templates():
+    builtin, custom = _visible_templates(tenant_id)
+    for row in builtin + custom:
         tid = row.get("id")
         if tid:
             by_id[str(tid)] = row
@@ -141,7 +156,7 @@ async def search_attack_library(
 
 
 @router.post("/attack-library/templates")
-async def create_attack_template(payload: AttackTemplateCreate) -> dict[str, Any]:
+async def create_attack_template(payload: AttackTemplateCreate, tenant_id: str = Depends(get_current_tenant)) -> dict[str, Any]:
     custom = _load_custom_templates()
     entry = {
         "id": str(uuid.uuid4()),
@@ -150,6 +165,7 @@ async def create_attack_template(payload: AttackTemplateCreate) -> dict[str, Any
         "template": payload.template,
         "metadata": payload.metadata,
         "source": "custom",
+        "tenant_id": tenant_id,
         "version": 1,
     }
     custom.append(entry)
@@ -158,10 +174,10 @@ async def create_attack_template(payload: AttackTemplateCreate) -> dict[str, Any
 
 
 @router.put("/attack-library/templates/{template_id}")
-async def update_attack_template(template_id: str, payload: AttackTemplateCreate) -> dict[str, Any]:
+async def update_attack_template(template_id: str, payload: AttackTemplateCreate, tenant_id: str = Depends(get_current_tenant)) -> dict[str, Any]:
     custom = _load_custom_templates()
     for i, t in enumerate(custom):
-        if t.get("id") == template_id:
+        if t.get("id") == template_id and t.get("tenant_id") == tenant_id:
             custom[i] = {
                 **t,
                 "name": payload.name,
@@ -176,9 +192,9 @@ async def update_attack_template(template_id: str, payload: AttackTemplateCreate
 
 
 @router.delete("/attack-library/templates/{template_id}")
-async def delete_attack_template(template_id: str) -> dict[str, str]:
+async def delete_attack_template(template_id: str, tenant_id: str = Depends(get_current_tenant)) -> dict[str, str]:
     custom = _load_custom_templates()
-    filtered = [t for t in custom if t.get("id") != template_id]
+    filtered = [t for t in custom if not (t.get("id") == template_id and t.get("tenant_id") == tenant_id)]
     if len(filtered) == len(custom):
         raise HTTPException(status_code=404, detail="Custom template not found")
     _save_custom_templates(filtered)
@@ -190,10 +206,10 @@ class BulkImportRequest(BaseModel):
 
 
 @router.post("/attack-library/templates/bulk-import")
-async def bulk_import_templates(payload: BulkImportRequest) -> dict[str, Any]:
+async def bulk_import_templates(payload: BulkImportRequest, tenant_id: str = Depends(get_current_tenant)) -> dict[str, Any]:
     """Import multiple templates at once. Returns created + skipped counts."""
     custom = _load_custom_templates()
-    existing_names = {t.get("name", "") for t in custom}
+    existing_names = {t.get("name", "") for t in custom if t.get("tenant_id") == tenant_id}
     created: list[dict[str, Any]] = []
     skipped = 0
 
@@ -211,6 +227,7 @@ async def bulk_import_templates(payload: BulkImportRequest) -> dict[str, Any]:
             "template": tmpl.template,
             "metadata": tmpl.metadata,
             "source": "custom",
+            "tenant_id": tenant_id,
             "version": 1,
         }
         custom.append(entry)
@@ -225,10 +242,11 @@ async def bulk_import_templates(payload: BulkImportRequest) -> dict[str, Any]:
 async def export_attack_templates(
     category: str | None = Query(None, description="Optional category filter"),
     source: str | None = Query(None, description="'builtin' or 'custom'"),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
     """Export attack templates as JSON. Filter by category and/or source."""
     builtin = _load_builtin_templates() if source != "custom" else []
-    custom = _load_custom_templates() if source != "builtin" else []
+    custom = [t for t in _load_custom_templates() if t.get("tenant_id") == tenant_id] if source != "builtin" else []
     templates = builtin + custom
 
     if category:
@@ -242,11 +260,11 @@ async def export_attack_templates(
 
 
 @router.get("/attack-library/templates/{template_id}/versions")
-async def get_template_versions(template_id: str) -> dict[str, Any]:
+async def get_template_versions(template_id: str, tenant_id: str = Depends(get_current_tenant)) -> dict[str, Any]:
     """Get version history for a template (custom templates track versions on update)."""
     custom = _load_custom_templates()
     for t in custom:
-        if t.get("id") == template_id:
+        if t.get("id") == template_id and t.get("tenant_id") == tenant_id:
             return {
                 "id": template_id,
                 "name": t.get("name"),

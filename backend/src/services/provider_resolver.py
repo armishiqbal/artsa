@@ -57,6 +57,11 @@ def _resolve_rows(
         return ResolvedProvider(tenant_id, None, requested, requested, None, base_url, model or "echo", "test")
 
     exact = next((row for row in rows if provider_ref and row.id == provider_ref), None)
+    if provider_ref and exact is None:
+        # Immutable provider references are tenant-bound.  Never fall through
+        # to an environment provider when a caller presents another tenant's
+        # or a deleted provider id.
+        raise ProviderConfigurationError("provider_not_configured")
     exact = exact or next((row for row in rows if requested and row.name == requested), None)
     by_type = [row for row in rows if requested and row.provider_type == requested]
     selected = exact
@@ -70,9 +75,12 @@ def _resolve_rows(
     # supply its non-secret defaults.
     if api_key:
         provider_type = (selected.provider_type if selected else requested) or "openai"
+        endpoint = base_url or (selected.base_url if selected else None) or catalog_base_url(provider_type)
+        if not endpoint:
+            raise ProviderConfigurationError("provider_not_configured")
         return ResolvedProvider(
             tenant_id, selected.id if selected else None, selected.name if selected else provider_type,
-            provider_type, api_key, base_url or (selected.base_url if selected else None),
+            provider_type, api_key, endpoint,
             model or (selected.default_model if selected else None) or catalog_default_model(provider_type) or "default",
             "explicit",
         )
@@ -95,19 +103,23 @@ def _resolve_rows(
             raise ProviderConfigurationError("provider_resolution_unavailable") from exc
         if not key:
             raise ProviderConfigurationError("provider_not_configured")
+        endpoint = base_url or selected.base_url or catalog_base_url(selected.provider_type)
+        if not endpoint:
+            raise ProviderConfigurationError("provider_not_configured")
         return ResolvedProvider(
             tenant_id, selected.id, selected.name, selected.provider_type, key,
-            base_url or selected.base_url or catalog_base_url(selected.provider_type),
+            endpoint,
             model or selected.default_model or catalog_default_model(selected.provider_type) or "default", "database",
         )
 
     if settings.ARTSA_ALLOW_ENV_PROVIDER_FALLBACK:
         provider_type = requested or "openai"
         key = settings.provider_key(provider_type)
-        if key:
+        endpoint = base_url or catalog_base_url(provider_type)
+        if key and endpoint:
             return ResolvedProvider(
                 tenant_id, None, provider_type, provider_type, key,
-                base_url or catalog_base_url(provider_type),
+                endpoint,
                 model or catalog_default_model(provider_type) or "default", "environment",
             )
     raise ProviderConfigurationError("provider_not_configured")
@@ -122,9 +134,13 @@ class ProviderResolver:
         if not tenant_id:
             raise ProviderConfigurationError("tenant_context_required")
         started = time.monotonic()
-        rows = list((await session.execute(
-            select(ProviderORM).where(ProviderORM.tenant_id == tenant_id)
-        )).scalars())
+        try:
+            rows = list((await session.execute(
+                select(ProviderORM).where(ProviderORM.tenant_id == tenant_id)
+            )).scalars())
+        except Exception as exc:
+            logger.warning("provider_resolution_unavailable tenant=%s", tenant_id)
+            raise ProviderConfigurationError("provider_resolution_unavailable") from exc
         resolved = _resolve_rows(rows, tenant_id=tenant_id, provider=provider, api_key=api_key, model=model, base_url=base_url, provider_ref=provider_ref)
         logger.info("provider_resolved tenant=%s provider_id=%s source=%s duration_ms=%d", tenant_id, resolved.provider_id, resolved.source, (time.monotonic() - started) * 1000)
         return resolved

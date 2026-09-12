@@ -151,9 +151,9 @@ export function SecurityEventInspector({ row, className }: SecurityEventInspecto
           </Button>
           {(row.severity === "CRITICAL" || row.severity === "HIGH") && (
             <Button asChild variant="outline" size="sm" className="w-full justify-start gap-2">
-              <Link href="/sandbox">
+              <Link href="/playground">
                 <Crosshair className="h-3.5 w-3.5" aria-hidden />
-                Retest in sandbox
+                Retest in AI Security Playground
               </Link>
             </Button>
           )}

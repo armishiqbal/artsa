@@ -15,11 +15,15 @@ export type StrategicKpis = {
 export function CommandCenterSecurityPosture({
   round,
   kpiData,
+  liveLatencyMs,
+  overallRiskOverride,
   onOpenAsiTaxonomy,
   className,
 }: {
   round: LiveRound;
   kpiData?: StrategicKpis;
+  liveLatencyMs?: number | null;
+  overallRiskOverride?: "CRITICAL" | "ELEVATED" | "NOMINAL";
   onOpenAsiTaxonomy?: () => void;
   className?: string;
 }) {
@@ -29,11 +33,13 @@ export function CommandCenterSecurityPosture({
 
   const hasHighThreat = round.bars.some((b) => b.pct >= 75 || b.tone === "alert");
 
-  const overallRisk: "CRITICAL" | "ELEVATED" | "NOMINAL" = isBreach
-    ? "CRITICAL"
-    : hasHighThreat
-      ? "ELEVATED"
-      : "NOMINAL";
+  const overallRisk: "CRITICAL" | "ELEVATED" | "NOMINAL" =
+    overallRiskOverride ??
+    (isBreach
+      ? "CRITICAL"
+      : hasHighThreat
+        ? "ELEVATED"
+        : "NOMINAL");
 
   const activeThreats = round.bars.length;
   const criticalThreats = round.bars.filter((b) => b.pct >= 75 || b.tone === "alert").length;
@@ -48,11 +54,14 @@ export function CommandCenterSecurityPosture({
   }, [round.agents]);
 
   const avgLatencyMs = useMemo(() => {
-    if (!round.latencies) return 27;
-    const vals = Object.values(round.latencies);
-    if (vals.length === 0) return 27;
+    if (liveLatencyMs !== undefined) {
+      return liveLatencyMs;
+    }
+    if (!round.latencies) return null;
+    const vals = Object.values(round.latencies).filter((v): v is number => typeof v === "number");
+    if (vals.length === 0) return null;
     return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-  }, [round.latencies]);
+  }, [liveLatencyMs, round.latencies]);
 
   const riskBadgeClass =
     overallRisk === "CRITICAL"
@@ -226,7 +235,7 @@ export function CommandCenterSecurityPosture({
                 MEAN LATENCY
               </span>
               <span className="text-foreground font-semibold tabular-nums">
-                {avgLatencyMs}ms
+                {avgLatencyMs !== null ? `${avgLatencyMs}ms` : "N/A"}
               </span>
             </div>
           </div>
@@ -332,7 +341,7 @@ export function CommandCenterSecurityPosture({
             MEAN LATENCY
           </span>
           <span className="text-foreground font-semibold tabular-nums">
-            {avgLatencyMs}ms
+            {avgLatencyMs !== null ? `${avgLatencyMs}ms` : "N/A"}
           </span>
         </div>
       </div>

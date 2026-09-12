@@ -20,6 +20,7 @@ class RedisStreamProtocol(Protocol):
     def get(self, key: str) -> str | None: ...
     def lpush(self, key: str, value: str) -> int: ...
     def brpop(self, key: str, timeout: float) -> str | None: ...
+    def incr_with_expiry(self, key: str, ttl_sec: int) -> int: ...
 
 
 class InMemoryRedis:
@@ -84,6 +85,20 @@ class InMemoryRedis:
             if time.time() >= deadline:
                 return None
             time.sleep(0.01)
+
+    def incr_with_expiry(self, key: str, ttl_sec: int) -> int:
+        """Increment a bounded counter with an expiry (test Redis parity)."""
+        now = time.time()
+        entry = self._kv.get(key)
+        if entry is None or entry[1] <= now:
+            value = 1
+        else:
+            try:
+                value = int(entry[0]) + 1
+            except (TypeError, ValueError):
+                value = 1
+        self._kv[key] = (str(value), now + max(1, int(ttl_sec)))
+        return value
 
     @property
     def is_live(self) -> bool:
@@ -155,6 +170,14 @@ class LiveRedisClient:
         if not result:
             return None
         return str(result[1])
+
+    def incr_with_expiry(self, key: str, ttl_sec: int) -> int:
+        """Atomically increment a Redis counter and set its TTL on first use."""
+        pipe = self._client.pipeline()  # type: ignore[attr-defined]
+        pipe.incr(key)
+        pipe.expire(key, max(1, int(ttl_sec)))
+        value, _ = pipe.execute()
+        return int(value)
 
     @property
     def is_live(self) -> bool:

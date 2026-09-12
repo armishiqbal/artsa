@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
+from datetime import time as dt_time
 from typing import Any
 
 from sqlalchemy import func, select
@@ -64,6 +64,29 @@ def public_findings(findings: list[Any]) -> list[dict[str, Any]]:
     return result
 
 
+def budget_snapshot(redis: Any | None, *, tenant_id: str) -> dict[str, int]:
+    """Expose only remaining numeric allowance; never expose quota contents."""
+    now = datetime.now(UTC)
+    day = now.strftime("%Y%m%d")
+    used_requests = 0
+    used_tokens = 0
+    try:
+        if redis is not None and hasattr(redis, "get"):
+            used_requests = int(redis.get(f"artsa:playground:requests:{tenant_id}:{day}") or 0)
+            used_tokens = int(redis.get(f"artsa:playground:tokens:{tenant_id}:{day}") or 0)
+    except Exception:
+        # A catalog may still render provider metadata; the run path remains
+        # fail-closed when it cannot reserve quota.
+        used_requests = used_tokens = 0
+    return {
+        "daily_requests": settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS,
+        "daily_tokens": settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS,
+        "remaining_requests": max(0, settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS - used_requests) if settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS > 0 else 0,
+        "remaining_tokens": max(0, settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS - used_tokens) if settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS > 0 else 0,
+        "max_output_tokens": settings.ARTSA_PLAYGROUND_MAX_OUTPUT_TOKENS,
+    }
+
+
 def redact_prompt_scan(scan: Any, *, channel: str) -> dict[str, Any]:
     """Convert PromptScanner output to a response that cannot echo submitted text."""
     return {
@@ -89,22 +112,84 @@ def redact_prompt_scan(scan: Any, *, channel: str) -> dict[str, Any]:
     }
 
 
-async def enforce_chat_budget(db: AsyncSession, *, tenant_id: str, actor_id: str | None) -> None:
-    """Fail before a provider call when the tenant has exhausted its allowance."""
+async def enforce_chat_budget(
+    db: AsyncSession,
+    *,
+    tenant_id: str,
+    actor_id: str | None,
+    redis: Any | None = None,
+    estimated_input_tokens: int = 0,
+) -> None:
+    """Reserve a chat request before any provider call.
+
+    Redis counters are the cross-process admission control.  The SQL query is
+    retained as a recovery/verification path for environments without Redis;
+    production refuses to continue when the atomic counter is unavailable.
+    """
     from fastapi import HTTPException, status
 
-    since = datetime.now(UTC) - timedelta(days=1)
-    result = await db.execute(
-        select(
-            func.count(PlaygroundRunAuditORM.id),
-            func.coalesce(func.sum(PlaygroundRunAuditORM.input_tokens + PlaygroundRunAuditORM.output_tokens), 0),
-        ).where(
-            PlaygroundRunAuditORM.tenant_id == tenant_id,
-            PlaygroundRunAuditORM.channel == "chat",
-            PlaygroundRunAuditORM.created_at >= since,
+    now = datetime.now(UTC)
+    # RPM is a fixed rolling bucket; tenant quotas use the UTC calendar day so
+    # operators can reconcile them with billing and the catalog response.
+    # In-memory Redis is useful for local tests, but cannot provide the
+    # cross-process quota boundary required in production.  The dependency
+    # normally refuses to construct it there; keep this guard for overrides
+    # and partially initialized workers as well.
+    if settings.ENVIRONMENT == "production" and (
+        redis is None
+        or not hasattr(redis, "incr_with_expiry")
+        or getattr(redis, "is_live", True) is False
+    ):
+        raise HTTPException(status_code=503, detail="playground_quota_unavailable")
+    if redis is not None and hasattr(redis, "incr_with_expiry"):
+        try:
+            if settings.ARTSA_PLAYGROUND_USER_RPM > 0 and actor_id:
+                user_key = f"artsa:playground:rpm:{tenant_id}:{actor_id}:{now.strftime('%Y%m%d%H%M')}"
+                user_count = redis.incr_with_expiry(user_key, 61)
+                if user_count > settings.ARTSA_PLAYGROUND_USER_RPM:
+                    raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="playground_user_rate_limit_exhausted")
+            day = now.strftime("%Y%m%d")
+            ttl = max(60, int((datetime.combine(now.date() + timedelta(days=1), dt_time.min, tzinfo=UTC) - now).total_seconds()))
+            request_count = redis.incr_with_expiry(f"artsa:playground:requests:{tenant_id}:{day}", ttl)
+            if settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS > 0 and request_count > settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS:
+                raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="playground_tenant_request_budget_exhausted")
+            reserved_tokens = max(0, int(estimated_input_tokens)) + max(0, int(settings.ARTSA_PLAYGROUND_MAX_OUTPUT_TOKENS))
+            token_count = redis.incr_with_expiry(f"artsa:playground:tokens:{tenant_id}:{day}", ttl) if reserved_tokens else 0
+            if settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS > 0 and token_count > settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS:
+                raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="playground_tenant_token_budget_exhausted")
+            return
+        except HTTPException:
+            raise
+        except Exception as exc:
+            if settings.ENVIRONMENT == "production":
+                raise HTTPException(status_code=503, detail="playground_quota_unavailable") from exc
+
+    if not hasattr(db, "execute"):
+        if settings.ENVIRONMENT == "production":
+            raise HTTPException(status_code=503, detail="playground_quota_unavailable")
+        return
+    since = datetime.combine(now.date(), dt_time.min, tzinfo=UTC)
+    try:
+        result = await db.execute(
+            select(
+                func.count(PlaygroundRunAuditORM.id),
+                func.coalesce(func.sum(PlaygroundRunAuditORM.input_tokens + PlaygroundRunAuditORM.output_tokens), 0),
+            ).where(
+                PlaygroundRunAuditORM.tenant_id == tenant_id,
+                PlaygroundRunAuditORM.channel == "chat",
+                PlaygroundRunAuditORM.created_at >= since,
+            )
         )
-    )
-    requests, tokens = result.one()
+    except Exception as exc:
+        if settings.ENVIRONMENT == "production":
+            raise HTTPException(status_code=503, detail="playground_quota_unavailable") from exc
+        return
+    try:
+        requests, tokens = result.one()
+    except Exception as exc:
+        if settings.ENVIRONMENT == "production":
+            raise HTTPException(status_code=503, detail="playground_quota_unavailable") from exc
+        return
     if settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS > 0 and int(requests or 0) >= settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="playground_tenant_request_budget_exhausted")
     if settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS > 0 and int(tokens or 0) >= settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS:

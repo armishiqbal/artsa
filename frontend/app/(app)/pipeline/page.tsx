@@ -195,7 +195,7 @@ export default function PipelinePage() {
           Promote validated findings into playbook rules to close the Defender → Research feedback hop.
         </span>
         <Button asChild variant="outline" size="sm">
-          <Link href="/sandbox">Test in sandbox → Promote</Link>
+          <Link href="/playground">Test in AI Security Playground → Promote</Link>
         </Button>
       </div>
     </PageStack>

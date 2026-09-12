@@ -62,8 +62,12 @@ class PlaygroundEvaluator:
         sid = uuid.UUID(session_id) if session_id else None
         scan = self._scanner.scan(content, session_id=sid, agent_id=agent_id)
 
-        result = scan.to_dict()
-        result["evaluated_prompt"] = content
+        # The evaluator is also used by compatibility callers; returning the
+        # submitted body, evidence text, or trigger phrases here would bypass
+        # the API route's redaction contract.
+        from src.services.playground_security import redact_prompt_scan
+
+        result = redact_prompt_scan(scan, channel="input")
         result["template"] = (
             {"id": template.get("id"), "name": template.get("name"), "category": template.get("category")}
             if template

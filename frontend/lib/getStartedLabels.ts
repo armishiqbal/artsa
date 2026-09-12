@@ -59,7 +59,7 @@ export const READINESS_UI = {
   needsTuning: "Needs tuning",
   liveActivity: "Live activity",
   liveActivityHint: "Events as they arrive — your test event should appear here.",
-  fixInSandbox: "Try in sandbox",
+  fixInSandbox: "Try in AI Security Playground",
   tunePolicies: "Tune rules",
   autoRunning: "Running security tests automatically…",
 } as const;
@@ -192,12 +192,12 @@ export const API_UNAVAILABLE = {
   short: "ARTSA is unavailable",
   hint: "Check that ARTSA is running, then refresh this page.",
   scan: "Scan couldn’t run — ARTSA is unavailable.",
-  sandbox: "Check couldn’t run — ARTSA is unavailable.",
+  sandbox: "Playground check couldn’t run — ARTSA is unavailable.",
   rag: "Document scan couldn’t run — ARTSA is unavailable.",
 } as const;
 
 export const SANDBOX_UI = {
-  liveMonitoringTitle: "Sandbox ≠ live Command Center",
+  liveMonitoringTitle: "Playground ≠ live Command Center",
   liveMonitoringHint:
     "Tests here run in isolation. Connect production agents through Get Started to see live activity on the dashboard.",
   sendTestEvent: "Send a test event",

@@ -18,14 +18,19 @@ import {
 
 export function CommandCenterAttackTimeline({
   currentRoundIdx,
+  timeline,
   onSelectStep,
   className,
 }: {
   currentRoundIdx: number;
+  timeline?: AttackTimelineStep[];
   onSelectStep?: (step: AttackTimelineStep, idx: number) => void;
   className?: string;
 }) {
-  const steps = useMemo(() => ATTACK_TIMELINE, []);
+  const steps = useMemo(
+    () => (timeline && timeline.length > 0 ? timeline : ATTACK_TIMELINE),
+    [timeline]
+  );
   const activeStep = steps[currentRoundIdx] ?? steps[0]!;
   const scrollerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);

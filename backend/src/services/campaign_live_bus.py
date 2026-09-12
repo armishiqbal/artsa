@@ -129,6 +129,19 @@ class CampaignLiveBus:
                 queue.put_nowait(payload)
             except asyncio.QueueFull:
                 pass
+
+        # Bridge projected campaign hop to global telemetry_bus so WebSocket clients on /websocket receive live hops
+        if payload.get("hop"):
+            try:
+                from src.services.ops_telemetry import project_campaign_hop
+                from src.services.telemetry_bus import telemetry_bus
+
+                projected = project_campaign_hop(payload)
+                if projected is not None:
+                    telemetry_bus.publish(projected.model_dump(mode="json"))
+            except Exception:
+                pass
+
         return payload
 
     def history(self, campaign_id: str, limit: int = 200) -> list[dict[str, Any]]:

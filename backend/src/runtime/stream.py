@@ -171,6 +171,7 @@ class OpenAIStreamGate:
         session_id: UUID,
         extra_system: str | None = None,
         retry_authorized: bool = False,
+        allow_tools: bool = True,
     ) -> None:
         self.state = StreamScanState(
             messages=messages, session_id=session_id, extra_system=extra_system
@@ -181,6 +182,7 @@ class OpenAIStreamGate:
         self._tool_acc: dict[int, dict[str, Any]] = {}
         self._finish_reason: str | None = None
         self._retry_authorized = retry_authorized
+        self._allow_tools = allow_tools
 
     @property
     def aborted(self) -> bool:
@@ -292,6 +294,22 @@ class OpenAIStreamGate:
             return []
         self._finalized = True
         self.state.completed_tools = self._completed_tools()
+        if self.state.completed_tools and not self._allow_tools:
+            body = json.dumps(self.state.completed_tools, default=str, sort_keys=True, separators=(",", ":"))
+            decision = RuntimeDecision(
+                action=RuntimeAction.BLOCK,
+                findings=[RedactedFinding(
+                    detector="PlaygroundToolGuard",
+                    category="TOOLS_NOT_ALLOWED",
+                    body_sha256=sha256_text(body),
+                    action=RuntimeAction.BLOCK,
+                )],
+                body_sha256=sha256_text(body),
+                stream=True,
+            )
+            self.state.final_decision = decision
+            self.state.aborted = True
+            return self._block_frames(decision)
         decision, rest = self.state.finish(withhold_quarantine=not self._retry_authorized)
         if decision.action == RuntimeAction.BLOCK:
             return self._block_frames(decision)
@@ -395,6 +413,7 @@ class AnthropicStreamGate:
         extra_system: str | None = None,
         model: str = "claude",
         retry_authorized: bool = False,
+        allow_tools: bool = True,
     ) -> None:
         self.state = StreamScanState(
             messages=messages, session_id=session_id, extra_system=extra_system
@@ -404,6 +423,7 @@ class AnthropicStreamGate:
         self._finalized = False
         self._tool_acc: dict[int, dict[str, Any]] = {}
         self._retry_authorized = retry_authorized
+        self._allow_tools = allow_tools
 
     @property
     def aborted(self) -> bool:
@@ -508,6 +528,22 @@ class AnthropicStreamGate:
             return []
         self._finalized = True
         self.state.completed_tools = self._completed_tools()
+        if self.state.completed_tools and not self._allow_tools:
+            body = json.dumps(self.state.completed_tools, default=str, sort_keys=True, separators=(",", ":"))
+            decision = RuntimeDecision(
+                action=RuntimeAction.BLOCK,
+                findings=[RedactedFinding(
+                    detector="PlaygroundToolGuard",
+                    category="TOOLS_NOT_ALLOWED",
+                    body_sha256=sha256_text(body),
+                    action=RuntimeAction.BLOCK,
+                )],
+                body_sha256=sha256_text(body),
+                stream=True,
+            )
+            self.state.final_decision = decision
+            self.state.aborted = True
+            return self.emitter.block(decision)
         decision, rest = self.state.finish(withhold_quarantine=not self._retry_authorized)
         if decision.action == RuntimeAction.BLOCK:
             return self.emitter.block(decision)

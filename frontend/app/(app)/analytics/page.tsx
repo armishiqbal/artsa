@@ -168,7 +168,7 @@ export default function AnalyticsPage() {
               description={EMPTY_STATE_UI.noAnalyticsDescription}
               action={
                 <Button asChild size="sm">
-                  <Link href="/sandbox">Generate live traffic</Link>
+                  <Link href="/playground">Generate live traffic</Link>
                 </Button>
               }
               className="py-16"

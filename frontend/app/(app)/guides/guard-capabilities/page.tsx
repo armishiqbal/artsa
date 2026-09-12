@@ -14,9 +14,9 @@ export default function GuardCapabilitiesPage() {
         icon={<Shield className="h-5 w-5" />}
         actions={
           <Button asChild variant="outline" size="sm">
-            <Link href="/sandbox">
+            <Link href="/playground">
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Sandbox
+              Open AI Security Playground
             </Link>
           </Button>
         }

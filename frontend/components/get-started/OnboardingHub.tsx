@@ -568,7 +568,7 @@ export function OnboardingHub(props: {
           )}
 
           <p className="text-xs text-muted-foreground">
-            <Link href="/sandbox" className="font-medium hover:underline">Sandbox</Link>
+            <Link href="/playground" className="font-medium hover:underline">AI Security Playground</Link>
             {" · "}
             <Link href="/admin/policies" className="font-medium hover:underline">Security rules</Link>
             {" · "}

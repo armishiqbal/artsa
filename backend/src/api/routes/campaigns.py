@@ -357,10 +357,32 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest, tenan
             app_config["artsa"]["red_team"]["base_url"] = cred_base_url
             app_config["artsa"]["judge"]["base_url"] = cred_base_url
 
+        # Register campaign as an active session in session_tracker for containment management
+        import uuid as _uuid
+        from src.core.models.sessions import Session as _Session
+        from src.services.session_tracker import session_tracker as _session_tracker
+
+        _session_id = None
+        try:
+            _session_id = _uuid.UUID(campaign_id)
+            _session_obj = _Session(
+                id=_session_id,
+                agent_id="red_team",
+                tenant_id=tenant_id,
+                status="ACTIVE",
+            )
+            _session_tracker.active_sessions[str(_session_id)] = _session_obj
+        except Exception:
+            logger.warning("Could not register campaign %s as session in tracker", campaign_id)
+
         manager = CampaignManager(config=camp_cfg, app_config=app_config)
         summary = manager.run(on_round_complete=on_round_complete)
-        job_store.complete(campaign_id, summary.model_dump(mode="json"))
-        emit_campaign_status(campaign_id, "COMPLETED", agents=default_agents("done"))
+        if _session_id and _session_tracker.is_contained(_session_id):
+            job_store.fail(campaign_id, "Campaign contained by operator action")
+            emit_campaign_status(campaign_id, "CONTAINED", agents=default_agents("idle"))
+        else:
+            job_store.complete(campaign_id, summary.model_dump(mode="json"))
+            emit_campaign_status(campaign_id, "COMPLETED", agents=default_agents("done"))
     except Exception as exc:
         logger.exception("Campaign %s failed", campaign_id)
         job_store.fail(campaign_id, str(exc))

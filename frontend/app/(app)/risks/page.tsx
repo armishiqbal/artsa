@@ -177,7 +177,7 @@ function RiskDetail({ risk }: { risk: AgenticRisk }) {
           </Link>
         </Button>
         <Button asChild size="sm" variant="outline">
-          <Link href="/sandbox">
+          <Link href="/playground">
             <Crosshair className="h-3.5 w-3.5" aria-hidden />
             Try this attack
           </Link>

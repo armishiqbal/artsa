@@ -106,6 +106,17 @@ class CampaignManager:
         self.total_cost = 0.0
         self._pending_rewrite: AttackPayload | None = None  # Queued LLM rewrite for next round
 
+    def _is_contained(self) -> bool:
+        """Check if campaign session has been contained or killed by operator."""
+        try:
+            import uuid
+            from src.services.session_tracker import session_tracker
+
+            cid = uuid.UUID(self.config.id)
+            return session_tracker.is_contained(cid)
+        except Exception:
+            return False
+
     def _update_history_stats(self, round_result: RoundResult) -> None:
         cat = round_result.attack.category.value
         if cat not in self.history_stats:
@@ -256,6 +267,11 @@ class CampaignManager:
             )
 
             for round_idx in range(1, self.config.max_rounds + 1):
+                if self._is_contained():
+                    logger.warning("Campaign %s stopped: session has been contained/killed by operator", self.config.id)
+                    console.print(f"[bold red]🛑 Campaign {self.config.id} terminated by operator containment[/bold red]")
+                    break
+
                 round_start = time.time()
 
                 # ─── 1. Maybe evolve the population ────────────────

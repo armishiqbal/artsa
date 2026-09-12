@@ -11,5 +11,5 @@ export default function SandboxRedirect({
     if (typeof v === "string") q.set(key, v);
   }
   const qs = q.toString();
-  redirect(qs ? `/red-team/lab?${qs}` : "/red-team/lab");
+  redirect(qs ? `/playground?${qs}` : "/playground");
 }

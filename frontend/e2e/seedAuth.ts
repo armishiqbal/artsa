@@ -8,8 +8,9 @@ export function seedAuthScript(): string {
   // with ARTSA_API_KEY, but browser tests must never depend on a production
   // credential being present in the environment.
   const key = process.env.ARTSA_API_KEY || "e2e-test-key";
+  const serializedKey = JSON.stringify(key);
   // Skip seeding on landing sign-in so anonymous auth UI tests can run.
-  return `if (location.pathname !== "/login" && !location.search.includes("signin=1")) { sessionStorage.setItem("artsa-auth", JSON.stringify({ state: { bearerToken: null, refreshToken: null, expiresAt: null, apiKey: "${key}" }, version: 0 })); }`;
+  return `if (location.pathname !== "/login" && !location.search.includes("signin=1")) { sessionStorage.setItem("artsa-auth", JSON.stringify({ state: { bearerToken: null, refreshToken: null, expiresAt: null, apiKey: ${serializedKey} }, version: 0 })); }`;
 }
 
 // Identity the app would receive from GET /api/v1/config/me. With no backend
@@ -104,6 +105,27 @@ export async function seedAuth(page: Page): Promise<void> {
   await page.route("**/api/v1/health**", (route) => route.fulfill(json({ status: "ok" })));
   await page.route("**/api/v1/risks**", (route) => route.fulfill(json(risks)));
   await page.route("**/api/v1/attack-library**", (route) => route.fulfill(json({ categories: [], templates: [], total_templates: 0 })));
+  await page.route("**/api/v1/playground/catalog**", (route) => route.fulfill(json({
+    providers: [{ id: "e2e-provider-001", name: "Fixture provider", provider_type: "openai", default_model: "fixture-model" }],
+    templates: [{ id: "e2e-template-001", name: "Fixture injection", category: "DPI", description: "Deterministic E2E template" }],
+    budget: { daily_requests: 250, daily_tokens: 500000, remaining_requests: 249, remaining_tokens: 499000, max_output_tokens: 512 },
+  })));
+  await page.route("**/api/v1/playground/scan**", (route) => route.fulfill(json({
+    session_id: "e2e-playground-session",
+    action: "BLOCK",
+    result: {
+      channel: "input", action: "BLOCK", verdict: "BREACHED", risk_score: 100,
+      body_sha256: "e2e-playground-digest", latency_ms: 4,
+      risk_breakdown: { rule_based: 100 }, fired_detectors: { PromptInjectionDetector: true },
+      findings: [{ detector: "PromptInjectionDetector", category: "PROMPT_INJECTION", action: "BLOCK" }],
+    },
+  })));
+  await page.route("**/api/v1/playground/chat**", (route) => route.fulfill({
+    status: 200,
+    contentType: "text/event-stream",
+    headers: { "cache-control": "no-store", "x-artsa-session-id": "e2e-playground-session" },
+    body: "event: playground.status\ndata: {\"stage\":\"input_screened\",\"action\":\"ALLOW\"}\n\nevent: message.delta\ndata: {\"text\":\"Fixture response\"}\n\nevent: playground.complete\ndata: {\"action\":\"ALLOW\",\"body_sha256\":\"e2e-response-digest\",\"findings\":[]}\n\n",
+  }));
   await page.route("**/api/v1/sessions?limit=50**", (route) => route.fulfill(json([session])));
   await page.route("**/api/v1/sessions/e2e-session-001/timeline**", (route) => route.fulfill(json(timeline)));
   await page.route("**/api/v1/approvals**", (route) => route.fulfill(json([])));

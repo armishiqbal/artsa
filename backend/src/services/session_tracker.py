@@ -95,3 +95,6 @@ class SessionTracker:
     def is_contained(self, session_id: uuid.UUID) -> bool:
         session = self.get_session(session_id)
         return bool(session and session.status in ("BREACHED", "QUARANTINED", "PENDING_APPROVAL", "CLOSED"))
+
+
+session_tracker = SessionTracker()
