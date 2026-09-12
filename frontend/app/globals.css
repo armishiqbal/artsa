@@ -2219,6 +2219,137 @@
   color: #e8e8e8 !important;
 }
 
+/* ── Light-first product polish ────────────────────────────────────────
+   ARTSA is a security product, not a terminal emulator. These overrides keep
+   the existing token system intact while giving the whole application the
+   calm, high-trust SaaS surface used by the new light-default experience. */
+[data-theme="light"] .platform-shell {
+  background:
+    radial-gradient(900px 520px at 80% -10%, hsl(var(--primary) / 0.10), transparent 60%),
+    hsl(210 40% 98%);
+}
+
+[data-theme="light"] .app-canvas {
+  background: transparent;
+}
+
+/* The playground is a working canvas, not a raised dashboard panel. Keep its
+   surface white and let the internal rules establish the split-pane rhythm. */
+.playground-shell {
+  background: hsl(var(--background));
+}
+
+.playground-panel-enter {
+  animation: playground-panel-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.playground-detail-enter {
+  animation: playground-detail-in 220ms ease-out both;
+}
+
+@keyframes playground-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes playground-detail-in {
+  from {
+    opacity: 0;
+    transform: translateX(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+[data-theme="light"] .playground-shell {
+  background: hsl(0 0% 100%);
+}
+
+[data-theme="light"] .shell-sidebar {
+  background: hsl(var(--card) / 0.94);
+  border-color: hsl(214 32% 91%);
+  box-shadow: 1px 0 0 hsl(214 32% 91% / 0.65);
+}
+
+[data-theme="light"] .shell-topbar {
+  background: hsl(var(--card) / 0.84);
+  border-color: hsl(214 32% 91%);
+  backdrop-filter: blur(18px);
+}
+
+[data-theme="light"] .surface-panel {
+  border-color: hsl(214 32% 91%);
+  box-shadow: 0 1px 2px hsl(222 47% 11% / 0.03), 0 10px 28px hsl(222 47% 11% / 0.035);
+}
+
+@media (hover: hover) {
+  [data-theme="light"] .surface-panel:hover {
+    border-color: hsl(var(--primary) / 0.22);
+    box-shadow: 0 2px 4px hsl(222 47% 11% / 0.04), 0 16px 36px hsl(222 47% 11% / 0.06);
+  }
+}
+
+[data-theme="light"] .workspace-rail-link,
+[data-theme="light"] .segmented-pill-active,
+[data-theme="light"] .dropdown-surface {
+  box-shadow: 0 8px 24px hsl(222 47% 11% / 0.06);
+}
+
+[data-theme="light"] .interactive-nav[data-active="true"] {
+  background: hsl(var(--primary) / 0.09);
+  color: hsl(var(--primary));
+}
+
+[data-theme="light"] .interactive-nav[data-active="true"] svg {
+  color: hsl(var(--primary));
+}
+
+[data-theme="light"] .landing-browser,
+[data-theme="light"] .landing-findings-panel {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(214 32% 91%) !important;
+  box-shadow: 0 20px 60px hsl(222 47% 11% / 0.10) !important;
+}
+
+[data-theme="light"] .landing-browser [class*="bg-[#0B0F19]"],
+[data-theme="light"] .landing-browser [class*="bg-[#0E1424]"],
+[data-theme="light"] .landing-browser [class*="bg-[#12192c]"],
+[data-theme="light"] .landing-browser [class*="bg-[#162038]"],
+[data-theme="light"] .landing-browser [class*="bg-[#080D1A]"],
+[data-theme="light"] .landing-browser [class*="bg-[#0F172A]"],
+[data-theme="light"] .landing-findings-panel [class*="bg-[#0B101E]"] {
+  background-color: hsl(210 40% 98%) !important;
+}
+
+[data-theme="light"] .landing-browser [class*="border-slate-"],
+[data-theme="light"] .landing-browser [class*="border-[#313131]"] {
+  border-color: hsl(214 32% 88%) !important;
+}
+
+[data-theme="light"] .landing-browser [class*="text-slate-200"],
+[data-theme="light"] .landing-browser [class*="text-slate-300"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── ARTSA Tactical Glass Cockpit Design Tokens & Surfaces ────── */
 :root {
   --cc-bg-base: #07080b;
@@ -2307,6 +2438,95 @@
 [data-theme="light"] .recharts-tooltip-item-name,
 [data-theme="light"] .recharts-tooltip-item-value {
   color: hsl(var(--foreground)) !important;
+}
+
+/* The marketing surface used a standalone, permanently dark token set. Make
+   it participate in the application theme so a first visit is as light and
+   calm as the product workspace, while retaining the existing dark variant. */
+[data-theme="light"] .lp {
+  --color-pistachio: #2563eb;
+  --color-sky: #dbeafe;
+  --color-sky-blue: #2563eb;
+  --color-deep-blue: #1d4ed8;
+  --color-cloud: #f8fafc;
+  --color-obsidian: #0f172a;
+  --color-blue-cornflower: #2563eb;
+  --color-page-ink: #f8fafc;
+  --color-card-carbon: #ffffff;
+  --color-deep-coal: #ffffff;
+  --color-onyx: #ffffff;
+  --color-steel-border: rgba(15, 23, 42, 0.12);
+  --color-graphite: #475569;
+  --color-fog: #64748b;
+  --color-ash: #475569;
+  --color-snow: #0f172a;
+  --color-charcoal: #475569;
+  --surface-canvas: #f8fafc;
+  --surface-section: #ffffff;
+  --surface-card: #ffffff;
+  --surface-raised-edge: rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="light"] .lp-announce,
+[data-theme="light"] .lp-nav {
+  background: rgb(255 255 255 / 0.88);
+  color: var(--color-snow);
+  border-color: var(--color-steel-border);
+  backdrop-filter: blur(18px);
+}
+
+[data-theme="light"] .lp-nav__link,
+[data-theme="light"] .lp-btn-ghost {
+  color: var(--color-charcoal);
+}
+
+[data-theme="light"] .lp-btn-secondary {
+  color: var(--color-obsidian);
+  border-color: rgba(15, 23, 42, 0.18);
+}
+
+[data-theme="light"] .lp-btn-secondary:hover {
+  color: var(--color-obsidian);
+  border-color: var(--color-deep-blue);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+[data-theme="light"] .lp-btn-primary,
+[data-theme="light"] .lp-section--cloud .lp-btn-primary,
+[data-theme="light"] .lp-section--sky .lp-btn-primary {
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .lp-btn-primary:hover,
+[data-theme="light"] .lp-section--cloud .lp-btn-primary:hover,
+[data-theme="light"] .lp-section--sky .lp-btn-primary:hover {
+  background: #1e40af !important;
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .lp-jump__link {
+  color: var(--color-obsidian);
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgb(255 255 255 / 0.72);
+}
+
+[data-theme="light"] .lp-backdrop__base {
+  background: var(--color-page-ink);
+}
+
+[data-theme="light"] .lp-backdrop__grid {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37, 99, 235, 0.13), transparent 55%),
+    radial-gradient(ellipse 40% 30% at 90% 20%, rgba(59, 130, 246, 0.08), transparent 50%);
+}
+
+[data-theme="light"] .lp-backdrop__vignette {
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, transparent 20%, var(--color-page-ink) 88%);
+}
+
+[data-theme="light"] .lp-product-preview {
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.10);
 }
 @keyframes cc-hop {
   0%,

@@ -63,7 +63,7 @@ export function LogoWordmark({
       >
         ARTSA
       </span>
-      <span className="rounded-sm border border-sky-400/25 bg-sky-400/10 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-sky-300">
+      <span className="rounded-sm border border-primary/25 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-primary">
         EDS
       </span>
     </div>

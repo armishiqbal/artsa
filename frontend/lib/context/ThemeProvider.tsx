@@ -15,12 +15,7 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function systemTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-
-/** Read the persisted choice, falling back to the OS preference. */
+/** Read the persisted choice, falling back to ARTSA's light-first product default. */
 function storedTheme(): Theme {
   try {
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -28,20 +23,19 @@ function storedTheme(): Theme {
   } catch {
     /* storage unavailable — fall through to system */
   }
-  return systemTheme();
+  return "light";
 }
 
 /**
  * App theme provider. Applies `data-theme="dark|light"` to <html> so the CSS
  * token overrides in globals.css pick the palette, keeps the browser's
- * native color-scheme in sync, and persists the user's choice. Defaults to
- * the OS preference (dark in the current default palette).
+ * native color-scheme in sync, and persists the user's choice. ARTSA opens in
+ * the light workspace unless the operator has previously selected dark mode.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>("light");
 
-  // Apply the initial theme on mount (avoids a flash by defaulting to dark
-  // during SSR, then switching to the system/ stored theme once hydrated).
+  // Apply a stored choice after the light SSR default has painted.
   useEffect(() => {
     setThemeState(storedTheme());
   }, []);
@@ -56,7 +50,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     // Keep the <meta name="viewport">-independent color-scheme meta in sync.
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "dark" ? "#070707" : "#ffffff");
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#070707" : "#f8fafc");
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => setThemeState(next), []);
@@ -74,10 +68,10 @@ export function useTheme(): ThemeContextValue {
   return ctx;
 }
 
-/** Safe theme hook that falls back to 'dark' when outside ThemeProvider (e.g. unit tests). */
+/** Safe theme hook that falls back to the product default outside ThemeProvider. */
 export function useThemeSafe(): { theme: Theme; isDark: boolean; isLight: boolean } {
   const ctx = useContext(ThemeContext);
-  const theme = ctx?.theme ?? "dark";
+  const theme = ctx?.theme ?? "light";
   return {
     theme,
     isDark: theme === "dark",

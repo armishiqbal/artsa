@@ -21,6 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const redTeam = pathname.startsWith("/red-team");
   const commandCenter = pathname.startsWith("/command-center");
+  const playground = pathname.startsWith("/playground");
 
   return (
     <AppDataProvider>
@@ -35,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 id="main-content"
                 className={cn(
                   "app-canvas relative flex min-h-0 flex-1 flex-col",
-                  commandCenter
+                  commandCenter || playground
                     ? "min-h-full overflow-y-auto p-0"
                     : "overflow-y-auto p-4 md:p-5 lg:p-6"
                 )}
@@ -43,20 +44,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div
                   className={cn(
                     "mx-auto flex min-h-0 flex-1 flex-col",
-                    commandCenter
+                    commandCenter || playground
                       ? "min-h-full w-full max-w-none"
                       : redTeam
                         ? "w-full max-w-[1400px]"
                         : "w-full max-w-[1200px]"
                   )}
                 >
-                  {!redTeam && !commandCenter ? <WorkspaceRail /> : null}
+                  {!redTeam && !commandCenter && !playground ? <WorkspaceRail /> : null}
                   <BackendOfflineBanner />
                   <SessionInvalidBanner />
                   <PageContent className="flex min-h-0 flex-1 flex-col">
                     {children}
                   </PageContent>
-                  {!commandCenter ? <AppFooter /> : null}
+                  {!commandCenter && !playground ? <AppFooter /> : null}
                 </div>
               </main>
             </div>

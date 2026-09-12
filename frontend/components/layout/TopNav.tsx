@@ -223,8 +223,8 @@ export default function TopNav() {
           )}
           <button
             onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to parchment theme" : "Switch to ops dark theme"}
-            title={theme === "dark" ? "Parchment (warm light)" : "Ops dark"}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            title={theme === "dark" ? "Light theme" : "Dark theme"}
             className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
           >
             {theme === "dark" ? (

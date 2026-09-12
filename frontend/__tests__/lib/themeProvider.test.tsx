@@ -40,8 +40,8 @@ describe("ThemeProvider", () => {
     vi.restoreAllMocks();
   });
 
-  it("defaults to the OS preference when nothing is stored", () => {
-    mockMatchMedia(true); // system prefers light
+  it("defaults to the light workspace when nothing is stored", () => {
+    mockMatchMedia(false); // system preference must not override the product default
     render(
       <ThemeProvider>
         <ThemeProbe />
@@ -106,12 +106,12 @@ describe("ThemeProvider", () => {
   });
 
   it("keeps the color-scheme style in sync", () => {
-    mockMatchMedia(false); // dark
+    mockMatchMedia(false);
     render(
       <ThemeProvider>
         <ThemeProbe />
       </ThemeProvider>
     );
-    expect(document.documentElement.style.colorScheme).toBe("dark");
+    expect(document.documentElement.style.colorScheme).toBe("light");
   });
 });
