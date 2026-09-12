@@ -51,16 +51,46 @@ test.describe("ARTSA frontend pages", () => {
 
     await playgroundSelect.click();
     await page.getByRole("menuitem", { name: /guard tester/i }).click();
+    await page.getByRole("button", { name: /use this example/i }).first().click();
     await page.getByRole("button", { name: /screen content/i }).click();
     await expect(page.getByText("BLOCK", { exact: true }).first()).toBeVisible();
+    await page.getByText(/technical evidence/i).click();
     await expect(page.getByText(/PromptInjectionDetector/).first()).toBeVisible();
+    await page.getByRole("button", { name: /custom prompt/i }).click();
+    await page.getByRole("textbox", { name: /content to screen/i }).fill("custom fixture prompt");
+    await page.getByRole("button", { name: /screen content/i }).click();
+    await expect(page.getByText(/guard decision ready/i)).toBeVisible();
 
     await playgroundSelect.click();
     await page.getByRole("menuitem", { name: /chat simulator/i }).click();
     await expect(page.getByRole("textbox", { name: /user message/i })).toBeVisible();
+    await page.getByRole("button", { name: /use prompt/i }).first().click();
     await page.getByRole("button", { name: /run simulation/i }).click();
     await expect(page.getByText("Fixture response")).toBeVisible();
     await expect(page.getByText(/output screened/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /new conversation/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /run again/i })).toBeVisible();
+    await page.getByRole("button", { name: /new conversation/i }).click();
+    await expect(page.getByText(/choose an example prompt/i)).toBeVisible();
+
+    const chatInput = page.getByRole("textbox", { name: /user message/i });
+    await chatInput.fill("line one");
+    await chatInput.press("Shift+Enter");
+    await chatInput.type("line two");
+    await expect(chatInput).toHaveValue("line one\nline two");
+    await chatInput.fill("blocked fixture");
+    await chatInput.press("Enter");
+    await expect(page.getByText(/blocked before it reached the provider/i)).toBeVisible();
+    await page.getByRole("button", { name: /view guard decision/i }).click();
+    await expect(page.getByText(/technical evidence/i)).toBeVisible();
+  });
+
+  test("playground stacks cleanly on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/playground");
+    await expect(page.getByRole("heading", { name: /ai security playground/i })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /user message/i })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   });
 
   test("landing page renders at root", async ({ page }) => {

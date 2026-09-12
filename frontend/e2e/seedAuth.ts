@@ -120,12 +120,25 @@ export async function seedAuth(page: Page): Promise<void> {
       findings: [{ detector: "PromptInjectionDetector", category: "PROMPT_INJECTION", action: "BLOCK" }],
     },
   })));
-  await page.route("**/api/v1/playground/chat**", (route) => route.fulfill({
-    status: 200,
-    contentType: "text/event-stream",
-    headers: { "cache-control": "no-store", "x-artsa-session-id": "e2e-playground-session" },
-    body: "event: playground.status\ndata: {\"stage\":\"input_screened\",\"action\":\"ALLOW\"}\n\nevent: message.delta\ndata: {\"text\":\"Fixture response\"}\n\nevent: playground.complete\ndata: {\"action\":\"ALLOW\",\"body_sha256\":\"e2e-response-digest\",\"findings\":[]}\n\n",
-  }));
+  await page.route("**/api/v1/playground/chat**", (route) => {
+    const body = route.request().postData() || "";
+    if (body.includes("provider unavailable fixture")) return route.abort("failed");
+    if (body.includes("blocked fixture")) {
+      return route.fulfill(json({ action: "BLOCK", evidence: { action: "BLOCK", stage: "input", body_sha256: "e2e-blocked-digest", findings: [{ detector: "PromptInjectionDetector", category: "PROMPT_INJECTION", action: "BLOCK" }] } }, 403));
+    }
+    if (body.includes("approval fixture")) {
+      return route.fulfill(json({ action: "QUARANTINE", approval_id: "e2e-approval-001", evidence: { action: "QUARANTINE", stage: "output", body_sha256: "e2e-approval-digest", findings: [] } }, 403));
+    }
+    if (body.includes("malformed SSE fixture")) {
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body: "event: message.delta\ndata: {not-json}\n\nevent: playground.complete\ndata: {\"action\":\"ALLOW\",\"body_sha256\":\"e2e-malformed-digest\",\"findings\":[]}\n\n" });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      headers: { "cache-control": "no-store", "x-artsa-session-id": "e2e-playground-session" },
+      body: "event: playground.status\ndata: {\"stage\":\"input_screened\",\"action\":\"ALLOW\"}\n\nevent: message.delta\ndata: {\"text\":\"Fixture response\"}\n\nevent: playground.complete\ndata: {\"action\":\"ALLOW\",\"body_sha256\":\"e2e-response-digest\",\"findings\":[]}\n\n",
+    });
+  });
   await page.route("**/api/v1/sessions?limit=50**", (route) => route.fulfill(json([session])));
   await page.route("**/api/v1/sessions/e2e-session-001/timeline**", (route) => route.fulfill(json(timeline)));
   await page.route("**/api/v1/approvals**", (route) => route.fulfill(json([])));
