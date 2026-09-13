@@ -51,15 +51,18 @@ test.describe("ARTSA frontend pages", () => {
 
     await playgroundSelect.click();
     await page.getByRole("menuitem", { name: /guard tester/i }).click();
+    await expect(page.getByRole("button", { name: /use this example/i })).toHaveCount(3);
     await page.getByRole("button", { name: /use this example/i }).first().click();
+    await expect(page.getByRole("textbox", { name: /content to screen/i })).not.toBeEmpty();
     await page.getByRole("button", { name: /screen content/i }).click();
-    await expect(page.getByText("BLOCK", { exact: true }).first()).toBeVisible();
-    await page.getByText(/technical evidence/i).click();
-    await expect(page.getByText(/PromptInjectionDetector/).first()).toBeVisible();
+    await expect(page.getByText(/threats detected/i).first()).toBeVisible();
     await page.getByRole("button", { name: /custom prompt/i }).click();
     await page.getByRole("textbox", { name: /content to screen/i }).fill("custom fixture prompt");
     await page.getByRole("button", { name: /screen content/i }).click();
-    await expect(page.getByText(/guard decision ready/i)).toBeVisible();
+    await expect(page.getByText(/direct prompt injection/i).first()).toBeVisible();
+    await page.getByRole("textbox", { name: /content to screen/i }).fill("scan unavailable fixture");
+    await page.getByRole("button", { name: /screen content/i }).click();
+    await expect(page.getByText(/guard is unavailable/i)).toBeVisible();
 
     await playgroundSelect.click();
     await page.getByRole("menuitem", { name: /chat simulator/i }).click();
@@ -89,8 +92,33 @@ test.describe("ARTSA frontend pages", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/playground");
     await expect(page.getByRole("heading", { name: /ai security playground/i })).toBeVisible();
+    await page.getByRole("button", { name: /select playground/i }).click();
+    await page.getByRole("menuitem", { name: /chat simulator/i }).click();
     await expect(page.getByRole("textbox", { name: /user message/i })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  });
+
+  test("playground keeps approval, malformed SSE, and provider failures safe", async ({ page }) => {
+    await page.goto("/playground");
+    await page.getByRole("button", { name: /select playground/i }).click();
+    await page.getByRole("menuitem", { name: /chat simulator/i }).click();
+    const input = page.getByRole("textbox", { name: /user message/i });
+    await input.fill("approval fixture");
+    await page.getByRole("button", { name: /run simulation/i }).click();
+    await expect(page.getByText(/waiting for an approval review/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: /review approval request/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /new conversation/i }).click();
+    await input.fill("malformed SSE fixture");
+    await page.getByRole("button", { name: /run simulation/i }).click();
+    await expect(page.getByText(/allowed response/i)).toBeVisible();
+    await expect(page.getByText("e2e-malformed-digest")).toBeHidden();
+
+    await page.getByRole("button", { name: /new conversation/i }).click();
+    await input.fill("provider unavailable fixture");
+    await page.getByRole("button", { name: /run simulation/i }).click();
+    await expect(page.getByText(/simulation is unavailable right now/i)).toBeVisible();
+    await expect(page.getByText(/no response was shown/i).first()).toBeVisible();
   });
 
   test("landing page renders at root", async ({ page }) => {

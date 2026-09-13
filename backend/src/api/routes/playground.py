@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -36,6 +37,7 @@ from src.services.playground_security import (
 from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
 
 router = APIRouter(tags=["AI Security Playground"])
+logger = logging.getLogger("artsa.playground")
 _MAX_SYSTEM_CHARS = 8_192
 _MAX_CONTENT_CHARS = 16_384
 
@@ -72,6 +74,57 @@ def _sid(value: str | None) -> uuid.UUID:
 
 def _sse(event: str, body: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(body, separators=(',', ':'))}\n\n"
+
+
+def _log_playground_event(
+    event: str,
+    *,
+    tenant_id: str,
+    session_id: uuid.UUID,
+    action: RuntimeAction | str | None = None,
+    channel: str | None = None,
+    mode: str | None = None,
+    findings: list[Any] | None = None,
+    latency_ms: int | None = None,
+    provider_id: str | None = None,
+    model: str | None = None,
+    simulated: bool | None = None,
+) -> None:
+    """Write an operator-useful playground event without logging user content.
+
+    Prompts, provider output, credentials, and evidence digests are intentionally
+    absent. The terminal remains useful for correlating a UI click to its guard
+    decision without becoming a second sensitive-data store.
+    """
+    categories = sorted({
+        str(getattr(finding, "category", None) or getattr(finding, "event_type", ""))
+        for finding in (findings or [])
+        if getattr(finding, "category", None) or getattr(finding, "event_type", None)
+    })
+    detectors = sorted({
+        str(getattr(finding, "detector", ""))
+        for finding in (findings or [])
+        if getattr(finding, "detector", None)
+    })
+    payload: dict[str, Any] = {
+        "event": event,
+        "tenant": sha256_text(tenant_id)[:12],
+        "session_id": str(session_id),
+        "action": action.value if isinstance(action, RuntimeAction) else action,
+        "channel": channel,
+        "mode": mode,
+        "categories": categories,
+        "detectors": detectors,
+    }
+    if latency_ms is not None:
+        payload["latency_ms"] = latency_ms
+    if provider_id:
+        payload["provider_id"] = provider_id
+    if model:
+        payload["model"] = model
+    if simulated is not None:
+        payload["simulated"] = simulated
+    logger.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
 def _template(evaluator: PlaygroundEvaluator, template_id: str | None, tenant_id: str | None = None) -> dict[str, Any] | None:
@@ -234,6 +287,16 @@ async def playground_scan(request: Request, payload: PlaygroundScanRequest, db: 
         }
     await record_run(db, tenant_id=tenant_id, actor_id=_actor_id(request, tenant_id), session_id=session_id, mode="scan", channel=payload.channel, request_body=content, response_body=None, action=action, findings=findings)
     await db.commit()
+    _log_playground_event(
+        "playground.scan.completed",
+        tenant_id=tenant_id,
+        session_id=session_id,
+        action=action,
+        channel=payload.channel,
+        mode="scan",
+        findings=findings,
+        latency_ms=result["latency_ms"],
+    )
     return {"session_id": str(session_id), "action": action.value, "result": result}
 
 
@@ -260,6 +323,7 @@ async def playground_chat(
     from src.api.routes.proxy import _circuit_breaker_error, _circuit_breaker_open
 
     if await _circuit_breaker_open(db, tenant_id=tenant_id, session_id=session_id):
+        _log_playground_event("playground.chat.circuit_open", tenant_id=tenant_id, session_id=session_id, channel="chat", mode=payload.mode)
         return JSONResponse(status_code=403, content=_circuit_breaker_error(session_id), headers={"X-ARTSA-Session-ID": str(session_id)})
     scan = evaluator._scanner.scan(content, session_id=session_id, agent_id="playground")
     input_action = action_for_verdict(scan.verdict.verdict)
@@ -275,12 +339,14 @@ async def playground_chat(
         await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
         await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=input_action, findings=decision.findings)
         await db.commit()
+        _log_playground_event("playground.chat.input_blocked", tenant_id=tenant_id, session_id=session_id, action=input_action, channel="chat", mode=payload.mode, findings=decision.findings)
         return JSONResponse(status_code=403, content={"code": "input_blocked", "session_id": str(session_id), "action": input_action.value, "evidence": redact_prompt_scan(scan, channel="input")})
     if payload.mode == "block" and input_action == RuntimeAction.QUARANTINE and not retry_authorized:
         decision = _prompt_runtime_decision(scan, content=content, action=RuntimeAction.QUARANTINE)
         approval = await _queue_quarantine_approval(db=db, tracker=tracker, tenant_id=tenant_id, session_id=session_id, decision=decision, tool_name="playground.chat", arguments=operation, requester={"surface": "playground", "actor_id": actor_id})
         await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=input_action, findings=decision.findings)
         await db.commit()
+        _log_playground_event("playground.chat.input_quarantined", tenant_id=tenant_id, session_id=session_id, action=input_action, channel="chat", mode=payload.mode, findings=decision.findings)
         return JSONResponse(status_code=403, content={"code": "approval_required", "approval_id": approval.id, "session_id": str(session_id), "action": "QUARANTINE", "evidence": redact_prompt_scan(scan, channel="input")})
 
     try:
@@ -290,6 +356,7 @@ async def playground_chat(
         elif settings.ENVIRONMENT == "production":
             raise ProviderConfigurationError("provider_not_configured")
     except ProviderConfigurationError as exc:
+        _log_playground_event("playground.chat.provider_unavailable", tenant_id=tenant_id, session_id=session_id, action="UNAVAILABLE", channel="chat", mode=payload.mode)
         raise HTTPException(status_code=422, detail=exc.code) from exc
 
     # Reserve quota only after configuration resolution.  A missing/disabled
@@ -309,6 +376,7 @@ async def playground_chat(
             yield _sse("playground.complete", {"action": decision.action.value, "simulated": True, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings)})
             await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=text, action=decision.action, findings=decision.findings, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(1, len(text) // 4), started_at=started)
             await db.commit()
+            _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=decision.action, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), simulated=True)
             return
         proxy = get_llm_proxy()
         is_anthropic = resolved.provider_type.lower() == "anthropic"
@@ -345,12 +413,14 @@ async def playground_chat(
                     yield _sse("playground.complete", {"action": decision.action.value, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings)})
             await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=gate.state.text if decision.action == RuntimeAction.ALLOW else None, action=decision.action, findings=decision.findings, provider_id=resolved.provider_id, model=resolved.model, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(0, len(gate.state.text) // 4), started_at=started)
             await db.commit()
+            _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=decision.action, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model)
         except Exception:
             decision = fail_closed_decision(stream=True)
             await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
             yield _sse("playground.blocked", {"code": "playground_upstream_unavailable", "action": "BLOCK", "findings": public_findings(decision.findings)})
             await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=RuntimeAction.BLOCK, findings=decision.findings, provider_id=resolved.provider_id, model=resolved.model, started_at=started)
             await db.commit()
+            _log_playground_event("playground.chat.fail_closed", tenant_id=tenant_id, session_id=session_id, action=RuntimeAction.BLOCK, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model)
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store", "X-ARTSA-Session-ID": str(session_id)})
 

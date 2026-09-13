@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -19,7 +21,8 @@ def playground_client(tmp_path, monkeypatch):
     return TestClient(create_app())
 
 
-def test_guard_scan_flags_injection_without_echoing_content(playground_client):
+def test_guard_scan_flags_injection_without_echoing_content(playground_client, caplog):
+    caplog.set_level(logging.INFO, logger="artsa.playground")
     response = playground_client.post("/api/v1/playground/scan", json={"content": INJECTION_PROMPT})
     assert response.status_code == 200
     body = unwrap_response(response)
@@ -31,6 +34,11 @@ def test_guard_scan_flags_injection_without_echoing_content(playground_client):
     assert INJECTION_PROMPT not in response.text
     assert "content" not in result
     assert all("evidence" not in finding for finding in result["findings"])
+    terminal_event = "\n".join(record.getMessage() for record in caplog.records if record.name == "artsa.playground")
+    assert "playground.scan.completed" in terminal_event
+    assert "PromptInjectionDetector" in terminal_event
+    assert INJECTION_PROMPT not in terminal_event
+    assert "body_sha256" not in terminal_event
 
 
 def test_guard_scan_safe_content_and_output_channel(playground_client):
@@ -40,6 +48,16 @@ def test_guard_scan_safe_content_and_output_channel(playground_client):
     output = unwrap_response(playground_client.post("/api/v1/playground/scan", json={"content": f"api_key={secret}", "channel": "model_output"}))
     assert output["action"] == "BLOCK"
     assert secret not in str(output)
+
+
+def test_chat_input_block_emits_a_redacted_terminal_event(playground_client, caplog):
+    caplog.set_level(logging.INFO, logger="artsa.playground")
+    response = playground_client.post("/api/v1/playground/chat", json={"message": INJECTION_PROMPT, "mode": "block"})
+    assert response.status_code == 403
+    terminal_event = "\n".join(record.getMessage() for record in caplog.records if record.name == "artsa.playground")
+    assert "playground.chat.input_blocked" in terminal_event
+    assert "PromptInjectionDetector" in terminal_event
+    assert INJECTION_PROMPT not in terminal_event
 
 
 def test_unknown_template_and_empty_content_are_rejected(playground_client):
