@@ -44,6 +44,16 @@ test.describe("ARTSA frontend pages", () => {
   });
 
   test("AI Security Playground runs Guard Tester and Chat Simulator", async ({ page }) => {
+    const chatRequests: Record<string, unknown>[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/v1/playground/chat")) {
+        try {
+          chatRequests.push(JSON.parse(request.postData() || "{}"));
+        } catch {
+          // The request assertion below only concerns valid JSON payloads.
+        }
+      }
+    });
     await page.goto("/playground");
     await expect(page.getByRole("heading", { name: /ai security playground/i })).toBeVisible();
     const playgroundSelect = page.getByRole("button", { name: /select playground/i });
@@ -70,6 +80,7 @@ test.describe("ARTSA frontend pages", () => {
     await page.getByRole("button", { name: /use prompt/i }).first().click();
     await page.getByRole("button", { name: /run simulation/i }).click();
     await expect(page.getByText("Fixture response")).toBeVisible();
+    expect(chatRequests[0]?.provider_ref).toBe("e2e-provider-001");
     await expect(page.getByText(/output screened/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /new conversation/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /run again/i })).toBeVisible();
@@ -86,6 +97,19 @@ test.describe("ARTSA frontend pages", () => {
     await expect(page.getByText(/blocked before it reached the provider/i)).toBeVisible();
     await page.getByRole("button", { name: /view guard decision/i }).click();
     await expect(page.getByText(/technical evidence/i)).toBeVisible();
+  });
+
+  test("AI Security Playground auto-selects a provider for chat", async ({ page }) => {
+    await page.goto("/playground");
+    await expect(page.getByText(/Using Fixture provider · openai/i)).toBeVisible();
+    const input = page.getByRole("textbox", { name: /user message/i });
+    await input.fill("safe provider selection fixture");
+    const requestPromise = page.waitForRequest(
+      (request) => request.url().includes("/api/v1/playground/chat") && request.method() === "POST"
+    );
+    await page.getByRole("button", { name: /run simulation/i }).click();
+    const request = await requestPromise;
+    expect(JSON.parse(request.postData() || "{}").provider_ref).toBe("e2e-provider-001");
   });
 
   test("playground stacks cleanly on mobile", async ({ page }) => {

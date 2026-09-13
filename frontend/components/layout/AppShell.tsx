@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import TopNav from "@/components/layout/TopNav";
@@ -22,6 +23,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const redTeam = pathname.startsWith("/red-team");
   const commandCenter = pathname.startsWith("/command-center");
   const playground = pathname.startsWith("/playground");
+
+  // AppShell persists across client-side route changes, so its scrollable main
+  // element would otherwise retain the previous page's scrollTop and hide the
+  // next page heading beneath the sticky top bar.
+  useEffect(() => {
+    document.getElementById("main-content")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
 
   return (
     <AppDataProvider>

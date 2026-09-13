@@ -67,7 +67,7 @@ export default function AdminProvidersPage() {
   const [form, setForm] = useState(FORM_INITIAL);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; detail: string }>>({});
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; detail: string; pending?: boolean }>>({});
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const loadProviders = useCallback(() => {
@@ -149,7 +149,7 @@ export default function AdminProvidersPage() {
     setTesting(name);
     setTestResults((prev) => ({
       ...prev,
-      [name]: { ok: true, detail: "Calling provider… (may take a few seconds)" },
+      [name]: { ok: false, pending: true, detail: "Calling provider… (may take a few seconds)" },
     }));
     try {
       const raw = await fetch(`/api/backend/api/v1/providers/${encodeURIComponent(name)}/test`, {
@@ -338,8 +338,11 @@ export default function AdminProvidersPage() {
                         {p.default_model ?? "any"}
                       </td>
                       <td className="py-2.5 pr-4">
-                        <Badge variant={p.enabled ? "success" : "secondary"} className="text-[10px]">
-                          {p.enabled ? "Enabled" : "Disabled"}
+                        <Badge
+                          variant={!p.enabled ? "secondary" : test?.pending ? "warning" : test?.ok ? "success" : test ? "warning" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {!p.enabled ? "Disabled" : test?.pending ? "Testing…" : test?.ok ? "Verified" : test ? "Enabled · test failed" : "Enabled · untested"}
                         </Badge>
                       </td>
                       <td className="py-2.5 text-right">

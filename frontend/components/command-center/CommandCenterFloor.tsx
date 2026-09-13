@@ -65,7 +65,12 @@ export function CommandCenterFloor({
 }: CommandCenterFloorProps) {
   const [roundIdx, setRoundIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const isLiveMode = Boolean(liveOps && liveOps.telemetryMode !== "SIMULATION");
+  const isLiveMode = Boolean(
+    liveOps &&
+    liveOps.telemetryMode !== "SIMULATION" &&
+    liveOps.telemetryMode !== "DISCONNECTED" &&
+    (liveOps.events.length > 0 || (liveOps.currentCampaign && liveOps.currentCampaign.status === "RUNNING"))
+  );
 
   // Inspector & Modal dialog states
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -588,14 +593,14 @@ export function CommandCenterFloor({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CommandCenterCampaignContext
               campaignName={
-                liveOps
-                  ? liveOps.currentCampaign?.name || "NO ACTIVE CAMPAIGN"
-                  : campaigns[0]?.name || "ARTSA-REDTEAM-042"
+                isLiveMode
+                  ? (liveOps?.currentCampaign?.name || "NO ACTIVE CAMPAIGN")
+                  : (liveOps?.currentCampaign?.name || campaigns[0]?.name || "ARTSA-REDTEAM-042")
               }
               sessionId={
-                liveOps
-                  ? liveOps.currentSession || "NO ACTIVE SESSION"
-                  : "RUN-00182"
+                isLiveMode
+                  ? (liveOps?.currentSession || "NO ACTIVE SESSION")
+                  : (liveOps?.currentSession || "RUN-00182")
               }
               targetName="Enterprise Agent Stack"
               roundNumber={isLiveMode ? (liveOps?.currentRound ?? activeRound.round) : activeRound.round}

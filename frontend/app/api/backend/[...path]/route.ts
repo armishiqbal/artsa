@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
  * an explicit error — never invents campaigns, metrics, providers, or auth tokens.
  */
 export const dynamic = "force-dynamic";
+export const dynamicParams = true;
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+export const runtime = "nodejs";
 
 const SERVER_API_KEY = process.env.ARTSA_API_KEY || "";
 
@@ -110,7 +114,7 @@ async function proxy(
   }
 
   const method = request.method;
-  const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
+  const body = method === "GET" || method === "HEAD" || method === "OPTIONS" ? undefined : await request.arrayBuffer();
   const timeoutMs = proxyTimeoutMs(path, method);
 
   try {
@@ -152,3 +156,5 @@ export const POST = proxy;
 export const PUT = proxy;
 export const PATCH = proxy;
 export const DELETE = proxy;
+export const HEAD = proxy;
+export const OPTIONS = proxy;

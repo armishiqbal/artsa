@@ -349,6 +349,22 @@ async def playground_chat(
         _log_playground_event("playground.chat.input_quarantined", tenant_id=tenant_id, session_id=session_id, action=input_action, channel="chat", mode=payload.mode, findings=decision.findings)
         return JSONResponse(status_code=403, content={"code": "approval_required", "approval_id": approval.id, "session_id": str(session_id), "action": "QUARANTINE", "evidence": redact_prompt_scan(scan, channel="input")})
 
+    configured_provider: bool | None = False
+    if not payload.provider_ref and settings.ENVIRONMENT != "production":
+        if hasattr(db, "scalar"):
+            try:
+                configured_provider = (
+                    await db.scalar(
+                        select(ProviderORM.id)
+                        .where(ProviderORM.tenant_id == tenant_id, ProviderORM.enabled.is_(True))
+                        .limit(1)
+                    )
+                ) is not None
+            except Exception:
+                # Keep the fallback explicit when provider state cannot be
+                # read; do not mislabel a catalog/database outage as empty.
+                configured_provider = None
+
     try:
         resolved = None
         if payload.provider_ref:
@@ -370,7 +386,14 @@ async def playground_chat(
         started = time.monotonic()
         yield _sse("playground.status", {"stage": "input_screened", "session_id": str(session_id), "action": input_action.value, "would_block": payload.mode == "monitor" and input_action != RuntimeAction.ALLOW})
         if resolved is None:
-            text = "Simulated response: no live provider is configured."
+            reason = (
+                "No provider selected"
+                if configured_provider is True
+                else "No provider configured"
+                if configured_provider is False
+                else "Provider configuration unavailable"
+            )
+            text = f"Simulated response: {reason.lower()}."
             decision = get_runtime_gate().evaluate(output_text=text, session_id=session_id)
             yield _sse("message.delta", {"text": text})
             yield _sse("playground.complete", {"action": decision.action.value, "simulated": True, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings)})

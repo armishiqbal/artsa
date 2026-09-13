@@ -193,6 +193,12 @@ INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
         "Hidden configuration / secret extraction",
     ),
     (
+        r"(?i)disclose\s+(?:any\s+)?(?:hidden|secret|private|internal)\s+(?:developer\s+)?(?:instructions?|system\s+prompt|guidelines?)",
+        "PROMPT_INJECTION",
+        86.0,
+        "System/developer instruction disclosure attempt",
+    ),
+    (
         r"(?i)(?:disable|turn\s+off|deactivate|shut\s+down)\s+(?:the\s+|all\s+|your\s+)?(?:egress|safety|audit|monitor|interlock|guardrail|filter|control)",
         "JAILBREAK",
         88.0,
