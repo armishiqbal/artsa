@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -30,9 +31,11 @@ from src.services.playground_security import (
     action_for_verdict,
     budget_snapshot,
     enforce_chat_budget,
+    guard_assessment,
     public_findings,
     record_run,
     redact_prompt_scan,
+    unavailable_guard_assessment,
 )
 from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
 
@@ -48,6 +51,7 @@ class PlaygroundScanRequest(BaseModel):
     channel: Literal["input", "model_output", "tool_result"] = "input"
     template_id: str | None = Field(default=None, max_length=128)
     session_id: str | None = Field(default=None, max_length=36)
+    run_id: str | None = Field(default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 
 
 class PlaygroundChatRequest(BaseModel):
@@ -58,6 +62,7 @@ class PlaygroundChatRequest(BaseModel):
     template_id: str | None = Field(default=None, max_length=128)
     mode: Literal["block", "monitor"] = "block"
     session_id: str | None = Field(default=None, max_length=36)
+    run_id: str | None = Field(default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 
     @field_validator("model")
     @classmethod
@@ -70,6 +75,10 @@ def _sid(value: str | None) -> uuid.UUID:
         return uuid.UUID(value or "")
     except (ValueError, TypeError):
         return uuid.uuid4()
+
+
+def _run_id(value: str | None) -> str:
+    return value or str(uuid.uuid4())
 
 
 def _sse(event: str, body: dict[str, Any]) -> str:
@@ -89,6 +98,8 @@ def _log_playground_event(
     provider_id: str | None = None,
     model: str | None = None,
     simulated: bool | None = None,
+    run_id: str | None = None,
+    outcome: str | None = None,
 ) -> None:
     """Write an operator-useful playground event without logging user content.
 
@@ -101,20 +112,13 @@ def _log_playground_event(
         for finding in (findings or [])
         if getattr(finding, "category", None) or getattr(finding, "event_type", None)
     })
-    detectors = sorted({
-        str(getattr(finding, "detector", ""))
-        for finding in (findings or [])
-        if getattr(finding, "detector", None)
-    })
     payload: dict[str, Any] = {
         "event": event,
         "tenant": sha256_text(tenant_id)[:12],
-        "session_id": str(session_id),
+        "run_id": run_id,
         "action": action.value if isinstance(action, RuntimeAction) else action,
-        "channel": channel,
-        "mode": mode,
         "categories": categories,
-        "detectors": detectors,
+        "outcome": outcome,
     }
     if latency_ms is not None:
         payload["latency_ms"] = latency_ms
@@ -122,9 +126,11 @@ def _log_playground_event(
         payload["provider_id"] = provider_id
     if model:
         payload["model"] = model
-    if simulated is not None:
-        payload["simulated"] = simulated
     logger.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    if outcome:
+        from src.services.prometheus_metrics import record_playground_run
+
+        record_playground_run(outcome, latency_ms)
 
 
 def _template(evaluator: PlaygroundEvaluator, template_id: str | None, tenant_id: str | None = None) -> dict[str, Any] | None:
@@ -182,6 +188,26 @@ def _prompt_runtime_decision(scan: Any, *, content: str, action: RuntimeAction) 
         for event in (scan.security_events or [])
     ]
     return RuntimeDecision(action=action, findings=findings, body_sha256=body_sha)
+
+
+def _terminal_action(
+    input_action: RuntimeAction,
+    output_action: RuntimeAction,
+    *,
+    retry_authorized: bool,
+    mode: Literal["block", "monitor"] = "block",
+) -> RuntimeAction:
+    if retry_authorized:
+        return output_action
+    # Monitor mode records input findings but intentionally does not enforce
+    # them; the output gate remains authoritative for what is delivered.
+    if mode == "monitor":
+        return output_action
+    if RuntimeAction.BLOCK in {input_action, output_action}:
+        return RuntimeAction.BLOCK
+    if RuntimeAction.QUARANTINE in {input_action, output_action}:
+        return RuntimeAction.QUARANTINE
+    return RuntimeAction.ALLOW
 
 
 def _consume_playground_retry(redis: Any, token: str | None, *, tenant_id: str, session_id: uuid.UUID, operation: dict[str, Any]) -> bool:
@@ -254,7 +280,18 @@ async def playground_scan(request: Request, payload: PlaygroundScanRequest, db: 
         raise HTTPException(status_code=422, detail="content_required")
     started = time.monotonic()
     evaluator = get_playground_evaluator()
-    content, session_id = _content(evaluator, payload.system_prompt, payload.content, payload.template_id, tenant_id), _sid(payload.session_id)
+    # Guard Tester input is untrusted user content.  The system prompt is
+    # trusted configuration and must not be classified as a user attack (the
+    # default prompt contains defensive language such as "Never reveal...").
+    # Keep it available for output-channel disclosure context below, but never
+    # concatenate it into the input scan body.
+    content = evaluator.build_content(
+        "",
+        payload.content,
+        _template(evaluator, payload.template_id, tenant_id),
+    )
+    session_id = _sid(payload.session_id)
+    run_id = _run_id(payload.run_id)
     if payload.channel == "input":
         scan = evaluator._scanner.scan(content, session_id=session_id, agent_id="playground")
         action, findings, result = action_for_verdict(scan.verdict.verdict), scan.security_events, redact_prompt_scan(scan, channel=payload.channel)
@@ -285,6 +322,15 @@ async def playground_scan(request: Request, payload: PlaygroundScanRequest, db: 
             "fired_detectors": {finding.detector: True for finding in findings},
             "latency_ms": max(0, int((time.monotonic() - started) * 1000)),
         }
+    assessment = guard_assessment(
+        run_id=run_id,
+        session_id=session_id,
+        phase="input" if payload.channel == "input" else "output",
+        action=action,
+        findings=findings,
+        risk_score=result.get("risk_score"),
+        confidence=result.get("confidence"),
+    )
     await record_run(db, tenant_id=tenant_id, actor_id=_actor_id(request, tenant_id), session_id=session_id, mode="scan", channel=payload.channel, request_body=content, response_body=None, action=action, findings=findings)
     await db.commit()
     _log_playground_event(
@@ -296,8 +342,10 @@ async def playground_scan(request: Request, payload: PlaygroundScanRequest, db: 
         mode="scan",
         findings=findings,
         latency_ms=result["latency_ms"],
+        run_id=run_id,
+        outcome=assessment["outcome"],
     )
-    return {"session_id": str(session_id), "action": action.value, "result": result}
+    return {"run_id": run_id, "session_id": str(session_id), "action": action.value, "assessment": assessment, "result": result}
 
 
 @router.post("/playground/chat", response_model=None)
@@ -317,14 +365,20 @@ async def playground_chat(
     evaluator = get_playground_evaluator()
     template = _template(evaluator, payload.template_id, tenant_id)
     effective_message = _effective_message(evaluator, payload.message, template)
-    content, session_id = evaluator.build_content(payload.system_prompt, effective_message, None), _sid(payload.session_id)
+    # Scan only the untrusted user message.  Trusted system instructions are
+    # passed separately to the provider and disclosure gate, so defensive
+    # wording in the system prompt cannot be misclassified as an attack.
+    content = evaluator.build_content("", effective_message, None)
+    session_id = _sid(payload.session_id)
+    run_id = _run_id(payload.run_id)
     actor_id = _actor_id(request, tenant_id)
     await _ensure_proxy_session(db, tracker, session_id, tenant_id)
     from src.api.routes.proxy import _circuit_breaker_error, _circuit_breaker_open
 
     if await _circuit_breaker_open(db, tenant_id=tenant_id, session_id=session_id):
-        _log_playground_event("playground.chat.circuit_open", tenant_id=tenant_id, session_id=session_id, channel="chat", mode=payload.mode)
-        return JSONResponse(status_code=403, content=_circuit_breaker_error(session_id), headers={"X-ARTSA-Session-ID": str(session_id)})
+        assessment = unavailable_guard_assessment(run_id=run_id, session_id=session_id, phase="input")
+        _log_playground_event("playground.chat.circuit_open", tenant_id=tenant_id, session_id=session_id, action="UNAVAILABLE", channel="chat", mode=payload.mode, run_id=run_id, outcome="unavailable")
+        return JSONResponse(status_code=403, content={**_circuit_breaker_error(session_id), "run_id": run_id, "assessment": assessment}, headers={"X-ARTSA-Session-ID": str(session_id)})
     scan = evaluator._scanner.scan(content, session_id=session_id, agent_id="playground")
     input_action = action_for_verdict(scan.verdict.verdict)
     operation = {
@@ -339,31 +393,32 @@ async def playground_chat(
         await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
         await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=input_action, findings=decision.findings)
         await db.commit()
-        _log_playground_event("playground.chat.input_blocked", tenant_id=tenant_id, session_id=session_id, action=input_action, channel="chat", mode=payload.mode, findings=decision.findings)
-        return JSONResponse(status_code=403, content={"code": "input_blocked", "session_id": str(session_id), "action": input_action.value, "evidence": redact_prompt_scan(scan, channel="input")})
+        assessment = guard_assessment(run_id=run_id, session_id=session_id, phase="input", action=input_action, findings=scan.security_events, risk_score=scan.risk.overall_score, confidence=scan.verdict.confidence)
+        _log_playground_event("playground.chat.input_blocked", tenant_id=tenant_id, session_id=session_id, action=input_action, channel="chat", mode=payload.mode, findings=decision.findings, run_id=run_id, outcome=assessment["outcome"])
+        return JSONResponse(status_code=403, content={"code": "input_blocked", "run_id": run_id, "session_id": str(session_id), "action": input_action.value, "assessment": assessment, "evidence": redact_prompt_scan(scan, channel="input")})
     if payload.mode == "block" and input_action == RuntimeAction.QUARANTINE and not retry_authorized:
         decision = _prompt_runtime_decision(scan, content=content, action=RuntimeAction.QUARANTINE)
         approval = await _queue_quarantine_approval(db=db, tracker=tracker, tenant_id=tenant_id, session_id=session_id, decision=decision, tool_name="playground.chat", arguments=operation, requester={"surface": "playground", "actor_id": actor_id})
         await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=input_action, findings=decision.findings)
         await db.commit()
-        _log_playground_event("playground.chat.input_quarantined", tenant_id=tenant_id, session_id=session_id, action=input_action, channel="chat", mode=payload.mode, findings=decision.findings)
-        return JSONResponse(status_code=403, content={"code": "approval_required", "approval_id": approval.id, "session_id": str(session_id), "action": "QUARANTINE", "evidence": redact_prompt_scan(scan, channel="input")})
+        assessment = guard_assessment(run_id=run_id, session_id=session_id, phase="input", action=input_action, findings=scan.security_events, risk_score=scan.risk.overall_score, confidence=scan.verdict.confidence)
+        _log_playground_event("playground.chat.input_quarantined", tenant_id=tenant_id, session_id=session_id, action=input_action, channel="chat", mode=payload.mode, findings=decision.findings, run_id=run_id, outcome=assessment["outcome"])
+        return JSONResponse(status_code=403, content={"code": "approval_required", "approval_id": approval.id, "run_id": run_id, "session_id": str(session_id), "action": "QUARANTINE", "assessment": assessment, "evidence": redact_prompt_scan(scan, channel="input")})
 
     configured_provider: bool | None = False
-    if not payload.provider_ref and settings.ENVIRONMENT != "production":
-        if hasattr(db, "scalar"):
-            try:
-                configured_provider = (
-                    await db.scalar(
-                        select(ProviderORM.id)
-                        .where(ProviderORM.tenant_id == tenant_id, ProviderORM.enabled.is_(True))
-                        .limit(1)
-                    )
-                ) is not None
-            except Exception:
-                # Keep the fallback explicit when provider state cannot be
-                # read; do not mislabel a catalog/database outage as empty.
-                configured_provider = None
+    if not payload.provider_ref and settings.ENVIRONMENT != "production" and hasattr(db, "scalar"):
+        try:
+            configured_provider = (
+                await db.scalar(
+                    select(ProviderORM.id)
+                    .where(ProviderORM.tenant_id == tenant_id, ProviderORM.enabled.is_(True))
+                    .limit(1)
+                )
+            ) is not None
+        except Exception:
+            # Keep the fallback explicit when provider state cannot be
+            # read; do not mislabel a catalog/database outage as empty.
+            configured_provider = None
 
     try:
         resolved = None
@@ -372,8 +427,9 @@ async def playground_chat(
         elif settings.ENVIRONMENT == "production":
             raise ProviderConfigurationError("provider_not_configured")
     except ProviderConfigurationError as exc:
-        _log_playground_event("playground.chat.provider_unavailable", tenant_id=tenant_id, session_id=session_id, action="UNAVAILABLE", channel="chat", mode=payload.mode)
-        raise HTTPException(status_code=422, detail=exc.code) from exc
+        assessment = unavailable_guard_assessment(run_id=run_id, session_id=session_id, phase="input")
+        _log_playground_event("playground.chat.provider_unavailable", tenant_id=tenant_id, session_id=session_id, action="UNAVAILABLE", channel="chat", mode=payload.mode, run_id=run_id, outcome="unavailable")
+        return JSONResponse(status_code=422, content={"code": exc.code, "detail": exc.code, "run_id": run_id, "session_id": str(session_id), "assessment": assessment})
 
     # Reserve quota only after configuration resolution.  A missing/disabled
     # provider should return its typed configuration error without consuming a
@@ -384,7 +440,7 @@ async def playground_chat(
 
     async def events() -> AsyncIterator[str]:
         started = time.monotonic()
-        yield _sse("playground.status", {"stage": "input_screened", "session_id": str(session_id), "action": input_action.value, "would_block": payload.mode == "monitor" and input_action != RuntimeAction.ALLOW})
+        yield _sse("playground.status", {"stage": "input_screened", "run_id": run_id, "session_id": str(session_id), "action": input_action.value, "would_block": payload.mode == "monitor" and input_action != RuntimeAction.ALLOW})
         if resolved is None:
             reason = (
                 "No provider selected"
@@ -395,11 +451,23 @@ async def playground_chat(
             )
             text = f"Simulated response: {reason.lower()}."
             decision = get_runtime_gate().evaluate(output_text=text, session_id=session_id)
-            yield _sse("message.delta", {"text": text})
-            yield _sse("playground.complete", {"action": decision.action.value, "simulated": True, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings)})
-            await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=text, action=decision.action, findings=decision.findings, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(1, len(text) // 4), started_at=started)
+            combined_findings = [*scan.security_events, *decision.findings]
+            assessment_action = _terminal_action(input_action, decision.action, retry_authorized=retry_authorized, mode=payload.mode)
+            assessment = guard_assessment(
+                run_id=run_id,
+                session_id=session_id,
+                phase="output",
+                action=assessment_action,
+                findings=combined_findings,
+                risk_score=scan.risk.overall_score,
+                confidence=scan.verdict.confidence,
+                outcome="flagged" if payload.mode == "monitor" and input_action != RuntimeAction.ALLOW and assessment_action == RuntimeAction.ALLOW else None,
+            )
+            yield _sse("message.delta", {"run_id": run_id, "text": text})
+            yield _sse("playground.complete", {"run_id": run_id, "session_id": str(session_id), "action": decision.action.value, "simulated": True, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
+            await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=text, action=assessment_action, findings=combined_findings, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(1, len(text) // 4), started_at=started)
             await db.commit()
-            _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=decision.action, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), simulated=True)
+            _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=assessment_action, channel="chat", mode=payload.mode, findings=combined_findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), simulated=True, run_id=run_id, outcome=assessment["outcome"])
             return
         proxy = get_llm_proxy()
         is_anthropic = resolved.provider_type.lower() == "anthropic"
@@ -413,7 +481,7 @@ async def playground_chat(
             request_payload = {"model": resolved.model, "messages": messages, "stream": True, "max_tokens": settings.ARTSA_PLAYGROUND_MAX_OUTPUT_TOKENS, "tools": []}
             gate = OpenAIStreamGate(messages=messages, session_id=session_id, retry_authorized=retry_authorized, allow_tools=False)
             upstream_url = f"{resolved.base_url.rstrip('/')}/chat/completions"
-        yield _sse("playground.status", {"stage": "provider_streaming", "provider_id": resolved.provider_id, "model": resolved.model})
+        yield _sse("playground.status", {"stage": "provider_streaming", "run_id": run_id, "provider_id": resolved.provider_id, "model": resolved.model})
         try:
             extra_headers = {"x-api-key": resolved.api_key, "anthropic-version": "2023-06-01"} if is_anthropic and resolved.api_key else {}
             async for raw in proxy.stream_chat(upstream_url, request_payload, resolved.api_key, extra_headers):
@@ -425,25 +493,53 @@ async def playground_chat(
                 for frame in gate.finish():
                     yield frame
             decision = gate.final_decision or get_runtime_gate().evaluate(output_text="", session_id=session_id, stream=True)
+            combined_findings = [*scan.security_events, *decision.findings]
+            assessment_action = _terminal_action(input_action, decision.action, retry_authorized=retry_authorized, mode=payload.mode)
+            assessment = guard_assessment(
+                run_id=run_id,
+                session_id=session_id,
+                phase="output",
+                action=assessment_action,
+                findings=combined_findings,
+                risk_score=scan.risk.overall_score,
+                confidence=scan.verdict.confidence,
+                outcome="flagged" if payload.mode == "monitor" and input_action != RuntimeAction.ALLOW and assessment_action == RuntimeAction.ALLOW else None,
+            )
             if decision.action == RuntimeAction.QUARANTINE and not retry_authorized:
                 approval = await _queue_quarantine_approval(db=db, tracker=tracker, tenant_id=tenant_id, session_id=session_id, decision=decision, tool_name="playground.chat", arguments=operation, requester={"surface": "playground", "provider_id": resolved.provider_id})
-                yield _sse("playground.approval_required", {"approval_id": approval.id, "session_id": str(session_id), "action": "QUARANTINE", "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings)})
+                yield _sse("playground.approval_required", {"approval_id": approval.id, "run_id": run_id, "session_id": str(session_id), "action": "QUARANTINE", "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
             else:
                 await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
                 if decision.action == RuntimeAction.BLOCK:
-                    yield _sse("playground.blocked", {"code": "output_blocked", "action": "BLOCK", "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings)})
+                    yield _sse("playground.blocked", {"code": "output_blocked", "run_id": run_id, "session_id": str(session_id), "action": "BLOCK", "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
                 else:
-                    yield _sse("playground.complete", {"action": decision.action.value, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings)})
-            await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=gate.state.text if decision.action == RuntimeAction.ALLOW else None, action=decision.action, findings=decision.findings, provider_id=resolved.provider_id, model=resolved.model, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(0, len(gate.state.text) // 4), started_at=started)
+                    yield _sse("playground.complete", {"run_id": run_id, "session_id": str(session_id), "action": decision.action.value, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
+            await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=gate.state.text if decision.action == RuntimeAction.ALLOW else None, action=assessment_action, findings=combined_findings, provider_id=resolved.provider_id, model=resolved.model, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(0, len(gate.state.text) // 4), started_at=started)
             await db.commit()
-            _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=decision.action, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model)
+            _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=assessment_action, channel="chat", mode=payload.mode, findings=combined_findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model, run_id=run_id, outcome=assessment["outcome"])
+        except asyncio.CancelledError:
+            _log_playground_event(
+                "playground.chat.cancelled",
+                tenant_id=tenant_id,
+                session_id=session_id,
+                action="UNAVAILABLE",
+                channel="chat",
+                mode=payload.mode,
+                latency_ms=max(0, int((time.monotonic() - started) * 1000)),
+                provider_id=resolved.provider_id,
+                model=resolved.model,
+                run_id=run_id,
+                outcome="cancelled",
+            )
+            raise
         except Exception:
             decision = fail_closed_decision(stream=True)
             await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
-            yield _sse("playground.blocked", {"code": "playground_upstream_unavailable", "action": "BLOCK", "findings": public_findings(decision.findings)})
+            assessment = unavailable_guard_assessment(run_id=run_id, session_id=session_id)
+            yield _sse("playground.blocked", {"code": "playground_upstream_unavailable", "run_id": run_id, "session_id": str(session_id), "action": "BLOCK", "findings": public_findings(decision.findings), "assessment": assessment})
             await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=RuntimeAction.BLOCK, findings=decision.findings, provider_id=resolved.provider_id, model=resolved.model, started_at=started)
             await db.commit()
-            _log_playground_event("playground.chat.fail_closed", tenant_id=tenant_id, session_id=session_id, action=RuntimeAction.BLOCK, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model)
+            _log_playground_event("playground.chat.fail_closed", tenant_id=tenant_id, session_id=session_id, action=RuntimeAction.BLOCK, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model, run_id=run_id, outcome="unavailable")
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store", "X-ARTSA-Session-ID": str(session_id)})
 

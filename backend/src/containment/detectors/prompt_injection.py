@@ -34,25 +34,43 @@ _ARGUMENT_KEYS = (
 # SUSPICIOUS (>=50) / BREACHED (>=80) bands so verdicts stay actionable.
 INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
     (
-        r"(?i)ignore\s+(all|any|previous|prior|your|the|past)?\s*(previous|prior|past|earlier)?\s*(instructions?|guidelines?|rules?|guidance)",
+        r"(?i)(?:ignore|overlook|bypass|skip)\s+(?:all\s+|any\s+|every\s+)?(?:your|ur|the|all|my)?\s*(?:previous|pervious|prior|past|earlier|above)?\s*(?:instructions?|guidelines?|rules?|guidance|prompt|directives?)",
         "PROMPT_INJECTION",
         80.0,
         "Instruction override attempt (ignore previous instructions)",
     ),
     (
-        r"(?i)disregard\s+(all|any|previous|prior|your|the)?\s*(previous|prior|earlier)?\s*(guidelines?|instructions?|rules?)",
+        r"(?i)(?:disregard|dismiss)\s+(?:all\s+|any\s+|every\s+)?(?:your|ur|the|all|my)?\s*(?:previous|pervious|prior|past|earlier|above)?\s*(?:instructions?|guidelines?|rules?|guidance|prompt|directives?)",
         "PROMPT_INJECTION",
         78.0,
         "Instruction override attempt (disregard guidelines)",
     ),
     (
-        r"(?i)forget\s+(all|any|previous|prior|your)?\s*(guidelines?|instructions?|rules?|prompt)",
+        r"(?i)(?:forget|erase|drop|cancel|reset)\s+(?:all\s+|any\s+|every\s+)?(?:your|ur|the|all|my)?\s*(?:previous|pervious|prior|past|earlier|above)?\s*(?:instructions?|guidelines?|rules?|guidance|prompt|directives?)",
         "PROMPT_INJECTION",
-        80.0,
+        82.0,
         "Instruction erasure attempt (forget guidelines)",
     ),
     (
-        r"(?i)(reveal|print|output|show|display|leak|extract)\s+(your|the|hidden|system)\s+(system\s+)?prompt",
+        r"(?i)(?:including|include|repeat|reproduce|translate|print|output|leak|reveal|dump|show|extract|copy|echo)\b.{0,80}(?:developer|system|hidden|confidential|internal|prior|initial)\s+(?:instructions?|prompts?|guidelines?|rules?|directives?|message)",
+        "PROMPT_INJECTION",
+        88.0,
+        "System or developer instruction extraction attempt",
+    ),
+    (
+        r"(?i)\b(?:any\s+)?developer\s+instructions?\b",
+        "PROMPT_INJECTION",
+        84.0,
+        "Developer instruction extraction marker",
+    ),
+    (
+        r"(?i)(?:translate|repeat|print|output|reproduce|echo)\b.{0,60}(?:in\s+(?:its\s+)?entirety|verbatim|word\s+for\s+word|completely).{0,60}(?:instructions?|developer|system|prompt)",
+        "PROMPT_INJECTION",
+        86.0,
+        "Full instruction verbatim leakage attempt",
+    ),
+    (
+        r"(?i)(?:reveal|print|output|show|display|leak|extract|tell\s+me|what\s+(?:is|are|were))\s+(?:all\s+|any\s+)?(?:your|ur|the\s+system|hidden|internal)?\s*(?:system|initial|developer)?\s*(?:prompt|instructions?|rules?|guidelines?|directives?)",
         "PROMPT_INJECTION",
         86.0,
         "System prompt extraction attempt",

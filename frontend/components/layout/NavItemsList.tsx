@@ -1,15 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  isNavHrefActive,
-  isNavItemActive,
-  type NavItem,
-} from "@/lib/navigation";
+import { isNavHrefActive, isNavItemActive, type NavGroup, type NavItem } from "@/lib/navigation";
 
 interface NavItemsListProps {
   items: NavItem[];
@@ -17,108 +13,99 @@ interface NavItemsListProps {
   variant?: "desktop" | "mobile";
 }
 
-function NavGroup({
+function visibleFocusable(container: HTMLElement): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>('[data-nav-focusable="true"]')].filter(
+    (element) => element.offsetParent !== null
+  );
+}
+
+function NavGroupRow({
   item,
   onNavigate,
   isMobile,
 }: {
-  item: NavItem;
+  item: NavGroup;
   onNavigate?: () => void;
   isMobile: boolean;
 }) {
   const pathname = usePathname();
   const groupActive = isNavItemActive(pathname, item);
-  const ParentIcon = item.icon;
   const [open, setOpen] = useState(groupActive);
+  const ParentIcon = item.icon;
+  const panelId = `nav-group-${item.id}`;
 
-  // Keep open while you’re inside Red Team (or any nested section).
   useEffect(() => {
-    if (groupActive) setOpen(true);
+    // Active groups are always visible; when navigation leaves a group,
+    // return it to the collapsed default so the sidebar stays scannable.
+    setOpen(groupActive);
   }, [groupActive]);
+
+  const onGroupKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setOpen(true);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setOpen(false);
+    }
+  };
 
   return (
     <li>
-      <div
+      <button
+        type="button"
+        data-nav-focusable="true"
+        data-nav-group={item.id}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((value) => !value)}
+        onKeyDown={onGroupKeyDown}
         className={cn(
-          "flex items-center gap-0.5 rounded-lg",
-          groupActive && (isMobile ? "bg-muted" : "")
+          "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-left text-[14px] font-medium tracking-[-0.17px] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          isMobile && "text-sm",
+          groupActive
+            ? isMobile
+              ? "bg-muted text-foreground"
+              : "text-foreground"
+            : isMobile
+              ? "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
         )}
       >
-        <Link
-          href={item.href}
-          onClick={onNavigate}
-          data-active={groupActive ? "true" : "false"}
+        <ParentIcon className={cn("h-4 w-4 shrink-0", groupActive && "text-foreground")} aria-hidden />
+        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+        <ChevronRight
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium tracking-[-0.17px] transition-colors",
-            isMobile && "py-2.5 text-sm",
-            groupActive
-              ? "text-foreground"
-              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+            "h-4 w-4 shrink-0 transition-transform duration-150 motion-reduce:transition-none",
+            open && "rotate-90"
           )}
-          aria-current={pathname === item.href ? "page" : undefined}
-        >
-          <ParentIcon
-            className={cn(
-              "h-4 w-4 shrink-0",
-              groupActive ? "text-foreground" : "text-muted-foreground"
-            )}
-            aria-hidden
-          />
-          <span className="truncate">{item.name}</span>
-        </Link>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={`nav-group-${item.href}`}
-          aria-label={open ? `Collapse ${item.name}` : `Expand ${item.name}`}
-          onClick={() => setOpen((v) => !v)}
-          className={cn(
-            "mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
-            open && "text-foreground"
-          )}
-        >
-          <ChevronRight
-            className={cn("h-4 w-4 transition-transform duration-150", open && "rotate-90")}
-            aria-hidden
-          />
-        </button>
-      </div>
+          aria-hidden
+        />
+      </button>
 
       {open ? (
-        <ul
-          id={`nav-group-${item.href}`}
-          className="mt-0.5 space-y-0.5 border-l border-border/60 ml-5 pl-2"
-        >
-          {item.children!.map((child) => {
+        <ul id={panelId} className="ml-5 mt-0.5 space-y-0.5 border-l border-border/60 pl-2 animate-fade-in motion-reduce:animate-none">
+          {item.children.map((child) => {
             const ChildIcon = child.icon;
-            const childActive = isNavHrefActive(pathname, child.href, child.exact);
+            const active = isNavHrefActive(pathname, child.href, child.exact);
             return (
-              <li key={`${item.href}-${child.href}-${child.name}`}>
+              <li key={child.href}>
                 <Link
                   href={child.href}
                   onClick={onNavigate}
-                  data-active={childActive ? "true" : "false"}
+                  data-nav-focusable="true"
+                  data-active={active ? "true" : "false"}
                   className={cn(
-                    isMobile
-                      ? "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors"
-                      : "interactive-nav flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium tracking-[-0.12px] transition-colors",
-                    childActive
+                    "flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active
                       ? isMobile
                         ? "bg-muted/80 text-foreground"
                         : "text-foreground"
-                      : isMobile
-                        ? "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                   )}
-                  aria-current={childActive ? "page" : undefined}
+                  aria-current={active ? "page" : undefined}
                 >
-                  <ChildIcon
-                    className={cn(
-                      "h-3.5 w-3.5 shrink-0",
-                      childActive ? "text-foreground" : "text-muted-foreground"
-                    )}
-                    aria-hidden
-                  />
+                  <ChildIcon className={cn("h-3.5 w-3.5 shrink-0", active && "text-foreground")} aria-hidden />
                   <span className="truncate">{child.name}</span>
                 </Link>
               </li>
@@ -130,57 +117,62 @@ function NavGroup({
   );
 }
 
-export function NavItemsList({
-  items,
-  onNavigate,
-  variant = "desktop",
-}: NavItemsListProps) {
+export function NavItemsList({ items, onNavigate, variant = "desktop" }: NavItemsListProps) {
   const pathname = usePathname();
   const isMobile = variant === "mobile";
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const onListKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const target = event.target as HTMLElement;
+    if (!target.matches('[data-nav-focusable="true"]')) return;
+    const list = listRef.current;
+    if (!list) return;
+    const focusable = visibleFocusable(list);
+    const index = focusable.indexOf(target);
+    if (index < 0 || focusable.length === 0) return;
+    event.preventDefault();
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? focusable.length - 1
+          : event.key === "ArrowDown"
+            ? (index + 1) % focusable.length
+            : (index - 1 + focusable.length) % focusable.length;
+    focusable[nextIndex]?.focus();
+  };
 
   return (
-    <ul className="space-y-0.5">
+    <ul ref={listRef} className="space-y-0.5" onKeyDown={onListKeyDown}>
       {items.map((item) => {
-        if (item.children?.length) {
-          return (
-            <NavGroup
-              key={item.href}
-              item={item}
-              onNavigate={onNavigate}
-              isMobile={isMobile}
-            />
-          );
+        if (item.kind === "group") {
+          return <NavGroupRow key={item.id} item={item} onNavigate={onNavigate} isMobile={isMobile} />;
         }
 
         const Icon = item.icon;
-        const isActive = isNavHrefActive(pathname, item.href, item.exact);
+        const active = isNavHrefActive(pathname, item.href, item.exact);
         return (
           <li key={item.href}>
             <Link
               href={item.href}
               onClick={onNavigate}
-              data-active={isActive ? "true" : "false"}
+              data-nav-focusable="true"
+              data-active={active ? "true" : "false"}
               className={cn(
-                isMobile
-                  ? "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
-                  : "interactive-nav flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium tracking-[-0.17px] transition-colors",
-                isActive
+                "flex min-h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium tracking-[-0.17px] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isMobile && "text-sm",
+                active
                   ? isMobile
-                    ? "bg-muted text-foreground font-medium"
+                    ? "bg-muted text-foreground"
                     : "text-foreground"
                   : isMobile
                     ? "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
               )}
-              aria-current={isActive ? "page" : undefined}
+              aria-current={active ? "page" : undefined}
             >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  isActive ? "text-foreground" : "text-muted-foreground"
-                )}
-                aria-hidden
-              />
+              <Icon className={cn("h-4 w-4 shrink-0", active && "text-foreground")} aria-hidden />
               <span className="truncate">{item.name}</span>
             </Link>
           </li>

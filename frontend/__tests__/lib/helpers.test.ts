@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { navSections, flattenNavItems, type NavItem } from "@/lib/navigation";
+import {
+  filterNavItemsByAccess,
+  flattenNavItems,
+  isNavHrefActive,
+  navSections,
+  primaryNavItems,
+  type NavLink,
+} from "@/lib/navigation";
+import { commandPaletteRoutesFor, secondaryCommandRoutes } from "@/lib/command-palette-registry";
 import { formatPayload, formatResponse } from "@/lib/replayFormat";
 
 describe("cn (className merge)", () => {
@@ -20,28 +28,43 @@ describe("cn (className merge)", () => {
 });
 
 describe("navigation", () => {
-  it("defines the product-lifecycle sections in order", () => {
-    expect(navSections.map((s) => s.label)).toEqual([
-      "",
+  const adminCapabilities = {
+    can_ingest: true,
+    can_run_campaigns: true,
+    can_run_benchmark: true,
+    can_run_ablation: true,
+    can_manage_policies: true,
+    can_manage_providers: true,
+    can_manage_integrations: true,
+    can_manage_targets: true,
+    read_only: false,
+  };
+
+  it("defines exactly eight top-level items for admins", () => {
+    expect(primaryNavItems.map((item) => item.name)).toEqual([
+      "Command Center",
+      "AI Security Playground",
+      "Findings",
+      "Activity",
+      "Sessions",
       "Discover",
-      "Assess",
       "Red Team",
-      "Detect",
-      "Investigate",
-      "Report",
-      "Admin",
+      "Settings",
     ]);
+    expect(filterNavItemsByAccess(primaryNavItems, adminCapabilities, true)).toHaveLength(8);
   });
 
-  it("marks the Admin section as admin-only", () => {
-    const admin = navSections.find((s) => s.label === "Admin");
-    expect(admin?.adminOnly).toBe(true);
-    expect(admin?.items.map((i) => i.href)).toEqual([
+  it("hides the Settings group from non-admins", () => {
+    const settings = primaryNavItems.find((item) => item.kind === "group" && item.id === "settings");
+    expect(settings?.adminOnly).toBe(true);
+    expect(filterNavItemsByAccess(primaryNavItems, adminCapabilities, false)).toHaveLength(7);
+    expect(settings?.kind === "group" ? settings.children.map((item) => item.href) : []).toEqual([
+      "/settings",
       "/settings/integrations",
       "/admin/providers",
       "/get-started",
       "/settings/team",
-      "/settings",
+      "/admin/policies",
     ]);
   });
 
@@ -57,31 +80,55 @@ describe("navigation", () => {
   });
 
   it("gates privileged routes behind RBAC capabilities", () => {
-    const byHref = new Map<string, NavItem>(
+    const byHref = new Map<string, NavLink>(
       navSections.flatMap((s) => flattenNavItems(s.items)).map((i) => [i.href, i])
     );
     expect(byHref.get("/admin/policies")?.capability).toBe("can_manage_policies");
     expect(byHref.get("/red-team/campaigns")?.capability).toBe("can_run_campaigns");
   });
 
-  it("puts Targets first in Discover", () => {
-    const discover = navSections.find((s) => s.label === "Discover");
-    expect(discover?.items.map((i) => i.name)).toEqual([
+  it("keeps the Discover and Red Team groups focused", () => {
+    const discover = primaryNavItems.find((item) => item.kind === "group" && item.id === "discover");
+    expect(discover?.kind === "group" ? discover.children.map((item) => item.name) : []).toEqual([
       "Targets",
       "AI Assets",
       "Agents",
       "Connections",
     ]);
-  });
-
-  it("lists Red Team items as a flat section", () => {
-    const redTeam = navSections.find((s) => s.label === "Red Team");
-    expect(redTeam?.items.map((c) => c.name)).toEqual([
-      "AI Security Playground",
+    const redTeam = primaryNavItems.find((item) => item.kind === "group" && item.id === "red-team");
+    expect(redTeam?.kind === "group" ? redTeam.children.map((item) => item.name) : []).toEqual([
       "Attack Lab",
       "Campaigns",
-      "Attack Library",
+      "Detections",
     ]);
+  });
+
+  it("marks nested detection routes active without hijacking the command center", () => {
+    expect(isNavHrefActive("/red-team/monitor/live", "/red-team/monitor")).toBe(true);
+    expect(isNavHrefActive("/command-center/topology", "/command-center")).toBe(false);
+  });
+
+  it("keeps demoted routes searchable and deduplicated", () => {
+    expect(secondaryCommandRoutes.map((route) => route.href)).toEqual([
+      "/risks",
+      "/red-team/surface",
+      "/red-team",
+      "/red-team/library",
+      "/red-team/matrix",
+      "/red-team/graph",
+      "/reports",
+    ]);
+    const commands = commandPaletteRoutesFor(adminCapabilities, true);
+    expect(commands.some((route) => route.href === "/reports")).toBe(true);
+    expect(new Set(commands.map((route) => route.href)).size).toBe(commands.length);
+  });
+
+  it("applies sidebar capabilities to command search", () => {
+    const restricted = { ...adminCapabilities, can_run_campaigns: false };
+    const commands = commandPaletteRoutesFor(restricted, false);
+    expect(commands.some((route) => route.href.startsWith("/red-team"))).toBe(false);
+    expect(commands.some((route) => route.href === "/admin/providers")).toBe(false);
+    expect(commands.some((route) => route.href === "/reports")).toBe(true);
   });
 });
 

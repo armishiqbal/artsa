@@ -12,7 +12,9 @@ describe("navigation", () => {
     expect(hrefs).toContain("/red-team/campaigns");
     expect(hrefs).toContain("/admin/policies");
     expect(hrefs).toContain("/replay");
-    expect(hrefs).toContain("/reports");
+    expect(hrefs).not.toContain("/reports");
+    const { secondaryCommandRoutes } = await import("@/lib/command-palette-registry");
+    expect(secondaryCommandRoutes.map((route) => route.href)).toContain("/reports");
   });
 });
 

@@ -62,6 +62,10 @@ EXCLUDED_PREFIXES: tuple[str, ...] = (
     "/api/v1/proxy",
     "/v1/mcp",
     "/api/v1/mcp",
+    # Playground JSON errors and SSE terminal events share one typed contract.
+    # Preserve assessment/run correlation fields on 4xx fail-closed responses.
+    "/v1/playground",
+    "/api/v1/playground",
 )
 
 API_VERSION = "0.3.0"

@@ -7,7 +7,7 @@ import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from datetime import time as dt_time
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,26 @@ from src.core.config import settings
 from src.data.orm import PlaygroundRunAuditORM
 from src.runtime.actions import RuntimeAction
 from src.runtime.evidence import RedactedFinding
+
+GuardCategory = Literal[
+    "content_violation",
+    "data_leakage",
+    "prompt_attack",
+    "unknown_links",
+]
+
+_GUARD_CATEGORIES: tuple[GuardCategory, ...] = (
+    "content_violation",
+    "data_leakage",
+    "prompt_attack",
+    "unknown_links",
+)
+_CATEGORY_LABELS: dict[GuardCategory, str] = {
+    "content_violation": "Content Violation",
+    "data_leakage": "Data Leakage",
+    "prompt_attack": "Prompt Attack",
+    "unknown_links": "Unknown Links",
+}
 
 
 def digest(value: str) -> str:
@@ -62,6 +82,142 @@ def public_findings(findings: list[Any]) -> list[dict[str, Any]]:
                 }
             )
     return result
+
+
+def _finding_text(finding: Any) -> str:
+    if isinstance(finding, dict):
+        values = (
+            finding.get("detector"),
+            finding.get("category"),
+            finding.get("event_type"),
+        )
+    else:
+        values = (
+            getattr(finding, "detector", None),
+            getattr(finding, "category", None),
+            getattr(finding, "event_type", None),
+        )
+    return " ".join(str(value or "") for value in values).lower()
+
+
+def _category_for_finding(finding: Any) -> GuardCategory | None:
+    text = _finding_text(finding)
+    if any(token in text for token in ("prompt", "injection", "jailbreak", "instruction", "goal_drift")):
+        return "prompt_attack"
+    if any(token in text for token in ("secret", "credential", "pii", "leak", "exfil", "disclosure", "canary", "sensitive", "data")):
+        return "data_leakage"
+    if any(token in text for token in ("content", "safety", "policy", "harm", "violence", "hate", "sexual", "abuse")):
+        return "content_violation"
+    return None
+
+
+def _finding_action(finding: Any, fallback: str) -> str:
+    value = finding.get("action") if isinstance(finding, dict) else getattr(finding, "action", None)
+    value = getattr(value, "value", value)
+    return str(value or fallback).upper()
+
+
+def guard_assessment(
+    *,
+    run_id: str,
+    session_id: uuid.UUID | str,
+    phase: Literal["input", "output"],
+    action: RuntimeAction | str,
+    findings: list[Any],
+    risk_score: float | None = None,
+    confidence: float | None = None,
+    outcome: Literal["passed", "flagged", "approval", "unavailable", "cancelled"] | None = None,
+    evaluated: bool = True,
+) -> dict[str, Any]:
+    """Build the versioned, redacted browser assessment contract.
+
+    Category status is decided on the server from detector metadata.  Submitted
+    text, matched evidence, digests, and spans are deliberately excluded.
+    """
+    action_value = action.value if isinstance(action, RuntimeAction) else str(action).upper()
+    scanner_unavailable = any("unavailable" in _finding_text(item) for item in findings)
+    if outcome is None:
+        outcome = (
+            "unavailable" if action_value == "UNAVAILABLE" or scanner_unavailable
+            else "approval" if action_value == RuntimeAction.QUARANTINE.value
+            else "flagged" if action_value == RuntimeAction.BLOCK.value
+            else "passed"
+        )
+    can_report = evaluated and outcome not in {"unavailable", "cancelled"} and not scanner_unavailable
+    grouped: dict[GuardCategory, list[Any]] = {category: [] for category in _GUARD_CATEGORIES}
+    unmapped: list[Any] = []
+    for finding in findings:
+        category = _category_for_finding(finding)
+        if category is None:
+            unmapped.append(finding)
+        else:
+            grouped[category].append(finding)
+    # A blocking detector with a new/unknown category must never produce an
+    # all-green assessment. Conservatively surface it as a content violation.
+    if unmapped and action_value in {RuntimeAction.BLOCK.value, RuntimeAction.QUARANTINE.value}:
+        grouped["content_violation"].extend(unmapped)
+
+    categories: list[dict[str, Any]] = []
+    for category in _GUARD_CATEGORIES:
+        matches = grouped[category]
+        label = _CATEGORY_LABELS[category]
+        if category == "unknown_links":
+            status = "not_evaluated"
+            category_action = None
+            explanation = "Domain reputation and allowlist evaluation is not configured."
+        elif not can_report:
+            status = "not_evaluated"
+            category_action = None
+            explanation = f"{label} was not evaluated for this run."
+        elif matches:
+            status = "detected"
+            match_actions = [_finding_action(item, action_value) for item in matches]
+            category_action = (
+                "BLOCK" if "BLOCK" in match_actions
+                else "QUARANTINE" if "QUARANTINE" in match_actions
+                else action_value if action_value in {"BLOCK", "QUARANTINE"}
+                else "ALLOW"
+            )
+            explanation = f"{label} was detected by {len(matches)} enabled detector{'s' if len(matches) != 1 else ''}."
+        else:
+            status = "not_detected"
+            category_action = "ALLOW"
+            explanation = f"No enabled {label.lower()} detector matched."
+        categories.append(
+            {
+                "category": category,
+                "status": status,
+                "confidence": float(confidence) if matches and confidence is not None and can_report else None,
+                "action": category_action,
+                "detectorCount": len(matches) if can_report else 0,
+                "explanation": explanation,
+            }
+        )
+
+    return {
+        "schemaVersion": 1,
+        "runId": run_id,
+        "sessionId": str(session_id),
+        "phase": phase,
+        "outcome": outcome,
+        "action": action_value if action_value in {"ALLOW", "BLOCK", "QUARANTINE", "UNAVAILABLE"} else "UNAVAILABLE",
+        "riskScore": float(risk_score) if risk_score is not None and can_report else None,
+        "categories": categories,
+    }
+
+
+def unavailable_guard_assessment(
+    *, run_id: str, session_id: uuid.UUID | str, phase: Literal["input", "output"] = "output"
+) -> dict[str, Any]:
+    return guard_assessment(
+        run_id=run_id,
+        session_id=session_id,
+        phase=phase,
+        action="UNAVAILABLE",
+        findings=[],
+        outcome="unavailable",
+        evaluated=False,
+    )
 
 
 def budget_snapshot(redis: Any | None, *, tenant_id: str) -> dict[str, int]:

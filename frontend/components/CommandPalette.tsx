@@ -2,26 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, Command, Play, FileText, Shield, Crosshair, Rocket } from "lucide-react";
-import { navSections, flattenNavItems } from "@/lib/navigation";
+import { Search, X, Command } from "lucide-react";
+import { commandPaletteRoutesFor } from "@/lib/command-palette-registry";
+import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export const OPEN_COMMAND_PALETTE = "artsa:open-command-palette";
-
-const actionCommands = [
-  { name: "Create API key", href: "/get-started", category: "Admin", icon: Rocket },
-  { name: "Integrations", href: "/settings/integrations", category: "Admin", icon: Command },
-  { name: "Start a campaign", href: "/red-team/campaigns", category: "Red Team", icon: Play },
-  { name: "Open Attack Lab", href: "/red-team/lab", category: "Red Team", icon: Crosshair },
-  { name: "AI Security Playground", href: "/playground", category: "Red Team", icon: Shield },
-  { name: "View Reports", href: "/reports", category: "Report", icon: FileText },
-  { name: "View Activity", href: "/logs", category: "Detect", icon: FileText },
-  { name: "Open Sessions", href: "/replay", category: "Investigate", icon: Shield },
-  { name: "AI Providers", href: "/admin/providers", category: "Admin", icon: Command },
-];
 
 export function openCommandPalette() {
   if (typeof window !== "undefined") {
@@ -35,21 +24,12 @@ export default function CommandPalette() {
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { identity, capabilities } = useAuthRole();
 
-  const navCommands = useMemo(
-    () =>
-      navSections.flatMap((section) =>
-        flattenNavItems(section.items).map((item) => ({
-          name: item.name,
-          href: item.href,
-          icon: item.icon,
-          category: section.label,
-        }))
-      ),
-    []
+  const commands = useMemo(
+    () => commandPaletteRoutesFor(capabilities, identity.role === "admin"),
+    [capabilities, identity.role]
   );
-
-  const commands = useMemo(() => [...navCommands, ...actionCommands], [navCommands]);
 
   const filteredCommands = useMemo(
     () =>

@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
@@ -14,8 +13,7 @@ import { AmbientCanvas } from "@/components/motion/AmbientCanvas";
 import { DashboardMetricsProvider } from "@/lib/context/DashboardMetricsProvider";
 import { AppDataProvider } from "@/lib/context/AppDataProvider";
 import { cn } from "@/lib/utils";
-
-const CommandPalette = dynamic(() => import("@/components/CommandPalette"), { ssr: false });
+import CommandPalette from "@/components/CommandPalette";
 
 /** Client-only app chrome — ambient layer at z-0, UI at z-10. */
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -34,9 +32,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AppDataProvider>
       <DashboardMetricsProvider>
-        <div className="relative min-h-screen">
+        <div className={cn("relative", playground ? "h-screen overflow-hidden" : "min-h-screen")}>
           {!commandCenter ? <AmbientCanvas variant="app" /> : null}
-          <div className="platform-shell relative z-10 flex min-h-screen">
+          <div className={cn("platform-shell relative z-10 flex min-h-screen", playground && "h-screen overflow-hidden")}>
             <Sidebar />
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <TopNav />
@@ -44,17 +42,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 id="main-content"
                 className={cn(
                   "app-canvas relative flex min-h-0 flex-1 flex-col",
-                  commandCenter || playground
-                    ? "min-h-full overflow-y-auto p-0"
-                    : "overflow-y-auto p-4 md:p-5 lg:p-6"
+                  playground
+                    ? "!min-h-0 overflow-hidden p-0"
+                    : commandCenter
+                      ? "min-h-full overflow-y-auto p-0"
+                      : "overflow-y-auto p-4 md:p-5 lg:p-6"
                 )}
               >
                 <div
                   className={cn(
                     "mx-auto flex min-h-0 flex-1 flex-col",
-                    commandCenter || playground
+                    commandCenter
                       ? "min-h-full w-full max-w-none"
-                      : redTeam
+                      : playground
+                        ? "h-full min-h-0 w-full max-w-none"
+                        : redTeam
                         ? "w-full max-w-[1400px]"
                         : "w-full max-w-[1200px]"
                   )}

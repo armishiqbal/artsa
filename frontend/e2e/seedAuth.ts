@@ -1,5 +1,26 @@
 import type { Page } from "@playwright/test";
 
+function assessment(runId: string, outcome: "passed" | "flagged" | "approval" | "unavailable", detected?: "prompt_attack") {
+  const action = outcome === "flagged" ? "BLOCK" : outcome === "approval" ? "QUARANTINE" : outcome === "unavailable" ? "UNAVAILABLE" : "ALLOW";
+  return {
+    schemaVersion: 1,
+    runId,
+    sessionId: "e2e-playground-session",
+    phase: detected ? "input" : "output",
+    outcome,
+    action,
+    riskScore: outcome === "unavailable" ? null : detected ? 100 : 0,
+    categories: ["content_violation", "data_leakage", "prompt_attack", "unknown_links"].map((category) => ({
+      category,
+      status: category === "unknown_links" || outcome === "unavailable" ? "not_evaluated" : category === detected ? "detected" : "not_detected",
+      confidence: category === detected ? 0.98 : null,
+      action: category === "unknown_links" || outcome === "unavailable" ? null : category === detected ? action : "ALLOW",
+      detectorCount: category === detected ? 1 : 0,
+      explanation: category === "unknown_links" ? "Domain reputation is not configured." : category === detected ? "Prompt Attack was detected." : outcome === "unavailable" ? "This category was not evaluated." : "No enabled detector matched.",
+    })),
+  };
+}
+
 // With ARTSA_REQUIRE_AUTH=true the UI requires a role API key. Seed the
 // frontend auth store (sessionStorage "artsa-auth") with the admin key so
 // e2e runs as an authenticated admin. Provide it via ARTSA_API_KEY.
@@ -131,11 +152,14 @@ export async function seedAuth(page: Page): Promise<void> {
     budget: { daily_requests: 250, daily_tokens: 500000, remaining_requests: 249, remaining_tokens: 499000, max_output_tokens: 512 },
   })));
   await page.route("**/api/v1/playground/scan**", (route) => {
-    const body = route.request().postData() || "";
-    if (body.includes("scan unavailable fixture")) return route.fulfill(json({ detail: "Fixture unavailable" }, 503));
+    const body = JSON.parse(route.request().postData() || "{}") as { content?: string; run_id?: string };
+    const runId = body.run_id || "missing-run-id";
+    if (body.content?.includes("scan unavailable fixture")) return route.fulfill(json({ detail: "Fixture unavailable" }, 503));
     return route.fulfill(json({
+      run_id: runId,
       session_id: "e2e-playground-session",
       action: "BLOCK",
+      assessment: assessment(runId, "flagged", "prompt_attack"),
       result: {
         channel: "input", action: "BLOCK", verdict: "BREACHED", risk_score: 100,
         body_sha256: "e2e-playground-digest", latency_ms: 4,
@@ -144,23 +168,29 @@ export async function seedAuth(page: Page): Promise<void> {
       },
     }));
   });
-  await page.route("**/api/v1/playground/chat**", (route) => {
-    const body = route.request().postData() || "";
-    if (body.includes("provider unavailable fixture")) return route.abort("failed");
-    if (body.includes("blocked fixture")) {
-      return route.fulfill(json({ action: "BLOCK", evidence: { action: "BLOCK", stage: "input", body_sha256: "e2e-blocked-digest", findings: [{ detector: "PromptInjectionDetector", category: "PROMPT_INJECTION", action: "BLOCK" }] } }, 403));
+  await page.route("**/api/v1/playground/chat**", async (route) => {
+    const body = JSON.parse(route.request().postData() || "{}") as { message?: string; run_id?: string };
+    const runId = body.run_id || "missing-run-id";
+    if (body.message?.includes("cancel fixture")) {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body: "" });
     }
-    if (body.includes("approval fixture")) {
-      return route.fulfill(json({ action: "QUARANTINE", approval_id: "e2e-approval-001", evidence: { action: "QUARANTINE", stage: "output", body_sha256: "e2e-approval-digest", findings: [] } }, 403));
+    if (body.message?.includes("provider unavailable fixture")) return route.abort("failed");
+    if (body.message?.includes("blocked fixture")) {
+      return route.fulfill(json({ run_id: runId, action: "BLOCK", assessment: assessment(runId, "flagged", "prompt_attack"), evidence: { action: "BLOCK", stage: "input", body_sha256: "e2e-blocked-digest", findings: [{ detector: "PromptInjectionDetector", category: "PROMPT_INJECTION", action: "BLOCK" }] } }, 403));
     }
-    if (body.includes("malformed SSE fixture")) {
+    if (body.message?.includes("approval fixture")) {
+      return route.fulfill(json({ run_id: runId, action: "QUARANTINE", approval_id: "e2e-approval-001", assessment: assessment(runId, "approval", "prompt_attack"), evidence: { action: "QUARANTINE", stage: "output", body_sha256: "e2e-approval-digest", findings: [] } }, 403));
+    }
+    if (body.message?.includes("malformed SSE fixture")) {
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: "event: message.delta\ndata: {not-json}\n\nevent: playground.complete\ndata: {\"action\":\"ALLOW\",\"body_sha256\":\"e2e-malformed-digest\",\"findings\":[]}\n\n" });
     }
+    const terminal = JSON.stringify({ run_id: runId, action: "ALLOW", assessment: assessment(runId, "passed") });
     return route.fulfill({
       status: 200,
       contentType: "text/event-stream",
       headers: { "cache-control": "no-store", "x-artsa-session-id": "e2e-playground-session" },
-      body: "event: playground.status\ndata: {\"stage\":\"input_screened\",\"action\":\"ALLOW\"}\n\nevent: message.delta\ndata: {\"text\":\"Fixture response\"}\n\nevent: playground.complete\ndata: {\"action\":\"ALLOW\",\"body_sha256\":\"e2e-response-digest\",\"findings\":[]}\n\n",
+      body: `event: playground.status\ndata: {"run_id":"${runId}","stage":"input_screened","action":"ALLOW"}\n\nevent: message.delta\ndata: {"run_id":"${runId}","text":"Fixture response"}\n\nevent: playground.complete\ndata: ${terminal}\n\n`,
     });
   });
   await page.route("**/api/v1/sessions?limit=50**", (route) => route.fulfill(json([session])));

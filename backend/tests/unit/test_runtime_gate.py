@@ -624,7 +624,7 @@ def _openai_sse_chunks(*pieces: str, done: bool = True) -> bytes:
 
 
 def test_stream_holdback_split_secret_matches_nonstream_block():
-    from src.runtime.stream import OpenAIStreamGate, STREAM_HOLDBACK_CHARS
+    from src.runtime.stream import STREAM_HOLDBACK_CHARS, OpenAIStreamGate
 
     assert STREAM_HOLDBACK_CHARS >= 32
     nonstream = RuntimeGate().evaluate(output_text=SECRET_LINE)
@@ -787,6 +787,22 @@ def test_stream_unparsed_tail_fail_closed():
     )
     assert gate.feed("data: {incomplete") == []
     frames = gate.finish()
+    assert gate.aborted
+    assert gate.final_decision is not None
+    assert gate.final_decision.action == RuntimeAction.BLOCK
+    assert any(f.category == "SCANNER_UNAVAILABLE" for f in gate.final_decision.findings)
+    assert "output_blocked" in "".join(frames)
+
+
+def test_anthropic_stream_error_fails_closed():
+    from src.runtime.stream import AnthropicStreamGate
+
+    gate = AnthropicStreamGate(
+        messages=[{"role": "user", "content": SAFE_PROMPT}],
+        session_id=uuid.uuid4(),
+        model="claude-3-5-sonnet",
+    )
+    frames = gate.feed('event: error\ndata: {"type":"error","error":{"type":"overloaded_error"}}\n\n')
     assert gate.aborted
     assert gate.final_decision is not None
     assert gate.final_decision.action == RuntimeAction.BLOCK

@@ -253,8 +253,11 @@ class OpenAIStreamGate:
         if isinstance(tool_deltas, list):
             self._accumulate_tools(tool_deltas)
         if obj.get("error"):
-            # Upstream error — still fail closed if we cannot scan; forward shape as block.
-            return out
+            self._finalized = True
+            decision = fail_closed_decision(body=self.state.text)
+            self.state.aborted = True
+            self.state.final_decision = decision
+            return self._block_frames(decision)
         return out
 
     def _accumulate_tools(self, deltas: list[Any]) -> None:
@@ -472,7 +475,11 @@ class AnthropicStreamGate:
             return self.emitter.block(decision)
         typ = str(obj.get("type") or _event or "")
         if typ == "error":
-            return []
+            self._finalized = True
+            decision = fail_closed_decision(body=self.state.text)
+            self.state.aborted = True
+            self.state.final_decision = decision
+            return self.emitter.block(decision)
         if typ == "message_stop":
             return self._finalize()
         if typ == "content_block_start":

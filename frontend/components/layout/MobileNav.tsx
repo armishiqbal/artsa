@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import Logo from "@/components/shared/Logo";
 import {
-  filterNavItemsByCapability,
-  navSections,
+  filterNavItemsByAccess,
+  primaryNavItems,
 } from "@/lib/navigation";
 import { NavItemsList } from "@/components/layout/NavItemsList";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
@@ -17,14 +17,13 @@ export default function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { identity, capabilities } = useAuthRole();
+  const reducedMotion = useReducedMotion();
 
-  const visibleSections = navSections
-    .filter((section) => !section.adminOnly || identity.role === "admin")
-    .map((section) => ({
-      ...section,
-      items: filterNavItemsByCapability(section.items, capabilities),
-    }))
-    .filter((section) => section.items.length > 0);
+  const visibleItems = filterNavItemsByAccess(
+    primaryNavItems,
+    capabilities,
+    identity.role === "admin"
+  );
 
   useEffect(() => {
     setOpen(false);
@@ -82,6 +81,7 @@ export default function MobileNav() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={reducedMotion ? { duration: 0 } : undefined}
               onClick={() => setOpen(false)}
               aria-label="Close navigation menu"
             />
@@ -92,7 +92,7 @@ export default function MobileNav() {
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+              transition={reducedMotion ? { duration: 0 } : { type: "spring", bounce: 0, duration: 0.35 }}
               role="dialog"
               aria-modal="true"
               aria-label="Navigation menu"
@@ -105,22 +105,11 @@ export default function MobileNav() {
               </div>
 
               <nav className="flex-1 overflow-y-auto p-3" aria-label="Main navigation">
-                {visibleSections.map((section) => (
-                  <div key={section.label || "primary"} className="mb-6">
-                    {section.label ? (
-                      <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        {section.label}
-                      </p>
-                    ) : null}
-                    <ul className="space-y-0.5">
-                      <NavItemsList
-                        items={section.items}
-                        variant="mobile"
-                        onNavigate={() => setOpen(false)}
-                      />
-                    </ul>
-                  </div>
-                ))}
+                <NavItemsList
+                  items={visibleItems}
+                  variant="mobile"
+                  onNavigate={() => setOpen(false)}
+                />
               </nav>
             </motion.aside>
           </>

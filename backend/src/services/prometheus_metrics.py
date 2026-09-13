@@ -10,6 +10,16 @@ _ingest_total = 0
 _ingest_latency_ms_sum = 0.0
 _ws_connections = 0
 _benchmark_runs = 0
+_playground_runs = {
+    "passed": 0,
+    "blocked": 0,
+    "quarantined": 0,
+    "unavailable": 0,
+    "malformed_stream": 0,
+    "cancelled": 0,
+}
+_playground_evaluation_latency_ms_sum = 0.0
+_playground_evaluation_latency_count = 0
 _start_time = time.time()
 
 
@@ -38,6 +48,20 @@ def record_benchmark_run() -> None:
         _benchmark_runs += 1
 
 
+def record_playground_run(outcome: str, latency_ms: float | None = None) -> None:
+    global _playground_evaluation_latency_ms_sum, _playground_evaluation_latency_count
+    normalized = {
+        "flagged": "blocked",
+        "approval": "quarantined",
+    }.get(outcome, outcome)
+    with _lock:
+        if normalized in _playground_runs:
+            _playground_runs[normalized] += 1
+        if latency_ms is not None:
+            _playground_evaluation_latency_ms_sum += max(0.0, float(latency_ms))
+            _playground_evaluation_latency_count += 1
+
+
 def render_prometheus(active_sessions: int = 0, severity: dict[str, int] | None = None) -> str:
     """Render metrics in Prometheus text exposition format."""
     with _lock:
@@ -45,6 +69,9 @@ def render_prometheus(active_sessions: int = 0, severity: dict[str, int] | None 
         latency_sum = _ingest_latency_ms_sum
         ws_open = _ws_connections
         benchmark_runs = _benchmark_runs
+        playground_runs = dict(_playground_runs)
+        playground_latency_sum = _playground_evaluation_latency_ms_sum
+        playground_latency_count = _playground_evaluation_latency_count
 
     uptime = time.time() - _start_time
     sev = severity or {}
@@ -70,6 +97,13 @@ def render_prometheus(active_sessions: int = 0, severity: dict[str, int] | None 
         "# HELP artsa_benchmark_runs_total Benchmark harness executions",
         "# TYPE artsa_benchmark_runs_total counter",
         f"artsa_benchmark_runs_total {benchmark_runs}",
+        "# HELP artsa_playground_runs_total Playground terminal runs by outcome",
+        "# TYPE artsa_playground_runs_total counter",
+        *[f'artsa_playground_runs_total{{outcome="{outcome}"}} {count}' for outcome, count in playground_runs.items()],
+        "# HELP artsa_playground_evaluation_latency_ms Evaluation latency in milliseconds",
+        "# TYPE artsa_playground_evaluation_latency_ms summary",
+        f"artsa_playground_evaluation_latency_ms_sum {playground_latency_sum:.3f}",
+        f"artsa_playground_evaluation_latency_ms_count {playground_latency_count}",
     ]
 
     for level in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
