@@ -2,6 +2,7 @@
 
 from src.integrations.github.auth import (
     DEFAULT_NARROW_PERMISSIONS,
+    FORBIDDEN_PERMISSIONS,
     GitHubAuthManager,
     generate_app_jwt,
     generate_installation_token,
@@ -14,6 +15,7 @@ from src.integrations.github.gateway import (
 
 __all__ = [
     "DEFAULT_NARROW_PERMISSIONS",
+    "FORBIDDEN_PERMISSIONS",
     "GatewayResult",
     "GitHubAuthManager",
     "GitHubContainmentGateway",

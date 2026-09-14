@@ -409,11 +409,11 @@ class Settings(BaseSettings):
     def github_private_key_content(self) -> str | None:
         """Resolve GitHub App private key PEM from GITHUB_PRIVATE_KEY or file at GITHUB_PRIVATE_KEY_PATH."""
         if self.GITHUB_PRIVATE_KEY and self.GITHUB_PRIVATE_KEY.strip():
-            return self.GITHUB_PRIVATE_KEY.strip()
+            return self.GITHUB_PRIVATE_KEY.strip().replace("\\n", "\n")
         if self.GITHUB_PRIVATE_KEY_PATH:
-            p = Path(self.GITHUB_PRIVATE_KEY_PATH)
+            p = Path(self.GITHUB_PRIVATE_KEY_PATH).expanduser()
             if p.is_file():
-                return p.read_text(encoding="utf-8").strip()
+                return p.read_text(encoding="utf-8").strip().replace("\\n", "\n")
         return None
 
     def provider_key(self, provider: str) -> str | None:

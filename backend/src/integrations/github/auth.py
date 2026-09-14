@@ -27,6 +27,21 @@ DEFAULT_NARROW_PERMISSIONS: dict[str, str] = {
     "metadata": "read",
 }
 
+FORBIDDEN_PERMISSIONS: frozenset[str] = frozenset({
+    "administration",
+    "organization_administration",
+    "organization_custom_roles",
+    "organization_roles",
+    "organization_secrets",
+    "secrets",
+    "workflows",
+    "members",
+    "organization_plan",
+    "organization_self_hosted_runners",
+    "organization_user_blocking",
+    "team_discussions",
+})
+
 
 def generate_rsa_key_pair(key_size: int = 2048) -> tuple[str, str]:
     """Generate an RSA private and public key pair in PEM format (for tests and dev)."""
@@ -62,10 +77,12 @@ def generate_app_jwt(
     if not effective_key:
         raise ValueError("GitHub App private key must be provided or configured in settings")
 
+    effective_key = effective_key.replace("\\n", "\n").strip()
+
     now = int(time.time())
     payload = {
         "iat": now - 60,
-        "exp": now + min(expire_seconds, 600),
+        "exp": now + max(60, min(expire_seconds, 600)),
         "iss": str(effective_app_id),
     }
     return jwt.encode(payload, effective_key, algorithm="RS256")
@@ -83,17 +100,36 @@ async def generate_installation_token(
     """Request a scoped installation access token from GitHub API.
 
     Enforces minimum privileges:
-    - Scoped repositories list (defaults to settings.GITHUB_ALLOWED_REPOSITORIES)
-    - Narrow permissions (issues: write, contents: read, metadata: read)
+    - Scoped repositories list (defaults to settings.GITHUB_ALLOWED_REPOSITORIES).
+      Unscoped requests are strictly prohibited to prevent full-organization token issuance.
+    - Narrow permissions (issues: write, contents: read, metadata: read).
+      Organization-admin, workflow, secrets, and permission-management access are prohibited.
     """
     effective_inst_id = installation_id or settings.GITHUB_INSTALLATION_ID
     if not effective_inst_id:
         raise ValueError("GitHub Installation ID must be provided or configured in settings")
 
-    effective_perms = permissions if permissions is not None else DEFAULT_NARROW_PERMISSIONS
+    # Enforce forbidden permission restrictions
+    if permissions is not None:
+        for perm in permissions:
+            if perm.lower() in FORBIDDEN_PERMISSIONS:
+                raise ValueError(
+                    f"Permission '{perm}' is forbidden: ARTSA policy strictly prohibits "
+                    "organization-admin, workflow, secrets, and permission-management access."
+                )
+        effective_perms = permissions
+    else:
+        effective_perms = DEFAULT_NARROW_PERMISSIONS
+
     raw_repos = repositories if repositories is not None else settings.GITHUB_ALLOWED_REPOSITORIES
     # GitHub accepts repo names without owner (e.g. 'repo-name') or full names
-    scoped_repos = [r.split("/")[-1] for r in raw_repos] if raw_repos else []
+    scoped_repos = [r.strip().split("/")[-1] for r in raw_repos if r and r.strip()] if raw_repos else []
+
+    if not scoped_repos:
+        raise ValueError(
+            "Scoped repositories must be explicitly provided to enforce least privilege. "
+            "An empty repositories list would grant access to all installation repositories."
+        )
 
     app_jwt = generate_app_jwt(app_id=app_id, private_key=private_key)
 
@@ -105,9 +141,8 @@ async def generate_installation_token(
     }
     body: dict[str, Any] = {
         "permissions": effective_perms,
+        "repositories": scoped_repos,
     }
-    if scoped_repos:
-        body["repositories"] = scoped_repos
 
     if http_client is not None:
         resp = await http_client.post(url, json=body, headers=headers)
@@ -154,6 +189,22 @@ class GitHubAuthManager:
         force_refresh: bool = False,
     ) -> str:
         repos = repositories if repositories is not None else self.allowed_repositories
+        now = time.time()
+        if not force_refresh and self._cached_token:
+            expires_at_str = self._cached_token.get("expires_at")
+            cached_token_str = self._cached_token.get("token")
+            if expires_at_str and cached_token_str:
+                try:
+                    from datetime import datetime
+                    exp_dt = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+                    if exp_dt.timestamp() - now > 60:
+                        cached_repos = self._cached_token.get("repositories")
+                        req_repos = [r.strip().split("/")[-1] for r in repos if r and r.strip()] if repos else []
+                        if cached_repos is None or set(req_repos).issubset(set(cached_repos)):
+                            return str(cached_token_str)
+                except Exception:
+                    pass
+
         token_data = await generate_installation_token(
             installation_id=self.installation_id,
             repositories=repos,
