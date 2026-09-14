@@ -74,8 +74,8 @@ async def get_current_tenant(
 
     Hardening (WS-3.1): a password-session bearer token is authoritative — the
     user's home tenant comes from the account record, never from a caller-chosen
-    header. Static API keys and anonymous requests fall back to the header /
-    configured default.
+    header. Anonymous header/default tenancy is development-only; protected and
+    production deployments reject requests without a valid tenant credential.
     """
     if authorization and authorization.lower().startswith("bearer "):
         try:
@@ -100,8 +100,9 @@ async def get_current_tenant(
         if settings.ENVIRONMENT == "production" or settings.ARTSA_REQUIRE_AUTH:
             raise HTTPException(status_code=401, detail="invalid authenticated tenant")
     # Header-selected tenants are retained only for unauthenticated local
-    # development. Production request routing never lets callers select a
-    # credential/campaign tenant with a header.
+    # development. Never collapse unauthenticated production traffic into a
+    # shared configured tenant: that hides an authentication failure and can
+    # expose a default tenant's data.
     if settings.ENVIRONMENT == "production" or settings.ARTSA_REQUIRE_AUTH:
         raise HTTPException(status_code=401, detail="authenticated tenant required")
     return x_tenant_id or settings.ARTSA_TENANT_ID or "default_org"

@@ -157,6 +157,15 @@ def test_test_endpoint_unknown_provider_404(provider_api):
     assert provider_api.post("/api/v1/providers/nope/test", json={}).status_code == 404
 
 
+def test_provider_rejects_internal_base_url_when_ssrf_protection_is_enabled(provider_api, monkeypatch):
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
+    response = _add_provider(provider_api, base_url="http://127.0.0.1:8000/v1")
+    assert response.status_code == 422
+    assert "provider_base_url_not_allowed" in response.text
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Proxy integration with registered providers
 # ─────────────────────────────────────────────────────────────────────────────

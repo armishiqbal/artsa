@@ -6,6 +6,9 @@ import {
   Target,
   Waypoints,
   Swords,
+  Bot,
+  Github,
+  ShieldCheck,
 } from "lucide-react";
 import {
   filterNavItemsByAccess,
@@ -28,6 +31,10 @@ export const secondaryCommandRoutes: CommandPaletteRoute[] = [
   { kind: "link", name: "Outcomes", href: "/red-team/matrix", icon: BarChart3, category: "Detect", capability: "can_run_campaigns" },
   { kind: "link", name: "Attack Graph", href: "/red-team/graph", icon: Waypoints, category: "Investigate", capability: "can_run_campaigns" },
   { kind: "link", name: "Reports", href: "/reports", icon: FileText, category: "Report" },
+  { kind: "link", name: "Approvals", href: "/approvals", icon: ShieldCheck, category: "Runtime" },
+  { kind: "link", name: "Investigations", href: "/investigations", icon: FileSearch, category: "Runtime" },
+  { kind: "link", name: "Managed Agents", href: "/agents", icon: Bot, category: "Runtime", adminOnly: true },
+  { kind: "link", name: "GitHub Inventory", href: "/integrations/github", icon: Github, category: "Runtime", adminOnly: true },
 ];
 
 function primaryCommands(items: NavItem[]): CommandPaletteRoute[] {

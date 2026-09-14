@@ -47,6 +47,7 @@ from src.api.routes.github_webhooks import router as github_webhooks_router
 from src.api.routes.health import router as health_router
 from src.api.routes.ingest import router as ingest_router
 from src.api.routes.integrations import router as integrations_router
+from src.api.routes.mcp_http import router as mcp_http_router
 from src.api.routes.metrics import router as metrics_router
 from src.api.routes.observatory import router as observatory_router
 from src.api.routes.playground import router as playground_router
@@ -93,6 +94,7 @@ ROUTERS = [
     prometheus_router,
     providers_router,
     enterprise_router,
+    mcp_http_router,
     agent_runtime_router,
     admin_router,
     settings_router,

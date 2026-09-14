@@ -1,0 +1,17 @@
+{
+  "name": "ARTSA Live Evaluation",
+  "url": "https://github.com/haroonsh-dev/artsa-live-evaluation",
+  "description": "Private disposable GitHub App used to validate ARTSA managed MCP enforcement.",
+  "public": false,
+  "default_events": [
+    "installation",
+    "installation_repositories",
+    "issues"
+  ],
+  "default_permissions": {
+    "metadata": "read",
+    "contents": "read",
+    "issues": "write",
+    "pull_requests": "read"
+  }
+}

@@ -26,6 +26,31 @@ def operation_digest(session_id: uuid.UUID, tool_name: str, arguments: dict[str,
     return hashlib.sha256(body.encode()).hexdigest()
 
 
+def approval_binding_digest(
+    session_id: uuid.UUID,
+    tool_name: str,
+    arguments: dict[str, Any],
+    binding_context: dict[str, str] | None = None,
+) -> str:
+    """Digest an approval's complete authority scope without retaining inputs.
+
+    Legacy callers retain the original operation-only binding.  Managed MCP
+    actions pass their installation, repository and policy version so an
+    approval cannot be replayed against a different authority boundary.
+    """
+    if not binding_context:
+        return operation_digest(session_id, tool_name, arguments)
+    body = json.dumps(
+        {
+            "operation_sha256": operation_digest(session_id, tool_name, arguments),
+            "binding_context": binding_context,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(body.encode()).hexdigest()
+
+
 def redacted_findings(events: list[Any]) -> list[dict[str, Any]]:
     # Both ingest SecurityEvent and runtime RedactedFinding are accepted.  The
     # resulting shape intentionally contains classification metadata only.
@@ -44,9 +69,10 @@ def redacted_findings(events: list[Any]) -> list[dict[str, Any]]:
 async def create_request(
     db: AsyncSession, *, tenant_id: str, session_id: uuid.UUID, tool_name: str,
     arguments: dict[str, Any], findings: list[Any], requester: dict[str, Any],
+    binding_context: dict[str, str] | None = None,
 ) -> ApprovalRequestORM:
     now = datetime.now(UTC)
-    digest = operation_digest(session_id, tool_name, arguments)
+    digest = approval_binding_digest(session_id, tool_name, arguments, binding_context)
     # Do not let repeated delivery of the same blocked event turn into an
     # unbounded operator queue.  The operation itself is never persisted.
     existing = None
@@ -116,17 +142,35 @@ def issue_retry_token(redis: Any, row: ApprovalRequestORM) -> str:
 
 
 def consume_retry_token(redis: Any, token: str, *, tenant_id: str, session_id: uuid.UUID,
-                        tool_name: str, arguments: dict[str, Any]) -> bool:
+                        tool_name: str, arguments: dict[str, Any],
+                        binding_context: dict[str, str] | None = None) -> bool:
+    return consume_retry_token_approval_id(
+        redis, token, tenant_id=tenant_id, session_id=session_id, tool_name=tool_name,
+        arguments=arguments, binding_context=binding_context,
+    ) is not None
+
+
+def consume_retry_token_approval_id(
+    redis: Any, token: str, *, tenant_id: str, session_id: uuid.UUID,
+    tool_name: str, arguments: dict[str, Any],
+    binding_context: dict[str, str] | None = None,
+) -> str | None:
+    """Consume a retry token and return its approval ID exactly once."""
     raw = redis.get(f"artsa:approval:retry:{token}")
     if not raw:
-        return False
+        return None
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        return False
+        return None
     if data.get("tenant_id") != tenant_id or data.get("session_id") != str(session_id):
-        return False
-    if data.get("operation_sha256") != operation_digest(session_id, tool_name, arguments):
-        return False
+        return None
+    if data.get("operation_sha256") != approval_binding_digest(
+        session_id, tool_name, arguments, binding_context
+    ):
+        return None
     # Atomic consumption works across API processes; leave no reusable token.
-    return redis.set_nx(f"artsa:approval:used:{token}", "1", 900)
+    if not redis.set_nx(f"artsa:approval:used:{token}", "1", 900):
+        return None
+    approval_id = data.get("approval_id")
+    return approval_id if isinstance(approval_id, str) and approval_id else None

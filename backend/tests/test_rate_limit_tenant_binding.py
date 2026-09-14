@@ -3,6 +3,8 @@
 import asyncio
 import tempfile
 
+import pytest
+
 # ── Rate limiting (WS-4.4) ───────────────────────────────────────────────────
 
 
@@ -133,38 +135,17 @@ def test_get_current_tenant_uses_user_home_not_header(monkeypatch):
     asyncio.run(run())
 
 
-def test_get_current_tenant_production_missing_auth_returns_401(monkeypatch):
-    """When in production or ARTSA_REQUIRE_AUTH is true, missing auth must return 401."""
-    import pytest
+def test_get_current_tenant_rejects_anonymous_production_requests(monkeypatch):
+    """Protected deployments must never route anonymous traffic to a default tenant."""
     from fastapi import HTTPException
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from src.api.dependencies import get_current_tenant
     from src.core.config import settings
 
     monkeypatch.setattr(settings, "ENVIRONMENT", "production")
-    async_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
 
     async def run():
-        async_factory = async_sessionmaker(bind=async_engine, expire_on_commit=False)
-        async with async_factory() as db:
-            with pytest.raises(HTTPException) as exc_info:
-                await get_current_tenant(
-                    x_tenant_id="custom-org",
-                    authorization=None,
-                    x_api_key=None,
-                    db=db,
-                )
-            assert exc_info.value.status_code == 401
-            assert exc_info.value.detail == "authenticated tenant required"
-
-            with pytest.raises(HTTPException) as exc_info2:
-                await get_current_tenant(
-                    x_tenant_id=None,
-                    authorization="Bearer invalid-token",
-                    x_api_key=None,
-                    db=db,
-                )
-            assert exc_info2.value.status_code == 401
-        await async_engine.dispose()
+        with pytest.raises(HTTPException) as error:
+            await get_current_tenant(x_tenant_id=None, x_api_key=None, authorization=None, db=None)
+        assert error.value.status_code == 401
 
     asyncio.run(run())

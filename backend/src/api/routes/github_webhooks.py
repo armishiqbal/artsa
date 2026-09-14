@@ -36,6 +36,10 @@ async def github_webhook_receiver(
 
     # 1. Verify HMAC signature if secret is configured or header is present
     secret = settings.GITHUB_WEBHOOK_SECRET
+    if not secret and (settings.ENVIRONMENT == "production" or settings.auth_required):
+        logger.error("GITHUB_WEBHOOK_SECRET is not configured in production")
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+
     if secret:
         if not x_hub_signature_256:
             logger.warning("Missing X-Hub-Signature-256 header")
@@ -58,7 +62,12 @@ async def github_webhook_receiver(
 
     # 3. Deduplicate delivery via Redis SET NX with 24h (86400s) TTL
     key = f"artsa:github:webhook:delivery:{x_github_delivery}"
-    is_new = redis.set_nx(key, "1", ttl_sec=86400)
+    try:
+        is_new = redis.set_nx(key, "1", ttl_sec=86400)
+    except Exception as exc:
+        logger.error("Redis deduplication failed for delivery %s: %s", x_github_delivery, exc)
+        raise HTTPException(status_code=503, detail="Webhook deduplication store unavailable")
+
     if not is_new:
         logger.info("Deduplicated replay webhook delivery: %s", x_github_delivery)
         return JSONResponse(

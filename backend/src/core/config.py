@@ -117,6 +117,13 @@ class Settings(BaseSettings):
     # frame cap; notifications are intentionally kept small and pass through.
     ARTSA_MCP_STDIO_MAX_LINE_BYTES: int = 1_048_576
     ARTSA_MCP_STDIO_MAX_NOTIFICATION_BYTES: int = 65_536
+    # GitHub Cloud v1 managed MCP adapter.  The private key is supplied only
+    # by the customer-VPC secret manager / deployment environment and is never
+    # accepted over HTTP or stored in ARTSA operational tables.
+    ARTSA_GITHUB_APP_ID: str | None = None
+    ARTSA_GITHUB_APP_PRIVATE_KEY: str | None = None
+    ARTSA_GITHUB_WEBHOOK_SECRET: str | None = None
+    ARTSA_GITHUB_API_URL: str = "https://api.github.com"
     # Reject further ingest for already contained sessions (fail closed at API)
     ARTSA_BLOCK_CONTAINED_SESSIONS: bool = True
     USE_CHROMA_RAG: bool = False
@@ -303,6 +310,10 @@ class Settings(BaseSettings):
 
     # ── Detection / embeddings ──────────────────────────────────────────
     ARTSA_EMBEDDING_MODEL: str = "auto"  # auto | hash-1024 | local-bge-small | local-bge-multilingual | local-minilm | text-embedding-3-small | text-embedding-3-large
+    # Optional preloaded FastEmbed/ONNX model directory. In a customer VPC,
+    # point this at an image-mounted model so readiness never downloads from a
+    # public model registry during startup.
+    ARTSA_EMBEDDING_MODEL_PATH: str | None = None
 
     # WS-2.4: org-policy scoring. Deterministic YAML rules always apply; the RAG
     # semantic corroboration (adds a small boost when a violation clause is
