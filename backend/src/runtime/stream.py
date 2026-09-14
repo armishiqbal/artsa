@@ -178,6 +178,7 @@ class OpenAIStreamGate:
         )
         self._buf = ""
         self._finalized = False
+        self._terminal_received = False
         self._chunk_id = "chatcmpl-artsa-gated"
         self._tool_acc: dict[int, dict[str, Any]] = {}
         self._finish_reason: str | None = None
@@ -215,6 +216,15 @@ class OpenAIStreamGate:
             self.state.aborted = True
             self.state.final_decision = decision
             return self._block_frames(decision)
+        # A socket closing is not evidence that the upstream completed its
+        # response. Without [DONE], fail closed rather than releasing held-back
+        # content and reporting a successful terminal state.
+        if not self._terminal_received:
+            self._finalized = True
+            decision = fail_closed_decision(body=self.state.text)
+            self.state.aborted = True
+            self.state.final_decision = decision
+            return self._block_frames(decision)
         return self._finalize()
 
     def _handle_frame(self, frame: str) -> list[str]:
@@ -222,6 +232,7 @@ class OpenAIStreamGate:
         if not data or data.startswith(":"):
             return []
         if data == "[DONE]":
+            self._terminal_received = True
             return self._finalize()
         try:
             obj = json.loads(data)
@@ -424,6 +435,7 @@ class AnthropicStreamGate:
         self.emitter = AnthropicSseEmitter(model=model)
         self._buf = ""
         self._finalized = False
+        self._terminal_received = False
         self._tool_acc: dict[int, dict[str, Any]] = {}
         self._retry_authorized = retry_authorized
         self._allow_tools = allow_tools
@@ -459,6 +471,14 @@ class AnthropicStreamGate:
             self.state.aborted = True
             self.state.final_decision = decision
             return self.emitter.block(decision)
+        # Anthropic's message_stop is the explicit completion signal. A clean
+        # EOF without it is an incomplete stream and must not be shown as safe.
+        if not self._terminal_received:
+            self._finalized = True
+            decision = fail_closed_decision(body=self.state.text)
+            self.state.aborted = True
+            self.state.final_decision = decision
+            return self.emitter.block(decision)
         return self._finalize()
 
     def _handle_frame(self, frame: str) -> list[str]:
@@ -481,6 +501,7 @@ class AnthropicStreamGate:
             self.state.final_decision = decision
             return self.emitter.block(decision)
         if typ == "message_stop":
+            self._terminal_received = True
             return self._finalize()
         if typ == "content_block_start":
             block = obj.get("content_block") or {}

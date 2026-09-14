@@ -27,11 +27,28 @@ from src.api.dependencies import get_provider_tenant
 from src.data.db import get_async_session
 from src.data.provider_store import delete_provider, get_provider, list_providers, upsert_provider
 from src.gateway.provider_catalog import PROVIDER_CATALOG
+from src.gateway.url_safety import SSRFBlockedError, check_proxy_target, validate_target_url
 from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Providers"])
+
+
+def _validate_provider_base_url(base_url: str | None) -> None:
+    """Reject unsafe custom provider targets before storing them.
+
+    Provider URLs are later used by the proxy and by the credential test
+    endpoint. Treat them as untrusted forwarding targets rather than benign
+    configuration so an admin credential cannot turn the service into an SSRF
+    client.
+    """
+    if not base_url:
+        return
+    try:
+        validate_target_url(base_url)
+    except SSRFBlockedError as exc:
+        raise HTTPException(status_code=422, detail="provider_base_url_not_allowed") from exc
 
 
 class ProviderPayload(BaseModel):
@@ -85,6 +102,7 @@ async def providers_upsert(
     tenant_id: str = Depends(get_provider_tenant),
 ) -> dict[str, Any]:
     """Add a new provider (or update an existing one by name)."""
+    _validate_provider_base_url(payload.base_url)
     try:
         row = await upsert_provider(
             session,
@@ -118,13 +136,16 @@ async def providers_patch(
     if existing is None:
         raise HTTPException(status_code=404, detail=f"provider '{name}' not found")
 
+    effective_base_url = payload.base_url if payload.base_url is not None else existing.get("base_url")
+    _validate_provider_base_url(effective_base_url)
+
     row = await upsert_provider(
         session,
         tenant_id=tenant_id,
         name=existing["name"],
         api_key=payload.api_key if payload.api_key is not None else existing.get("api_key") or "",
         provider_type=payload.provider_type or existing.get("provider_type") or "custom",
-        base_url=payload.base_url if payload.base_url is not None else existing.get("base_url"),
+        base_url=effective_base_url,
         default_model=(
             payload.default_model if payload.default_model is not None else existing.get("default_model")
         ),
@@ -170,6 +191,14 @@ async def providers_test(
         base_url = PROVIDER_CATALOG.get(stored["provider_type"], {}).get("base_url")
     if not base_url:
         raise HTTPException(status_code=422, detail="provider has no base_url (set one or use a known type)")
+
+    # The test endpoint opens a direct outbound connection rather than using
+    # the proxy's forwarding method, so it must perform the same DNS-aware
+    # SSRF check itself immediately before connecting.
+    try:
+        await check_proxy_target(base_url)
+    except SSRFBlockedError as exc:
+        raise HTTPException(status_code=422, detail="provider_target_not_allowed") from exc
 
     model = resolved.model
     prompt = payload.get("prompt") or "Reply with the single word: ok"

@@ -132,7 +132,14 @@ class HighAccuracy1024EmbeddingFunction:
             from fastembed import TextEmbedding  # optional dependency
 
             model_name = FASTEMBED_MODEL_NAMES.get(self.model_name, self.model_name)
-            self._local_model = TextEmbedding(model_name=model_name)
+            model_path = settings.ARTSA_EMBEDDING_MODEL_PATH
+            if model_path:
+                self._local_model = TextEmbedding(
+                    model_name=model_name,
+                    specific_model_path=model_path,
+                )
+            else:
+                self._local_model = TextEmbedding(model_name=model_name)
         vector = next(self._local_model.embed([text]))
         values = [float(v) for v in vector]
         norm = math.sqrt(sum(v * v for v in values)) or 1.0

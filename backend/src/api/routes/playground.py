@@ -317,8 +317,10 @@ async def playground_scan(request: Request, payload: PlaygroundScanRequest, db: 
             "action": action.value,
             "findings": public_findings(findings),
             "verdict": "BREACHED" if action == RuntimeAction.BLOCK else "SUSPICIOUS" if action == RuntimeAction.QUARANTINE else "SAFE",
-            "risk_score": 100.0 if action == RuntimeAction.BLOCK else 70.0 if action == RuntimeAction.QUARANTINE else 0.0,
-            "risk_breakdown": {"rule_based": 100.0 if action == RuntimeAction.BLOCK else 70.0 if action == RuntimeAction.QUARANTINE else 0.0},
+            # RuntimeGate returns a decision, not a calibrated score. Do not
+            # invent a numeric score from the terminal action.
+            "risk_score": None,
+            "risk_breakdown": {},
             "fired_detectors": {finding.detector: True for finding in findings},
             "latency_ms": max(0, int((time.monotonic() - started) * 1000)),
         }
@@ -459,8 +461,8 @@ async def playground_chat(
                 phase="output",
                 action=assessment_action,
                 findings=combined_findings,
-                risk_score=scan.risk.overall_score,
-                confidence=scan.verdict.confidence,
+                risk_score=None,
+                confidence=None,
                 outcome="flagged" if payload.mode == "monitor" and input_action != RuntimeAction.ALLOW and assessment_action == RuntimeAction.ALLOW else None,
             )
             yield _sse("message.delta", {"run_id": run_id, "text": text})
@@ -501,8 +503,8 @@ async def playground_chat(
                 phase="output",
                 action=assessment_action,
                 findings=combined_findings,
-                risk_score=scan.risk.overall_score,
-                confidence=scan.verdict.confidence,
+                risk_score=None,
+                confidence=None,
                 outcome="flagged" if payload.mode == "monitor" and input_action != RuntimeAction.ALLOW and assessment_action == RuntimeAction.ALLOW else None,
             )
             if decision.action == RuntimeAction.QUARANTINE and not retry_authorized:

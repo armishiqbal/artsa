@@ -20,6 +20,9 @@ _playground_runs = {
 }
 _playground_evaluation_latency_ms_sum = 0.0
 _playground_evaluation_latency_count = 0
+_github_executions = {"executed": 0, "failed": 0, "output_blocked": 0, "retry_rejected": 0}
+_github_execution_latency_ms_sum = 0.0
+_github_execution_latency_count = 0
 _start_time = time.time()
 
 
@@ -62,6 +65,16 @@ def record_playground_run(outcome: str, latency_ms: float | None = None) -> None
             _playground_evaluation_latency_count += 1
 
 
+def record_github_execution(outcome: str, latency_ms: float | None = None) -> None:
+    global _github_execution_latency_ms_sum, _github_execution_latency_count
+    with _lock:
+        if outcome in _github_executions:
+            _github_executions[outcome] += 1
+        if latency_ms is not None:
+            _github_execution_latency_ms_sum += max(0.0, float(latency_ms))
+            _github_execution_latency_count += 1
+
+
 def render_prometheus(active_sessions: int = 0, severity: dict[str, int] | None = None) -> str:
     """Render metrics in Prometheus text exposition format."""
     with _lock:
@@ -72,6 +85,9 @@ def render_prometheus(active_sessions: int = 0, severity: dict[str, int] | None 
         playground_runs = dict(_playground_runs)
         playground_latency_sum = _playground_evaluation_latency_ms_sum
         playground_latency_count = _playground_evaluation_latency_count
+        github_executions = dict(_github_executions)
+        github_latency_sum = _github_execution_latency_ms_sum
+        github_latency_count = _github_execution_latency_count
 
     uptime = time.time() - _start_time
     sev = severity or {}
@@ -104,6 +120,13 @@ def render_prometheus(active_sessions: int = 0, severity: dict[str, int] | None 
         "# TYPE artsa_playground_evaluation_latency_ms summary",
         f"artsa_playground_evaluation_latency_ms_sum {playground_latency_sum:.3f}",
         f"artsa_playground_evaluation_latency_ms_count {playground_latency_count}",
+        "# HELP artsa_github_execution_total Managed GitHub execution terminal outcomes",
+        "# TYPE artsa_github_execution_total counter",
+        *[f'artsa_github_execution_total{{outcome="{outcome}"}} {count}' for outcome, count in github_executions.items()],
+        "# HELP artsa_github_execution_latency_ms Managed GitHub execution latency in milliseconds",
+        "# TYPE artsa_github_execution_latency_ms summary",
+        f"artsa_github_execution_latency_ms_sum {github_latency_sum:.3f}",
+        f"artsa_github_execution_latency_ms_count {github_latency_count}",
     ]
 
     for level in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):

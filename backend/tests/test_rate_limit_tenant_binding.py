@@ -3,6 +3,8 @@
 import asyncio
 import tempfile
 
+import pytest
+
 # ── Rate limiting (WS-4.4) ───────────────────────────────────────────────────
 
 
@@ -129,5 +131,21 @@ def test_get_current_tenant_uses_user_home_not_header(monkeypatch):
             )
             assert tenant == "acme", "bearer session must resolve the user's home tenant"
         await async_engine.dispose()
+
+    asyncio.run(run())
+
+
+def test_get_current_tenant_rejects_anonymous_production_requests(monkeypatch):
+    """Protected deployments must never route anonymous traffic to a default tenant."""
+    from fastapi import HTTPException
+    from src.api.dependencies import get_current_tenant
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+
+    async def run():
+        with pytest.raises(HTTPException) as error:
+            await get_current_tenant(x_tenant_id=None, x_api_key=None, authorization=None, db=None)
+        assert error.value.status_code == 401
 
     asyncio.run(run())

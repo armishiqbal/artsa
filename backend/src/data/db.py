@@ -54,11 +54,14 @@ async def init_db() -> None:
         CampaignJobORM,
         CustomIntegrationORM,
         EventEvaluationORM,
+        GitHubInstallationORM,
+        GitHubRepositoryORM,
         HmacHandoffAuditORM,
-        RuntimeEnforcementAuditORM,
-        PlaygroundRunAuditORM,
+        MCPActionEvidenceORM,
         PartnerApiKeyORM,
+        PlaygroundRunAuditORM,
         ProviderORM,
+        RuntimeEnforcementAuditORM,
         SessionORM,
         TargetORM,
         ToolCallEventORM,
@@ -186,6 +189,51 @@ async def init_db() -> None:
                             "UPDATE hmac_handoff_audit SET event_id = id WHERE event_id = '' OR event_id IS NULL"
                         )
                     )
+            if "mcp_action_evidence" in tables:
+                mcp_evidence_cols = [
+                    row[1]
+                    for row in await conn.execute(text("PRAGMA table_info(mcp_action_evidence)"))
+                ]
+                if "github_installation_id" not in mcp_evidence_cols:
+                    # Old development evidence predates managed GitHub actions;
+                    # its rows cannot claim an installation binding.
+                    await conn.execute(
+                        text(
+                            "ALTER TABLE mcp_action_evidence "
+                            "ADD COLUMN github_installation_id VARCHAR(255) NOT NULL DEFAULT 'legacy-unbound'"
+                        )
+                    )
+                await conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_mcp_action_evidence_github_installation "
+                        "ON mcp_action_evidence (github_installation_id)"
+                    )
+                )
+                for column, definition in (
+                    ("execution_state", "VARCHAR(32) NOT NULL DEFAULT 'PENDING'"),
+                    ("result_sha256", "VARCHAR(64)"),
+                    ("execution_latency_ms", "INTEGER"),
+                    ("execution_findings", "JSON NOT NULL DEFAULT '[]'"),
+                    ("executed_at", "DATETIME"),
+                    ("github_issue_number", "INTEGER"),
+                    ("reconciled_at", "DATETIME"),
+                ):
+                    if column not in mcp_evidence_cols:
+                        await conn.execute(
+                            text(f"ALTER TABLE mcp_action_evidence ADD COLUMN {column} {definition}")
+                        )
+                await conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_mcp_action_evidence_execution_state "
+                        "ON mcp_action_evidence (execution_state)"
+                    )
+                )
+                await conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_mcp_action_evidence_github_issue_number "
+                        "ON mcp_action_evidence (github_issue_number)"
+                    )
+                )
             tenant_tables = (
                 "event_evaluations",
                 "custom_integrations",

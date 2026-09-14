@@ -11,8 +11,8 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Float,
-    Integer,
     Index,
+    Integer,
     PrimaryKeyConstraint,
     String,
     Text,
@@ -430,6 +430,94 @@ class RuntimeEnforcementAuditORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+class MCPActionEvidenceORM(Base):
+    """Immutable, tenant-scoped evidence for a managed MCP action.
+
+    This table intentionally has no payload, credentials, prompt, response, or
+    raw tool-argument column.
+    """
+
+    __tablename__ = "mcp_action_evidence"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "action_id", name="uq_mcp_action_evidence_tenant_action"),
+        Index("ix_mcp_action_evidence_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(255), index=True)
+    action_id: Mapped[str] = mapped_column(String(36), index=True)
+    session_id: Mapped[str] = mapped_column(String(36), index=True)
+    trace_id: Mapped[str] = mapped_column(String(255), index=True)
+    agent_id: Mapped[str] = mapped_column(String(255), index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    integration: Mapped[str] = mapped_column(String(64))
+    github_installation_id: Mapped[str] = mapped_column(String(255), index=True)
+    tool: Mapped[str] = mapped_column(String(128))
+    resource: Mapped[str] = mapped_column(String(512))
+    operation: Mapped[str] = mapped_column(String(128))
+    arguments_sha256: Mapped[str] = mapped_column(String(64))
+    source_trust: Mapped[str] = mapped_column(String(32))
+    data_classification: Mapped[str] = mapped_column(String(32))
+    policy_version: Mapped[str] = mapped_column(String(128))
+    outcome: Mapped[str] = mapped_column(String(32), index=True)
+    reason_codes: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    finding_categories: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    detector_version: Mapped[str] = mapped_column(String(128))
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    approval_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    execution_state: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
+    result_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    execution_latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    execution_findings: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    github_issue_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class GitHubInstallationORM(Base):
+    """Tenant-bound GitHub App installation inventory, never credentials."""
+
+    __tablename__ = "github_installations"
+    __table_args__ = (
+        UniqueConstraint("github_installation_id", name="uq_github_installations_external_id"),
+        Index("ix_github_installations_tenant_updated", "tenant_id", "updated_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    github_installation_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    account_login: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
+    permissions: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    last_webhook_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+
+class GitHubRepositoryORM(Base):
+    """Repository metadata projected from signed GitHub webhooks only."""
+
+    __tablename__ = "github_repositories"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "github_repository_id", name="uq_github_repositories_tenant_external_id"),
+        Index("ix_github_repositories_tenant_installation", "tenant_id", "installation_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    installation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    github_repository_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    private: Mapped[bool] = mapped_column(Boolean, default=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    default_branch: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_webhook_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
 class PlaygroundRunAuditORM(Base):

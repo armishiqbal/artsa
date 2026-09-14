@@ -1,14 +1,54 @@
 """Agents Management and Baseline Endpoints."""
 
 
+from datetime import UTC, datetime
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dependencies import get_db
+from src.api.dependencies import get_current_tenant, get_db
 from src.core.models.agents import Agent, AgentBaseline
+from src.data.orm import AgentORM
 from src.data.repositories.agents import AgentsRepository
 
 router = APIRouter(tags=["Agents"])
+
+
+class MCPAgentRegistration(BaseModel):
+    """Explicit authority needed to attach an agent to the HTTP MCP gateway."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # ``agents.id`` is the pre-existing stable 36-character identifier used by
+    # sessions and evidence; reject longer values at the API boundary rather
+    # than relying on database-specific VARCHAR behavior.
+    id: str = Field(min_length=1, max_length=36)
+    name: str = Field(min_length=1, max_length=255)
+    owner: str = Field(min_length=1, max_length=255)
+    purpose: str = Field(min_length=1, max_length=512)
+    allowed_tools: list[str] = Field(min_length=1, max_length=20)
+    github_installations: list[str] = Field(min_length=1, max_length=20)
+    github_repositories: list[str] = Field(min_length=1, max_length=100)
+    enabled: bool = True
+
+
+def _mcp_registration_view(row: AgentORM) -> dict[str, Any]:
+    config = row.config if isinstance(row.config, dict) else {}
+    access = config.get("mcp_access", {}) if isinstance(config.get("mcp_access", {}), dict) else {}
+    return {
+        "id": row.id,
+        "name": row.name,
+        "owner": access.get("owner"),
+        "purpose": access.get("purpose"),
+        "allowed_tools": access.get("allowed_tools", []),
+        "github_installations": access.get("github_installations", []),
+        "github_repositories": access.get("github_repositories", []),
+        "enabled": bool(access.get("enabled", False)),
+        "last_seen": row.last_seen,
+    }
 
 _BUILTIN_AGENTS: list[Agent] = [
     Agent(
@@ -41,6 +81,52 @@ _BUILTIN_AGENT_IDS = {agent.id for agent in _BUILTIN_AGENTS}
 
 # Legacy behavior: built-in agents live under the default tenant.
 _DEFAULT_TENANT = "default_tenant"
+
+
+@router.get("/agents/registry/mcp")
+async def list_mcp_agent_registrations(
+    db: AsyncSession = Depends(get_db), tenant_id: str = Depends(get_current_tenant)
+) -> list[dict[str, Any]]:
+    rows = (
+        await db.execute(select(AgentORM).where(AgentORM.tenant_id == tenant_id).order_by(AgentORM.name))
+    ).scalars().all()
+    return [_mcp_registration_view(row) for row in rows if "mcp_access" in (row.config or {})]
+
+
+@router.put("/agents/registry/mcp/{agent_id}")
+async def register_mcp_agent(
+    agent_id: str,
+    payload: MCPAgentRegistration,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant),
+) -> dict[str, Any]:
+    """Create or update a tenant-owned agent's bounded MCP authority."""
+    if payload.id != agent_id:
+        raise HTTPException(status_code=400, detail="agent id must match the request path")
+    row = (
+        await db.execute(select(AgentORM).where(AgentORM.id == agent_id, AgentORM.tenant_id == tenant_id))
+    ).scalar_one_or_none()
+    access = {
+        "enabled": payload.enabled,
+        "owner": payload.owner,
+        "purpose": payload.purpose,
+        "allowed_tools": sorted(set(payload.allowed_tools)),
+        "github_installations": sorted(set(payload.github_installations)),
+        "github_repositories": sorted(set(payload.github_repositories)),
+    }
+    if row is None:
+        row = AgentORM(
+            id=agent_id, tenant_id=tenant_id, name=payload.name, agent_type="managed_mcp",
+            config={"mcp_access": access}, last_seen=datetime.now(UTC),
+        )
+        db.add(row)
+    else:
+        row.name = payload.name
+        row.config = {**(row.config or {}), "mcp_access": access}
+        row.last_seen = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(row)
+    return _mcp_registration_view(row)
 
 
 async def _seed_builtin_agents(session: AsyncSession) -> None:

@@ -794,6 +794,39 @@ def test_stream_unparsed_tail_fail_closed():
     assert "output_blocked" in "".join(frames)
 
 
+def test_stream_clean_eof_without_done_fails_closed():
+    """A transport close is never a successful OpenAI stream terminal event."""
+    from src.runtime.stream import OpenAIStreamGate
+
+    gate = OpenAIStreamGate(
+        messages=[{"role": "user", "content": SAFE_PROMPT}],
+        session_id=uuid.uuid4(),
+    )
+    gate.feed(_openai_sse_chunks("safe-looking partial output", done=False).decode())
+    frames = gate.finish()
+    assert gate.aborted
+    assert gate.final_decision is not None
+    assert gate.final_decision.action == RuntimeAction.BLOCK
+    assert "output_blocked" in "".join(frames)
+
+
+def test_anthropic_clean_eof_without_message_stop_fails_closed():
+    """Anthropic streams need message_stop; EOF alone is not completion."""
+    from src.runtime.stream import AnthropicStreamGate
+
+    gate = AnthropicStreamGate(
+        messages=[{"role": "user", "content": SAFE_PROMPT}],
+        session_id=uuid.uuid4(),
+        model="claude-3-5-sonnet",
+    )
+    gate.feed(_anthropic_sse_text("safe-looking partial output", done=False).decode())
+    frames = gate.finish()
+    assert gate.aborted
+    assert gate.final_decision is not None
+    assert gate.final_decision.action == RuntimeAction.BLOCK
+    assert "output_blocked" in "".join(frames)
+
+
 def test_anthropic_stream_error_fails_closed():
     from src.runtime.stream import AnthropicStreamGate
 
@@ -810,7 +843,7 @@ def test_anthropic_stream_error_fails_closed():
     assert "output_blocked" in "".join(frames)
 
 
-def _anthropic_sse_text(*pieces: str) -> bytes:
+def _anthropic_sse_text(*pieces: str, done: bool = True) -> bytes:
     frames = [
         'event: message_start\ndata: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","content":[]}}\n\n',
         'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
@@ -827,7 +860,8 @@ def _anthropic_sse_text(*pieces: str) -> bytes:
             )
             + "\n\n"
         )
-    frames.append('event: message_stop\ndata: {"type":"message_stop"}\n\n')
+    if done:
+        frames.append('event: message_stop\ndata: {"type":"message_stop"}\n\n')
     return "".join(frames).encode()
 
 
