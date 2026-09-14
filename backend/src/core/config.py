@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve repo root (.env lives here) and backend dir
@@ -267,6 +268,32 @@ class Settings(BaseSettings):
     SENTINEL_WORKSPACE_KEY: str | None = None
     SENTINEL_LOG_TYPE: str = "ARTSA_Security"
 
+    # ── GitHub Containment & Integration (Phase 1) ───────────────────────
+    GITHUB_APP_ID: str | None = None
+    GITHUB_PRIVATE_KEY: str | None = None
+    GITHUB_PRIVATE_KEY_PATH: str | None = None
+    GITHUB_WEBHOOK_SECRET: str | None = None
+    GITHUB_INSTALLATION_ID: str | None = None
+    GITHUB_ALLOWED_REPOSITORIES: list[str] = Field(
+        default_factory=lambda: ["controlled-org/controlled-test-repo"]
+    )
+
+    @field_validator("GITHUB_ALLOWED_REPOSITORIES", mode="before")
+    @classmethod
+    def _parse_github_allowed_repos(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [str(repo).strip() for repo in parsed if str(repo).strip()]
+                except json.JSONDecodeError:
+                    return [repo.strip() for repo in v.strip("[]").split(",") if repo.strip()]
+            return [repo.strip() for repo in v.split(",") if repo.strip()]
+        return v
+
     # ── Defaults ────────────────────────────────────────────────────────
     ARTSA_DEFAULT_PROVIDER: str = "openai"
     ARTSA_DEFAULT_MODEL: str = "gpt-4o"
@@ -366,6 +393,17 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
+
+    @property
+    def github_private_key_content(self) -> str | None:
+        """Resolve GitHub App private key PEM from GITHUB_PRIVATE_KEY or file at GITHUB_PRIVATE_KEY_PATH."""
+        if self.GITHUB_PRIVATE_KEY and self.GITHUB_PRIVATE_KEY.strip():
+            return self.GITHUB_PRIVATE_KEY.strip()
+        if self.GITHUB_PRIVATE_KEY_PATH:
+            p = Path(self.GITHUB_PRIVATE_KEY_PATH)
+            if p.is_file():
+                return p.read_text(encoding="utf-8").strip()
+        return None
 
     def provider_key(self, provider: str) -> str | None:
         """Resolve API key for a named provider."""

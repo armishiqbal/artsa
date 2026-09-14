@@ -54,6 +54,9 @@ EXCLUDED_PATHS: frozenset[str] = frozenset({
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/github/webhooks",
+    "/v1/github/webhooks",
+    "/api/v1/github/webhooks",
 })
 
 # Path prefixes that should NOT be wrapped (proxy passthrough, MCP, etc.)

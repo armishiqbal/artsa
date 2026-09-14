@@ -33,6 +33,9 @@ _PUBLIC_PATHS = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/github/webhooks",
+    "/v1/github/webhooks",
+    "/api/v1/github/webhooks",
 }
 
 
