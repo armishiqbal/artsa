@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "022_mcp_action_evidence"
-down_revision: str | None = "021_playground_audit_indexes"
+down_revision: str | None = "022_runtime_audit_evidence_expansion"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
