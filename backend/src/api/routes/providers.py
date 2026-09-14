@@ -27,6 +27,7 @@ from src.api.dependencies import get_provider_tenant
 from src.data.db import get_async_session
 from src.data.provider_store import delete_provider, get_provider, list_providers, upsert_provider
 from src.gateway.provider_catalog import PROVIDER_CATALOG
+from src.gateway.url_safety import SSRFBlockedError, check_proxy_target
 from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
 
 logger = logging.getLogger(__name__)
@@ -171,6 +172,14 @@ async def providers_test(
     if not base_url:
         raise HTTPException(status_code=422, detail="provider has no base_url (set one or use a known type)")
 
+    try:
+        await check_proxy_target(base_url)
+    except SSRFBlockedError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={"message": f"proxy_target_blocked: {exc}", "code": "proxy_target_blocked", "provider": stored["name"]},
+        ) from exc
+
     model = resolved.model
     prompt = payload.get("prompt") or "Reply with the single word: ok"
 
@@ -184,6 +193,7 @@ async def providers_test(
     else:
         headers["Authorization"] = f"Bearer {api_key}"
 
+    clean_base_url = base_url.rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             if stored["provider_type"] == "anthropic":
@@ -192,14 +202,14 @@ async def providers_test(
                     "max_tokens": 16,
                     "messages": [{"role": "user", "content": prompt}],
                 }
-                response = await client.post(f"{base_url}/messages", json=body, headers=headers)
+                response = await client.post(f"{clean_base_url}/messages", json=body, headers=headers)
             else:
                 body = {
                     "model": model,
                     "max_tokens": 16,
                     "messages": [{"role": "user", "content": prompt}],
                 }
-                response = await client.post(f"{base_url}/chat/completions", json=body, headers=headers)
+                response = await client.post(f"{clean_base_url}/chat/completions", json=body, headers=headers)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"upstream unreachable: {exc}") from exc
 

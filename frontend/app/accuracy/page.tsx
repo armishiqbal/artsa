@@ -27,9 +27,13 @@ export default function AccuracyPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
       <h1 className="text-3xl font-bold tracking-tight">ARTSA Accuracy Card</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Golden set (33 malicious / 32 safe / 5 review), real multilingual embeddings (
-        <code className="rounded bg-muted px-1">local-bge-multilingual</code>).
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border-b pb-3">
+        <span><strong>Dataset:</strong> <code className="rounded bg-muted px-1">backend/benchmarks/golden_set.json</code></span>
+        <span><strong>Samples:</strong> 70 (33 malicious / 32 safe / 5 review)</span>
+        <span><strong>Model:</strong> <code className="rounded bg-muted px-1">local-bge-multilingual</code></span>
+        <span><strong>Evaluation Date:</strong> <time dateTime="2026-08-20">2026-08-20 12:07 UTC</time></span>
+      </div>
+      <p className="mt-3 text-sm text-muted-foreground">
         Regenerate with <code className="rounded bg-muted px-1">backend/scripts/accuracy_card.py</code>.
       </p>
 

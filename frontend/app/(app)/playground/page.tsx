@@ -27,8 +27,10 @@ import {
   type CategoryAssessment,
   type GuardAssessment,
   type GuardRun,
+  type RunNature,
   parseGuardAssessment,
   promptPreview,
+  resolveRunNature,
   terminalAssessment,
 } from "@/lib/guardAssessment";
 import { selectPlaygroundProviderId } from "@/lib/playgroundProviderSelection";
@@ -134,6 +136,7 @@ function runTone(run: GuardRun) {
 }
 
 function assessmentTone(category: CategoryAssessment) {
+  if (category.category === "unknown_links" || category.explanation === "Not supported") return "text-muted-foreground";
   if (category.status === "not_detected") return "text-status-success";
   if (category.status === "detected" && category.action === "BLOCK") return "text-destructive";
   if (category.status === "detected") return "text-status-warning";
@@ -141,6 +144,7 @@ function assessmentTone(category: CategoryAssessment) {
 }
 
 function GuardRunCard({ run }: { run: GuardRun }) {
+  const nature = resolveRunNature(run);
   const assessment = run.assessment;
   const detected = assessment?.categories.filter((category) => category.status === "detected") ?? [];
   const leadFinding = detected[0];
@@ -173,6 +177,21 @@ function GuardRunCard({ run }: { run: GuardRun }) {
           </time>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] font-semibold uppercase tracking-wider",
+              nature === "Live"
+                ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                : nature === "Simulated"
+                ? "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                : nature === "Fixture"
+                ? "border-sky-500/30 text-sky-600 dark:text-sky-400 bg-sky-500/10"
+                : "border-border text-muted-foreground bg-muted/20"
+            )}
+          >
+            {nature}
+          </Badge>
           {assessment?.action && (
             <span className={cn("inline-flex h-7 w-7 items-center justify-center rounded-md border", assessment.action === "BLOCK" ? "border-destructive/25 bg-destructive/5 text-destructive" : assessment.action === "QUARANTINE" ? "border-status-warning/30 bg-status-warning-subtle/20 text-status-warning" : assessment.action === "ALLOW" ? "border-status-success/25 bg-status-success-subtle/15 text-status-success" : "border-border bg-muted/20 text-muted-foreground")} aria-hidden>
               {assessment.action === "BLOCK" ? <ShieldOff className="h-3.5 w-3.5" /> : assessment.action === "ALLOW" ? <ShieldCheck className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
@@ -223,7 +242,13 @@ function GuardRunCard({ run }: { run: GuardRun }) {
                 <div key={category.category} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-xs">
                   <span className="font-medium text-foreground">{ASSESSMENT_LABELS[category.category]}</span>
                   <span className={cn("font-medium", assessmentTone(category))}>
-                    {category.status === "detected" ? category.action || "Detected" : category.status === "not_detected" ? "Not detected" : "Not evaluated"}
+                    {category.category === "unknown_links" || category.explanation === "Not supported"
+                      ? "Not supported"
+                      : category.status === "detected"
+                        ? category.action || "Detected"
+                        : category.status === "not_detected"
+                          ? "Not detected"
+                          : "Not evaluated"}
                   </span>
                 </div>
               ))}
@@ -335,19 +360,25 @@ function GuardResultsTable({ assessment }: { assessment?: GuardAssessment }) {
             <span className="border-l border-border/70 px-4 py-2.5">Confidence</span>
             <span className="border-l border-border/70 px-4 py-2.5">Description</span>
           </div>
-          {assessment.categories.map((category) => (
+          {assessment.categories.map((category) => {
+            const isUnsupported = category.category === "unknown_links" || category.explanation === "Not supported";
+            return (
               <div key={category.category} className="grid grid-cols-[160px_120px_1fr] border-b border-border/70 text-xs last:border-0">
                 <span className="px-4 py-3">
-                  <Badge variant={category.status === "detected" ? "warning" : category.status === "not_detected" ? "success" : "outline"}>{ASSESSMENT_LABELS[category.category]}</Badge>
+                  <Badge variant={isUnsupported ? "outline" : category.status === "detected" ? "warning" : category.status === "not_detected" ? "success" : "outline"}>
+                    {ASSESSMENT_LABELS[category.category]}
+                    {isUnsupported && " (Not supported)"}
+                  </Badge>
                 </span>
                 <span className="border-l border-border/70 px-4 py-3 text-muted-foreground">
                   {category.confidence == null ? "—" : formatConfidence(category.confidence)}
                 </span>
                 <span className="border-l border-border/70 px-4 py-3 leading-5 text-muted-foreground">
-                  {category.explanation}
+                  {isUnsupported ? "Not supported" : category.explanation}
                 </span>
               </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -476,7 +507,7 @@ export default function SecurityPlaygroundPage() {
     setTemplateId("");
   };
 
-  const beginRun = (submitted: string, runId = crypto.randomUUID()) => {
+  const beginRun = (submitted: string, runId = crypto.randomUUID(), defaultNature?: RunNature) => {
     const run: GuardRun = {
       id: runId,
       submittedAt: new Date().toISOString(),
@@ -484,6 +515,7 @@ export default function SecurityPlaygroundPage() {
       status: "pending",
       providerId: providerRef || undefined,
       model: model || selectedProvider?.default_model || undefined,
+      nature: defaultNature,
     };
     activeRunRef.current = runId;
     setRuns((items) => [run, ...items.filter((item) => item.id !== runId)].slice(0, 50));
@@ -493,15 +525,20 @@ export default function SecurityPlaygroundPage() {
   const finishRun = (assessment: GuardAssessment, extras: Partial<GuardRun> = {}) => {
     setRuns((items) => {
       const existing = items.find((item) => item.id === assessment.runId);
-      const completed: GuardRun = {
+      const draft: GuardRun = {
         id: assessment.runId,
         submittedAt: existing?.submittedAt || new Date().toISOString(),
         promptPreview: existing?.promptPreview || "",
         providerId: existing?.providerId,
         model: existing?.model,
+        nature: existing?.nature,
         ...extras,
         status: assessment.outcome,
         assessment,
+      };
+      const completed: GuardRun = {
+        ...draft,
+        nature: draft.nature || resolveRunNature(draft),
       };
       return [completed, ...items.filter((item) => item.id !== assessment.runId)].slice(0, 50);
     });
@@ -512,12 +549,13 @@ export default function SecurityPlaygroundPage() {
   const scan = async () => {
     const submitted = content.trim();
     if (!submitted && !templateId) return;
-    const runId = beginRun(submitted || `Template: ${templateId}`);
+    const initialNature: RunNature = templateId ? "Fixture" : "Simulated";
+    const runId = beginRun(submitted || `Template: ${templateId}`, undefined, initialNature);
     setRunning(true);
     const controller = new AbortController();
     abortRef.current = controller;
     const showUnavailable = () => {
-      finishRun(terminalAssessment(runId, "unavailable"));
+      finishRun(terminalAssessment(runId, "unavailable"), { nature: "Not evaluated" });
     };
     try {
       const data = await fetchFromBackend<{ action: string; session_id?: string; assessment?: unknown; result: Evidence }>("/api/v1/playground/scan", {
@@ -531,7 +569,7 @@ export default function SecurityPlaygroundPage() {
         if (!assessment) {
           showUnavailable();
         } else {
-          finishRun(assessment);
+          finishRun(assessment, { nature: initialNature });
         }
       } else if (!controller.signal.aborted) {
         showUnavailable();
@@ -590,7 +628,8 @@ export default function SecurityPlaygroundPage() {
         const assessment = parseGuardAssessment(body.assessment, runId) || terminalAssessment(runId, "unavailable");
         const providerUnavailable = isProviderConfigurationError(body.code, body.detail, body.message);
         const action = assessment.action;
-        finishRun(assessment, { approvalId: body.approval_id || undefined });
+        const isNotEval = assessment.outcome === "unavailable" || providerUnavailable;
+        finishRun(assessment, { approvalId: body.approval_id || undefined, nature: isNotEval ? "Not evaluated" : "Live" });
         setChatMessages((items) =>
           items.map((message) =>
             message.id === assistantMessageId
@@ -653,7 +692,7 @@ export default function SecurityPlaygroundPage() {
               const assessment = parseGuardAssessment(data.assessment, runId);
               if (!assessment) continue;
               terminalReceived = true;
-              finishRun(assessment, { providerId: data.provider_id || streamedProviderId, model: data.model || streamedModel });
+              finishRun(assessment, { providerId: data.provider_id || streamedProviderId, model: data.model || streamedModel, nature: data.simulated ? "Simulated" : "Live" });
               setChatMessages((items) =>
                 items.map((message) =>
                   message.id === assistantMessageId
@@ -665,7 +704,7 @@ export default function SecurityPlaygroundPage() {
               const assessment = parseGuardAssessment(data.assessment, runId);
               if (!assessment) continue;
               terminalReceived = true;
-              finishRun(assessment, { approvalId: data.approval_id, providerId: streamedProviderId, model: streamedModel });
+              finishRun(assessment, { approvalId: data.approval_id, providerId: streamedProviderId, model: streamedModel, nature: "Live" });
               setChatMessages((items) =>
                 items.map((message) =>
                   message.id === assistantMessageId
@@ -682,7 +721,7 @@ export default function SecurityPlaygroundPage() {
               const assessment = parseGuardAssessment(data.assessment, runId);
               if (!assessment) continue;
               terminalReceived = true;
-              finishRun(assessment, { providerId: streamedProviderId, model: streamedModel });
+              finishRun(assessment, { providerId: streamedProviderId, model: streamedModel, nature: assessment.outcome === "unavailable" ? "Not evaluated" : "Live" });
               setChatMessages((items) =>
                 items.map((message) =>
                   message.id === assistantMessageId
@@ -712,12 +751,12 @@ export default function SecurityPlaygroundPage() {
       }
       if (!terminalReceived && !controller.signal.aborted) {
         const unavailable = terminalAssessment(runId, "unavailable", responseSessionId);
-        finishRun(unavailable, { providerId: streamedProviderId, model: streamedModel });
+        finishRun(unavailable, { providerId: streamedProviderId, model: streamedModel, nature: "Not evaluated" });
         setChatMessages((items) => items.map((message) => message.id === assistantMessageId ? { ...message, text: "The simulation is unavailable right now. No response was shown.", status: "unavailable", action: "UNAVAILABLE" } : message));
       }
     } catch {
       if (!controller.signal.aborted) {
-        finishRun(terminalAssessment(runId, "unavailable"));
+        finishRun(terminalAssessment(runId, "unavailable"), { nature: "Not evaluated" });
         setChatMessages((items) =>
           items.map((message) =>
             message.id === assistantMessageId

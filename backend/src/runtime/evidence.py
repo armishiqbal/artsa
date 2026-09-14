@@ -50,6 +50,13 @@ class RuntimeAuditRecord(BaseModel):
     body_sha256: str
     findings: list[RedactedFinding] = Field(default_factory=list)
     recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    correlation_id: str | None = None
+    tenant_id: str | None = None
+    actor_id: str | None = None
+    agent_id: str | None = None
+    provider_id: str | None = None
+    model: str | None = None
+    latency_ms: int | None = None
 
 
 def finding_from_span(

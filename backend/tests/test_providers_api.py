@@ -208,3 +208,93 @@ def test_proxy_forwards_via_registered_provider(provider_api, monkeypatch):
     assert captured["url"] == f"{FAKE_URL}/chat/completions"
     assert captured["auth"] == f"Bearer {REAL_KEY}"
     assert res.json()["choices"][0]["message"]["content"] == "mocked reply"
+
+
+def test_provider_test_blocks_ssrf_internal_target(provider_api, monkeypatch):
+    """The provider test endpoint must block internal/metadata target URLs (SSRF protection)."""
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
+    _add_provider(
+        provider_api,
+        name="internal-ssrf",
+        base_url="http://169.254.169.254/v1",
+    )
+    res = provider_api.post("/api/v1/providers/internal-ssrf/test", json={})
+    assert res.status_code == 403
+    body = res.json()
+    assert "proxy_target_blocked" in str(body)
+
+
+def test_provider_test_success(provider_api, monkeypatch):
+    """The provider test endpoint succeeds with a safe external endpoint."""
+    from unittest.mock import AsyncMock, MagicMock
+    import httpx
+
+    _add_provider(provider_api, name="safe-test-provider")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+    }
+
+    mock_client = AsyncMock()
+    mock_client.post.return_value = mock_resp
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *args, **kwargs: mock_client)
+
+    res = provider_api.post("/api/v1/providers/safe-test-provider/test", json={})
+    assert res.status_code == 200
+    data = unwrap_response(res)
+    assert data["status"] == "ok"
+    assert data["reply"] == "ok"
+
+
+def test_provider_test_trailing_slash_normalized(provider_api, monkeypatch):
+    """Trailing slash on base_url must not result in double slashes in the target URL."""
+    from unittest.mock import AsyncMock, MagicMock
+    import httpx
+
+    _add_provider(provider_api, name="trailing-slash-provider", base_url="https://api.openai.com/v1/")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+    }
+
+    captured_url = None
+
+    mock_client = AsyncMock()
+
+    async def mock_post(url, *args, **kwargs):
+        nonlocal captured_url
+        captured_url = url
+        return mock_resp
+
+    mock_client.post = mock_post
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *args, **kwargs: mock_client)
+
+    res = provider_api.post("/api/v1/providers/trailing-slash-provider/test", json={})
+    assert res.status_code == 200
+    assert captured_url == "https://api.openai.com/v1/chat/completions"
+
+
+def test_provider_test_blocks_loopback_and_ipv6(provider_api, monkeypatch):
+    """Localhost and IPv6 loopback targets must be blocked."""
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
+
+    for target in ["http://127.0.0.1:8080/v1", "http://[::1]:8080/v1"]:
+        _add_provider(provider_api, name="loopback-test", base_url=target)
+        res = provider_api.post("/api/v1/providers/loopback-test/test", json={})
+        assert res.status_code == 403
+        assert "proxy_target_blocked" in str(res.json())
+

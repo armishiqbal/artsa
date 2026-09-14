@@ -112,7 +112,7 @@ class ReadinessReportExporter:
 
     @staticmethod
     def _pdf_safe(text: Any) -> str:
-        value = str(text)
+        value = str(text).replace("—", "--").replace("–", "-")
         try:
             value.encode("latin-1")
             return value
@@ -136,7 +136,7 @@ class ReadinessReportExporter:
         pdf.ln(4)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, f"Readiness: {self.readiness_pct}% — {self._sign_off_status()}", ln=True)
+        pdf.cell(0, 8, self._pdf_safe(f"Readiness: {self.readiness_pct}% -- {self._sign_off_status()}"), ln=True)
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 6, f"Security tests: {passed}/{total} passed", ln=True)
         pdf.ln(3)
@@ -145,8 +145,8 @@ class ReadinessReportExporter:
         pdf.cell(0, 8, "Validation suite", ln=True)
         pdf.set_font("Helvetica", "", 9)
         for row in self.suite:
-            status = "PASS" if row.get("passed") else "FAIL" if row.get("passed") is False else "—"
-            line = f"{row.get('owasp', '—')} {self._pdf_safe(row.get('label', ''))} [{status}] risk={row.get('risk', '—')}"
+            status = "PASS" if row.get("passed") else "FAIL" if row.get("passed") is False else "-"
+            line = self._pdf_safe(f"{row.get('owasp', '-')} {row.get('label', '')} [{status}] risk={row.get('risk', '-')}")
             pdf.multi_cell(0, 5, line)
 
         if ingest:
@@ -154,9 +154,9 @@ class ReadinessReportExporter:
             pdf.set_font("Helvetica", "B", 12)
             pdf.cell(0, 8, "Ingest smoke test", ln=True)
             pdf.set_font("Helvetica", "", 9)
-            pdf.cell(0, 6, f"Session: {self._pdf_safe(ingest.get('sessionId', '—'))}", ln=True)
-            pdf.cell(0, 6, f"Latency: {ingest.get('latencyMs', '—')} ms", ln=True)
-            pdf.cell(0, 6, f"Verdict: {self._pdf_safe(ingest.get('verdict', '—'))} / Action: {self._pdf_safe(ingest.get('action', '—'))}", ln=True)
+            pdf.cell(0, 6, self._pdf_safe(f"Session: {ingest.get('sessionId', '-')}"), ln=True)
+            pdf.cell(0, 6, self._pdf_safe(f"Latency: {ingest.get('latencyMs', '-')} ms"), ln=True)
+            pdf.cell(0, 6, self._pdf_safe(f"Verdict: {ingest.get('verdict', '-')} / Action: {ingest.get('action', '-')}"), ln=True)
 
         raw = pdf.output(dest="S")
         if isinstance(raw, str):

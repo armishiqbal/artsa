@@ -91,6 +91,13 @@ def _persist_sync(row: dict[str, Any]) -> None:
                 action=row["action"],
                 body_sha256=row["body_sha256"],
                 findings=row.get("findings") or [],
+                correlation_id=row.get("correlation_id"),
+                tenant_id=row.get("tenant_id"),
+                actor_id=row.get("actor_id"),
+                agent_id=row.get("agent_id"),
+                provider_id=row.get("provider_id"),
+                model=row.get("model"),
+                latency_ms=row.get("latency_ms"),
                 created_at=datetime.now(UTC),
             )
         )

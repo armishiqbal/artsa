@@ -90,6 +90,13 @@ class RuntimeGate:
         decision: RuntimeDecision,
         *,
         session_id: uuid.UUID | str,
+        correlation_id: str | None = None,
+        tenant_id: str | None = None,
+        actor_id: str | None = None,
+        agent_id: str | None = None,
+        provider_id: str | None = None,
+        model: str | None = None,
+        latency_ms: int | None = None,
     ) -> RuntimeAuditRecord:
         return RuntimeAuditRecord(
             session_id=str(session_id),
@@ -97,6 +104,13 @@ class RuntimeGate:
             action=decision.action,
             body_sha256=decision.body_sha256,
             findings=decision.findings,
+            correlation_id=correlation_id,
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            agent_id=agent_id,
+            provider_id=provider_id,
+            model=model,
+            latency_ms=latency_ms,
         )
 
 

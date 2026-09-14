@@ -427,6 +427,13 @@ class RuntimeEnforcementAuditORM(Base):
     action: Mapped[str] = mapped_column(String(32), index=True)
     body_sha256: Mapped[str] = mapped_column(String(64))
     findings: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    tenant_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    agent_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    provider_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

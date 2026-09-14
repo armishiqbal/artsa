@@ -26,6 +26,8 @@ export type GuardAssessment = {
   categories: CategoryAssessment[];
 };
 
+export type RunNature = "Live" | "Simulated" | "Fixture" | "Not evaluated";
+
 export type GuardRun = {
   id: string;
   submittedAt: string;
@@ -35,6 +37,7 @@ export type GuardRun = {
   providerId?: string;
   model?: string;
   approvalId?: string;
+  nature?: RunNature;
 };
 
 export const GUARD_CATEGORIES: readonly GuardCategory[] = [
@@ -134,4 +137,24 @@ export function terminalAssessment(
 export function promptPreview(value: string): string {
   const compact = value.replace(/\s+/g, " ").trim();
   return compact.length > 160 ? `${compact.slice(0, 159)}…` : compact;
+}
+
+export function resolveRunNature(run: GuardRun): RunNature {
+  if (run.nature) return run.nature;
+  if (run.status === "unavailable" || run.status === "cancelled" || run.status === "pending" || !run.assessment) {
+    return "Not evaluated";
+  }
+  if (run.assessment.outcome === "unavailable" || run.assessment.outcome === "cancelled") {
+    return "Not evaluated";
+  }
+  if (run.promptPreview.startsWith("Template:") || run.promptPreview.startsWith("Fixture:")) {
+    return "Fixture";
+  }
+  if (run.providerId === "simulated" || run.providerId === "fixture" || run.providerId === "mock") {
+    return "Simulated";
+  }
+  if (run.providerId && run.providerId !== "none") {
+    return "Live";
+  }
+  return "Simulated";
 }

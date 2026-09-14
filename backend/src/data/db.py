@@ -202,4 +202,23 @@ async def init_db() -> None:
                         await conn.execute(
                             text(f"ALTER TABLE {tbl} ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_tenant'")
                         )
+            if "runtime_enforcement_audit" in tables:
+                audit_cols = [
+                    row[1]
+                    for row in await conn.execute(text("PRAGMA table_info(runtime_enforcement_audit)"))
+                ]
+                audit_new_cols = [
+                    ("correlation_id", "VARCHAR(64)"),
+                    ("tenant_id", "VARCHAR(255)"),
+                    ("actor_id", "VARCHAR(255)"),
+                    ("agent_id", "VARCHAR(255)"),
+                    ("provider_id", "VARCHAR(64)"),
+                    ("model", "VARCHAR(255)"),
+                    ("latency_ms", "INTEGER"),
+                ]
+                for col_name, col_type in audit_new_cols:
+                    if col_name not in audit_cols:
+                        await conn.execute(
+                            text(f"ALTER TABLE runtime_enforcement_audit ADD COLUMN {col_name} {col_type}")
+                        )
         await conn.run_sync(Base.metadata.create_all)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGuardAssessment, promptPreview, terminalAssessment } from "@/lib/guardAssessment";
+import { parseGuardAssessment, promptPreview, resolveRunNature, terminalAssessment } from "@/lib/guardAssessment";
 
 describe("guard assessment contract", () => {
   it("accepts a complete version-one payload", () => {
@@ -21,5 +21,50 @@ describe("guard assessment contract", () => {
   it("keeps previews memory-safe and bounded", () => {
     expect(promptPreview("a\n  b")).toBe("a b");
     expect(promptPreview("x".repeat(200))).toHaveLength(160);
+  });
+
+  it("correctly resolves run execution nature", () => {
+    const assessment = terminalAssessment("run-1", "unavailable", "session-1");
+    expect(
+      resolveRunNature({
+        id: "run-1",
+        submittedAt: new Date().toISOString(),
+        promptPreview: "hello",
+        status: "unavailable",
+      })
+    ).toBe("Not evaluated");
+
+    expect(
+      resolveRunNature({
+        id: "run-2",
+        submittedAt: new Date().toISOString(),
+        promptPreview: "Template: prompt injection test",
+        status: "passed",
+        assessment,
+        nature: "Fixture",
+      })
+    ).toBe("Fixture");
+
+    expect(
+      resolveRunNature({
+        id: "run-3",
+        submittedAt: new Date().toISOString(),
+        promptPreview: "Live attack scenario",
+        status: "flagged",
+        assessment: { ...assessment, outcome: "flagged" },
+        providerId: "openai-gpt-4o",
+      })
+    ).toBe("Live");
+
+    expect(
+      resolveRunNature({
+        id: "run-4",
+        submittedAt: new Date().toISOString(),
+        promptPreview: "Simulated scenario",
+        status: "passed",
+        assessment: { ...assessment, outcome: "passed" },
+        providerId: "simulated",
+      })
+    ).toBe("Simulated");
   });
 });

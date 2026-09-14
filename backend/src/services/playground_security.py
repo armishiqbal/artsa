@@ -117,6 +117,17 @@ def _finding_action(finding: Any, fallback: str) -> str:
     return str(value or fallback).upper()
 
 
+def output_risk_score(decision: Any) -> float:
+    """Calculate output assessment risk score from the output decision."""
+    action = getattr(decision, "action", None)
+    action_val = action.value if hasattr(action, "value") else str(action or "").upper()
+    if action_val == "BLOCK":
+        return 100.0
+    if action_val == "QUARANTINE":
+        return 70.0
+    return 0.0
+
+
 def guard_assessment(
     *,
     run_id: str,
@@ -164,7 +175,7 @@ def guard_assessment(
         if category == "unknown_links":
             status = "not_evaluated"
             category_action = None
-            explanation = "Domain reputation and allowlist evaluation is not configured."
+            explanation = "Not supported"
         elif not can_report:
             status = "not_evaluated"
             category_action = None

@@ -121,6 +121,85 @@ def test_audit_record_has_no_secret_or_prompt():
     assert stored["stream"] is False
 
 
+def test_audit_record_expanded_schema_fields():
+    clear_runtime_audits()
+    gate = RuntimeGate()
+    decision = gate.evaluate(output_text="safe text")
+    from src.runtime.audit import record_runtime_audit
+
+    record = gate.to_audit(
+        decision,
+        session_id=uuid.uuid4(),
+        correlation_id="corr-123",
+        tenant_id="tenant-xyz",
+        actor_id="user-456",
+        agent_id="agent-007",
+        provider_id="openai-prod",
+        model="gpt-4o",
+        latency_ms=42,
+    )
+    assert record.correlation_id == "corr-123"
+    assert record.tenant_id == "tenant-xyz"
+    assert record.actor_id == "user-456"
+    assert record.agent_id == "agent-007"
+    assert record.provider_id == "openai-prod"
+    assert record.model == "gpt-4o"
+    assert record.latency_ms == 42
+
+    row = record_runtime_audit(record)
+    assert row["correlation_id"] == "corr-123"
+    assert row["tenant_id"] == "tenant-xyz"
+    assert row["actor_id"] == "user-456"
+    assert row["agent_id"] == "agent-007"
+    assert row["provider_id"] == "openai-prod"
+    assert row["model"] == "gpt-4o"
+    assert row["latency_ms"] == 42
+
+
+def test_audit_record_persists_to_db_with_new_fields(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import sessionmaker
+    from src.core.config import settings
+    from src.data.orm import Base, RuntimeEnforcementAuditORM
+    from src.runtime.audit import _persist_sync
+
+    db_path = tmp_path / "audit_test.db"
+    monkeypatch.setattr(settings, "SYNC_DATABASE_URL", f"sqlite:///{db_path}")
+
+    sync_engine = create_engine(f"sqlite:///{db_path}")
+    Base.metadata.create_all(sync_engine)
+
+    row = {
+        "id": "audit-uuid-1",
+        "session_id": "session-uuid-1",
+        "stream": True,
+        "action": "BLOCK",
+        "body_sha256": "abcdef123456",
+        "findings": [],
+        "correlation_id": "corr-db-1",
+        "tenant_id": "tenant-db-1",
+        "actor_id": "actor-db-1",
+        "agent_id": "agent-db-1",
+        "provider_id": "provider-db-1",
+        "model": "claude-3-5-sonnet",
+        "latency_ms": 128,
+    }
+    _persist_sync(row)
+
+    Session = sessionmaker(bind=sync_engine)
+    with Session() as s:
+        audit_row = s.scalars(select(RuntimeEnforcementAuditORM).where(RuntimeEnforcementAuditORM.id == "audit-uuid-1")).first()
+        assert audit_row is not None
+        assert audit_row.correlation_id == "corr-db-1"
+        assert audit_row.tenant_id == "tenant-db-1"
+        assert audit_row.actor_id == "actor-db-1"
+        assert audit_row.agent_id == "agent-db-1"
+        assert audit_row.provider_id == "provider-db-1"
+        assert audit_row.model == "claude-3-5-sonnet"
+        assert audit_row.latency_ms == 128
+    sync_engine.dispose()
+
+
 def _secret_upstream(_request: httpx.Request) -> httpx.Response:
     return httpx.Response(
         200,

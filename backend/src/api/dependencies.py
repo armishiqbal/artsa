@@ -89,17 +89,21 @@ async def get_current_tenant(
                     return user.tenant_id
         except Exception:  # pragma: no cover - token/user lookup must never break routing
             logger.debug("Tenant resolution from session failed; falling back to header")
+        if settings.ENVIRONMENT == "production" or settings.ARTSA_REQUIRE_AUTH:
+            raise HTTPException(status_code=401, detail="invalid authenticated tenant")
     if x_api_key:
         from src.services.partner_key_registry import resolve_metadata
 
         meta = resolve_metadata(x_api_key)
         if meta and meta.get("tenant_id"):
             return str(meta["tenant_id"])
+        if settings.ENVIRONMENT == "production" or settings.ARTSA_REQUIRE_AUTH:
+            raise HTTPException(status_code=401, detail="invalid authenticated tenant")
     # Header-selected tenants are retained only for unauthenticated local
     # development. Production request routing never lets callers select a
     # credential/campaign tenant with a header.
     if settings.ENVIRONMENT == "production" or settings.ARTSA_REQUIRE_AUTH:
-        return settings.ARTSA_TENANT_ID
+        raise HTTPException(status_code=401, detail="authenticated tenant required")
     return x_tenant_id or settings.ARTSA_TENANT_ID or "default_org"
 
 
