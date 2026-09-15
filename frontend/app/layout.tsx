@@ -1,26 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Manrope, JetBrains_Mono } from "next/font/google";
+import { DM_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const manrope = Manrope({
+// DM Sans is the open-source counterpart to Lakera's ABC Favorit: neutral,
+// compact, and deliberately less "dashboard-y" than the previous font stack.
+const dmSans = DM_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-manrope",
+  variable: "--font-dm-sans",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-jetbrains-mono",
+  weight: ["400", "500", "600"],
+  variable: "--font-ibm-plex-mono",
   display: "swap",
 });
 
@@ -44,7 +39,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light" className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" data-theme="light" className={`${dmSans.variable} ${ibmPlexMono.variable}`}>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased [font-feature-settings:'liga'_1]">
         <ClientProviders>
           <a

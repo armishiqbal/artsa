@@ -127,11 +127,11 @@ module.exports = {
       },
 
       fontFamily: {
-        sans: ["var(--font-inter)", "var(--font-manrope)", "var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
-        mono: ["var(--font-jetbrains-mono)", "var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        sans: ["var(--font-dm-sans)", "var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        mono: ["var(--font-ibm-plex-mono)", "var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
         serif: ["Georgia", "Cambria", "\"Times New Roman\"", "Times", "serif"],
-        inter: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
-        "jetbrains-mono": ["var(--font-jetbrains-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        inter: ["var(--font-dm-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        "jetbrains-mono": ["var(--font-ibm-plex-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
 
       boxShadow: {

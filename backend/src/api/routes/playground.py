@@ -489,7 +489,21 @@ async def playground_chat(
 
     messages: list[dict[str, str]] = ([{"role": "system", "content": payload.system_prompt}] if payload.system_prompt.strip() else []) + [{"role": "user", "content": effective_message}]
 
-    async def events() -> AsyncIterator[str]:
+    # FastAPI closes request-scoped dependencies before Starlette consumes a
+    # StreamingResponse body.  The SSE generator performs audit, approval,
+    # and circuit-breaker writes after that point, so give it its own session
+    # rather than retaining the already-closed request session. Commit setup
+    # writes now as well; otherwise SQLite can hold a write lock until request
+    # dependency cleanup and block the independent stream session.
+    await db.commit()
+    stream_db: Any = db
+    owns_stream_db = isinstance(db, AsyncSession)
+    if owns_stream_db:
+        from src.data.db import get_session_factory
+
+        stream_db = get_session_factory()()
+
+    async def _events(stream_db: Any) -> AsyncIterator[str]:
         started = time.monotonic()
         yield _sse("playground.status", {"stage": "input_screened", "run_id": run_id, "session_id": str(session_id), "action": input_action.value, "would_block": payload.mode == "monitor" and input_action != RuntimeAction.ALLOW})
         if resolved is None:
@@ -509,15 +523,15 @@ async def playground_chat(
                 session_id=session_id,
                 phase="output",
                 action=assessment_action,
-                findings=combined_findings,
-                risk_score=None,
-                confidence=None,
+                findings=decision.findings,
+                risk_score=output_risk_score(decision),
+                confidence=1.0 if decision.findings else None,
                 outcome="flagged" if payload.mode == "monitor" and input_action != RuntimeAction.ALLOW and assessment_action == RuntimeAction.ALLOW else None,
             )
             yield _sse("message.delta", {"run_id": run_id, "text": text})
             yield _sse("playground.complete", {"run_id": run_id, "session_id": str(session_id), "action": decision.action.value, "simulated": True, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
-            await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=text, action=assessment_action, findings=combined_findings, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(1, len(text) // 4), started_at=started)
-            await db.commit()
+            await record_run(stream_db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=text, action=assessment_action, findings=combined_findings, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(1, len(text) // 4), started_at=started)
+            await stream_db.commit()
             _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=assessment_action, channel="chat", mode=payload.mode, findings=combined_findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), simulated=True, run_id=run_id, outcome=assessment["outcome"])
             return
         proxy = get_llm_proxy()
@@ -551,22 +565,22 @@ async def playground_chat(
                 session_id=session_id,
                 phase="output",
                 action=assessment_action,
-                findings=combined_findings,
-                risk_score=None,
-                confidence=None,
+                findings=decision.findings,
+                risk_score=output_risk_score(decision),
+                confidence=1.0 if decision.findings else None,
                 outcome="flagged" if payload.mode == "monitor" and input_action != RuntimeAction.ALLOW and assessment_action == RuntimeAction.ALLOW else None,
             )
             if decision.action == RuntimeAction.QUARANTINE and not retry_authorized:
-                approval = await _queue_quarantine_approval(db=db, tracker=tracker, tenant_id=tenant_id, session_id=session_id, decision=decision, tool_name="playground.chat", arguments=operation, requester={"surface": "playground", "provider_id": resolved.provider_id})
+                approval = await _queue_quarantine_approval(db=stream_db, tracker=tracker, tenant_id=tenant_id, session_id=session_id, decision=decision, tool_name="playground.chat", arguments=operation, requester={"surface": "playground", "provider_id": resolved.provider_id})
                 yield _sse("playground.approval_required", {"approval_id": approval.id, "run_id": run_id, "session_id": str(session_id), "action": "QUARANTINE", "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
             else:
-                await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
+                await _record_output_decision(decision, session_id, db=stream_db, tenant_id=tenant_id)
                 if decision.action == RuntimeAction.BLOCK:
                     yield _sse("playground.blocked", {"code": "output_blocked", "run_id": run_id, "session_id": str(session_id), "action": "BLOCK", "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
                 else:
                     yield _sse("playground.complete", {"run_id": run_id, "session_id": str(session_id), "action": decision.action.value, "body_sha256": decision.body_sha256, "findings": public_findings(decision.findings), "assessment": assessment})
-            await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=gate.state.text if decision.action == RuntimeAction.ALLOW else None, action=assessment_action, findings=combined_findings, provider_id=resolved.provider_id, model=resolved.model, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(0, len(gate.state.text) // 4), started_at=started)
-            await db.commit()
+            await record_run(stream_db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=gate.state.text if decision.action == RuntimeAction.ALLOW else None, action=assessment_action, findings=combined_findings, provider_id=resolved.provider_id, model=resolved.model, estimated_tokens=True, input_tokens=max(1, len(content) // 4), output_tokens=max(0, len(gate.state.text) // 4), started_at=started)
+            await stream_db.commit()
             _log_playground_event("playground.chat.completed", tenant_id=tenant_id, session_id=session_id, action=assessment_action, channel="chat", mode=payload.mode, findings=combined_findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model, run_id=run_id, outcome=assessment["outcome"])
         except asyncio.CancelledError:
             _log_playground_event(
@@ -577,20 +591,47 @@ async def playground_chat(
                 channel="chat",
                 mode=payload.mode,
                 latency_ms=max(0, int((time.monotonic() - started) * 1000)),
-                provider_id=resolved.provider_id,
-                model=resolved.model,
+                provider_id=resolved.provider_id if resolved else None,
+                model=resolved.model if resolved else None,
                 run_id=run_id,
                 outcome="cancelled",
             )
+            try:
+                await record_run(
+                    stream_db,
+                    tenant_id=tenant_id,
+                    actor_id=actor_id,
+                    session_id=session_id,
+                    mode=payload.mode,
+                    channel="chat",
+                    request_body=content,
+                    response_body=None,
+                    action="CANCELLED",
+                    findings=[],
+                    provider_id=resolved.provider_id if resolved else None,
+                    model=resolved.model if resolved else None,
+                    started_at=started,
+                )
+                await stream_db.commit()
+            except Exception:
+                pass
             raise
         except Exception:
             decision = fail_closed_decision(stream=True)
-            await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
+            await _record_output_decision(decision, session_id, db=stream_db, tenant_id=tenant_id)
             assessment = unavailable_guard_assessment(run_id=run_id, session_id=session_id)
             yield _sse("playground.blocked", {"code": "playground_upstream_unavailable", "run_id": run_id, "session_id": str(session_id), "action": "BLOCK", "findings": public_findings(decision.findings), "assessment": assessment})
-            await record_run(db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=RuntimeAction.BLOCK, findings=decision.findings, provider_id=resolved.provider_id, model=resolved.model, started_at=started)
-            await db.commit()
-            _log_playground_event("playground.chat.fail_closed", tenant_id=tenant_id, session_id=session_id, action=RuntimeAction.BLOCK, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id, model=resolved.model, run_id=run_id, outcome="unavailable")
+            await record_run(stream_db, tenant_id=tenant_id, actor_id=actor_id, session_id=session_id, mode=payload.mode, channel="chat", request_body=content, response_body=None, action=RuntimeAction.BLOCK, findings=decision.findings, provider_id=resolved.provider_id if resolved else None, model=resolved.model if resolved else None, started_at=started)
+            await stream_db.commit()
+            _log_playground_event("playground.chat.fail_closed", tenant_id=tenant_id, session_id=session_id, action=RuntimeAction.BLOCK, channel="chat", mode=payload.mode, findings=decision.findings, latency_ms=max(0, int((time.monotonic() - started) * 1000)), provider_id=resolved.provider_id if resolved else None, model=resolved.model if resolved else None, run_id=run_id, outcome="unavailable")
+
+    async def events() -> AsyncIterator[str]:
+        try:
+            async for frame in _events(stream_db):
+                yield frame
+        finally:
+            if owns_stream_db:
+                await stream_db.close()
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store", "X-ARTSA-Session-ID": str(session_id)})
 

@@ -98,8 +98,8 @@
     --metric-caption: 0 0% 49%;
     --metric-value: 0 0% 100%;
 
-    --font-sans: var(--font-inter), var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
-    --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+    --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
     --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
   }
 
@@ -201,7 +201,8 @@
   }
 
   html {
-    font-family: var(--font-manrope), var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font-dm-sans), var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
   }
 
   body {
@@ -1742,33 +1743,33 @@
     --color-snow: #ffffff;
     --color-charcoal: #565656;
 
-    --font-lp-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
-    --font-lp-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-lp-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+    --font-lp-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-    --text-caption: 13px;
+    --text-caption: 12px;
     --leading-caption: 1.4;
     --tracking-caption: 0.1em;
-    --text-body-sm: 14px;
+    --text-body-sm: 15px;
     --leading-body-sm: 1.5;
     --tracking-body-sm: 0;
-    --text-body: 17px;
-    --leading-body: 1.6;
-    --tracking-body: 0;
-    --text-subheading: 20px;
+    --text-body: 18px;
+    --leading-body: 1.55;
+    --tracking-body: -0.01em;
+    --text-subheading: 21px;
     --leading-subheading: 1.4;
     --tracking-subheading: 0;
-    --text-heading-sm: 24px;
+    --text-heading-sm: 26px;
     --leading-heading-sm: 1.3;
     --tracking-heading-sm: 0;
-    --text-heading: 40px;
-    --leading-heading: 1.1;
-    --tracking-heading: 0;
-    --text-heading-lg: 48px;
-    --leading-heading-lg: 1.1;
-    --tracking-heading-lg: 0;
-    --text-display: 56px;
-    --leading-display: 1.1;
-    --tracking-display: 0;
+    --text-heading: 44px;
+    --leading-heading: 1.06;
+    --tracking-heading: -0.035em;
+    --text-heading-lg: 56px;
+    --leading-heading-lg: 1.04;
+    --tracking-heading-lg: -0.04em;
+    --text-display: 68px;
+    --leading-display: 1.02;
+    --tracking-display: -0.045em;
 
     --spacing-8: 8px;
     --spacing-16: 16px;
@@ -1860,7 +1861,7 @@
   .lp-eyebrow {
     font-family: var(--font-lp-sans);
     font-size: var(--text-caption);
-    font-weight: 500;
+    font-weight: 600;
     line-height: var(--leading-caption);
     letter-spacing: var(--tracking-caption);
     text-transform: uppercase;
@@ -1868,8 +1869,8 @@
   }
 
   .lp-display {
-    font-size: clamp(2.35rem, 5vw, var(--text-display));
-    font-weight: 500;
+    font-size: clamp(2.65rem, 5.6vw, var(--text-display));
+    font-weight: 400;
     line-height: var(--leading-display);
     letter-spacing: var(--tracking-display);
     color: var(--color-snow);
@@ -1877,7 +1878,7 @@
 
   .lp-heading-lg {
     font-size: clamp(2rem, 4vw, var(--text-heading-lg));
-    font-weight: 500;
+    font-weight: 400;
     line-height: var(--leading-heading-lg);
     letter-spacing: var(--tracking-heading-lg);
     color: var(--color-snow);
@@ -1885,7 +1886,7 @@
 
   .lp-heading {
     font-size: clamp(1.75rem, 3.2vw, var(--text-heading));
-    font-weight: 500;
+    font-weight: 400;
     line-height: var(--leading-heading);
     letter-spacing: var(--tracking-heading);
     color: var(--color-snow);
@@ -2235,6 +2236,18 @@
    surface white and let the internal rules establish the split-pane rhythm. */
 .playground-shell {
   background: hsl(var(--background));
+}
+
+/* Give playground copy a slightly inkier, blue-gray hierarchy than the
+   dashboard defaults while preserving the selected light/dark surface. */
+[data-theme="light"] .playground-shell {
+  --foreground: 215 25% 16%;
+  --muted-foreground: 215 14% 40%;
+}
+
+:root:not([data-theme="light"]) .playground-shell {
+  --foreground: 0 0% 96%;
+  --muted-foreground: 0 0% 70%;
 }
 
 .playground-panel-enter {

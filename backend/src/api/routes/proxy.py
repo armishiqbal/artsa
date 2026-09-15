@@ -260,24 +260,40 @@ async def _stream_quarantine_or_record(
     decision = gate.final_decision
     if decision is None:
         return
-    if decision.action == RuntimeAction.QUARANTINE and not retry_authorized:
-        approval = await _queue_quarantine_approval(
-            db=db,
-            tracker=tracker,
-            tenant_id=tenant_id,
-            session_id=session_id,
-            decision=decision,
-            tool_name=tool_name,
-            arguments=arguments,
-            requester=requester,
-        )
-        if dialect == "openai":
-            yield "data: " + json.dumps(_openai_approval_error(decision, approval.id, session_id)) + "\n\n"
-            yield "data: [DONE]\n\n"
-        else:
-            yield _sse(_anthropic_approval_error(decision, approval.id, session_id), event="error")
+
+    async def persist(active_db: AsyncSession) -> AsyncIterator[str]:
+        if decision.action == RuntimeAction.QUARANTINE and not retry_authorized:
+            approval = await _queue_quarantine_approval(
+                db=active_db,
+                tracker=tracker,
+                tenant_id=tenant_id,
+                session_id=session_id,
+                decision=decision,
+                tool_name=tool_name,
+                arguments=arguments,
+                requester=requester,
+            )
+            if dialect == "openai":
+                yield "data: " + json.dumps(_openai_approval_error(decision, approval.id, session_id)) + "\n\n"
+                yield "data: [DONE]\n\n"
+            else:
+                yield _sse(_anthropic_approval_error(decision, approval.id, session_id), event="error")
+            return
+        await _record_output_decision(decision, session_id, db=active_db, tenant_id=tenant_id)
+        await active_db.commit()
+
+    if isinstance(db, AsyncSession):
+        # The request dependency is already closed once a StreamingResponse
+        # starts. Persist the terminal verdict with an independent session.
+        from src.data.db import get_session_factory
+
+        async with get_session_factory()() as stream_db:
+            async for frame in persist(stream_db):
+                yield frame
         return
-    await _record_output_decision(decision, session_id, db=db, tenant_id=tenant_id)
+
+    async for frame in persist(db):
+        yield frame
 
 
 async def _handle_decision(
@@ -616,6 +632,10 @@ async def proxy_chat_completions(
                 ):
                     yield frame
 
+        # Persist session/setup writes and release the request DB transaction
+        # before the response body runs; output decisions are saved using a
+        # stream-lifetime session in _stream_quarantine_or_record.
+        await db.commit()
         return StreamingResponse(
             _stream_forward(),
             media_type="text/event-stream",
@@ -809,6 +829,7 @@ async def proxy_messages(
                     ):
                         yield frame
 
+            await db.commit()
             return StreamingResponse(
                 _anthropic_stream(),
                 media_type="text/event-stream",
@@ -880,6 +901,7 @@ async def proxy_messages(
                 ):
                     yield frame
 
+        await db.commit()
         return StreamingResponse(
             _converted_stream(),
             media_type="text/event-stream",

@@ -117,6 +117,10 @@ describe("navigation", () => {
       "/red-team/matrix",
       "/red-team/graph",
       "/reports",
+      "/approvals",
+      "/investigations",
+      "/agents",
+      "/integrations/github",
     ]);
     const commands = commandPaletteRoutesFor(adminCapabilities, true);
     expect(commands.some((route) => route.href === "/reports")).toBe(true);

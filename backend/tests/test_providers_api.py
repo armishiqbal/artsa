@@ -220,17 +220,20 @@ def test_proxy_forwards_via_registered_provider(provider_api, monkeypatch):
 
 
 def test_provider_test_blocks_ssrf_internal_target(provider_api, monkeypatch):
-    """The provider upsert endpoint must block internal/metadata target URLs (SSRF protection)."""
+    """The provider test endpoint must block internal/metadata target URLs (SSRF protection)."""
     from src.core.config import settings
 
-    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
-    res = _add_provider(
+    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", True)
+    _add_provider(
         provider_api,
         name="internal-ssrf",
         base_url="http://169.254.169.254/v1",
     )
-    assert res.status_code == 422
-    assert "provider_base_url_not_allowed" in str(res.json())
+    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
+    res = provider_api.post("/api/v1/providers/internal-ssrf/test", json={})
+    assert res.status_code == 403
+    body = res.json()
+    assert "proxy_target_blocked" in str(body)
 
 
 def test_provider_test_success(provider_api, monkeypatch):
@@ -294,13 +297,16 @@ def test_provider_test_trailing_slash_normalized(provider_api, monkeypatch):
 
 
 def test_provider_test_blocks_loopback_and_ipv6(provider_api, monkeypatch):
-    """Localhost and IPv6 loopback targets must be blocked at upsert time."""
+    """Localhost and IPv6 loopback targets must be blocked."""
     from src.core.config import settings
 
-    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
-
+    monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", True)
     for target in ["http://127.0.0.1:8080/v1", "http://[::1]:8080/v1"]:
-        res = _add_provider(provider_api, name="loopback-test", base_url=target)
-        assert res.status_code == 422
-        assert "provider_base_url_not_allowed" in str(res.json())
+        _add_provider(provider_api, name="loopback-test", base_url=target)
+        monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
+        res = provider_api.post("/api/v1/providers/loopback-test/test", json={})
+        assert res.status_code == 403
+        assert "proxy_target_blocked" in str(res.json())
+        monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", True)
+
 

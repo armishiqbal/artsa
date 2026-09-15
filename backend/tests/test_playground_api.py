@@ -116,6 +116,107 @@ def test_chat_monitor_records_input_finding_without_enforcing_it(playground_clie
     assert '"action":"ALLOW"' in response.text
 
 
+@pytest.mark.asyncio
+async def test_chat_token_budget_reserves_the_full_token_allowance(monkeypatch):
+    """Token admission must charge estimated input plus reserved output, not one request."""
+    from fastapi import HTTPException
+
+    from src.api.dependencies import MockAsyncSession
+    from src.core.config import settings
+    from src.data.redis_client import InMemoryRedis
+    from src.services.playground_security import enforce_chat_budget
+
+    monkeypatch.setattr(settings, "ARTSA_PLAYGROUND_USER_RPM", 0)
+    monkeypatch.setattr(settings, "ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS", 0)
+    monkeypatch.setattr(settings, "ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS", 600)
+    monkeypatch.setattr(settings, "ARTSA_PLAYGROUND_MAX_OUTPUT_TOKENS", 512)
+    redis = InMemoryRedis()
+
+    await enforce_chat_budget(
+        MockAsyncSession(), tenant_id="tenant-a", actor_id="user-a", redis=redis,
+        estimated_input_tokens=88,
+    )
+    with pytest.raises(HTTPException, match="playground_tenant_token_budget_exhausted"):
+        await enforce_chat_budget(
+            MockAsyncSession(), tenant_id="tenant-a", actor_id="user-a", redis=redis,
+            estimated_input_tokens=88,
+        )
+
+
+def test_streamed_output_block_uses_a_session_that_outlives_the_request_dependency(tmp_path, monkeypatch):
+    """SSE audit writes must not use the DB dependency closed before stream iteration."""
+    from sqlalchemy import create_engine, select
+    from src.api.dependencies import get_db
+    from src.api.main import create_app
+    from src.core.config import settings
+    from src.data.db import get_async_session
+    from src.data.orm import Base, PlaygroundRunAuditORM
+    from src.services.provider_resolver import ResolvedProvider
+
+    db_path = tmp_path / "playground_stream_lifetime.db"
+    database_url = f"sqlite+aiosqlite:///{db_path}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    monkeypatch.setattr(settings, "SYNC_DATABASE_URL", f"sqlite:///{db_path}")
+    monkeypatch.setattr("src.data.db._engine", None)
+    monkeypatch.setattr("src.data.db._session_factory", None)
+    sync_engine = create_engine(f"sqlite:///{db_path}")
+    Base.metadata.create_all(sync_engine)
+
+    from src.api.routes import playground
+
+    async def resolve_provider(*_args, **_kwargs):
+        return ResolvedProvider(
+            tenant_id="default_org",
+            provider_id="provider-1",
+            provider_name="test-provider",
+            provider_type="openai",
+            api_key="test-only-key",
+            base_url="https://provider.invalid/v1",
+            model="test-model",
+            source="test",
+        )
+
+    class FakeProxy:
+        async def stream_chat(self, *_args, **_kwargs):
+            leaked_secret = "api_key=sk-abcdefghijklmnopqrstuvwxyz0123456789"
+            yield (
+                'data: {"choices":[{"index":0,"delta":{"content":"'
+                + leaked_secret
+                + '"},"finish_reason":null}]}\n\n'
+            ).encode()
+            yield b'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n'
+            yield b"data: [DONE]\n\n"
+
+    monkeypatch.setattr(playground.provider_resolver, "resolve_async", resolve_provider)
+    monkeypatch.setattr(playground, "get_llm_proxy", lambda: FakeProxy())
+
+    app = create_app()
+
+    async def override_db():
+        async for session in get_async_session():
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    response = TestClient(app).post(
+        "/api/v1/playground/chat",
+        json={"message": SAFE_PROMPT, "provider_ref": "provider-1", "mode": "block"},
+    )
+
+    assert response.status_code == 200
+    assert "event: playground.blocked" in response.text
+    assert "playground_upstream_unavailable" not in response.text
+    assert "api_key=sk-abcdefghijklmnopqrstuvwxyz0123456789" not in response.text
+
+    from sqlalchemy.orm import Session
+
+    with Session(sync_engine) as session:
+        runs = list(session.scalars(select(PlaygroundRunAuditORM)))
+        assert len(runs) == 1
+        assert runs[0].action == "BLOCK"
+        assert runs[0].response_sha256 is None
+    sync_engine.dispose()
+
+
 def test_unknown_template_and_empty_content_are_rejected(playground_client):
     assert playground_client.post("/api/v1/playground/scan", json={"content": "x", "template_id": "no-such-template"}).status_code == 404
     assert playground_client.post("/api/v1/playground/scan", json={"content": ""}).status_code == 422
@@ -143,14 +244,15 @@ def test_unknown_links_category_labeled_not_supported(playground_client):
 
 
 def test_output_risk_score_computed_from_output_decision(playground_client):
-    """Output risk score is null in digest-only mode (no per-finding scoring)."""
+    """Output risk score must be computed from the output decision, not copied from input scan."""
     response = playground_client.post(
         "/api/v1/playground/chat",
         json={"message": INJECTION_PROMPT, "mode": "monitor", "run_id": "out-risk-run-1"},
     )
     assert response.status_code == 200
-    # The merged codex code path passes risk_score=None for digest-only output.
-    assert '"riskScore":null' in response.text
+    # Even though INJECTION_PROMPT had a high input risk score (>= 40),
+    # the simulated output text has no violations, so output risk score must be 0.0.
+    assert '"riskScore":0.0' in response.text or '"riskScore":0' in response.text
 
 
 def test_quota_rejection_records_rejected_run(tmp_path, monkeypatch):
@@ -251,7 +353,7 @@ async def test_cancelled_run_persists_action_cancelled(tmp_path):
 
 
 def test_output_assessment_does_not_leak_input_findings(playground_client):
-    """Output assessment uses combined findings from both input and output phases."""
+    """When an injection is sent in monitor mode, output assessment must evaluate only the output, not the input."""
     import json
 
     response = playground_client.post(
@@ -267,10 +369,9 @@ def test_output_assessment_does_not_leak_input_findings(playground_client):
     complete_event = next(e for e in events if "simulated" in e)
     assessment = complete_event["assessment"]
     assert assessment["phase"] == "output"
-    assert assessment["riskScore"] is None
+    assert assessment["riskScore"] == 0.0
     prompt_attack_cat = next(c for c in assessment["categories"] if c["category"] == "prompt_attack")
-    # Combined findings include input-phase detections; the assessment surfaces them.
-    assert prompt_attack_cat["status"] == "detected"
+    assert prompt_attack_cat["status"] == "not_detected"
     assert prompt_attack_cat["action"] == "ALLOW"
 
 
@@ -318,4 +419,3 @@ def test_provider_configuration_failure_persists_action_unavailable(tmp_path, mo
         assert len(unavailable_rows) >= 1
         assert unavailable_rows[0].provider_id == "nonexistent_provider_xyz"
     sync_engine.dispose()
-

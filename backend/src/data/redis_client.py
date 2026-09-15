@@ -21,6 +21,7 @@ class RedisStreamProtocol(Protocol):
     def lpush(self, key: str, value: str) -> int: ...
     def brpop(self, key: str, timeout: float) -> str | None: ...
     def incr_with_expiry(self, key: str, ttl_sec: int) -> int: ...
+    def incr_by_with_expiry(self, key: str, amount: int, ttl_sec: int) -> int: ...
 
 
 class InMemoryRedis:
@@ -88,15 +89,19 @@ class InMemoryRedis:
 
     def incr_with_expiry(self, key: str, ttl_sec: int) -> int:
         """Increment a bounded counter with an expiry (test Redis parity)."""
+        return self.incr_by_with_expiry(key, 1, ttl_sec)
+
+    def incr_by_with_expiry(self, key: str, amount: int, ttl_sec: int) -> int:
+        """Atomically add a positive amount to a bounded counter."""
         now = time.time()
         entry = self._kv.get(key)
         if entry is None or entry[1] <= now:
-            value = 1
+            value = max(0, int(amount))
         else:
             try:
-                value = int(entry[0]) + 1
+                value = int(entry[0]) + max(0, int(amount))
             except (TypeError, ValueError):
-                value = 1
+                value = max(0, int(amount))
         self._kv[key] = (str(value), now + max(1, int(ttl_sec)))
         return value
 
@@ -173,8 +178,12 @@ class LiveRedisClient:
 
     def incr_with_expiry(self, key: str, ttl_sec: int) -> int:
         """Atomically increment a Redis counter and set its TTL on first use."""
+        return self.incr_by_with_expiry(key, 1, ttl_sec)
+
+    def incr_by_with_expiry(self, key: str, amount: int, ttl_sec: int) -> int:
+        """Atomically add an amount to a Redis counter and maintain its TTL."""
         pipe = self._client.pipeline()  # type: ignore[attr-defined]
-        pipe.incr(key)
+        pipe.incrby(key, max(0, int(amount)))
         pipe.expire(key, max(1, int(ttl_sec)))
         value, _ = pipe.execute()
         return int(value)

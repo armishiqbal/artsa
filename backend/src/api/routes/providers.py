@@ -198,7 +198,10 @@ async def providers_test(
     try:
         await check_proxy_target(base_url)
     except SSRFBlockedError as exc:
-        raise HTTPException(status_code=422, detail="provider_target_not_allowed") from exc
+        raise HTTPException(
+            status_code=403,
+            detail={"message": f"proxy_target_blocked: {exc}", "code": "proxy_target_blocked", "provider": stored["name"]},
+        ) from exc
 
     model = resolved.model
     prompt = payload.get("prompt") or "Reply with the single word: ok"

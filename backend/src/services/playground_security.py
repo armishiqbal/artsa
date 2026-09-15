@@ -321,7 +321,13 @@ async def enforce_chat_budget(
             if settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS > 0 and request_count > settings.ARTSA_PLAYGROUND_TENANT_DAILY_REQUESTS:
                 raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="playground_tenant_request_budget_exhausted")
             reserved_tokens = max(0, int(estimated_input_tokens)) + max(0, int(settings.ARTSA_PLAYGROUND_MAX_OUTPUT_TOKENS))
-            token_count = redis.incr_with_expiry(f"artsa:playground:tokens:{tenant_id}:{day}", ttl) if reserved_tokens else 0
+            token_count = (
+                redis.incr_by_with_expiry(
+                    f"artsa:playground:tokens:{tenant_id}:{day}", reserved_tokens, ttl
+                )
+                if reserved_tokens
+                else 0
+            )
             if settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS > 0 and token_count > settings.ARTSA_PLAYGROUND_TENANT_DAILY_TOKENS:
                 raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="playground_tenant_token_budget_exhausted")
             return
