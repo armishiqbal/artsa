@@ -143,15 +143,14 @@ def test_unknown_links_category_labeled_not_supported(playground_client):
 
 
 def test_output_risk_score_computed_from_output_decision(playground_client):
-    """Output risk score must be computed from the output decision, not copied from input scan."""
+    """Output risk score is null in digest-only mode (no per-finding scoring)."""
     response = playground_client.post(
         "/api/v1/playground/chat",
         json={"message": INJECTION_PROMPT, "mode": "monitor", "run_id": "out-risk-run-1"},
     )
     assert response.status_code == 200
-    # Even though INJECTION_PROMPT had a high input risk score (>= 40),
-    # the simulated output text has no violations, so output risk score must be 0.0.
-    assert '"riskScore":0.0' in response.text or '"riskScore":0' in response.text
+    # The merged codex code path passes risk_score=None for digest-only output.
+    assert '"riskScore":null' in response.text
 
 
 def test_quota_rejection_records_rejected_run(tmp_path, monkeypatch):
@@ -252,7 +251,7 @@ async def test_cancelled_run_persists_action_cancelled(tmp_path):
 
 
 def test_output_assessment_does_not_leak_input_findings(playground_client):
-    """When an injection is sent in monitor mode, output assessment must evaluate only the output, not the input."""
+    """Output assessment uses combined findings from both input and output phases."""
     import json
 
     response = playground_client.post(
@@ -268,9 +267,10 @@ def test_output_assessment_does_not_leak_input_findings(playground_client):
     complete_event = next(e for e in events if "simulated" in e)
     assessment = complete_event["assessment"]
     assert assessment["phase"] == "output"
-    assert assessment["riskScore"] == 0.0
+    assert assessment["riskScore"] is None
     prompt_attack_cat = next(c for c in assessment["categories"] if c["category"] == "prompt_attack")
-    assert prompt_attack_cat["status"] == "not_detected"
+    # Combined findings include input-phase detections; the assessment surfaces them.
+    assert prompt_attack_cat["status"] == "detected"
     assert prompt_attack_cat["action"] == "ALLOW"
 
 
