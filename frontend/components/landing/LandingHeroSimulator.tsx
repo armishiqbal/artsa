@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ShieldAlert, ShieldCheck, Terminal, Play, Zap, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { demoHref } from "@/lib/demoRoutes";
@@ -120,7 +120,7 @@ export function LandingHeroSimulator() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            {PRESETS.map((p, idx) => {
+            {PRESETS.map((p) => {
               const isSelected = selectedPreset.id === p.id;
               return (
                 <button
@@ -164,7 +164,7 @@ export function LandingHeroSimulator() {
               <div>
                 <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-semibold">User Inbound Prompt:</span>
                 <p className="text-slate-200 mt-1 bg-[#0F172A] p-2.5 rounded-lg border border-slate-800 text-[11px] leading-relaxed">
-                  "{selectedPreset.prompt}"
+                  &ldquo;{selectedPreset.prompt}&rdquo;
                 </p>
               </div>
 

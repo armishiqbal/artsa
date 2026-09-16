@@ -3,7 +3,7 @@
 import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { authLoginHref, authSignupHref, type SignInOptions } from "@/lib/authSession";
+import { authLoginHref, authSignupHref } from "@/lib/authSession";
 
 // Re-export for call sites that imported SignInOptions from context
 export type { SignInOptions } from "@/lib/authSession";

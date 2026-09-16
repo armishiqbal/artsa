@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import argparse
+from pathlib import Path
+
 # Floors aligned with observatory regression gates (see observatory._regression_status)
 RECALL_FLOOR_AT_80 = 0.85
 FPR_CEILING_AT_50 = 0.15
@@ -14,9 +17,17 @@ def main() -> int:
     from src.benchmark.ablation import AblationHarness
     from src.benchmark.harness import BenchmarkHarness
 
+    parser = argparse.ArgumentParser(description="containment benchmark regression gate")
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        help="override the benchmark dataset for deterministic gate smoke tests",
+    )
+    args = parser.parse_args()
+
     failures: list[str] = []
 
-    harness = BenchmarkHarness()
+    harness = BenchmarkHarness(args.dataset)
     report = harness.run()
     t80 = next(t for t in report.thresholds if t.threshold == 80.0)
     t50 = next(t for t in report.thresholds if t.threshold == 50.0)
@@ -30,9 +41,11 @@ def main() -> int:
     if t50.fpr > FPR_CEILING_AT_50:
         failures.append(f"fpr@50 {t50.fpr:.4f} > ceiling {FPR_CEILING_AT_50}")
     if report.avg_latency_ms > LATENCY_CEILING_MS:
-        failures.append(f"avg_latency {report.avg_latency_ms:.2f}ms > ceiling {LATENCY_CEILING_MS}ms")
+        failures.append(
+            f"avg_latency {report.avg_latency_ms:.2f}ms > ceiling {LATENCY_CEILING_MS}ms"
+        )
 
-    ablation = AblationHarness()
+    ablation = AblationHarness(args.dataset)
     ablation_report = ablation.run_ablation()
     print(f"  ablation baseline recall@80={ablation_report.baseline_recall:.4f}")
 

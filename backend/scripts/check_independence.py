@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import sys
+from argparse import ArgumentParser
 from pathlib import Path
 
 from src.data.embedding_manager import HighAccuracy1024EmbeddingFunction, cosine_similarity
@@ -39,8 +40,23 @@ def _text(s: dict) -> str:
 
 
 def main() -> int:
-    bench = _samples(BENCHMARK)
-    indep = _samples(INDEPENDENT)
+    parser = ArgumentParser(description="check an independent corpus against a benchmark corpus")
+    parser.add_argument(
+        "--benchmark",
+        type=Path,
+        default=BENCHMARK,
+        help="generated benchmark corpus to compare against",
+    )
+    parser.add_argument(
+        "--independent",
+        type=Path,
+        default=INDEPENDENT,
+        help="candidate independent corpus to validate",
+    )
+    args = parser.parse_args()
+
+    bench = _samples(args.benchmark)
+    indep = _samples(args.independent)
 
     embedder = HighAccuracy1024EmbeddingFunction()
     bench_vecs = [embedder.embed(_text(s)) for s in bench]
@@ -57,18 +73,28 @@ def main() -> int:
     from src.containment.engine import ContainmentEngine
     from src.core.models.events import ToolCallEvent
 
-    engine = ContainmentEngine(disabled_detectors=[
-        "SemanticDetector", "StatisticalDetector", "TrajectoryDetector",
-        "GoalDriftDetector", "ToolOutputScanner", "CanaryTokenDetector",
-    ])
+    engine = ContainmentEngine(
+        disabled_detectors=[
+            "SemanticDetector",
+            "StatisticalDetector",
+            "TrajectoryDetector",
+            "GoalDriftDetector",
+            "ToolOutputScanner",
+            "CanaryTokenDetector",
+        ]
+    )
     import uuid
 
     regex_visible = 0
     for s in indep:
         if s.get("label") != "malicious":
             continue
-        event = ToolCallEvent(session_id=uuid.uuid4(), agent_id="indep",
-                              tool_name=s["tool_name"], arguments=s["arguments"])
+        event = ToolCallEvent(
+            session_id=uuid.uuid4(),
+            agent_id="indep",
+            tool_name=s["tool_name"],
+            arguments=s["arguments"],
+        )
         risk, _, _ = engine.evaluate_event(event)
         if risk.overall_score >= 50:
             regex_visible += 1
@@ -78,8 +104,10 @@ def main() -> int:
     print(f"  duplicates vs generated benchmark (sim >= {SIMILARITY_CAP}): {len(duplicates)}")
     for d in duplicates[:5]:
         print(f"    - {d}")
-    print(f"  regex-visible malicious: {regex_visible}/{n_mal} "
-          f"({regex_visible/n_mal:.2f} — the rest are generalization-only samples)")
+    print(
+        f"  regex-visible malicious: {regex_visible}/{n_mal} "
+        f"({regex_visible / n_mal:.2f} — the rest are generalization-only samples)"
+    )
 
     if duplicates:
         print("\nINDEPENDENCE CHECK FAILED: duplicates found — remove them.")

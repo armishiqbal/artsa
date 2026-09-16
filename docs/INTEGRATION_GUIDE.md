@@ -567,8 +567,10 @@ ARTSA strips that extension
 before forwarding the request to the real server, binds it to the wrapper
 session and canonical tool parameters, and scans the rerun result again.
 
-This is newline-delimited stdio only. Streamable HTTP/SSE MCP remains outside
-the live containment boundary.
+This integration is newline-delimited stdio only. ARTSA also provides a
+separate managed Streamable HTTP endpoint for its bounded GitHub MCP catalog;
+arbitrary third-party MCP forwarding remains outside the live containment
+boundary.
 
 ---
 

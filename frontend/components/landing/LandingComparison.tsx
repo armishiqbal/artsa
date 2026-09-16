@@ -21,7 +21,7 @@ const ROWS: ComparisonRow[] = [
     artsa: "partial",
     peer: "partial",
     hiddenlayer: "partial",
-    note: "LLM proxy, ingest gate, and MCP stdio wrapper live; MCP HTTP/SSE remains unbuilt",
+    note: "LLM proxy, ingest gate, MCP stdio, and the bounded managed GitHub MCP HTTP gateway are live; arbitrary MCP forwarding is not a v1 capability",
   },
   {
     feature: "Red-team campaign console",

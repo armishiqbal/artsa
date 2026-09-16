@@ -175,12 +175,13 @@ function OutcomePulse({ events }: { events: LiveMonitorEvent[] }) {
 function EvidenceStream({ events }: { events: LiveMonitorEvent[] }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const firstEventSequence = events[0]?.seq;
 
   useEffect(() => {
     if (!scrollerRef.current) return;
     scrollerRef.current.scrollTop = 0;
     setScrollTop(0);
-  }, [events[0]?.seq, events.length]);
+  }, [firstEventSequence, events.length]);
 
   const total = events.length;
   const start = Math.max(0, Math.floor(scrollTop / ROW_H) - 4);

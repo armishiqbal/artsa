@@ -26,7 +26,7 @@ const LIFECYCLE = [
     step: "02",
     icon: Shield,
     title: "Contain at runtime",
-    body: "Ingest scoring, LLM-proxy gating, MCP stdio interception, and operator approval for QUARANTINE. BLOCK stops the call in-session; deny or expire quarantines the session. MCP Streamable HTTP/SSE interception is not built.",
+    body: "Ingest scoring, LLM-proxy gating, MCP stdio interception, managed GitHub MCP Streamable HTTP, and operator approval for QUARANTINE. BLOCK stops the call in-session; deny or expire quarantines the session. The GitHub MCP catalog is bounded and does not forward arbitrary third-party MCP servers.",
     href: demoHref("guard"),
     tag: "Runtime",
   },

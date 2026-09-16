@@ -14,7 +14,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { easeOut, staggerContainer } from "@/lib/motionPresets";
+import { staggerContainer } from "@/lib/motionPresets";
 import { demoHref } from "@/lib/demoRoutes";
 import { LandingMotionCard } from "./LandingMotionCard";
 

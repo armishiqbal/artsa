@@ -36,6 +36,12 @@ export function MotionCard({
       transition: _t,
       ...divProps
     } = props;
+    void _i;
+    void _a;
+    void _e;
+    void _v;
+    void _h;
+    void _t;
     return (
       <div className={cn(className)} {...(divProps as HTMLAttributes<HTMLDivElement>)}>
         {children}

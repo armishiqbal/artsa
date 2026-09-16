@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
 import { CockpitCard } from "../cockpit/CockpitCard";
 import { cn } from "@/lib/utils";
 import type { AgentHop } from "../prototype/model";
-import { SIX_AGENTS, type SixAgentName } from "@/lib/commandCenterOps";
+import { SIX_AGENTS } from "@/lib/commandCenterOps";
 
 const STAGE_LABELS: Record<string, string> = {
   Reconnaissance: "STAGE 01 · PROBE",

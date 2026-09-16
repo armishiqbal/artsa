@@ -32,7 +32,6 @@ const SAFE_PATTERNS = [
 ];
 
 export function runDemoScan(userInput: string, systemPrompt = ""): DemoScanResult {
-  const text = `${systemPrompt}\n${userInput}`.toLowerCase();
   let risk = 8;
 
   for (const p of INJECTION_PATTERNS) {

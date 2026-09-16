@@ -65,7 +65,6 @@ export function AgentStatusStrip({
       aria-label="Agent pipeline status"
     >
       {agents.map((agent) => {
-        const def = PIPELINE_AGENT_BY_ID[agent.id];
         const selected = selectedId === agent.id;
         const interactive = Boolean(onSelect);
 
@@ -104,10 +103,9 @@ export function AgentStatusStrip({
             <button
               key={agent.id}
               type="button"
-              role="listitem"
               className={cardClass}
               onClick={() => onSelect?.(agent.id)}
-              aria-pressed={selected}
+              aria-current={selected ? "true" : undefined}
             >
               {inner}
             </button>
