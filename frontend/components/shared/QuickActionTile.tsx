@@ -23,7 +23,7 @@ export function QuickActionTile({
     <Link
       href={href}
       className={cn(
-        "group flex items-center gap-3 rounded-lg border border-border bg-card p-3.5 transition-colors duration-150 hover:border-muted-foreground hover:bg-muted/30",
+        "group flex items-center gap-3 rounded-lg border border-border bg-card p-3.5 transition-colors duration-150 hover:border-primary/40 hover:bg-muted/40",
         className
       )}
     >

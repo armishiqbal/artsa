@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  SlidersHorizontal,
   User,
   Shield,
   Sliders,
@@ -10,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export type ProfileTabKey =
+  | "changes"
   | "general"
   | "security"
   | "preferences"
@@ -24,9 +26,15 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
+    key: "changes",
+    label: "Changes",
+    description: "Avatar studio, colors & identity",
+    icon: SlidersHorizontal,
+  },
+  {
     key: "general",
-    label: "My Profile",
-    description: "Name, photo, and identity",
+    label: "Overview",
+    description: "Account summary & details",
     icon: User,
   },
   {

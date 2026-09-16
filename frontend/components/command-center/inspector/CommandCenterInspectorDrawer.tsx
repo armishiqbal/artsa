@@ -262,7 +262,7 @@ export function CommandCenterInspectorDrawer({
                   RAW STREAM
                 </span>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-900 p-3 font-mono text-[11px] leading-relaxed text-slate-100 dark:border-white/[0.08] dark:bg-[#05070a] dark:text-slate-200 break-words whitespace-pre-wrap">
+              <div className="rounded-lg border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground dark:border-white/[0.08] dark:bg-[#05070a] dark:text-slate-200 break-words whitespace-pre-wrap">
                 <code>{selection.evidence}</code>
               </div>
             </div>

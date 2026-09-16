@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   UserCircle2,
   RefreshCw,
@@ -23,6 +24,7 @@ import { PersonalInfoSection } from "@/components/profile/PersonalInfoSection";
 import { SecuritySection } from "@/components/profile/SecuritySection";
 import { PreferencesSection } from "@/components/profile/PreferencesSection";
 import { CredentialsSection } from "@/components/profile/CredentialsSection";
+import { DangerZoneSection } from "@/components/profile/DangerZoneSection";
 import type { Profile, SessionResponse, TenantInfo } from "@/components/profile/types";
 
 function ProfileSkeleton() {
@@ -46,15 +48,35 @@ function ProfileSkeleton() {
   );
 }
 
-export default function ProfilePage() {
+function ProfileContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+
+  const initialTab: ProfileTabKey = useMemo(() => {
+    if (requestedTab === "general" || requestedTab === "overview") return "general";
+    if (requestedTab === "security") return "security";
+    if (requestedTab === "preferences") return "preferences";
+    if (requestedTab === "developer") return "developer";
+    return "changes";
+  }, [requestedTab]);
+
   const setApiKey = useAuthStore((s) => s.setApiKey);
   const setSession = useAuthStore((s) => s.setSession);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const storedUser = useAuthStore((s) => s.user);
   const { identity, loading: authLoading } = useAuthRole();
 
+  const handleSignOut = () => {
+    clearAuth();
+    toast("Signed out", { description: "Your session was terminated." });
+    router.push("/");
+  };
+
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [activeTab, setActiveTab] = useState<ProfileTabKey>("general");
+  const [activeTab, setActiveTab] = useState<ProfileTabKey>(initialTab);
+  const [editing, setEditing] = useState<boolean>(initialTab === "changes");
 
   // Profile data states
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -64,8 +86,27 @@ export default function ProfilePage() {
   const [location, setLocation] = useState("");
   const [organization, setOrganization] = useState("");
   const [pendingAvatar, setPendingAvatar] = useState<{ file: File; preview: string } | null>(null);
-  const [editing, setEditing] = useState(false);
   const [savingName, setSavingName] = useState(false);
+
+  // Synchronize when URL search param ?tab= changes
+  useEffect(() => {
+    if (requestedTab) {
+      if (requestedTab === "general" || requestedTab === "overview") {
+        setActiveTab("general");
+        setEditing(false);
+      } else if (requestedTab === "changes") {
+        setActiveTab("changes");
+        setEditing(true);
+      } else if (
+        requestedTab === "security" ||
+        requestedTab === "preferences" ||
+        requestedTab === "developer"
+      ) {
+        setActiveTab(requestedTab);
+        setEditing(false);
+      }
+    }
+  }, [requestedTab]);
 
   // Password management states
   const [currentPassword, setCurrentPassword] = useState("");
@@ -159,13 +200,14 @@ export default function ProfilePage() {
   };
 
   const startEdit = () => {
-    setActiveTab("general");
+    setActiveTab("changes");
     setEditing(true);
     requestAnimationFrame(() => document.getElementById("profile-display-name")?.focus());
   };
 
   const cancelEdit = () => {
     resetEdits();
+    setActiveTab("general");
     setEditing(false);
   };
 
@@ -230,8 +272,9 @@ export default function ProfilePage() {
         );
         setAvatar(savedAvatar);
         clearPendingAvatar();
-        toast("Profile saved", { description: "Your details have been updated." });
-        setEditing(false);
+        toast("Profile saved", { description: "Your details and visual identity have been updated." });
+        setEditing(true);
+        setActiveTab("changes");
       } else {
         const detail = (unwrapped as Record<string, unknown> | null)?.detail;
         toast("Update failed", {
@@ -354,6 +397,7 @@ export default function ProfilePage() {
         editing={editing}
         onStartEdit={startEdit}
         onCancelEdit={cancelEdit}
+        onSignOut={handleSignOut}
         tenantName={tenantInfo?.name || "Default Organization"}
       />
 
@@ -369,7 +413,9 @@ export default function ProfilePage() {
               activeTab={activeTab}
               onSelectTab={(tab) => {
                 setActiveTab(tab);
-                if (tab !== "general" && editing) {
+                if (tab === "changes") {
+                  setEditing(true);
+                } else {
                   setEditing(false);
                 }
               }}
@@ -383,7 +429,9 @@ export default function ProfilePage() {
             hasPasswordSession={hasPasswordSession}
             onNavigateTab={(tab) => {
               setActiveTab(tab);
-              if (tab !== "general" && editing) {
+              if (tab === "changes") {
+                setEditing(true);
+              } else {
                 setEditing(false);
               }
             }}
@@ -392,7 +440,7 @@ export default function ProfilePage() {
 
         {/* Right Active Content Area */}
         <div className="lg:col-span-8 xl:col-span-9 space-y-6" aria-live="polite">
-          {activeTab === "general" && (
+          {(activeTab === "changes" || activeTab === "general") && (
             <PersonalInfoSection
               profile={profile}
               role={role}
@@ -412,7 +460,10 @@ export default function ProfilePage() {
               clearPendingAvatar={clearPendingAvatar}
               showEditable={showEditable}
               editing={editing}
-              setEditing={setEditing}
+              setEditing={(val) => {
+                setEditing(val);
+                setActiveTab(val ? "changes" : "general");
+              }}
               dirty={dirty}
               savingName={savingName}
               onSaveProfile={onSaveProfile}
@@ -423,21 +474,24 @@ export default function ProfilePage() {
           )}
 
           {activeTab === "security" && (
-            <SecuritySection
-              profile={profile}
-              role={role}
-              method={method}
-              showEditable={showEditable}
-              currentPassword={currentPassword}
-              setCurrentPassword={setCurrentPassword}
-              newPassword={newPassword}
-              setNewPassword={setNewPassword}
-              confirmPassword={confirmPassword}
-              setConfirmPassword={setConfirmPassword}
-              savingPassword={savingPassword}
-              onChangePassword={onChangePassword}
-              oidcEnabled={oidcActive}
-            />
+            <div className="space-y-6">
+              <SecuritySection
+                profile={profile}
+                role={role}
+                method={method}
+                showEditable={showEditable}
+                currentPassword={currentPassword}
+                setCurrentPassword={setCurrentPassword}
+                newPassword={newPassword}
+                setNewPassword={setNewPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                savingPassword={savingPassword}
+                onChangePassword={onChangePassword}
+                oidcEnabled={oidcActive}
+              />
+              <DangerZoneSection />
+            </div>
           )}
 
           {activeTab === "preferences" && <PreferencesSection />}
@@ -446,5 +500,13 @@ export default function ProfilePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<ProfileSkeleton />}>
+      <ProfileContent />
+    </Suspense>
   );
 }

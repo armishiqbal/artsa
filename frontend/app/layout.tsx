@@ -39,7 +39,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light" className={`${dmSans.variable} ${ibmPlexMono.variable}`}>
+    <html lang="en" data-theme="light" className={`${dmSans.variable} ${ibmPlexMono.variable} light`}>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased [font-feature-settings:'liga'_1]">
         <ClientProviders>
           <a

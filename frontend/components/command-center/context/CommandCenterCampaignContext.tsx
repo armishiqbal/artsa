@@ -158,6 +158,18 @@ export function CommandCenterCampaignContext({
           <span className="rounded px-1.5 py-0.5 font-semibold uppercase bg-muted/60 text-foreground border border-border">
             {currentHealth === "LIVE" ? "LIVE" : "SIMULATION"}
           </span>
+          {currentHealth !== "LIVE" ? (
+            <span
+              className={cn(
+                "rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase border tracking-wider",
+                isPaused
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+                  : "border-sky-500/40 bg-sky-500/10 text-sky-400"
+              )}
+            >
+              {isPaused ? "PAUSED" : "PLAYING"}
+            </span>
+          ) : null}
         </div>
 
         {/* Telemetry Status Indicator */}

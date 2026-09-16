@@ -23,6 +23,8 @@ import {
   Terminal,
   Sparkles,
   Palette,
+  SlidersHorizontal,
+  Eye,
 } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { Button } from "@/components/ui/button";
@@ -184,25 +186,47 @@ export function PersonalInfoSection({
   return (
     <div role="tabpanel" id="panel-general" aria-labelledby="tab-general">
       <DashboardCard
-        title="Personal Identity & Details"
-        description="Your name, portrait avatar, contact information, and organization."
-        icon={<User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+        title={editing ? "Profile Changes Studio" : "Personal Identity & Details"}
+        description={
+          editing
+            ? "All change options for your avatar, color themes, initials, contact info, and team details."
+            : "Your name, portrait avatar, contact information, and organization."
+        }
+        icon={
+          editing ? (
+            <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden="true" />
+          ) : (
+            <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          )
+        }
         actions={
-          showEditable && !editing ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setEditing(true);
-                requestAnimationFrame(() =>
-                  document.getElementById("profile-display-name")?.focus()
-                );
-              }}
-              className="gap-1.5 text-xs shadow-xs hover:bg-muted font-semibold"
-            >
-              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-              Edit Details
-            </Button>
+          showEditable ? (
+            editing ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEditing(false)}
+                className="gap-1.5 text-xs shadow-xs hover:bg-muted font-semibold"
+              >
+                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                View Summary
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setEditing(true);
+                  requestAnimationFrame(() =>
+                    document.getElementById("profile-display-name")?.focus()
+                  );
+                }}
+                className="gap-1.5 text-xs shadow-xs hover:bg-muted font-semibold"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                Changes
+              </Button>
+            )
           ) : null
         }
       >
@@ -288,7 +312,7 @@ export function PersonalInfoSection({
               <p className="text-xs text-muted-foreground">
                 {showEditable ? (
                   <>
-                    Need to change your avatar style, color theme, or personal details? Click <strong className="text-foreground">Edit Details</strong> above.
+                    Need to change your avatar style, color theme, or personal details? Click <strong className="text-foreground">Changes</strong> above.
                   </>
                 ) : (
                   <>Profile details for this role are managed centrally by the system administrator.</>
@@ -319,6 +343,9 @@ export function PersonalInfoSection({
                     Switch freely between your name initials, security badges, or local photo, and customize with enterprise color themes.
                   </p>
                 </div>
+                <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary bg-primary/5">
+                  Changes Studio
+                </Badge>
               </div>
 
               {/* Top: Current Avatar + Upload / Delete Dropzone */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, Command, Building2, ChevronDown, Check, LogOut, Moon, Sun, UserCircle2 } from "lucide-react";
+import { Bell, Command, Building2, ChevronDown, Check, Moon, Sun } from "lucide-react";
 import { LogoIcon } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,16 +21,8 @@ import { useTheme } from "@/lib/context/ThemeProvider";
 import { useDashboardMetrics } from "@/lib/context/DashboardMetricsProvider";
 import { severityBuckets } from "@/lib/redTeamLiveIngest";
 import { isOidcEnabled } from "@/lib/oidc";
-import { avatarIsEmoji, resolveAvatarSrc } from "@/lib/profile";
 import { landingSignInHref } from "@/lib/authSession";
 import { cn } from "@/lib/utils";
-
-const ROLE_VARIANT: Record<string, "default" | "secondary" | "info" | "warning" | "success"> = {
-  admin: "secondary",
-  analyst: "secondary",
-  redteam: "secondary",
-  readonly: "secondary",
-};
 
 export default function TopNav() {
   const router = useRouter();
@@ -40,36 +32,17 @@ export default function TopNav() {
   const { liveEvents } = useDashboardMetrics();
   const { apiOnline, wsConnected, apiGatewayStatus } = useConnection();
   const { identity, loading: authLoading } = useAuthRole();
-  const clearAuth = useAuthStore((s) => s.clearAuth);
   const hasBearer = useAuthStore((s) => Boolean(s.bearerToken));
   const apiKey = useAuthStore((s) => s.apiKey);
-  const storedUser = useAuthStore((s) => s.user);
   const { theme, toggleTheme } = useTheme();
   const onDetections = pathname.startsWith("/red-team/monitor");
   const alertBadge = onDetections ? severityBuckets(liveEvents).CRITICAL : criticalCount;
 
-  // Profile menu
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
-
-  // Tenant selector — selection lives in the tenant store so every API call
-  // (X-Tenant-ID header) is scoped to the chosen org (WS-3.1).
   const [tenants, setTenants] = useState<{ id: string; name: string; slug: string; plan: string }[]>([]);
   const tenantId = useTenantStore((s) => s.tenantId);
   const setTenantId = useTenantStore((s) => s.setTenant);
   const [tenantOpen, setTenantOpen] = useState(false);
   const tenantRef = useRef<HTMLDivElement>(null);
-
-  // Close any open dropdown when clicking outside it.
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   useEffect(() => {
     fetchFromBackend<{ tenants?: { id: string; name: string; slug: string; plan: string }[]; current?: string }>(
@@ -95,19 +68,8 @@ export default function TopNav() {
 
   const statusLabel = formatTopNavConnectionLabel(apiOnline, wsConnected, apiGatewayStatus);
 
-  // Profile: prefer the locally-stored session profile (survives reload), fall
-  // back to whatever /config/me resolved (covers OIDC / fresh-load edge cases).
-  const profileUser = storedUser ?? identity.user ?? null;
-  const profileEmail = profileUser?.email ?? null;
-  const profileDisplayName = profileUser?.display_name ?? null;
-  const profileRole = profileUser?.role ?? identity.role ?? null;
-  const profileAvatar = profileUser?.avatar ?? null;
-  const profileInitials = (profileDisplayName || profileEmail || profileRole || "AR").slice(0, 2).toUpperCase();
-
-  const showProfile = !authLoading && (hasBearer || Boolean(apiKey) || identity.authenticated);
-  // Only surface the SSO "Sign in" button when the user is actually signed out —
-  // otherwise an API-key or OIDC-authenticated user sees a misleading duplicate login.
-  const showOidcLogin = isOidcEnabled() && !hasBearer && !showProfile;
+  const isAuthenticated = !authLoading && (hasBearer || Boolean(apiKey) || identity.authenticated);
+  const showOidcLogin = isOidcEnabled() && !hasBearer && !isAuthenticated;
 
   return (
     <>
@@ -145,87 +107,12 @@ export default function TopNav() {
               <Link href={landingSignInHref()}>Sign in</Link>
             </Button>
           )}
-          {showProfile && (
-            <div className="relative" ref={profileRef}>
-              <button
-                onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-1.5 rounded-full border border-border p-0.5 pr-1.5 transition-colors hover:bg-muted/60"
-                aria-label="Account menu"
-                aria-haspopup="menu"
-                aria-expanded={profileOpen}
-              >
-                {avatarIsEmoji(profileAvatar) ? (
-                  <span
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm leading-none"
-                    aria-hidden
-                  >
-                    {profileAvatar}
-                  </span>
-                ) : resolveAvatarSrc(profileAvatar) ? (
-                  <span className="h-7 w-7 overflow-hidden rounded-full ring-1 ring-border" aria-hidden>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={resolveAvatarSrc(profileAvatar) ?? undefined}
-                      alt={profileDisplayName ?? "Avatar"}
-                      className="h-full w-full object-cover"
-                    />
-                  </span>
-                ) : (
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
-                    {profileInitials}
-                  </span>
-                )}
-                <ChevronDown
-                  className={cn("h-3 w-3 text-muted-foreground transition-transform", profileOpen && "rotate-180")}
-                />
-              </button>
-              {profileOpen && (
-                <div className="dropdown-surface absolute right-0 top-full z-50 mt-2 w-64 py-1">
-                  <div className="border-b border-border px-3 py-2.5">
-                    {profileDisplayName && (
-                      <p className="truncate text-sm font-medium">{profileDisplayName}</p>
-                    )}
-                    {profileEmail ? (
-                      <p className="truncate text-xs text-muted-foreground">{profileEmail}</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Signed in</p>
-                    )}
-                    {profileRole && (
-                      <Badge
-                        variant={ROLE_VARIANT[profileRole] ?? "secondary"}
-                        className="mt-1.5 gap-1 font-mono text-[10px] uppercase"
-                      >
-                        {profileRole}
-                      </Badge>
-                    )}
-                  </div>
-                  <Link
-                    href="/profile"
-                    onClick={() => setProfileOpen(false)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-muted/60"
-                  >
-                    <UserCircle2 className="h-4 w-4" aria-hidden />
-                    Profile
-                  </Link>
-                  <button
-                    onClick={() => {
-                      clearAuth();
-                      router.push("/");
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive transition-colors hover:bg-muted/60"
-                  >
-                    <LogOut className="h-4 w-4" aria-hidden />
-                    Sign out
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
           <button
+            type="button"
             onClick={toggleTheme}
             aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-            title={theme === "dark" ? "Light theme" : "Dark theme"}
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {theme === "dark" ? (
               <Sun className="h-4 w-4" aria-hidden />

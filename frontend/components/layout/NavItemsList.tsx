@@ -64,12 +64,8 @@ function NavGroupRow({
           "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-left text-[14px] font-medium tracking-[-0.17px] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isMobile && "text-sm",
           groupActive
-            ? isMobile
-              ? "bg-muted text-foreground"
-              : "text-foreground"
-            : isMobile
-              ? "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+            ? "bg-muted/70 text-foreground"
+            : "text-muted-foreground hover:bg-muted/25 hover:text-foreground/90"
         )}
       >
         <ParentIcon className={cn("h-4 w-4 shrink-0", groupActive && "text-foreground")} aria-hidden />
@@ -98,10 +94,8 @@ function NavGroupRow({
                   className={cn(
                     "flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     active
-                      ? isMobile
-                        ? "bg-muted/80 text-foreground"
-                        : "text-foreground"
-                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      ? "bg-muted/70 text-foreground"
+                      : "text-muted-foreground hover:bg-muted/25 hover:text-foreground/90"
                   )}
                   aria-current={active ? "page" : undefined}
                 >
@@ -147,6 +141,31 @@ export function NavItemsList({ items, onNavigate, variant = "desktop" }: NavItem
     <ul ref={listRef} className="space-y-0.5" onKeyDown={onListKeyDown}>
       {items.map((item) => {
         if (item.kind === "group") {
+          if (item.id === "settings") {
+            const Icon = item.icon;
+            const active = pathname === "/settings" || pathname.startsWith("/settings/");
+            return (
+              <li key={item.id}>
+                <Link
+                  href="/settings"
+                  onClick={onNavigate}
+                  data-nav-focusable="true"
+                  data-active={active ? "true" : "false"}
+                  className={cn(
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium tracking-[-0.17px] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isMobile && "text-sm",
+                    active
+                      ? "bg-muted/70 text-foreground"
+                      : "text-muted-foreground hover:bg-muted/25 hover:text-foreground/90"
+                  )}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon className={cn("h-4 w-4 shrink-0", active && "text-foreground")} aria-hidden />
+                  <span className="truncate">{item.name}</span>
+                </Link>
+              </li>
+            );
+          }
           return <NavGroupRow key={item.id} item={item} onNavigate={onNavigate} isMobile={isMobile} />;
         }
 
@@ -163,12 +182,8 @@ export function NavItemsList({ items, onNavigate, variant = "desktop" }: NavItem
                 "flex min-h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium tracking-[-0.17px] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isMobile && "text-sm",
                 active
-                  ? isMobile
-                    ? "bg-muted text-foreground"
-                    : "text-foreground"
-                  : isMobile
-                    ? "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                  ? "bg-muted/70 text-foreground"
+                  : "text-muted-foreground hover:bg-muted/25 hover:text-foreground/90"
               )}
               aria-current={active ? "page" : undefined}
             >

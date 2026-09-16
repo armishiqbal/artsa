@@ -54,12 +54,12 @@ export function CommandCenterInteractionMap({
 
     const stateTone =
       state === "active"
-        ? "text-rose-500 border-rose-500/40 bg-rose-500/10"
+        ? "text-rose-600 dark:text-rose-400 border-rose-500/50 bg-rose-500/10"
         : state === "responding"
-          ? "text-amber-500 border-amber-500/40 bg-amber-500/10"
+          ? "text-amber-600 dark:text-amber-400 border-amber-500/50 bg-amber-500/10"
           : state === "contained"
-            ? "text-emerald-500 border-emerald-500/40 bg-emerald-500/10"
-            : "text-muted-foreground border-border bg-card";
+            ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/50 bg-emerald-500/10"
+            : "text-muted-foreground border-border/70 bg-secondary/60 dark:bg-card/70 hover:bg-muted/50 hover:border-border";
 
     const dotTone =
       state === "active"
@@ -68,7 +68,7 @@ export function CommandCenterInteractionMap({
           ? "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]"
           : state === "contained"
             ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]"
-            : "bg-slate-400 dark:bg-slate-600";
+            : "bg-slate-400 dark:bg-slate-500";
 
     return (
       <button
@@ -76,9 +76,9 @@ export function CommandCenterInteractionMap({
         type="button"
         onClick={() => onSelectAgent?.(name)}
         className={cn(
-          "group relative flex flex-col items-center justify-between rounded-lg border px-2.5 py-1.5 text-center transition-all duration-200 cursor-pointer min-w-[110px]",
+          "group relative flex flex-col items-center justify-between rounded-lg border px-2.5 py-1.5 text-center transition-colors duration-300 cursor-pointer min-w-[110px]",
           isActive
-            ? "border-sky-500/80 shadow-[0_0_12px_rgba(56,189,248,0.2)] bg-sky-500/5 ring-1 ring-sky-400/50"
+            ? "border-sky-500/70 bg-sky-500/[0.08] text-foreground shadow-xs"
             : stateTone
         )}
         title={`Inspect ${name} (${state})`}

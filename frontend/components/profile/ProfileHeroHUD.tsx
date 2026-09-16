@@ -10,6 +10,9 @@ import {
   Copy,
   Check,
   Camera,
+  LogOut,
+  SlidersHorizontal,
+  Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +33,7 @@ interface ProfileHeroHUDProps {
   editing: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
+  onSignOut?: () => void;
   tenantName?: string;
 }
 
@@ -44,6 +48,7 @@ export function ProfileHeroHUD({
   editing,
   onStartEdit,
   onCancelEdit,
+  onSignOut,
   tenantName = "Default Organization",
 }: ProfileHeroHUDProps) {
   const [copied, setCopied] = useState(false);
@@ -141,21 +146,33 @@ export function ProfileHeroHUD({
           </div>
         </div>
 
-        {showEditable && (
-          <div className="shrink-0">
-            {editing ? (
-              <Button size="sm" variant="outline" onClick={onCancelEdit}>
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Done
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {showEditable && (
+            editing ? (
+              <Button size="sm" variant="outline" onClick={onCancelEdit} className="gap-1.5 shadow-xs">
+                <Eye className="h-3.5 w-3.5" aria-hidden />
+                View Summary
               </Button>
             ) : (
-              <Button size="sm" onClick={onStartEdit}>
-                <Pencil className="h-3.5 w-3.5" aria-hidden />
-                Edit profile
+              <Button size="sm" onClick={onStartEdit} className="gap-1.5 shadow-xs font-semibold">
+                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                Changes
               </Button>
-            )}
-          </div>
-        )}
+            )
+          )}
+          {onSignOut && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onSignOut}
+              className="gap-1.5 text-xs text-destructive border-border hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive"
+              aria-label="Sign out of account"
+            >
+              <LogOut className="h-3.5 w-3.5" aria-hidden />
+              <span>Sign out</span>
+            </Button>
+          )}
+        </div>
       </div>
     </section>
   );

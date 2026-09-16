@@ -43,7 +43,7 @@ export function SecurityHealthCard({
       title: "Recovery phone",
       desc: hasPhone ? profile?.phone ?? "Set" : "Not set",
       completed: hasPhone,
-      tab: "general" as ProfileTabKey,
+      tab: "changes" as ProfileTabKey,
     },
   ];
 

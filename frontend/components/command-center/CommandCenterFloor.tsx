@@ -576,8 +576,7 @@ export function CommandCenterFloor({
 
 
   return (
-    <main
-      id="main-content"
+    <div
       className="min-h-screen w-full bg-background text-foreground flex flex-col items-center select-none transition-colors"
     >
       {/* Sticky Tactical HUD Container (P1 & P3) */}
@@ -813,7 +812,7 @@ export function CommandCenterFloor({
               <button
                 type="button"
                 onClick={onRefreshLiveOps}
-                className="hover:text-white transition-colors cursor-pointer"
+                className="hover:text-foreground transition-colors cursor-pointer"
                 title="Refresh live operational telemetry"
               >
                 ⟳ REFRESH
@@ -822,7 +821,7 @@ export function CommandCenterFloor({
             <button
               type="button"
               onClick={() => setIsPaused((p) => !p)}
-              className="hover:text-white transition-colors cursor-pointer"
+              className="hover:text-foreground transition-colors cursor-pointer"
               title={isPaused ? "Resume simulation" : "Pause simulation"}
             >
               {isPaused ? "▶ RESUME" : "⏸ PAUSE"}
@@ -830,7 +829,7 @@ export function CommandCenterFloor({
             <button
               type="button"
               onClick={() => setRoundIdx((prev) => nextRoundIndex(prev, LIVE_ROUNDS.length))}
-              className="hover:text-white transition-colors cursor-pointer"
+              className="hover:text-foreground transition-colors cursor-pointer"
               title="Advance to next round immediately"
             >
               NEXT ROUND →
@@ -874,6 +873,6 @@ export function CommandCenterFloor({
         onClose={() => setAsiModalOpen(false)}
         onSelectAsi={inspectAsiCode}
       />
-    </main>
+    </div>
   );
 }

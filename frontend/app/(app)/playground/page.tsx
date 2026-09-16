@@ -255,7 +255,7 @@ function GuardRunCard({ run }: { run: GuardRun }) {
             </div>
           </section>
 
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <div className="grid gap-3 grid-cols-1">
             <div className={cn("rounded-xl border p-4", outcomeTone)}>
               <p className="text-[11px] font-medium uppercase tracking-[0.12em] opacity-80">Outcome</p>
               <p className="mt-2 text-sm font-semibold">{outcomeCopy}</p>
@@ -854,12 +854,7 @@ export default function SecurityPlaygroundPage() {
       </header>
 
       {/* Main Two-Column Operational Layout */}
-      <div className={cn(
-        "grid min-h-0 flex-1 grid-cols-1 overflow-y-auto border-b border-border/60 xl:overflow-hidden",
-        playground === "guard"
-          ? "xl:grid-cols-[minmax(0,1fr)_330px]"
-          : "xl:grid-cols-[minmax(440px,1.35fr)_minmax(0,1fr)]"
-      )}>
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto border-b border-border/60 xl:overflow-hidden xl:grid-cols-[minmax(0,1fr)_330px]">
         {/* Left Column (Operational & Interactive View) */}
         <section
           className="playground-panel-enter flex min-h-[min(620px,calc(100vh-13rem))] min-w-0 flex-col overflow-hidden border-b border-border/60 bg-background xl:h-full xl:w-auto xl:min-w-0 xl:shrink-0 xl:min-h-0 xl:overflow-y-auto xl:border-b-0 xl:border-r"
@@ -1343,12 +1338,13 @@ export default function SecurityPlaygroundPage() {
         {/* Right Column (Configuration, Policy & Logs) */}
         <aside className="playground-panel-enter flex min-h-[min(620px,calc(100vh-13rem))] min-w-0 flex-col overflow-y-auto bg-background p-6 xl:h-full xl:min-w-0 xl:min-h-0" aria-label="Playground details">
           {playground === "chat" && (
-            <div className="flex shrink-0 items-center justify-start overflow-x-auto pb-4 sm:justify-end">
-              <div role="tablist" aria-label="Playground details" className="inline-flex shrink-0 items-center rounded-xl bg-muted/60 p-1">
+            <div className="flex shrink-0 items-center pb-4">
+              <div role="tablist" aria-label="Playground details" className="grid w-full grid-cols-3 items-center rounded-xl bg-muted/60 p-1">
                 <button
                   type="button"
                   role="tab"
                   id="playground-tab-logs"
+                  aria-label="Guard Logs"
                   aria-selected={detailPanel === "logs"}
                   aria-controls="playground-panel-logs"
                   tabIndex={detailPanel === "logs" ? 0 : -1}
@@ -1359,7 +1355,7 @@ export default function SecurityPlaygroundPage() {
                     if (next != null) { event.preventDefault(); setDetailPanel((["logs", "policy", "chatbot"] as const)[next]); tabRefs.current[next]?.focus(); }
                   }}
                   className={cn(
-                    "whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer",
+                    "truncate rounded-lg px-2 py-1.5 text-center text-xs font-medium transition-all duration-200 cursor-pointer",
                     detailPanel === "logs"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
@@ -1371,6 +1367,7 @@ export default function SecurityPlaygroundPage() {
                   type="button"
                   role="tab"
                   id="playground-tab-policy"
+                  aria-label="Policy Configuration"
                   aria-selected={detailPanel === "policy"}
                   aria-controls="playground-panel-policy"
                   tabIndex={detailPanel === "policy" ? 0 : -1}
@@ -1381,18 +1378,20 @@ export default function SecurityPlaygroundPage() {
                     if (next != null) { event.preventDefault(); setDetailPanel((["logs", "policy", "chatbot"] as const)[next]); tabRefs.current[next]?.focus(); }
                   }}
                   className={cn(
-                    "whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer",
+                    "truncate rounded-lg px-2 py-1.5 text-center text-xs font-medium transition-all duration-200 cursor-pointer",
                     detailPanel === "policy"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  Policy Configuration
+                  <span className="hidden md:inline xl:hidden">Policy Configuration</span>
+                  <span className="inline md:hidden xl:inline">Policy</span>
                 </button>
                 <button
                   type="button"
                   role="tab"
                   id="playground-tab-chatbot"
+                  aria-label="Chatbot Configuration"
                   aria-selected={detailPanel === "chatbot"}
                   aria-controls="playground-panel-chatbot"
                   tabIndex={detailPanel === "chatbot" ? 0 : -1}
@@ -1403,13 +1402,14 @@ export default function SecurityPlaygroundPage() {
                     if (next != null) { event.preventDefault(); setDetailPanel((["logs", "policy", "chatbot"] as const)[next]); tabRefs.current[next]?.focus(); }
                   }}
                   className={cn(
-                    "whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer",
+                    "truncate rounded-lg px-2 py-1.5 text-center text-xs font-medium transition-all duration-200 cursor-pointer",
                     detailPanel === "chatbot"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  Chatbot Configuration
+                  <span className="hidden md:inline xl:hidden">Chatbot Configuration</span>
+                  <span className="inline md:hidden xl:inline">Chatbot</span>
                 </button>
               </div>
             </div>
@@ -1637,9 +1637,9 @@ export default function SecurityPlaygroundPage() {
             {/* Chatbot Simulator Tab: Policy Configuration */}
             {playground === "chat" && detailPanel === "policy" && (
               <div id="playground-panel-policy" role="tabpanel" aria-labelledby="playground-tab-policy" tabIndex={0} className="space-y-6 outline-none">
-                <div className="flex items-center justify-between pb-3 border-b border-border/60">
-                  <h2 className="text-xl font-semibold text-foreground">Flagging Policy</h2>
-                  <Button asChild variant="outline" size="sm" className="rounded-lg gap-1.5 text-xs">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
+                  <h2 className="whitespace-nowrap text-xl font-semibold text-foreground">Flagging Policy</h2>
+                  <Button asChild variant="outline" size="sm" className="shrink-0 rounded-lg gap-1.5 text-xs">
                     <Link href="/admin/policies">
                       <FileText className="h-3.5 w-3.5" />
                       <span>Configure Policy</span>

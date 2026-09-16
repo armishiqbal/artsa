@@ -4,12 +4,16 @@ import { useState, useEffect } from "react";
 import {
   Bell,
   Globe,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { DashboardCard } from "@/components/shared/DashboardCard";
+import { useTheme } from "@/lib/context/ThemeProvider";
 import { toast } from "@/lib/stores/toast";
 import { cn } from "@/lib/utils";
 
 export function PreferencesSection() {
+  const { theme, setTheme } = useTheme();
   const [criticalAlerts, setCriticalAlerts] = useState(true);
   const [audioChime, setAudioChime] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
@@ -100,6 +104,59 @@ export function PreferencesSection() {
               />
             </button>
           </div>
+        </div>
+      </DashboardCard>
+
+      {/* Interface Theme / Appearance */}
+      <DashboardCard
+        title="Appearance & Workspace Theme"
+        description="Choose how ARTSA looks on your device. Changes sync immediately and persist in your account."
+        icon={<Sun className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 max-w-xl">
+          <button
+            type="button"
+            onClick={() => {
+              setTheme("light");
+              toast("Light theme enabled");
+            }}
+            className={cn(
+              "flex items-center gap-3 rounded-xl border p-4 text-left transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              theme === "light"
+                ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/40"
+                : "border-border/80 bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+            )}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground">
+              <Sun className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-foreground">Light Theme</p>
+              <p className="text-[11px] text-muted-foreground">High-contrast, calm SaaS workspace</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setTheme("dark");
+              toast("Dark theme enabled");
+            }}
+            className={cn(
+              "flex items-center gap-3 rounded-xl border p-4 text-left transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              theme === "dark"
+                ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/40"
+                : "border-border/80 bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+            )}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground">
+              <Moon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-foreground">Dark Theme</p>
+              <p className="text-[11px] text-muted-foreground">Obsidian tactical control room</p>
+            </div>
+          </button>
         </div>
       </DashboardCard>
 

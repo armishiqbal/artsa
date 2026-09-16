@@ -10,6 +10,7 @@ import {
   primaryNavItems,
 } from "@/lib/navigation";
 import { NavItemsList } from "@/components/layout/NavItemsList";
+import { UserProfileMenu } from "@/components/layout/UserProfileMenu";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { Button } from "@/components/ui/button";
 
@@ -111,6 +112,10 @@ export default function MobileNav() {
                   onNavigate={() => setOpen(false)}
                 />
               </nav>
+
+              <div className="border-t border-border p-3">
+                <UserProfileMenu onNavigate={() => setOpen(false)} />
+              </div>
             </motion.aside>
           </>
         )}

@@ -72,7 +72,7 @@ export function CommandCenterPromptAnalysis({
             type="button"
             onClick={() => onSelectBadge?.()}
             className={cn(
-              "rounded-full px-3 py-0.5 font-mono text-[11px] font-medium tracking-wide uppercase transition-all cursor-pointer hover:scale-[1.02]",
+              "rounded-full px-3 py-0.5 font-mono text-[11px] font-medium tracking-wide uppercase transition-colors cursor-pointer hover:opacity-90",
               isFailed
                 ? "border border-red-300 bg-red-100 text-red-700 dark:border-red-800/60 dark:bg-red-950/80 dark:text-red-400"
                 : "border border-red-200 bg-red-50 text-red-600 dark:border-red-800/50 dark:bg-red-950/60 dark:text-red-400"
@@ -85,7 +85,7 @@ export function CommandCenterPromptAnalysis({
       </div>
 
       {/* Code Box */}
-      <div className="rounded-lg border border-slate-200 bg-slate-900 p-4 text-[13px] leading-relaxed text-slate-100 dark:border-white/[0.06] dark:bg-[#05070a] dark:text-slate-200">
+      <div className="rounded-lg border border-border bg-muted/40 p-4 text-[13px] leading-relaxed text-foreground dark:border-white/[0.06] dark:bg-[#05070a] dark:text-slate-200">
         <p className="font-mono break-words whitespace-pre-wrap">
           {spans.map((s, i) => {
             if (s.tone === "inject") {

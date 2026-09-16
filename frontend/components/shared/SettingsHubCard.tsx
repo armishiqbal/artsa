@@ -31,32 +31,42 @@ export function SettingsHubCard({
     <Link
       href={href}
       className={cn(
-        "group relative flex h-full flex-col rounded-xl border border-border bg-card p-6 transition-colors duration-150 hover:border-muted-foreground hover:bg-muted/20",
+        "group flex w-full flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 transition-colors duration-150 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4 hover:border-primary/40 hover:bg-muted/20 shadow-xs",
         className
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted text-foreground transition-colors">
+      <div className="flex min-w-0 items-center gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-muted/40 text-foreground transition-colors group-hover:border-primary/40 group-hover:bg-primary/10 group-hover:text-primary">
           <Icon className="h-5 w-5" aria-hidden />
         </div>
-        <ArrowRight
-          className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-1 group-hover:text-foreground"
-          aria-hidden
-        />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
+            {title}
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">
+            {description}
+          </p>
+        </div>
       </div>
-      <h3 className="mt-4 text-base font-semibold tracking-tight text-foreground">
-        {title}
-      </h3>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
-      <div className="mt-auto flex flex-wrap gap-5 pt-5 border-t border-border/60">
-        {stats.map((stat) => (
-          <div key={stat.label}>
-            <p className="font-mono text-xl font-semibold tabular-nums text-foreground">
-              {stat.value}
-            </p>
-            <p className="text-[11px] text-muted-foreground">{stat.label}</p>
-          </div>
-        ))}
+
+      <div className="flex shrink-0 items-center justify-between gap-4 sm:justify-end">
+        <div className="flex flex-wrap items-center gap-2">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-muted/30 px-3 py-1 text-xs font-medium text-foreground"
+            >
+              <span className="font-mono font-bold text-foreground tabular-nums">
+                {stat.value}
+              </span>
+              <span className="text-[11px] text-muted-foreground">{stat.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 group-hover:translate-x-1 group-hover:text-foreground/90">
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </div>
       </div>
     </Link>
   );

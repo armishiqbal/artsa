@@ -10,6 +10,7 @@ import { NavItemsList } from "@/components/layout/NavItemsList";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { UserProfileMenu } from "@/components/layout/UserProfileMenu";
 
 export default function Sidebar() {
   const { identity, capabilities } = useAuthRole();
@@ -37,6 +38,10 @@ export default function Sidebar() {
           </div>
         </nav>
       </ScrollArea>
+
+      <div className="border-t border-border p-3">
+        <UserProfileMenu />
+      </div>
     </aside>
   );
 }

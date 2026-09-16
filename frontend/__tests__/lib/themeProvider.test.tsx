@@ -33,6 +33,7 @@ describe("ThemeProvider", () => {
   beforeEach(() => {
     localStorage.clear();
     delete document.documentElement.dataset.theme;
+    document.documentElement.className = "";
     document.documentElement.style.colorScheme = "";
   });
 
@@ -76,10 +77,15 @@ describe("ThemeProvider", () => {
     await user.click(screen.getByText("toggle"));
     expect(screen.getByTestId("current-theme")).toHaveTextContent("light");
     expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
 
     await user.click(screen.getByText("toggle"));
     expect(screen.getByTestId("current-theme")).toHaveTextContent("dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(document.documentElement.classList.contains("light")).toBe(false);
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
   });
 

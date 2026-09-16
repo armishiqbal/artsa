@@ -8,14 +8,13 @@ import {
   Shield,
   Cpu,
   KeyRound,
+  ScrollText,
 } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageStack } from "@/components/shared/PageStack";
 import { ReadinessSnapshotPanel } from "@/components/reports/ReadinessSnapshotPanel";
-import { DashboardCard } from "@/components/shared/DashboardCard";
 import { SettingsHubCard } from "@/components/shared/SettingsHubCard";
-import { QuickActionTile } from "@/components/shared/QuickActionTile";
 import { Badge } from "@/components/ui/badge";
 
 interface SettingsSummary {
@@ -87,7 +86,7 @@ export default function SettingsOverviewPage() {
   const cards = [
     {
       title: "Integrations",
-      description: "Connect apps and alert channels.",
+      description: "Connect apps, alert channels, Slack, PagerDuty, and webhooks.",
       href: "/settings/integrations",
       icon: Cable,
       stats: [
@@ -97,24 +96,38 @@ export default function SettingsOverviewPage() {
     },
     {
       title: "AI Providers",
-      description: "Model keys ARTSA uses when it needs to call a model.",
+      description: "Model keys ARTSA uses when executing scans and evaluations.",
       href: "/admin/providers",
       icon: Cpu,
       stats: [{ label: "Registered", value: summary.providers }],
     },
     {
       title: "API Keys",
-      description: "Keys for your app to send activity to ARTSA.",
+      description: "Client application keys to authenticate and stream activity to ARTSA.",
       href: "/get-started",
       icon: KeyRound,
       stats: [{ label: "Keys configured", value: summary.keys_configured }],
     },
     {
       title: "Team & Access",
-      description: "People, roles, and who can do what.",
+      description: "People, roles, invitations, and administrative access control.",
       href: "/settings/team",
       icon: Users,
       stats: [{ label: "Members", value: summary.team_members }],
+    },
+    {
+      title: "Policies",
+      description: "Security boundary guardrails, AI safety policies, and enforcement rules.",
+      href: "/admin/policies",
+      icon: Shield,
+      stats: [{ label: "Guardrails", value: summary.guardrails }],
+    },
+    {
+      title: "Audit Log",
+      description: "Complete immutable record of configuration changes and user actions.",
+      href: "/settings/audit-log",
+      icon: ScrollText,
+      stats: [{ label: "Audit entries", value: summary.audit_entries }],
     },
   ];
 
@@ -122,7 +135,7 @@ export default function SettingsOverviewPage() {
     <PageStack>
       <PageHeader
         title="Settings"
-        description="Integrations, providers, keys, and who can access ARTSA."
+        description="Integrations, AI providers, API keys, team access, and security policies."
         icon={<Settings2 className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -139,7 +152,7 @@ export default function SettingsOverviewPage() {
       <ReadinessSnapshotPanel />
 
       {loaded ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="flex flex-col gap-3">
           {cards.map((card) => (
             <SettingsHubCard
               key={card.href}
@@ -152,45 +165,12 @@ export default function SettingsOverviewPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-44 animate-pulse rounded-2xl border border-border/70 bg-muted/60" />
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl border border-border/70 bg-muted/60" />
           ))}
         </div>
       )}
-
-      <DashboardCard
-        title="Quick Actions"
-        description="Common configuration tasks"
-        badge={<Shield className="h-4 w-4 text-muted-foreground" />}
-      >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickActionTile
-            href="/settings/integrations"
-            title="Integrations"
-            description="Connect apps and alerts"
-            icon={Cable}
-          />
-          <QuickActionTile
-            href="/admin/providers"
-            title="AI Providers"
-            description="Add a model key"
-            icon={Cpu}
-          />
-          <QuickActionTile
-            href="/get-started"
-            title="API Keys"
-            description="Create a key for your app"
-            icon={KeyRound}
-          />
-          <QuickActionTile
-            href="/settings/team"
-            title="Team & Access"
-            description="Invite people and set roles"
-            icon={Users}
-          />
-        </div>
-      </DashboardCard>
     </PageStack>
   );
 }
