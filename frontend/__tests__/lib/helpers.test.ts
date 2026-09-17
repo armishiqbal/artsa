@@ -40,24 +40,25 @@ describe("navigation", () => {
     read_only: false,
   };
 
-  it("defines exactly eight top-level items for admins", () => {
+  it("defines top-level items for admins including Projects", () => {
     expect(primaryNavItems.map((item) => item.name)).toEqual([
       "Command Center",
       "AI Security Playground",
       "Findings",
+      "Projects",
       "Activity",
       "Sessions",
       "Discover",
       "Red Team",
       "Settings",
     ]);
-    expect(filterNavItemsByAccess(primaryNavItems, adminCapabilities, true)).toHaveLength(8);
+    expect(filterNavItemsByAccess(primaryNavItems, adminCapabilities, true)).toHaveLength(9);
   });
 
   it("hides the Settings group from non-admins", () => {
     const settings = primaryNavItems.find((item) => item.kind === "group" && item.id === "settings");
     expect(settings?.adminOnly).toBe(true);
-    expect(filterNavItemsByAccess(primaryNavItems, adminCapabilities, false)).toHaveLength(7);
+    expect(filterNavItemsByAccess(primaryNavItems, adminCapabilities, false)).toHaveLength(8);
     expect(settings?.kind === "group" ? settings.children.map((item) => item.href) : []).toEqual([
       "/settings",
       "/settings/integrations",

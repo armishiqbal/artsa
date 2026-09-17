@@ -18,6 +18,7 @@ import {
   History,
   Compass,
   Swords,
+  FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -94,6 +95,7 @@ export const primaryNavItems: NavItem[] = [
   { kind: "link", name: "Command Center", href: "/command-center", icon: LayoutDashboard, exact: true },
   { kind: "link", name: "AI Security Playground", href: "/playground", icon: Shield },
   { kind: "link", name: "Findings", href: "/findings", icon: FileSearch },
+  { kind: "link", name: "Projects", href: "/projects", icon: FolderKanban },
   { kind: "link", name: "Activity", href: "/logs", icon: ScrollText },
   { kind: "link", name: "Sessions", href: "/replay", icon: History },
   {

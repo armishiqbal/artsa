@@ -21,6 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const redTeam = pathname.startsWith("/red-team");
   const commandCenter = pathname.startsWith("/command-center");
   const playground = pathname.startsWith("/playground");
+  const isCleanConsole = pathname.startsWith("/logs") || pathname.startsWith("/projects");
 
   // AppShell persists across client-side route changes, so its scrollable main
   // element would otherwise retain the previous page's scrollTop and hide the
@@ -61,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         : "w-full max-w-[1200px]"
                   )}
                 >
-                  {!redTeam && !commandCenter && !playground ? <WorkspaceRail /> : null}
+                  {!redTeam && !commandCenter && !playground && !isCleanConsole ? <WorkspaceRail /> : null}
                   <BackendOfflineBanner />
                   <SessionInvalidBanner />
                   <PageContent className="flex min-h-0 flex-1 flex-col">
