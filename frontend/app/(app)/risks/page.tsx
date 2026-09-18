@@ -195,7 +195,7 @@ export default function RiskFrameworkPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const framework = data?.framework ?? [];
+  const framework = useMemo(() => data?.framework ?? [], [data?.framework]);
 
   const visible = useMemo(() => {
     return framework.filter((r) => {

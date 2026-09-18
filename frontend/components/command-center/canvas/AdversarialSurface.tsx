@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, Network, Shield, ShieldAlert, TrendingUp } from "lucide-react";
+import { Network, Shield, ShieldAlert, TrendingUp } from "lucide-react";
 import { CockpitCard } from "../cockpit/CockpitCard";
 import { ResearchChart } from "../prototype/ResearchChart";
 import { cn } from "@/lib/utils";

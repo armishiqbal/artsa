@@ -14,22 +14,8 @@ import { useTenantStore } from "@/lib/stores/tenant";
 
 const API_BASE_URL = "/api/backend";
 
-const DEFAULT_API_BASE_URL = "http://localhost:8000";
-
 function isOfflinePreviewToken(token: string | null): boolean {
   return token === "demo_preview_token" || Boolean(token?.startsWith("admin_token_"));
-}
-
-/** Port of the configured backend base URL, used in connectivity error messages.
- * Falls back to 8000 when the base URL is unset or unparseable. */
-function backendPort(): string {
-  const base = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL;
-  try {
-    const { port, protocol } = new URL(base);
-    return port || (protocol === "https:" ? "443" : "80");
-  } catch {
-    return "8000";
-  }
 }
 
 /**

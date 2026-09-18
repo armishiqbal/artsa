@@ -174,7 +174,7 @@ export function RedTeamAttackFlowGraph({
     const map = new Map<string, (typeof model.edges)[0]>();
     for (const e of model.edges) map.set(`${e.from}->${e.to}`, e);
     return map;
-  }, [model.edges]);
+  }, [model]);
 
   return (
     <div

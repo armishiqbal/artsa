@@ -61,7 +61,7 @@ export function MissionHud({
             Command Center
           </h1>
           <span className="hidden font-mono text-[10px] text-[var(--cc-primary)] tracking-[0.14em] sm:inline">
-            // COCKPIT
+            COCKPIT
           </span>
         </div>
 

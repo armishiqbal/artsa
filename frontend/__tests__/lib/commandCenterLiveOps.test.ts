@@ -3,22 +3,20 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import {
   normalizeSnapshot,
   normalizeSecurityEvent,
-  normalizeHmacRecord,
-  normalizeDetectionMetrics,
-  normalizeAgents,
   eventToTimelineStep,
   buildSimulationFallbackState,
   executeOperatorAction,
   useCommandCenterLiveOps,
   DEFAULT_OPERATOR_ACTIONS,
-  type LiveOpsSecurityEvent,
 } from "@/lib/hooks/useCommandCenterLiveOps";
 
 // Mock @/lib/api
 vi.mock("@/lib/api", () => ({
   fetchFromBackend: vi.fn(),
   buildHeaders: vi.fn(() => ({ "Content-Type": "application/json", "X-Tenant-ID": "test_org" })),
-  unwrapEnvelope: vi.fn((data: any) => (data?.success && data?.data ? data.data : data)),
+  unwrapEnvelope: vi.fn((data: { success?: boolean; data?: unknown } | null) =>
+    data?.success && data.data ? data.data : data
+  ),
 }));
 
 // Mock @/lib/ws
@@ -835,4 +833,3 @@ describe("Command Center Live Ops Adapter (Phase 2.2)", () => {
     });
   });
 });
-

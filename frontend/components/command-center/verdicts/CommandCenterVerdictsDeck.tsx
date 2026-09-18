@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { CheckCircle2, Clock, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Clock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getSecurityEventForRound,

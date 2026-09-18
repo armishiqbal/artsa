@@ -202,11 +202,11 @@ export function CustomerApiHub({ clientMode = false }: { clientMode?: boolean })
     window.setTimeout(() => nameInputRef.current?.focus(), 50);
   };
 
-  const closeCreateModal = () => {
+  const closeCreateModal = useCallback(() => {
     if (isGenerating) return;
     setCreateOpen(false);
     setCreateStep("form");
-  };
+  }, [isGenerating]);
 
   useEffect(() => {
     if (!createOpen && !revokeTarget) return;
@@ -220,7 +220,7 @@ export function CustomerApiHub({ clientMode = false }: { clientMode?: boolean })
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [createOpen, createStep, isGenerating, isRevoking, revokeTarget]);
+  }, [closeCreateModal, createOpen, createStep, isRevoking, revokeTarget]);
 
   const formatCreated = (iso?: string | null) => {
     if (!iso) return "—";

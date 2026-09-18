@@ -638,13 +638,18 @@ export async function executeOperatorAction(
       let errorMsg = `Server returned status ${res.status}`;
       try {
         const body = await res.json();
-        const unwrapped = unwrapEnvelope(body) as Record<string, any>;
+        const unwrapped = unwrapEnvelope(body) as Record<string, unknown>;
         const errObj =
           unwrapped?.error && typeof unwrapped.error === "object"
             ? unwrapped.error
             : unwrapped;
-        if (errObj?.detail || errObj?.message) {
-          errorMsg = String(errObj.detail || errObj.message);
+        const errorRecord = errObj && typeof errObj === "object"
+          ? (errObj as Record<string, unknown>)
+          : undefined;
+        const detail = typeof errorRecord?.detail === "string" ? errorRecord.detail : undefined;
+        const message = typeof errorRecord?.message === "string" ? errorRecord.message : undefined;
+        if (detail || message) {
+          errorMsg = detail || message || errorMsg;
         }
       } catch {
         // use status message
@@ -659,7 +664,7 @@ export async function executeOperatorAction(
     }
 
     const raw = await res.json();
-    const data = (unwrapEnvelope(raw) as Record<string, any>) || {};
+    const data = (unwrapEnvelope(raw) as Record<string, unknown>) || {};
 
     return {
       success: true,

@@ -39,7 +39,7 @@ const FAILURES_BEFORE_OFFLINE = 2;
 export function ConnectionProvider({ children }: { children: ReactNode }) {
   const [apiOnline, setApiOnline] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
-  const [activeSessions, setActiveSessions] = useState(0);
+  const [activeSessions] = useState(0);
   const [apiGatewayStatus, setApiGatewayStatus] = useState<ApiGatewayStatus>("unknown");
   const failStreakRef = useRef(0);
   const onlineRef = useRef(false);

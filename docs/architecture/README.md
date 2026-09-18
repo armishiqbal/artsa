@@ -5,6 +5,9 @@ GitHub Cloud actions invoked through MCP. This directory is the product and
 engineering source of truth; it does not claim a capability until it is live
 and tested.
 
+The ordered closed-beta delivery plan is
+[Phase 7 — Managed GitHub MCP Closed Beta](../PHASE_7_MANAGED_GITHUB_MCP_CLOSED_BETA.md).
+
 - [Product vision](PRODUCT_VISION.md)
 - [System architecture](SYSTEM_ARCHITECTURE.md)
 - [MCP runtime gateway](MCP_RUNTIME_GATEWAY.md)

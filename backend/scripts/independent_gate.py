@@ -34,9 +34,15 @@ def main() -> int:
         action="store_true",
         help="print machine-readable results (reproducible public-scoring output)",
     )
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        default=INDEPENDENT,
+        help="curated dataset to evaluate (defaults to the independent set)",
+    )
     args = parser.parse_args()
 
-    data = json.loads(INDEPENDENT.read_text(encoding="utf-8"))
+    data = json.loads(args.dataset.read_text(encoding="utf-8"))
     samples = data["samples"]
     engine = ContainmentEngine()
 

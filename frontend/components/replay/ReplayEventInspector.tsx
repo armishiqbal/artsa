@@ -12,7 +12,6 @@ import { categorizeTrajectoryAction } from "@/lib/replayTrajectory";
 import type { ToolCallEvent } from "@/lib/types";
 import { ReplayLayerScores } from "@/components/replay/ReplayLayerScores";
 import { SessionLayerStrip } from "@/components/shared/SessionLayerStrip";
-import { cn } from "@/lib/utils";
 
 export interface EvaluationView extends Record<string, unknown> {
   risk_score?: number;

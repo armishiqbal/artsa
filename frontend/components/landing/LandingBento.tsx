@@ -81,7 +81,7 @@ export function LandingBento() {
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
         >
-          {BENTO.map((cell, i) => (
+          {BENTO.map((cell) => (
             <motion.div key={cell.title} variants={fadeUp} transition={{ ease: easeOut }}>
               <Link
                 href={cell.href}

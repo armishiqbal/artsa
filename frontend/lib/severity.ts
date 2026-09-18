@@ -24,6 +24,7 @@ export function severityFromScore(score: number): SeverityLabel {
 }
 
 /** Badge variant for numeric risk scores (RiskScore component). */
-export function riskScoreBadgeVariant(_score: number): "secondary" {
+export function riskScoreBadgeVariant(score: number): "secondary" {
+  void score;
   return "secondary";
 }

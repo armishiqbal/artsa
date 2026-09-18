@@ -309,7 +309,6 @@ function RedTeamCampaignsInner() {
           </div>
           <ul className="mt-2 space-y-1.5">
             {ongoing.map((c) => {
-              const total = Math.max(1, Number(c.total_rounds || 1));
               const done = Number(c.rounds_completed || 0);
               return (
                 <li

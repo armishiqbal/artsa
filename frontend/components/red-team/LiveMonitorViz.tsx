@@ -205,7 +205,6 @@ export function AttackDefenseGauge({
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const attackOffset = c * (1 - a);
-  const defenseOffset = c * (1 - d);
 
   return (
     <div className="flex h-full flex-col items-center justify-center rounded-md border border-border p-3">
