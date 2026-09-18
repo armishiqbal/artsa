@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type ProjectMode = "Detect" | "Enforce";
+export type Project = ProjectItem;
 
 export interface ProjectItem {
   id: string;

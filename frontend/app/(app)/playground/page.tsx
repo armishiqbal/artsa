@@ -15,10 +15,14 @@ import {
   Loader2,
   Scan,
   Send,
+  Shield,
   ShieldCheck,
   ShieldOff,
   Sparkles,
   Type,
+  Plus,
+  Eye,
+  FolderKanban,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +38,8 @@ import {
   terminalAssessment,
 } from "@/lib/guardAssessment";
 import { selectPlaygroundProviderId } from "@/lib/playgroundProviderSelection";
+import { useProjectsStore } from "@/lib/stores/projects";
+import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
 import { cn } from "@/lib/utils";
 
 type Provider = { id: string; name: string; provider_type: string; default_model?: string | null; enabled?: boolean };
@@ -277,6 +283,23 @@ function GuardRunCard({ run }: { run: GuardRun }) {
       )}
 
       {run.assessment && (
+        <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
+          <Link
+            href={`/logs?project=${encodeURIComponent(run.projectName || "all")}`}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          >
+            <span>View in Activity Logs</span>
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+          {run.projectName && (
+            <span className="text-[11px] font-mono text-muted-foreground">
+              Project: {run.projectName}
+            </span>
+          )}
+        </div>
+      )}
+
+      {run.assessment && (
         <details className="mt-3 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
           <summary className="cursor-pointer font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Technical details</summary>
           <dl className="mt-2 grid gap-1 font-mono">
@@ -417,6 +440,32 @@ export default function SecurityPlaygroundPage() {
   const guardInputRef = useRef<HTMLTextAreaElement | null>(null);
   const providerSelectionTouchedRef = useRef(false);
 
+  // Dynamic projects integration
+  const { projects, loadProjects } = useProjectsStore();
+  const { appendLiveEvent } = useDashboardMetrics();
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("none");
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const projectMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  useEffect(() => {
+    const closeProjectMenu = (e: MouseEvent) => {
+      if (projectMenuRef.current && !projectMenuRef.current.contains(e.target as Node)) {
+        setProjectMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", closeProjectMenu);
+    return () => document.removeEventListener("mousedown", closeProjectMenu);
+  }, []);
+
+  const activeProject = useMemo(() => {
+    if (selectedProjectId === "none") return null;
+    return projects.find((p) => p.id === selectedProjectId) ?? null;
+  }, [projects, selectedProjectId]);
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -516,6 +565,8 @@ export default function SecurityPlaygroundPage() {
       providerId: providerRef || undefined,
       model: model || selectedProvider?.default_model || undefined,
       nature: defaultNature,
+      projectName: activeProject?.name,
+      projectMode: activeProject?.mode,
     };
     activeRunRef.current = runId;
     setRuns((items) => [run, ...items.filter((item) => item.id !== runId)].slice(0, 50));
@@ -523,6 +574,10 @@ export default function SecurityPlaygroundPage() {
   };
 
   const finishRun = (assessment: GuardAssessment, extras: Partial<GuardRun> = {}) => {
+    const projectName = activeProject?.name || "No project";
+    const projectMode = activeProject?.mode || (mode === "block" ? "Enforce" : "Detect");
+    const projectPolicy = activeProject?.policy || "ARTSA Default Policy";
+
     setRuns((items) => {
       const existing = items.find((item) => item.id === assessment.runId);
       const draft: GuardRun = {
@@ -532,6 +587,8 @@ export default function SecurityPlaygroundPage() {
         providerId: existing?.providerId,
         model: existing?.model,
         nature: existing?.nature,
+        projectName: existing?.projectName || activeProject?.name,
+        projectMode: existing?.projectMode || activeProject?.mode,
         ...extras,
         status: assessment.outcome,
         assessment,
@@ -542,6 +599,40 @@ export default function SecurityPlaygroundPage() {
       };
       return [completed, ...items.filter((item) => item.id !== assessment.runId)].slice(0, 50);
     });
+
+    // Automatically emit live telemetry event for Activity Logs (/logs)
+    const detectedList = assessment.categories?.filter((c) => c.status === "detected") ?? [];
+    const isThreat =
+      assessment.outcome === "flagged" ||
+      assessment.action === "BLOCK" ||
+      (assessment.riskScore !== null && assessment.riskScore >= 60) ||
+      detectedList.length > 0;
+    const finalAction = projectMode === "Enforce" && isThreat ? "KILL" : isThreat ? "FLAG" : "ALLOW";
+
+    appendLiveEvent({
+      event_id: `req_${assessment.runId.slice(0, 8)}`,
+      id: `req_${assessment.runId.slice(0, 8)}`,
+      timestamp: new Date().toISOString(),
+      triggered_at: new Date().toISOString(),
+      project: projectName,
+      project_name: projectName,
+      mode: projectMode,
+      policy: projectPolicy,
+      action: finalAction,
+      recommended_action: finalAction,
+      risk_score: assessment.riskScore ?? (isThreat ? 85 : 5),
+      verdict: isThreat ? "BREACHED" : "CLEAN",
+      tool_name: "playground_prompt_scan",
+      arguments: extras.promptPreview || "Playground prompt evaluation",
+      latency_ms: 24,
+      threat_categories: detectedList.map((c) => c.category),
+      metadata: {
+        application: activeProject?.application || "Playground",
+        model: extras.model || model || "default",
+        tags: activeProject?.customTags || {},
+      },
+    });
+
     setDetailPanel("logs");
     if (activeRunRef.current === assessment.runId) activeRunRef.current = null;
   };
@@ -560,7 +651,16 @@ export default function SecurityPlaygroundPage() {
     try {
       const data = await fetchFromBackend<{ action: string; session_id?: string; assessment?: unknown; result: Evidence }>("/api/v1/playground/scan", {
         method: "POST",
-        body: JSON.stringify({ system_prompt: systemPrompt, content, channel, template_id: templateId || null, run_id: runId }),
+        body: JSON.stringify({
+          system_prompt: systemPrompt,
+          content,
+          channel,
+          template_id: templateId || null,
+          run_id: runId,
+          project: activeProject?.name || null,
+          policy: activeProject?.policy || null,
+          mode: activeProject ? (activeProject.mode === "Enforce" ? "block" : "monitor") : mode,
+        }),
         timeoutMs: 45_000,
         signal: controller.signal,
       });
@@ -569,6 +669,10 @@ export default function SecurityPlaygroundPage() {
         if (!assessment) {
           showUnavailable();
         } else {
+          if (activeProject?.mode === "Detect" && assessment.action === "BLOCK") {
+            assessment.action = "ALLOW";
+            assessment.outcome = "flagged";
+          }
           finishRun(assessment, { nature: initialNature });
         }
       } else if (!controller.signal.aborted) {
@@ -612,7 +716,9 @@ export default function SecurityPlaygroundPage() {
           provider_ref: providerRef || null,
           model: model || null,
           template_id: templateId || null,
-          mode,
+          mode: activeProject ? (activeProject.mode === "Enforce" ? "block" : "monitor") : mode,
+          project: activeProject?.name || null,
+          policy: activeProject?.policy || null,
           run_id: runId,
         }),
       });
@@ -639,9 +745,20 @@ export default function SecurityPlaygroundPage() {
                     ? "This message is waiting for an approval review."
                     : assessment.outcome === "unavailable" || providerUnavailable
                     ? "Provider unavailable. Check the provider selection and configuration, then try again."
+                    : activeProject?.mode === "Enforce"
+                    ? `[BLOCKED BY ENFORCE MODE]: This request was blocked by ARTSA Guard (${activeProject.policy}) due to security policy violations.`
+                    : activeProject?.mode === "Detect"
+                    ? `[FLAGGED IN DETECT MODE]: Threat detected by ARTSA Guard (${activeProject.policy}). Request allowed; telemetry recorded to Activity Logs.`
                     : "This message has been blocked due to security policies.",
-                  status: assessment.outcome === "approval" ? "approval" : assessment.outcome === "unavailable" ? "unavailable" : "blocked",
-                  action,
+                  status:
+                    activeProject?.mode === "Detect" && (assessment.action === "BLOCK" || assessment.outcome === "flagged")
+                      ? "allowed"
+                      : assessment.outcome === "approval"
+                      ? "approval"
+                      : assessment.outcome === "unavailable"
+                      ? "unavailable"
+                      : "blocked",
+                  action: activeProject?.mode === "Detect" && action === "BLOCK" ? "ALLOW" : action,
                 }
               : message
           )
@@ -941,6 +1058,140 @@ export default function SecurityPlaygroundPage() {
                   </div>
                 )}
               </div>
+
+              {/* Active Project Dropdown */}
+              <div className="relative" ref={projectMenuRef}>
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={projectMenuOpen}
+                  onClick={() => setProjectMenuOpen((open) => !open)}
+                  aria-label="Select Active Project"
+                  className={cn(
+                    "flex min-w-[200px] sm:min-w-[220px] cursor-pointer items-center justify-between gap-3 rounded-lg border bg-background px-3.5 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    projectMenuOpen
+                      ? "border-primary ring-1 ring-primary/20 shadow-xs"
+                      : "border-border/80 hover:border-foreground/30"
+                  )}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[11px] font-normal leading-tight text-muted-foreground">Active Project</span>
+                    <span className="truncate text-sm font-medium leading-snug text-foreground">
+                      {activeProject ? activeProject.name : "No project (Default)"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {activeProject ? (
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
+                          activeProject.mode === "Enforce"
+                            ? "bg-primary/10 text-primary border border-primary/20"
+                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        )}
+                      >
+                        {activeProject.mode}
+                      </span>
+                    ) : (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+                        Global
+                      </span>
+                    )}
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-150", projectMenuOpen && "rotate-180")} />
+                  </div>
+                </button>
+
+                {projectMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute left-0 top-full z-40 mt-1.5 w-72 rounded-xl border border-border/80 bg-popover/95 p-1.5 shadow-xl backdrop-blur-md animate-in fade-in-50 zoom-in-95"
+                  >
+                    <div className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Target Project Guardrail
+                    </div>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setSelectedProjectId("none");
+                        setProjectMenuOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors",
+                        selectedProjectId === "none" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      )}
+                    >
+                      <div className="flex flex-col text-left">
+                        <span className="font-medium text-foreground">No project (Default)</span>
+                        <span className="text-[10px] text-muted-foreground">Standard unassigned simulation</span>
+                      </div>
+                      {selectedProjectId === "none" && <Check className="h-3.5 w-3.5 text-foreground shrink-0" />}
+                    </button>
+
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setSelectedProjectId(p.id);
+                          setProjectMenuOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors",
+                          selectedProjectId === p.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                        )}
+                      >
+                        <div className="flex flex-col text-left min-w-0 pr-2">
+                          <span className="truncate font-medium text-foreground">{p.name}</span>
+                          <span className="text-[10px] text-muted-foreground truncate">{p.policy}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={cn(
+                              "rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase",
+                              p.mode === "Enforce" ? "bg-primary/10 text-primary" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                            )}
+                          >
+                            {p.mode}
+                          </span>
+                          {selectedProjectId === p.id && <Check className="h-3.5 w-3.5 text-foreground" />}
+                        </div>
+                      </button>
+                    ))}
+
+                    <div className="mt-1 border-t border-border/60 pt-1">
+                      <Link
+                        href="/projects/new"
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-primary hover:bg-muted/40"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Create new project</span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Active Project Mode Status Indicator */}
+              {activeProject && (
+                <div className="hidden 2xl:flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/30 px-2 py-1 text-[11px]">
+                  {activeProject.mode === "Enforce" ? (
+                    <>
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="font-medium text-foreground">Enforce Mode</span>
+                      <span className="text-muted-foreground">· Blocking active</span>
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="font-medium text-foreground">Detect Mode</span>
+                      <span className="text-muted-foreground">· Flagging only</span>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Guard Tester: Custom prompt vs Examples segmented toggle */}
               {playground === "guard" && (

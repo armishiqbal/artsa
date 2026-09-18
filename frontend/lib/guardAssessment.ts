@@ -38,6 +38,8 @@ export type GuardRun = {
   model?: string;
   approvalId?: string;
   nature?: RunNature;
+  projectName?: string;
+  projectMode?: "Detect" | "Enforce";
 };
 
 export const GUARD_CATEGORIES: readonly GuardCategory[] = [
