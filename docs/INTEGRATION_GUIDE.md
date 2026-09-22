@@ -429,8 +429,28 @@ curl -s -X POST localhost:8000/api/v1/integrations/my-siem/test \
 ```
 
 The Test action never raises and never echoes secrets; `status` is `sent` when
-any delivery attempt succeeded. Dispatch is non-blocking (bounded worker queue)
-so connector latency or outages never slow the ingest hot path.
+any delivery attempt succeeded. Production events are persisted to an encrypted
+outbox before the background worker is signalled, so a worker restart or full
+memory queue cannot silently lose them. ARTSA never waits for downstream HTTP
+from the ingest path; the only synchronous work is the local durable enqueue.
+
+Receivers should deduplicate `Idempotency-Key` (also sent as
+`X-ARTSA-Delivery-ID`), and use `X-ARTSA-Correlation-ID` to join the event to
+ARTSA evidence. Delivery outcome history is digest-only:
+
+```bash
+# Tenant-scoped outcomes: DELIVERED or DEAD_LETTER; no raw payload or secrets
+curl -s localhost:8000/api/v1/integrations/my-siem/deliveries
+
+# Explicitly retry a replayable, failed delivery. This never exposes its payload.
+curl -s -X POST \
+  localhost:8000/api/v1/integrations/my-siem/deliveries/DELIVERY_ID/replay
+```
+
+The encrypted event payload is erased immediately after a successful delivery.
+Failed payloads remain replayable for
+`ARTSA_CUSTOM_INTEGRATION_DEAD_LETTER_RETENTION_DAYS` (30 by default), then are
+deleted at service startup; the digest-only delivery ledger remains for audit.
 
 ---
 

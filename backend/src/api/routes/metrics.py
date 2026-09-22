@@ -168,7 +168,7 @@ async def ops_telemetry(tenant_id: str = Depends(get_current_tenant)) -> dict[st
 
 @router.get("/taxonomy/asi")
 async def asi_taxonomy() -> dict[str, Any]:
-    """OWASP ASI01–ASI10 with honest detector coverage. ASI08 is never supported."""
+    """OWASP ASI01–ASI10 with honest detector coverage and ASI08 breaker status."""
     return {
         "catalog": asi_catalog(),
         "hmac": {

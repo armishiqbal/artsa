@@ -3,8 +3,9 @@
 WARNING: this is a heuristic placeholder, NOT production-grade drift analysis.
 It flags spans whose ``input_prompt`` contains a few hardcoded keywords and
 returns a synthetic 0-10 drift score. It does NOT compute real embedding-vector
-drift, and ingested traces live only in memory (lost on restart). The feature
-is gated behind ``ARTSA_OTEL_ENABLED`` (default off) and is not advertised as
+drift. The API persists only digest-only analysis evidence; raw span attributes
+remain request-local and are never written to ARTSA storage. The feature is
+gated behind ``ARTSA_OTEL_ENABLED`` (default off) and is not advertised as
 supported.
 """
 
@@ -50,12 +51,12 @@ class OTELTraceIngestor:
     """EXPERIMENTAL heuristic trace scorer (see module docstring — NOT real vector drift)."""
 
     def __init__(self) -> None:
-        self._ingested_traces: list[OTELTracePayload] = []
+        self._ingested_count = 0
 
     def process_trace(self, payload: OTELTracePayload) -> OTELDriftAnalysisResult:
         """Score a trace with the keyword heuristic. Experimental — see module docstring."""
         logger.warning(
-            "OTEL trace ingest is EXPERIMENTAL (keyword heuristic, in-memory, no vector drift) — trace %s",
+            "OTEL trace ingest is EXPERIMENTAL (keyword heuristic, no vector drift) — trace %s",
             payload.trace_id,
         )
         spans_count = len(payload.spans)
@@ -72,7 +73,7 @@ class OTELTraceIngestor:
 
         alert_triggered = max_drift >= 7.0
 
-        self._ingested_traces.append(payload)
+        self._ingested_count += 1
         logger.info("Processed OTEL Trace %s (%d spans) | Max Drift: %.1f | Alert=%s", payload.trace_id, spans_count, max_drift, alert_triggered)
 
         return OTELDriftAnalysisResult(
@@ -85,4 +86,4 @@ class OTELTraceIngestor:
 
     def get_ingested_count(self) -> int:
         """Return total count of processed OTEL traces."""
-        return len(self._ingested_traces)
+        return self._ingested_count

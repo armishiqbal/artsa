@@ -22,8 +22,9 @@ import json
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_tenant
@@ -35,6 +36,7 @@ from src.data.integration_store import (
     slugify,
     upsert_integration,
 )
+from src.data.orm import CustomIntegrationDeliveryORM, CustomIntegrationOutboxORM
 from src.services.custom_integration_dispatcher import (
     AUTH_SECRET_NAMES,
     dispatch,
@@ -271,6 +273,87 @@ async def integrations_get(
     return {"integration": row}
 
 
+@router.get("/integrations/{name}/deliveries")
+async def integration_delivery_history(
+    name: str,
+    limit: int = Query(default=50, ge=1, le=100),
+    session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
+) -> dict[str, Any]:
+    """Return tenant-scoped, metadata-only delivery outcomes for a connector."""
+    integration_name = slugify(name)
+    exists = await get_integration(
+        session, integration_name, include_secrets=False, tenant_id=tenant_id
+    )
+    if exists is None:
+        raise HTTPException(status_code=404, detail=f"integration '{integration_name}' not found")
+    rows = (
+        await session.execute(
+            select(CustomIntegrationDeliveryORM)
+            .where(
+                CustomIntegrationDeliveryORM.tenant_id == tenant_id,
+                CustomIntegrationDeliveryORM.integration_name == integration_name,
+            )
+            .order_by(CustomIntegrationDeliveryORM.created_at.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    return {
+        "deliveries": [
+            {
+                "delivery_id": row.delivery_id,
+                "correlation_id": row.correlation_id,
+                "event_type": row.event_type,
+                "payload_sha256": row.payload_sha256,
+                "status": row.status,
+                "attempt_count": row.attempt_count,
+                "failure_code": row.failure_code,
+                "delivered_at": row.delivered_at,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ],
+        "total": len(rows),
+    }
+
+
+@router.post("/integrations/{name}/deliveries/{delivery_id}/replay", status_code=202)
+async def replay_dead_letter(
+    name: str,
+    delivery_id: str,
+    session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
+) -> dict[str, Any]:
+    """Explicitly requeue a tenant-owned encrypted dead letter for delivery."""
+    integration_name = slugify(name)
+    exists = await get_integration(
+        session, integration_name, include_secrets=False, tenant_id=tenant_id
+    )
+    if exists is None:
+        raise HTTPException(status_code=404, detail=f"integration '{integration_name}' not found")
+    row = (
+        await session.execute(
+            select(CustomIntegrationOutboxORM).where(
+                CustomIntegrationOutboxORM.tenant_id == tenant_id,
+                CustomIntegrationOutboxORM.integration_name == integration_name,
+                CustomIntegrationOutboxORM.delivery_id == delivery_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None or row.status != "DEAD_LETTER":
+        raise HTTPException(status_code=404, detail="replayable dead letter not found")
+
+    from src.services.custom_integration_dispatcher import custom_integration_worker
+    from src.services.custom_integration_outbox import requeue
+
+    if not requeue(
+        delivery_row_id=row.id, tenant_id=tenant_id, integration_name=integration_name
+    ):
+        raise HTTPException(status_code=409, detail="delivery cannot be replayed")
+    custom_integration_worker.schedule_replay(row.id)
+    return {"status": "requeued", "delivery_id": delivery_id}
+
+
 @router.patch("/integrations/{name}")
 async def integrations_patch(
     name: str,
@@ -330,12 +413,15 @@ async def integrations_test(
     name: str,
     payload: dict[str, Any] = Body(default={}),
     session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
     """Dispatch a synthetic sample event through the connector (disabled ones included).
 
     Never raises on upstream failure and never returns secrets.
     """
-    row = await get_integration(session, slugify(name), include_secrets=True)
+    row = await get_integration(
+        session, slugify(name), include_secrets=True, tenant_id=tenant_id
+    )
     if row is None:
         raise HTTPException(status_code=404, detail=f"integration '{slugify(name)}' not found")
 
@@ -349,6 +435,7 @@ async def integrations_test(
     integration = CustomIntegration(
         name=row["name"],
         target_url=row["target_url"],
+        tenant_id=tenant_id,
         method=row["method"],
         description=row["description"],
         auth_type=row["auth_type"],

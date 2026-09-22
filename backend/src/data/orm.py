@@ -139,6 +139,84 @@ class CustomIntegrationORM(Base):
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
 
 
+class CustomIntegrationDeliveryORM(Base):
+    """Tenant-scoped, metadata-only outcomes for outbound connector delivery.
+
+    The outbound payload is deliberately excluded: it can carry incident text,
+    prompts, or secrets. Operators retain the delivery identity, correlation,
+    payload digest, attempt count, and terminal state needed to investigate a
+    failed delivery without creating a second sensitive-data store.
+    """
+
+    __tablename__ = "custom_integration_deliveries"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "integration_name", "delivery_id",
+            name="uq_custom_integration_delivery",
+        ),
+        Index("ix_custom_integration_delivery_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(255), index=True)
+    integration_name: Mapped[str] = mapped_column(String(64), index=True)
+    event_type: Mapped[str] = mapped_column(String(32))
+    delivery_id: Mapped[str] = mapped_column(String(128))
+    correlation_id: Mapped[str] = mapped_column(String(255))
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32))  # DELIVERED | DEAD_LETTER
+    attempt_count: Mapped[int] = mapped_column(Integer, default=1)
+    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class CustomIntegrationOutboxORM(Base):
+    """Encrypted, short-lived delivery payload for pending or dead-letter work.
+
+    It is distinct from the digest-only delivery ledger. Ciphertext is cleared
+    on successful delivery, while terminal failures retain it only to support a
+    deliberate operator replay. No headers or connector secrets are copied.
+    """
+
+    __tablename__ = "custom_integration_outbox"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "integration_name", "delivery_id",
+            name="uq_custom_integration_outbox_delivery",
+        ),
+        Index("ix_custom_integration_outbox_pending", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(255), index=True)
+    integration_name: Mapped[str] = mapped_column(String(64), index=True)
+    event_type: Mapped[str] = mapped_column(String(32))
+    delivery_id: Mapped[str] = mapped_column(String(128))
+    correlation_id: Mapped[str] = mapped_column(String(255))
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    event_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING")
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class TargetORM(Base):
     """A registered AI system under test.
 
@@ -268,8 +346,43 @@ class EventEvaluationORM(Base):
     recommended_action: Mapped[str] = mapped_column(String(32), default="NONE")
     flags: Mapped[list[str]] = mapped_column(JSON, default=list)
     security_event_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Decision lineage: bounded metadata only, never raw arguments/output.
+    evaluation_contract_version: Mapped[str] = mapped_column(String(32), default="1.0")
+    policy_version: Mapped[str] = mapped_column(String(64), default="0")
+    embedding_model: Mapped[str] = mapped_column(String(128), default="unknown")
+    detector_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     # WS-3.1: row-level org isolation.
     tenant_id: Mapped[str] = mapped_column(String(255), default="default_tenant", index=True)
+
+
+class HumanReviewORM(Base):
+    """Tenant-scoped operator labels for measured production detection quality.
+
+    This intentionally stores only stable source references and reason codes,
+    never prompts, tool arguments, model output, or reviewer free text.
+    """
+
+    __tablename__ = "human_reviews"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "source_type", "source_ref", name="uq_human_review_source"),
+        Index("ix_human_review_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(255), index=True)
+    source_type: Mapped[str] = mapped_column(String(32))  # event | finding | external
+    source_ref: Mapped[str] = mapped_column(String(255))
+    machine_verdict: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    classification: Mapped[str] = mapped_column(String(32))
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
 
 class CampaignJobORM(Base):
@@ -552,6 +665,32 @@ class PlaygroundRunAuditORM(Base):
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     estimated_tokens: Mapped[bool] = mapped_column(Boolean, default=False)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class OTELTraceAuditORM(Base):
+    """Digest-only, tenant-scoped evidence for experimental OTEL trace analysis.
+
+    Raw OpenTelemetry/OpenInference attributes can contain prompts, tool output,
+    credentials, or PII. They are deliberately never persisted here.
+    """
+
+    __tablename__ = "otel_trace_audits"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "trace_id", name="uq_otel_trace_audit_tenant_trace"),
+        Index("ix_otel_trace_audit_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(255), index=True)
+    trace_id: Mapped[str] = mapped_column(String(255), index=True)
+    resource_sha256: Mapped[str] = mapped_column(String(64))
+    spans_processed: Mapped[int] = mapped_column(Integer, default=0)
+    max_drift_score: Mapped[float] = mapped_column(Float, default=0.0)
+    exploit_alert_triggered: Mapped[bool] = mapped_column(Boolean, default=False)
+    detected_threats: Mapped[list[Any]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

@@ -34,6 +34,7 @@ const STROKE: Record<AttackFlowStatus, string> = {
   done: "#4ade80",
   blocked: "#fbbf24",
   breached: "#f87171",
+  not_wired: "#737373",
 };
 
 const FILL: Record<AttackFlowStatus, string> = {
@@ -42,6 +43,7 @@ const FILL: Record<AttackFlowStatus, string> = {
   done: "hsl(var(--status-success-subtle))",
   blocked: "hsl(var(--status-warning-subtle))",
   breached: "hsl(var(--status-error-subtle))",
+  not_wired: "hsl(var(--muted))",
 };
 
 interface RedTeamAttackFlowGraphProps {
@@ -67,6 +69,8 @@ function statusLabel(s: AttackFlowStatus): string {
       return "BLOCKED";
     case "breached":
       return "BREACHED";
+    case "not_wired":
+      return "NOT WIRED";
     default:
       return "PENDING";
   }
@@ -228,13 +232,13 @@ export function RedTeamAttackFlowGraph({
                   y2={y}
                   stroke={STROKE[status]}
                   strokeWidth={status === "active" ? 2 : 1.5}
-                  strokeDasharray={status === "pending" ? "4 4" : undefined}
-                  opacity={status === "pending" ? 0.55 : 1}
+                  strokeDasharray={status === "pending" || status === "not_wired" ? "4 4" : undefined}
+                  opacity={status === "pending" || status === "not_wired" ? 0.55 : 1}
                 />
                 <polygon
                   points={`${x2 - 1},${y} ${x2 - 8},${y - 4} ${x2 - 8},${y + 4}`}
                   fill={STROKE[status]}
-                  opacity={status === "pending" ? 0.55 : 1}
+                  opacity={status === "pending" || status === "not_wired" ? 0.55 : 1}
                 />
                 <text
                   x={mid}
@@ -275,6 +279,9 @@ export function RedTeamAttackFlowGraph({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Pending
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-muted" /> Not wired
         </span>
       </div>
     </div>

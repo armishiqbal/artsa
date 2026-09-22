@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   detectionRateFromEvents,
   eventsFromRounds,
+  idleAgents,
   verdictToOutcome,
   type LiveMonitorEvent,
 } from "@/lib/liveMonitorEvents";
@@ -26,6 +27,22 @@ describe("liveMonitorEvents", () => {
     expect(events).toHaveLength(3);
     expect(events.map((e) => e.kind)).toEqual(["attack", "response", "verdict"]);
     expect(events[2].outcome).toBe("pass");
+    expect(events[2].agents).toMatchObject({
+      research: "not_wired",
+      curator: "not_wired",
+      defender: "not_wired",
+      red_team: "done",
+      target: "done",
+      judge: "done",
+    });
+  });
+
+  it("keeps planned roles visibly not wired before any campaign events", () => {
+    expect(idleAgents()).toMatchObject({
+      research: "not_wired",
+      curator: "not_wired",
+      defender: "not_wired",
+    });
   });
 
   it("computes running detection rate sparkline", () => {

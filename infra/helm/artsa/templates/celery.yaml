@@ -14,21 +14,30 @@ spec:
       labels:
         {{- include "artsa.celery.labels" . | nindent 8 }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      envFrom:
+        - secretRef:
+            name: {{ include "artsa.secretName" . }}
       containers:
         - name: celery
           image: "{{ .Values.image.api.repository }}:{{ .Values.image.api.tag }}"
           imagePullPolicy: {{ .Values.image.api.pullPolicy }}
           workingDir: /app/backend
           command: ["python", "-m", "celery", "-A", "src.workers.celery_app", "worker", "--loglevel=info"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: PYTHONPATH
               value: /app/backend
-            {{- if not .Values.secrets.create }}
-            - name: DATABASE_URL
-              value: {{ include "artsa.databaseUrl" . | quote }}
-            {{- end }}
             {{- range $key, $value := .Values.env }}
-            {{- if not (and $.Values.secrets.create (eq $key "REDIS_URL")) }}
+            {{- if ne $key "REDIS_URL" }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}

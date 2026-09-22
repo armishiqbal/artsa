@@ -121,7 +121,8 @@ export default function FindingsPage() {
             ) : (
               <DashboardCard title="Chain of custody" description="Select a finding to inspect the agent hop trail">
                 <p className="text-sm text-muted-foreground">
-                  Each finding traces Research → Curator → Red Team → Target → Judge → Defender.
+                  Wired findings trace Red Team → Target → Judge. Research, Curator, and Defender
+                  are planned roles and remain explicitly not wired.
                 </p>
               </DashboardCard>
             )}

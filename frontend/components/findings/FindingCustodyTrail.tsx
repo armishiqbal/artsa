@@ -16,7 +16,7 @@ interface FindingCustodyTrailProps {
 
 export function FindingCustodyTrail({ chain }: FindingCustodyTrailProps) {
   return (
-    <DashboardCard title="Chain of custody" description="Research → Defender hop trail for this finding">
+    <DashboardCard title="Chain of custody" description="Wired Red Team → Target → Judge evidence; planned roles are marked not wired">
       <ol className="space-y-3">
         {chain.map((hop, idx) => {
           const agentId = hop.agent as PipelineAgentId;

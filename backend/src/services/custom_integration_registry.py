@@ -40,6 +40,7 @@ class CustomIntegration:
 
     name: str
     target_url: str
+    tenant_id: str = "default_tenant"
     method: str = "POST"
     description: str | None = None
     auth_type: str = "none"
@@ -57,7 +58,9 @@ class CustomIntegrationRegistry:
     """In-memory cache of enabled connectors (read by the dispatch worker)."""
 
     def __init__(self) -> None:
-        self._items: dict[str, CustomIntegration] = {}
+        # Names are unique per tenant in the database, not globally. Keep the
+        # same boundary in the runtime cache or one tenant can replace another.
+        self._items: dict[tuple[str, str], CustomIntegration] = {}
 
     def load(self, rows: list[dict[str, Any]]) -> None:
         """Replace the cache from persisted rows (decrypted secrets)."""
@@ -71,6 +74,11 @@ class CustomIntegrationRegistry:
             name = row.get("name")
             if not name:
                 continue
+            tenant_id = row.get("tenant_id") or "default_tenant"
+            if not isinstance(tenant_id, str) or not tenant_id.strip():
+                logger.warning("Skipping custom integration %s with invalid tenant", name)
+                continue
+            tenant_id = tenant_id.strip()
             secrets: dict[str, str] = {}
             for secret_name, ciphertext in (row.get("secrets") or {}).items():
                 if not ciphertext:
@@ -79,9 +87,10 @@ class CustomIntegrationRegistry:
                     secrets[secret_name] = decrypt_secret(str(ciphertext), settings.SECRET_KEY)
                 except Exception:
                     secrets[secret_name] = ""
-            self._items[name] = CustomIntegration(
+            self._items[(tenant_id, name)] = CustomIntegration(
                 name=name,
                 target_url=target_url,
+                tenant_id=tenant_id,
                 method=(row.get("method") or "POST").upper(),
                 description=row.get("description"),
                 auth_type=(row.get("auth_type") or "none").lower(),
@@ -96,18 +105,24 @@ class CustomIntegrationRegistry:
             )
         logger.debug("Custom integration registry loaded %d connectors", len(self._items))
 
-    def get(self, name: str | None) -> CustomIntegration | None:
+    def get(
+        self, name: str | None, tenant_id: str = "default_tenant"
+    ) -> CustomIntegration | None:
         if not name:
             return None
-        return self._items.get(name.strip().lower())
+        return self._items.get((tenant_id, name.strip().lower()))
 
     def names(self) -> list[str]:
-        return sorted(self._items.keys())
+        return sorted(f"{tenant}/{name}" for tenant, name in self._items)
 
-    def matching(self, event_type: str, risk: float) -> list[CustomIntegration]:
+    def matching(
+        self, event_type: str, risk: float, tenant_id: str = "default_tenant"
+    ) -> list[CustomIntegration]:
         """Return enabled connectors subscribed to this event type & risk band."""
         matched: list[CustomIntegration] = []
-        for item in self._items.values():
+        for (item_tenant_id, _name), item in self._items.items():
+            if item_tenant_id != tenant_id:
+                continue
             if not item.enabled:
                 continue
             if event_type not in item.event_types:
@@ -139,6 +154,7 @@ class CustomIntegrationRegistry:
                     [
                         {
                             "name": r.name,
+                            "tenant_id": r.tenant_id,
                             "target_url": r.target_url,
                             "method": r.method,
                             "description": r.description,

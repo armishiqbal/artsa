@@ -24,14 +24,10 @@ spec:
             - name: POSTGRES_USER
               value: {{ .Values.postgresql.auth.username }}
             - name: POSTGRES_PASSWORD
-              {{- if .Values.secrets.create }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "artsa.name" . }}-secrets
+                  name: {{ include "artsa.secretName" . }}
                   key: POSTGRES_PASSWORD
-              {{- else }}
-              value: {{ .Values.postgresql.auth.password | quote }}
-              {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -62,8 +58,15 @@ spec:
       containers:
         - name: redis
           image: {{ .Values.redis.image }}
+          command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
           ports:
             - containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "artsa.secretName" . }}
+                  key: REDIS_PASSWORD
 ---
 apiVersion: v1
 kind: Service

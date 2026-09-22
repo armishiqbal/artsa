@@ -187,7 +187,6 @@ export type StrategicModel = {
 
 const BASELINE = 62;
 const HOP_SLO_MS = 50;
-const ASI08 = "ASI08";
 const LIVE_THRESHOLD = 8;
 
 const CANONICAL_HOPS: Array<[SixAgentName, SixAgentName]> = [
@@ -442,7 +441,9 @@ function asiCells(events: AgentEvent[]): AsiCell[] {
   }
   const maxHits = Math.max(1, ...hits.values());
   return ASI_CATEGORIES.map((c) => {
-    const built = c.code !== ASI08;
+    // ASI08 is covered by the durable session circuit breaker. A zero-hit
+    // window means no trip was observed, not that the control is absent.
+    const built = true;
     const n = hits.get(c.code) ?? 0;
     return {
       code: c.code,
@@ -768,8 +769,8 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
         kind,
         id,
         title: "HMAC handoff",
-        subtitle: "Inter-agent signing is not wired",
-        fields: [{ label: "Status", value: "NOT WIRED" }],
+        subtitle: "Signed Red Team → Target → Judge handoffs",
+        fields: [{ label: "Scope", value: "RT → Target → Judge" }, { label: "Other roles", value: "NOT WIRED" }],
         alertsHref,
         detectionsHref: alertsHref,
         findingsHref: "/findings",
@@ -924,7 +925,7 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
         kind,
         id,
         title: `${a.code} · ${a.short}`,
-        subtitle: a.built ? `${a.hits} hits this window` : "Circuit breaker not implemented",
+        subtitle: a.built ? `${a.hits} hits this window` : "Control not implemented",
         fields: [
           { label: "Coverage", value: a.built ? `${a.coverage}%` : "NOT BUILT" },
           { label: "Hits", value: String(a.hits) },

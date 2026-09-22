@@ -29,6 +29,10 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
             "recommended_action": row.recommended_action,
             "flags": list(row.flags or []),
             "security_event_count": row.security_event_count,
+            "evaluation_contract_version": row.evaluation_contract_version or "1.0",
+            "policy_version": row.policy_version or "0",
+            "embedding_model": row.embedding_model or "unknown",
+            "detector_ids": list(row.detector_ids or []),
             "tenant_id": row.tenant_id or "default_tenant",
         }
 
@@ -47,6 +51,10 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
             recommended_action=str(evaluation.get("recommended_action", "NONE")),
             flags=list(evaluation.get("flags") or []),
             security_event_count=int(evaluation.get("security_event_count", 0)),
+            evaluation_contract_version=str(evaluation.get("evaluation_contract_version") or "1.0"),
+            policy_version=str(evaluation.get("policy_version") or "0"),
+            embedding_model=str(evaluation.get("embedding_model") or "unknown"),
+            detector_ids=[str(value) for value in (evaluation.get("detector_ids") or [])],
             tenant_id=str(evaluation.get("tenant_id") or "default_tenant"),
         )
 
@@ -74,6 +82,10 @@ class EvaluationRepository(BaseRepository[EventEvaluationORM]):
             row.recommended_action = str(evaluation.get("recommended_action", "NONE"))
             row.flags = list(evaluation.get("flags") or [])
             row.security_event_count = int(evaluation.get("security_event_count", 0))
+            row.evaluation_contract_version = str(evaluation.get("evaluation_contract_version") or "1.0")
+            row.policy_version = str(evaluation.get("policy_version") or "0")
+            row.embedding_model = str(evaluation.get("embedding_model") or "unknown")
+            row.detector_ids = [str(value) for value in (evaluation.get("detector_ids") or [])]
             row.tenant_id = str(evaluation.get("tenant_id") or "default_tenant")
         else:
             self.session.add(self._to_orm(event_id, sid, evaluation))

@@ -23,7 +23,8 @@ export type AttackFlowStatus =
   | "active"
   | "done"
   | "blocked"
-  | "breached";
+  | "breached"
+  | "not_wired";
 
 export interface AttackFlowHop {
   id: AttackFlowHopId;
@@ -76,6 +77,8 @@ const EDGE_DEFS: Array<{ from: AttackFlowHopId; to: AttackFlowHopId; label: stri
   { from: "judge", to: "defender", label: "verdict" },
 ];
 
+const UNWIRED_HOPS = new Set<AttackFlowHopId>(["research", "curator", "defender"]);
+
 function phaseIndex(phase: AttackPhaseId): number {
   const hop = PHASE_TO_HOP[phase];
   return HOP_ORDER.indexOf(hop);
@@ -90,7 +93,7 @@ export function turnProgressIndex(turn: TranscriptTurn | null): number {
   if (hasVerdict && hasResponse && hasAttack) return HOP_ORDER.indexOf("judge");
   if (hasAttack && hasResponse) return HOP_ORDER.indexOf("target");
   if (hasAttack) return HOP_ORDER.indexOf("redteam");
-  return HOP_ORDER.indexOf("curator");
+  return -1;
 }
 
 export function verdictEdgeStatus(turn: TranscriptTurn | null): AttackFlowStatus {
@@ -141,12 +144,14 @@ export function buildAttackFlowModel(input: {
     const phaseMeta = phaseByHop.get(id);
     let status: AttackFlowStatus = "pending";
 
-    if (input.isRunning) {
+    if (UNWIRED_HOPS.has(id)) {
+      status = "not_wired";
+    } else if (input.isRunning) {
       if (i < liveIdx) status = "done";
       else if (i === liveIdx) status = "active";
       else status = "pending";
     } else if (input.turn || input.phase === "complete") {
-      const doneThrough = Math.max(turnIdx, input.phase === "complete" ? HOP_ORDER.indexOf("defender") : -1);
+      const doneThrough = Math.max(turnIdx, input.phase === "complete" ? HOP_ORDER.indexOf("judge") : -1);
       if (i <= doneThrough) {
         if (id === "target" || id === "judge") {
           status = verdictStatus === "pending" ? "done" : verdictStatus;
@@ -176,7 +181,9 @@ export function buildAttackFlowModel(input: {
     const toHop = hops[toIdx];
     let status: AttackFlowStatus = "pending";
 
-    if (input.isRunning) {
+    if (UNWIRED_HOPS.has(e.from) || UNWIRED_HOPS.has(e.to)) {
+      status = "not_wired";
+    } else if (input.isRunning) {
       if (toIdx < liveIdx) status = "done";
       else if (toIdx === liveIdx || fromIdx === liveIdx) status = "active";
     } else if (fromHop && toHop) {

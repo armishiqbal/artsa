@@ -28,7 +28,8 @@ ingress:
   enabled: false
   className: nginx
   host: artsa.local
-  tls: false
+  # If ingress is enabled, a TLS secret is mandatory.
+  tlsSecretName: ""
 
 env:
   ENVIRONMENT: production
@@ -74,6 +75,9 @@ resources:
     requests:
       cpu: 250m
       memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
 
 persistence:
   chroma:
@@ -87,9 +91,9 @@ postgresql:
   auth:
     database: artsa_db
     username: postgres
-    # DEV DEFAULT ONLY. In production set secrets.create=true and supply
-    # secrets.postgresPassword + secrets.databaseUrl instead of this value.
-    password: postgrespassword
+    # Do not set production credentials in values files. Use a pre-created
+    # Secret referenced by secrets.existingSecret, or sealed-secrets.
+    password: ""
 
 redis:
   enabled: true
@@ -97,16 +101,24 @@ redis:
 
 secrets:
   create: false
-  # When create=true, populate via --set-file or sealed-secrets (never commit
-  # real values). These are injected as envFrom on the api deployment; the
-  # postgres deployment reads POSTGRES_PASSWORD from the same Secret.
+  # Prefer an externally managed Secret in production. It must contain:
+  # SECRET_KEY, ARTSA_API_KEY, DATABASE_URL, REDIS_URL, POSTGRES_PASSWORD,
+  # and REDIS_PASSWORD. create=true is for sealed-secret/CI rendering only.
+  existingSecret: ""
   secretKey: ""
   artsaApiKey: ""
   openaiApiKey: ""
   databaseUrl: ""
   redisUrl: ""
   postgresPassword: ""
+  redisPassword: ""
   oidcClientSecret: ""
+
+networkPolicy:
+  # Enable after confirming your cluster's ingress-controller namespace and
+  # outbound LLM/SIEM CIDRs. The template supplies least-privilege internal
+  # datastore paths and is intentionally opt-in to avoid breaking egress.
+  enabled: false
 
 monitoring:
   prometheusAnnotations:

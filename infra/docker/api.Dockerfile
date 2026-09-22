@@ -21,9 +21,15 @@ RUN pip install --upgrade pip && \
     pip install -e "."
 
 COPY infra/docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN groupadd --system --gid 1000 artsa && \
+    useradd --system --uid 1000 --gid artsa --home-dir /app --shell /usr/sbin/nologin artsa && \
+    mkdir -p /app/backend/data/chroma && \
+    chown -R artsa:artsa /app && \
+    chmod +x /entrypoint.sh
 
 EXPOSE 8000
+
+USER artsa
 
 ENTRYPOINT ["/entrypoint.sh"]
 # entrypoint.sh cd's to /app/backend and sets PYTHONPATH=/app/backend, so the

@@ -17,12 +17,12 @@ export interface AttackPhase {
 }
 
 const PHASES: AttackPhase[] = [
-  { id: "recon", agent: "Research", action: "Profiling target attack surface" },
-  { id: "arm", agent: "Curator", action: "Selecting & mutating probes" },
+  { id: "recon", agent: "Research", action: "NOT WIRED — no campaign execution" },
+  { id: "arm", agent: "Curator", action: "NOT WIRED — no campaign execution" },
   { id: "attack", agent: "Red Team", action: "Delivering adversarial prompt" },
   { id: "respond", agent: "Target", action: "Model under test responding" },
   { id: "judge", agent: "Judge", action: "Scoring success / defense" },
-  { id: "complete", agent: "Defender", action: "Packaging findings for containment" },
+  { id: "complete", agent: "Defender", action: "NOT WIRED — no campaign execution" },
 ];
 
 export function attackPhases(): AttackPhase[] {

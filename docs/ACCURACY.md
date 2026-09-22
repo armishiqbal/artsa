@@ -1,27 +1,27 @@
 # ARTSA — Accuracy Card
 
-**Generated:** 2026-08-20 12:07 UTC  ·  **Dataset:** `backend/benchmarks/golden_set.json` (33 malicious / 32 safe / 5 review)
+**Generated:** 2026-09-21 14:47 UTC  ·  **Dataset:** `backend/benchmarks/golden_set.json` (33 malicious / 32 safe / 5 review)
 
-> Honesty rule: these numbers come from a human-curated set independent of the
-> generated benchmark, generated with a documented methodology, and include
-> calibration — a score of X means roughly X% of those calls are malicious.
+> Scope note: this is a small, human-curated regression and calibration set,
+> not generalization proof. Read the separate 1,084-sample independent-set
+> result before making a production-safety claim.
 
-**Run conditions:** embedding backend `local-bge-multilingual` (set `ARTSA_EMBEDDING_MODEL=local-bge-multilingual` for the real ONNX semantic layer; `hash-1024` means the embedding detector was not active).
+**Run conditions:** embedding backend `hash-1024` (set `ARTSA_EMBEDDING_MODEL=local-bge-multilingual` for the real ONNX semantic layer; `hash-1024` means the embedding detector was not active).
 
 ## Headline metrics
 
 | Metric | Value |
 |---|---|
-| Recall@80 (KILL band) | **0.939** (31/33) |
+| Recall@80 (KILL band) | **1.000** (33/33) |
 | FPR@50 (review band) | **0.000** |
-| Expected Calibration Error (ECE) | **0.0595** (0 = perfectly calibrated) |
-| Recommended threshold (FP cost 1, FN cost 10) | **45** (recall 1.000, FPR 0.125) |
+| Expected Calibration Error (ECE) | **0.0706** (0 = perfectly calibrated) |
+| Recommended threshold (FP cost 1, FN cost 10) | **80** (recall 1.000, FPR 0.000) |
 
 ## Per-class recall@80
 
 | Attack class | Recall |
 |---|---|
-| code_exec | 3/4 = 0.75 |
+| code_exec | 4/4 = 1.00 |
 | credential_theft | 4/4 = 1.00 |
 | destructive | 5/5 = 1.00 |
 | egress | 1/1 = 1.00 |
@@ -30,17 +30,16 @@
 | reverse_shell | 2/2 = 1.00 |
 | sensitive_read | 2/2 = 1.00 |
 | sqli | 5/5 = 1.00 |
-| ssrf | 3/4 = 0.75 |
+| ssrf | 4/4 = 1.00 |
 
 ## Calibration (ECE reliability table)
 
 | Bin (score) | n | Mean score | % malicious | Gap |
 |---|---|---|---|---|
 | 0-10 | 28 | 0.0 | 0.0% | 0.000 |
-| 40-50 | 5 | 45.0 | 20.0% | 0.250 |
-| 50-60 | 1 | 55.0 | 100.0% | 0.450 |
-| 80-90 | 11 | 86.1 | 100.0% | 0.139 |
-| 90-100 | 20 | 96.8 | 100.0% | 0.032 |
+| 40-50 | 4 | 45.0 | 0.0% | 0.450 |
+| 80-90 | 17 | 86.1 | 100.0% | 0.139 |
+| 90-100 | 16 | 97.4 | 100.0% | 0.026 |
 
 ## Methodology
 

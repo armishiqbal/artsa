@@ -5,20 +5,15 @@ Frontend: {{ include "artsa.name" . }}-frontend:{{ .Values.service.frontend.port
 
 Prometheus scrape: /api/v1/metrics/prometheus
 
-{{- if .Values.secrets.create }}
+{{- if or .Values.secrets.create .Values.secrets.existingSecret }}
 
-Secrets mounted from: {{ include "artsa.name" . }}-secrets
+Secrets mounted from: {{ include "artsa.secretName" . }}
 {{- else }}
 
-WARNING: secrets.create=false — set API keys via external Secret or --set secrets.create=true
-Example:
-  helm upgrade --install artsa . \
-    --set secrets.create=true \
-    --set secrets.artsaApiKey=$ARTSA_API_KEY \
-    --set secrets.openaiApiKey=$OPENAI_API_KEY
+ERROR: set secrets.existingSecret to a Secret containing application and datastore credentials.
 {{- end }}
 
 {{- if .Values.ingress.enabled }}
 
-Ingress: http://{{ .Values.ingress.host }}
+Ingress: https://{{ .Values.ingress.host }}
 {{- end }}

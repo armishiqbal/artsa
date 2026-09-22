@@ -21,8 +21,6 @@ import {
   Sparkles,
   Type,
   Plus,
-  Eye,
-  FolderKanban,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

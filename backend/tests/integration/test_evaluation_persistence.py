@@ -32,12 +32,20 @@ def test_evaluation_persisted_and_loaded(monkeypatch):
                 "recommended_action": "KILL",
                 "flags": ["PRIVILEGE_ESCALATION"],
                 "security_event_count": 2,
+                "evaluation_contract_version": "1.0",
+                "policy_version": "42",
+                "embedding_model": "text-embedding-3-small",
+                "detector_ids": ["prompt_injection", "tool_abuse"],
             }
             await repo.upsert(event_id, session_id, evaluation)
             loaded = await repo.get_by_event(event_id)
             assert loaded is not None
             assert loaded["risk_score"] == 87.5
             assert loaded["verdict"] == "BREACHED"
+            assert loaded["evaluation_contract_version"] == "1.0"
+            assert loaded["policy_version"] == "42"
+            assert loaded["embedding_model"] == "text-embedding-3-small"
+            assert loaded["detector_ids"] == ["prompt_injection", "tool_abuse"]
         await engine.dispose()
 
     asyncio.run(_run())

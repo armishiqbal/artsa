@@ -50,7 +50,7 @@ describe("redTeamAttackFlow", () => {
     });
     expect(model.source).toBe("live-phase");
     expect(model.activeHopId).toBe("redteam");
-    expect(model.hops.find((h) => h.id === "research")?.status).toBe("done");
+    expect(model.hops.find((h) => h.id === "research")?.status).toBe("not_wired");
     expect(model.hops.find((h) => h.id === "redteam")?.status).toBe("active");
     expect(model.hops.find((h) => h.id === "judge")?.status).toBe("pending");
   });
@@ -99,6 +99,11 @@ describe("redTeamAttackFlow", () => {
       maxRounds: 0,
     });
     expect(model.source).toBe("idle");
-    expect(model.hops.every((h) => h.status === "pending")).toBe(true);
+    expect(model.hops.filter((h) => ["research", "curator", "defender"].includes(h.id)).every(
+      (h) => h.status === "not_wired"
+    )).toBe(true);
+    expect(model.hops.filter((h) => !["research", "curator", "defender"].includes(h.id)).every(
+      (h) => h.status === "pending"
+    )).toBe(true);
   });
 });

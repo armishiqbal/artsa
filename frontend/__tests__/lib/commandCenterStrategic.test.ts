@@ -51,7 +51,7 @@ describe("buildStrategicModel honesty", () => {
     expect(model.monitors.find((m) => m.id === "disagree")?.name).toBe("Judge/Defender disagreement");
     expect(model.campaignList).toHaveLength(2);
     const asi08 = featuredAsi(model.asi).find((a) => a.code === "ASI08");
-    expect(asi08?.built).toBe(false);
+    expect(asi08?.built).toBe(true);
     expect(asi08?.coverage).toBe(0);
   });
 
@@ -432,4 +432,3 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
     expect(screen.getByText(/round 2 · live/i)).toBeInTheDocument();
   });
 });
-

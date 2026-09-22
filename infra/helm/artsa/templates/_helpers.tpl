@@ -17,6 +17,14 @@ app.kubernetes.io/name: {{ include "artsa.name" . }}
 app.kubernetes.io/component: celery
 {{- end }}
 
+{{- define "artsa.secretName" -}}
+{{- if .Values.secrets.create -}}
+{{ include "artsa.name" . }}-secrets
+{{- else -}}
+{{ required "Set secrets.existingSecret to a pre-created production Secret" .Values.secrets.existingSecret }}
+{{- end -}}
+{{- end }}
+
 {{- /*
 artsa.databaseUrl builds the API's asyncpg connection string from the postgres
 chart values. Used only when secrets.create is false (dev/local default); in

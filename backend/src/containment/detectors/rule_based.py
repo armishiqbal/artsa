@@ -199,6 +199,20 @@ class RuleBasedDetector(BaseDetector):
             88.0,
             "Data exfiltration — file upload / pipe-to-remote network egress",
         ),
+        # Code execution that opens a remote URL is a direct network-capable
+        # primitive. At this boundary the source code is about to execute, so
+        # it must not be treated like a harmless public GET from a browser.
+        (
+            (
+                r"(?i)(?:urllib(?:\.request)?\.urlopen|"
+                r"requests\.(?:get|post|put|delete)|"
+                r"httpx\.(?:get|post|put|delete))\s*\([^\n]*https?://"
+            ),
+            "CODE_EXECUTION_ABUSE",
+            "CRITICAL",
+            85.0,
+            "Code execution opens a remote HTTP endpoint",
+        ),
         # Tunneled egress: ssh ProxyCommand / netcat proxy mode / socat relays.
         (
             r"(?i)nc(?:\s|\$IFS)*-x\b|ProxyCommand|socat\b[^\n]*(?:TCP|UDP):",
@@ -469,15 +483,17 @@ class RuleBasedDetector(BaseDetector):
                 score = risk_score
                 # Egress-GET policy: a bare GET to a PUBLIC destination is
                 # surfaced for review (45); a GET that pivots INTO a private /
-                # link-local / ULA network is escalated (60) — reaching other
-                # machines on the LAN is the internal-pivot signal.
+                # link-local / ULA network is blocked (85). At a pre-execution
+                # containment boundary, an agent accessing another machine on
+                # the LAN is an SSRF/internal-pivot primitive, not a normal
+                # external-document fetch.
                 if (
                     event_type == "EGRESS_TUNNEL"
                     and score <= 45.0
                     and _egress_target_is_internal(text)
                 ):
-                    score = 60.0
-                    severity = "MEDIUM"
+                    score = 85.0
+                    severity = "CRITICAL"
                 # A metadata / egress probe to an RFC-reserved documentation
                 # domain (example.com / example.org / .invalid / .test) is a
                 # look-alike, not a real exfiltration target — surface, don't kill.

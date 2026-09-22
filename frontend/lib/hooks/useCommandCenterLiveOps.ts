@@ -179,8 +179,8 @@ const MAX_EVENTS_IN_MEMORY = 150;
 const API_BASE_URL = "/api/backend";
 
 export const INITIAL_CIRCUIT_BREAKER: LiveOpsCircuitBreaker = {
-  status: "unsupported",
-  note: "ASI08 cascading failure detector is not implemented in live engine",
+  status: "nominal",
+  note: "ASI08 session circuit breaker is enabled; a trip is surfaced by session evidence.",
 };
 
 export const INITIAL_CONNECTION_STATE: LiveOpsConnectionState = {
@@ -474,6 +474,16 @@ export function normalizeSnapshot(raw: unknown): Omit<LiveOpsState, "connection"
   const validMode: LiveTelemetryMode =
     mode === "LIVE" ? "LIVE" : mode === "STALE" ? "STALE" : mode === "SIMULATION" ? "SIMULATION" : "DISCONNECTED";
 
+  const rawCircuitBreaker = r.circuit_breaker as Record<string, unknown> | null | undefined;
+  const circuitStatus = String(rawCircuitBreaker?.status || "nominal").toLowerCase();
+  const circuitBreaker: LiveOpsCircuitBreaker = {
+    status: circuitStatus === "tripped" ? "tripped" : circuitStatus === "unsupported" ? "unsupported" : "nominal",
+    note: String(
+      rawCircuitBreaker?.note ||
+        "ASI08 session circuit breaker is enabled; a trip is surfaced by session evidence."
+    ),
+  };
+
   return {
     telemetryMode: validMode,
     isLive: validMode === "LIVE",
@@ -485,7 +495,7 @@ export function normalizeSnapshot(raw: unknown): Omit<LiveOpsState, "connection"
     events,
     timeline,
     metrics: normalizeDetectionMetrics(r.metrics),
-    circuitBreaker: INITIAL_CIRCUIT_BREAKER,
+    circuitBreaker,
     operatorActions,
   };
 }

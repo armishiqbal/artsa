@@ -68,6 +68,7 @@ def test_dispatch_alert_enqueues_alert_event(monkeypatch):
     assert event["risk_score"] == 85.0
     assert event["agent_id"] == "agent-hook"
     assert event["type"] == "alert"
+    assert event["tenant_id"] == "default_tenant"
     assert "id" in event and "triggered_at" in event
 
 
@@ -101,7 +102,9 @@ def test_worker_process_dispatches_to_matching_connectors(monkeypatch):
 
     def _fake_dispatch(integration, event_type, event):
         sent.append(integration.name)
-        return True
+        from src.services.custom_integration_dispatcher import DeliveryResult
+
+        return DeliveryResult(delivered=True, attempt_count=1)
 
     registry = CustomIntegrationRegistry()
     registry.load(
@@ -142,11 +145,28 @@ def test_worker_process_dispatches_to_matching_connectors(monkeypatch):
     monkeypatch.setattr(
         "src.services.custom_integration_registry.custom_integration_registry", registry
     )
+    monkeypatch.setattr("src.services.custom_integration_dispatcher.dispatch_result", _fake_dispatch)
     monkeypatch.setattr(
-        "src.services.custom_integration_dispatcher.dispatch", _fake_dispatch
+        "src.services.custom_integration_delivery_ledger.record_delivery_outcome",
+        lambda **_kwargs: None,
     )
-    worker._process("alert", {"risk_score": 85.0})
+    worker._process("alert", {"risk_score": 85.0, "tenant_id": "default_tenant"})
     assert sent == ["matches"]
+
+
+def test_worker_refuses_event_without_a_valid_tenant(monkeypatch):
+    """Malformed events cannot be routed through a tenant's connector cache."""
+    from src.services.custom_integration_dispatcher import CustomIntegrationWorker
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "src.services.custom_integration_dispatcher.dispatch_result",
+        lambda integration, event_type, event: sent.append(integration.name),
+    )
+    worker = CustomIntegrationWorker()
+    worker._process("alert", {"risk_score": 85.0, "tenant_id": ""})
+
+    assert sent == []
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -208,6 +228,37 @@ def test_registry_skips_disabled_and_missing_url():
         ]
     )
     assert registry.names() == []
+
+
+def test_registry_does_not_cross_tenant_connector_names():
+    registry = CustomIntegrationRegistry()
+    registry.load(
+        [
+            {
+                "tenant_id": "tenant-a",
+                "name": "siem",
+                "target_url": "https://a.test",
+                "enabled": True,
+                "event_types": ["alert"],
+                "headers": {},
+                "secrets": {},
+            },
+            {
+                "tenant_id": "tenant-b",
+                "name": "siem",
+                "target_url": "https://b.test",
+                "enabled": True,
+                "event_types": ["alert"],
+                "headers": {},
+                "secrets": {},
+            },
+        ]
+    )
+
+    assert registry.get("siem", "tenant-a").target_url == "https://a.test"
+    assert registry.get("siem", "tenant-b").target_url == "https://b.test"
+    assert [item.tenant_id for item in registry.matching("alert", 90, "tenant-a")] == ["tenant-a"]
+    assert registry.matching("alert", 90, "unknown") == []
 
 
 # ─────────────────────────────────────────────────────────────────────────────

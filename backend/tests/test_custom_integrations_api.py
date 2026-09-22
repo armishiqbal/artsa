@@ -109,7 +109,7 @@ def test_create_populates_registry_with_decrypted_secret(integrations_api):
     from src.services.custom_integration_registry import custom_integration_registry
 
     _add(integrations_api, secrets={"token": "s3cret-token-123456"})
-    conn = custom_integration_registry.get("my-siem")
+    conn = custom_integration_registry.get("my-siem", "default_org")
     assert conn is not None
     assert conn.secrets["token"] == "s3cret-token-123456"
 
@@ -292,3 +292,79 @@ def test_test_endpoint_unknown_404(integrations_api):
     assert (
         integrations_api.post("/api/v1/integrations/nope/test", json={}).status_code == 404
     )
+
+
+def test_test_endpoint_cannot_send_another_tenant_connector(integrations_api):
+    """The test endpoint is an outbound capability and must be tenant-scoped."""
+    assert _add(integrations_api, name="shared-name").status_code == 201
+
+    response = integrations_api.post(
+        "/api/v1/integrations/shared-name/test",
+        json={"event_type": "alert"},
+        headers={"X-Tenant-ID": "another-tenant"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_delivery_history_is_tenant_scoped_and_metadata_only(integrations_api):
+    from src.services.custom_integration_delivery_ledger import record_delivery_outcome
+
+    assert _add(integrations_api, name="delivery-siem").status_code == 201
+    record_delivery_outcome(
+        tenant_id="default_org",
+        integration_name="delivery-siem",
+        event_type="alert",
+        delivery_id="delivery-1",
+        correlation_id="trace-1",
+        payload_sha256="b" * 64,
+        delivered=False,
+        attempt_count=3,
+        failure_code="DELIVERY_ATTEMPTS_EXHAUSTED",
+    )
+
+    response = integrations_api.get("/api/v1/integrations/delivery-siem/deliveries")
+    assert response.status_code == 200
+    body = unwrap_response(response)
+    assert body["total"] == 1
+    assert body["deliveries"][0]["status"] == "DEAD_LETTER"
+    assert body["deliveries"][0]["payload_sha256"] == "b" * 64
+    assert "payload" not in body["deliveries"][0]
+
+    other_tenant = integrations_api.get(
+        "/api/v1/integrations/delivery-siem/deliveries",
+        headers={"X-Tenant-ID": "another-tenant"},
+    )
+    assert other_tenant.status_code == 404
+
+
+def test_dead_letter_replay_requires_tenant_owned_failed_delivery(integrations_api):
+    from src.services.custom_integration_outbox import claim, enqueue, finish
+
+    assert _add(integrations_api, name="replay-siem").status_code == 201
+    delivery_row_id = enqueue(
+        tenant_id="default_org",
+        integration_name="replay-siem",
+        event_type="alert",
+        delivery_id="replay-delivery-1",
+        correlation_id="trace-1",
+        payload_sha256="e" * 64,
+        event={"event_id": "replay-delivery-1", "tenant_id": "default_org"},
+    )
+    assert claim(delivery_row_id) is not None
+    finish(
+        delivery_row_id,
+        delivered=False,
+        attempt_count=3,
+        failure_code="DELIVERY_ATTEMPTS_EXHAUSTED",
+    )
+
+    response = integrations_api.post(
+        "/api/v1/integrations/replay-siem/deliveries/replay-delivery-1/replay"
+    )
+    assert response.status_code == 202
+    assert unwrap_response(response)["status"] == "requeued"
+    # A pending record cannot be replayed twice concurrently.
+    assert integrations_api.post(
+        "/api/v1/integrations/replay-siem/deliveries/replay-delivery-1/replay"
+    ).status_code == 404

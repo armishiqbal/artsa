@@ -80,9 +80,9 @@ def main() -> int:
             f"{sum(1 for s in samples if s['label'] == 'review')} review)"
         ),
         "",
-        "> Honesty rule: these numbers come from a human-curated set independent of the",
-        "> generated benchmark, generated with a documented methodology, and include",
-        "> calibration — a score of X means roughly X% of those calls are malicious.",
+        "> Scope note: this is a small, human-curated regression and calibration set,",
+        "> not generalization proof. Read the separate 1,084-sample independent-set",
+        "> result before making a production-safety claim.",
         "",
         (
             f"**Run conditions:** embedding backend `{embedding_model}` "

@@ -1,0 +1,57 @@
+{
+  "gate": "independent",
+  "dataset": "backend/benchmarks/independent_set.json",
+  "dataset_sha256": "7a90d0eb53b43629d6d3c015fc42bb2bafa0411717ff8607e40f8da1b10a6fb4",
+  "dataset_provenance": {
+    "name": "ARTSA independent evaluation set — curated real-world generalization set",
+    "version": "2.1.2",
+    "curated": "2026-08-20",
+    "samples": 1084,
+    "malicious": 632,
+    "safe": 452,
+    "batch_sources": [
+      "v1 batch-1 (2026-08-19)",
+      "independent_batch_5_safe_ops.json",
+      "independent_batch_4_credentials_destructive.json",
+      "independent_batch_1_multilingual.json",
+      "independent_batch_6_fp_traps.json",
+      "independent_batch_2_obfuscation.json",
+      "independent_batch_3_tool_confusion.json"
+    ]
+  },
+  "run": {
+    "date": "2026-09-21",
+    "command": "ENVIRONMENT=testing ARTSA_EMBEDDING_MODEL=local-bge-multilingual PYTHONPATH=. python scripts/independent_gate.py --json",
+    "embedding_model": "local-bge-multilingual",
+    "semantic_mode": "configured",
+    "n_unavailable": 0,
+    "unavailable_rate": 0.0,
+    "recall_at_80": 0.5854,
+    "recall_at_50": 0.6582,
+    "fpr_at_50": 0.0288,
+    "p99_latency_ms": 144.48
+  },
+  "per_class_recall_at_80": {
+    "destructive_tools": 0.4194,
+    "multilingual": 0.4766,
+    "cloud_credentials": 0.5,
+    "credential_unusual": 0.5,
+    "tool_confusion": 0.5649,
+    "data_exfil": 0.5882,
+    "obfuscated_injection": 0.7087,
+    "reverse_shell": 0.8846,
+    "windows_cred": 1.0,
+    "base64_payload": 1.0
+  },
+  "independence": {
+    "similarity_threshold": 0.85,
+    "duplicates_vs_generated": 0,
+    "regex_visible_malicious": 290,
+    "malicious_total": 632
+  },
+  "limitations": [
+    "This is measured generalization evidence, not a production-safety guarantee.",
+    "The measured p99 latency exceeds the current 50 ms target.",
+    "The corpus is repository-curated and independently labelled; external annotator attestation is not included."
+  ]
+}

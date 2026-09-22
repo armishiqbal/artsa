@@ -52,12 +52,16 @@ async def init_db() -> None:
         AlertRuleORM,
         ApprovalRequestORM,
         CampaignJobORM,
+        CustomIntegrationDeliveryORM,
         CustomIntegrationORM,
+        CustomIntegrationOutboxORM,
         EventEvaluationORM,
         GitHubInstallationORM,
         GitHubRepositoryORM,
         HmacHandoffAuditORM,
+        HumanReviewORM,
         MCPActionEvidenceORM,
+        OTELTraceAuditORM,
         PartnerApiKeyORM,
         PlaygroundRunAuditORM,
         ProviderORM,
@@ -249,6 +253,27 @@ async def init_db() -> None:
                     if "tenant_id" not in cols:
                         await conn.execute(
                             text(f"ALTER TABLE {tbl} ADD COLUMN tenant_id VARCHAR(255) NOT NULL DEFAULT 'default_tenant'")
+                        )
+            if "event_evaluations" in tables:
+                # Keep existing developer SQLite databases compatible with
+                # bounded decision-lineage metadata. Production upgrades use
+                # the corresponding Alembic migration.
+                evaluation_cols = [
+                    row[1]
+                    for row in await conn.execute(text("PRAGMA table_info(event_evaluations)"))
+                ]
+                for column, definition in (
+                    ("evaluation_contract_version", "VARCHAR(32) NOT NULL DEFAULT '1.0'"),
+                    ("policy_version", "VARCHAR(64) NOT NULL DEFAULT '0'"),
+                    ("embedding_model", "VARCHAR(128) NOT NULL DEFAULT 'unknown'"),
+                    ("detector_ids", "JSON NOT NULL DEFAULT '[]'"),
+                ):
+                    if column not in evaluation_cols:
+                        await conn.execute(
+                            text(
+                                "ALTER TABLE event_evaluations "
+                                f"ADD COLUMN {column} {definition}"
+                            )
                         )
             if "runtime_enforcement_audit" in tables:
                 audit_cols = [

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -65,6 +66,31 @@ class Settings(BaseSettings):
                 "ARTSA_CORS_ORIGINS must be an explicit allow-list in production (not *)"
             )
 
+        if self.USE_SQLITE or "sqlite" in self.DATABASE_URL.lower():
+            raise ValueError("Production requires PostgreSQL; USE_SQLITE must be false")
+
+        database_password = urlsplit(self.DATABASE_URL).password or ""
+        redis_password = urlsplit(self.REDIS_URL).password or ""
+        insecure_passwords = {
+            "",
+            "postgres",
+            "postgrespassword",
+            "password",
+            "changeme",
+            "change-me",
+            "change-me-in-production",
+        }
+        if database_password.lower() in insecure_passwords or len(database_password) < 16:
+            raise ValueError(
+                "DATABASE_URL must contain a non-default database password of at least 16 characters "
+                "in production"
+            )
+        if redis_password.lower() in insecure_passwords or len(redis_password) < 16:
+            raise ValueError(
+                "REDIS_URL must contain an authenticated, non-default Redis password of at least 16 "
+                "characters in production"
+            )
+
         return self
 
     # ── Core ──────────────────────────────────────────────────────────────
@@ -93,6 +119,9 @@ class Settings(BaseSettings):
     USE_CELERY: bool = False
     USE_REDIS_RATE_LIMIT: bool = True
     BENCHMARK_CACHE_TTL_SEC: int = 300
+    # Failed integration payloads are encrypted and replayable only within this
+    # bounded window. Successful payload ciphertext is erased immediately.
+    ARTSA_CUSTOM_INTEGRATION_DEAD_LETTER_RETENTION_DAYS: int = 30
     ARTSA_REQUIRE_AUTH: bool = False
     ARTSA_ANALYST_API_KEY: str | None = None
     ARTSA_REDTEAM_API_KEY: str | None = None

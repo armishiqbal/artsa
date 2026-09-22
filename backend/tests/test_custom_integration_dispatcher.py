@@ -14,6 +14,7 @@ from typing import Self
 import pytest
 from src.services.custom_integration_dispatcher import (
     build_request,
+    delivery_headers,
     dispatch,
     resolve_headers,
     send_request,
@@ -103,6 +104,25 @@ def test_build_request_default_payload():
     assert method == "PUT"
     assert url == "https://example.com/hook"
     assert json.loads(body) == event
+
+
+def test_build_request_adds_stable_delivery_and_correlation_headers():
+    event = {"event_id": "evt-42", "trace_id": "trace-42", "risk_score": 80.0}
+    _method, _url, headers, _body = build_request(_integration(), "alert", event)
+
+    assert headers["Idempotency-Key"] == "evt-42"
+    assert headers["X-ARTSA-Delivery-ID"] == "evt-42"
+    assert headers["X-ARTSA-Correlation-ID"] == "trace-42"
+    assert headers["X-ARTSA-Event-Type"] == "alert"
+
+
+def test_delivery_headers_are_deterministic_without_an_event_id():
+    event = {"session_id": "session-1", "risk_score": 80.0}
+    first = delivery_headers("alert", event, b'{"risk_score":80}')
+    second = delivery_headers("alert", event, b'{"risk_score":80}')
+
+    assert first == second
+    assert first["X-ARTSA-Correlation-ID"] == "session-1"
 
 
 def test_build_request_renders_template():
@@ -227,5 +247,6 @@ def test_retries_on_failure(monkeypatch, captured):
             return _FakeResponse()
 
     monkeypatch.setattr(custom_integration_dispatcher.httpx, "Client", lambda timeout: _FlakyClient())
+    monkeypatch.setattr(custom_integration_dispatcher.time, "sleep", lambda _seconds: None)
     assert send_request("POST", "https://example.com/hook", {}, b"{}", retries=3) is True
     assert calls["n"] == 2  # first attempt fails, second succeeds

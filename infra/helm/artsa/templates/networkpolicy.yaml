@@ -1,0 +1,49 @@
+{{- if .Values.networkPolicy.enabled }}
+# Internal datastore policies. Add explicit egress rules for the selected LLM,
+# SIEM, OIDC, and DNS providers before enabling in production.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "artsa.name" . }}-postgres
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "artsa.name" . }}-postgres
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "artsa.name" . }}
+              app.kubernetes.io/component: api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "artsa.name" . }}
+              app.kubernetes.io/component: celery
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "artsa.name" . }}-redis
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "artsa.name" . }}-redis
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "artsa.name" . }}
+              app.kubernetes.io/component: api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "artsa.name" . }}
+              app.kubernetes.io/component: celery
+      ports:
+        - protocol: TCP
+          port: 6379
+{{- end }}

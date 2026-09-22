@@ -514,11 +514,21 @@ def build_ops_snapshot(
         "event_count": len(ops_events),
         "metrics": metrics.model_dump(mode="json"),
         "hmac": hmac_family,
+        # Capability status, not a claim about every session. Individual
+        # breaker trips are emitted as ASI08 evidence and session state is
+        # authoritative at the runtime boundary.
+        "circuit_breaker": {
+            "status": "nominal",
+            "note": (
+                "ASI08 session circuit breaker is enabled: repeated BLOCK decisions "
+                "open a durable, tenant-isolated breaker."
+            ),
+        },
         "operator_actions": [a.model_dump(mode="json") for a in OPERATOR_ACTIONS],
         "last_event_at": last_ts.isoformat() if last_ts else None,
         "remaining": {
             "hmac_handoff": "wired_rt_target_judge",
-            "asi08": "not_implemented",
+            "asi08": "implemented_session_circuit_breaker",
             "research_curator_defender": "not_wired",
             "precision_fpr": "null_without_benign_labels",
             "new_websocket": "not_added — reuse GET /telemetry/ops plus existing ingest WS",

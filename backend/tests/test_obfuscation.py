@@ -296,7 +296,7 @@ def test_rule_egress_policy_internal_pivot_is_escalated() -> None:
         _event("exec_command", {"command": "wget -qO- http://192.168.1.10/internal/config.yaml"})
     )
     assert result is not None
-    assert result.risk_score >= 60.0, "internal pivot GET must escalate"
+    assert result.risk_score >= 80.0, "internal pivot GET must reach the KILL band"
 
 
 def test_rule_plain_metadata_curl_hits_metadata_rule() -> None:

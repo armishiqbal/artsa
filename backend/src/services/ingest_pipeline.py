@@ -22,15 +22,16 @@ from src.core.models.events import ToolCallEvent
 from src.core.models.sessions import Session
 from src.core.severity import severity_from_score
 from src.data import memory_store
+from src.data.policy_version_store import current_version
 from src.data.repositories.evaluations import EvaluationRepository
 from src.data.repositories.events import EventRepository
 from src.data.repositories.sessions import SessionRepository
+from src.runtime.circuit_breaker import circuit_breaker, record_breaker_trip
 from src.services.alert_store import persist_alert, record_alert_from_evaluation
+from src.services.approval_service import create_request
 from src.services.event_processor import EventProcessor
 from src.services.session_tracker import SessionTracker
 from src.services.telemetry_bus import telemetry_bus
-from src.services.approval_service import create_request
-from src.runtime.circuit_breaker import circuit_breaker, record_breaker_trip
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,10 @@ async def run_ingest_pipeline(
     redis_entries: list[dict[str, Any]] = []
     pending_alerts: list[Any] = []
     approval_id: str | None = None
+    # Capture the decision environment once for this atomic ingest batch. This
+    # is lineage metadata, not an assertion that the semantic layer was active.
+    policy_version = str(current_version())
+    embedding_model = settings.resolve_embedding_model()
 
     # --- Hot path: detect + memory + WS publish (no await except session create) ---
     for event in events:
@@ -308,6 +313,10 @@ async def run_ingest_pipeline(
             "tenant_id": tenant_id,
             "bypass_depth": risk_score.bypass_depth,
             "security_event_count": len(sec_events),
+            "evaluation_contract_version": "1.0",
+            "policy_version": policy_version,
+            "embedding_model": embedding_model,
+            "detector_ids": [str(sec.detector) for sec in sec_events],
             "enforced": enforced,
             "scan_phase": scan_phase,
             "execution_allowed": execution_allowed,

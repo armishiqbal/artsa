@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
@@ -12,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_tenant, get_db, get_redis
 from src.core.config import settings
-from src.data.orm import GitHubInstallationORM, GitHubRepositoryORM, MCPActionEvidenceORM
+from src.data.orm import (
+    GitHubInstallationORM,
+    GitHubRepositoryORM,
+    MCPActionEvidenceORM,
+    OTELTraceAuditORM,
+)
 from src.services.github_connector import verify_github_webhook_signature
 from src.services.github_execution import GitHubExecutionCoordinator
 from src.services.github_inventory import (
@@ -234,7 +241,11 @@ def get_mcp_inspections() -> dict[str, Any]:
 
 
 @router.post("/otel/v1/traces")
-def otel_trace_ingest(payload: OTELTracePayload) -> dict[str, Any]:
+async def otel_trace_ingest(
+    payload: OTELTracePayload,
+    tenant_id: str = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
     """Ingest OpenTelemetry / OpenInference spans and flag exploitation drift.
 
     EXPERIMENTAL: gated behind ``ARTSA_OTEL_ENABLED`` (default off). Returns 404
@@ -248,4 +259,24 @@ def otel_trace_ingest(payload: OTELTracePayload) -> dict[str, Any]:
                 "set ARTSA_OTEL_ENABLED=true to enable"
             ),
         )
-    return _otel.process_trace(payload).model_dump()
+    result = _otel.process_trace(payload)
+    # Persist an audit-safe projection only. OpenTelemetry attributes frequently
+    # contain raw prompts and output, so retaining the source payload would
+    # violate ARTSA's digest-only evidence boundary.
+    resource_bytes = json.dumps(
+        payload.resource_attributes, sort_keys=True, separators=(",", ":"), default=str
+    ).encode("utf-8")
+    db.add(
+        OTELTraceAuditORM(
+            id=str(uuid.uuid4()),
+            tenant_id=tenant_id,
+            trace_id=result.trace_id,
+            resource_sha256=hashlib.sha256(resource_bytes).hexdigest(),
+            spans_processed=result.spans_processed,
+            max_drift_score=result.max_drift_score,
+            exploit_alert_triggered=result.exploit_alert_triggered,
+            detected_threats=result.detected_threats,
+        )
+    )
+    await db.commit()
+    return result.model_dump()

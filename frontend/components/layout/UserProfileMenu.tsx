@@ -28,8 +28,6 @@ export function UserProfileMenu({ onNavigate, className }: UserProfileMenuProps)
   const profileDisplayName = profileUser?.display_name ?? null;
   const profileRole = profileUser?.role ?? identity.role ?? null;
   const profileAvatar = profileUser?.avatar ?? null;
-  const profileInitials = (profileDisplayName || profileEmail || profileRole || "AR").slice(0, 2).toUpperCase();
-
   const showProfile = !authLoading && (hasBearer || Boolean(apiKey) || identity.authenticated);
   const showOidcLogin = isOidcEnabled() && !hasBearer && !showProfile;
   const isProfileActive = pathname === "/profile";

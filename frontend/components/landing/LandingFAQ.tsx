@@ -7,7 +7,7 @@ import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
 const FAQ = [
   {
     q: "What is AI agent containment?",
-    a: "AI agent containment is runtime enforcement over autonomous agents — their identities, privileges, tool calls, MCP interactions, and cross-agent handoffs. ARTSA's designed action enum is ALLOW, QUARANTINE, or KILL. The LLM proxy, ingest path, MCP stdio wrapper, and managed GitHub MCP Streamable HTTP boundary block or withhold in-session; QUARANTINE waits for operator approval. The session-scoped ASI08 circuit breaker stops repeated hard containment decisions. The GitHub MCP catalog is deliberately bounded; arbitrary third-party MCP forwarding is not a v1 capability. The live product also includes the six-agent red-team loop and the adaptive-vs-static detection curve.",
+    a: "AI agent containment is runtime enforcement over autonomous agents — their identities, privileges, tool calls, MCP interactions, and cross-agent handoffs. ARTSA's designed action enum is ALLOW, QUARANTINE, or KILL. The LLM proxy, ingest path, MCP stdio wrapper, and managed GitHub MCP Streamable HTTP boundary block or withhold in-session; QUARANTINE waits for operator approval. The session-scoped ASI08 circuit breaker stops repeated hard containment decisions. The GitHub MCP catalog is deliberately bounded; arbitrary third-party MCP forwarding is not a v1 capability. The live campaign handoff path is Red Team → Target → Judge; the six-role topology displays Research, Curator, and Defender as planned, not wired roles.",
   },
   {
     q: "How is containment different from observability?",

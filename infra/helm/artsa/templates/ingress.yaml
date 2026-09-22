@@ -5,6 +5,10 @@ metadata:
   name: {{ include "artsa.name" . }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ required "Set ingress.tlsSecretName when ingress is enabled" .Values.ingress.tlsSecretName }}
   rules:
     - host: {{ .Values.ingress.host }}
       http:

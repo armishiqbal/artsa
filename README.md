@@ -44,7 +44,8 @@ flowchart LR
 ## 🌟 Key Platform Capabilities
 
 ### 1. 🎯 Tactical Command Center & Mission Graph (`/command-center`)
-- **Tactical Agent Interaction Map**: Interactive SVG topology showing active communication transmission between Adversary, Target, Judge, and Defender agents.
+- **Tactical Agent Interaction Map**: Interactive SVG topology that distinguishes the wired,
+  signed Red Team → Target → Judge path from planned Research, Curator, and Defender roles.
 - **Three Tactical Security Zones**: Clearly delineates the *Adversary Zone*, *Target Sandbox*, and *Evaluation & Governance* layer.
 - **Threat & Event Inspector Drawer**: Deep-dive into token-level highlights, trace IDs, detector metadata, and forensic diffs.
 - **Emergency Operator Hotkeys**:

@@ -5,8 +5,6 @@ import {
   Building2,
   MapPin,
   Calendar,
-  Pencil,
-  X,
   Copy,
   Check,
   Camera,

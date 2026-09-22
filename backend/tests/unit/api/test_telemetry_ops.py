@@ -25,6 +25,8 @@ def test_ops_snapshot_is_disconnected_without_events():
     if not data["events"]:
         assert data["telemetry_mode"] == "DISCONNECTED"
     assert data["hmac"]["hmac_state"] == "ok"
+    assert data["circuit_breaker"]["status"] == "nominal"
+    assert "enabled" in data["circuit_breaker"]["note"]
     assert data["metrics"]["precision"] is None
     agents = {a["agent_id"]: a for a in data["agents"]}
     assert agents["research"]["state"] == "not_wired"

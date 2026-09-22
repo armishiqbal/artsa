@@ -8,7 +8,7 @@ export type LiveAgentName =
   | "target"
   | "judge"
   | "defender";
-export type LiveAgentState = "idle" | "running" | "done";
+export type LiveAgentState = "idle" | "running" | "done" | "not_wired";
 
 export const LIVE_AGENTS: { id: LiveAgentName; label: string }[] = [
   { id: "research", label: "Research" },
@@ -36,12 +36,14 @@ export type LiveMonitorEvent = {
 
 export function idleAgents(): Record<LiveAgentName, LiveAgentState> {
   return {
-    research: "idle",
-    curator: "idle",
+    // These roles belong to the planned six-agent topology but do not execute
+    // in the signed campaign path. Never render their idle state as live work.
+    research: "not_wired",
+    curator: "not_wired",
     red_team: "idle",
     target: "idle",
     judge: "idle",
-    defender: "idle",
+    defender: "not_wired",
   };
 }
 
@@ -124,12 +126,12 @@ export function eventsFromRounds(
       attack_type: attackType,
       summary: `Judge → ${verdict} (${outcome.toUpperCase()})`,
       agents: {
-        research: "done",
-        curator: "done",
+        research: "not_wired",
+        curator: "not_wired",
         red_team: "done",
         target: "done",
         judge: "done",
-        defender: outcome === "pass" || blocked ? "done" : "idle",
+        defender: "not_wired",
       },
     });
   }

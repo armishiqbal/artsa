@@ -56,6 +56,7 @@ from src.api.routes.prometheus import router as prometheus_router
 from src.api.routes.providers import router as providers_router
 from src.api.routes.proxy import router as proxy_router
 from src.api.routes.rag_scanner import router as rag_scanner_router
+from src.api.routes.reviews import router as reviews_router
 from src.api.routes.risks import router as risks_router
 from src.api.routes.sessions import router as sessions_router
 from src.api.routes.settings import router as settings_router
@@ -90,6 +91,7 @@ ROUTERS = [
     attack_library_router,
     forensics_router,
     risks_router,
+    reviews_router,
     config_status_router,
     prometheus_router,
     providers_router,
@@ -157,10 +159,16 @@ async def lifespan(app: FastAPI):
                 custom_integration_worker,
                 drain_telemetry,
             )
+            from src.services.custom_integration_outbox import prune_expired_dead_letters
             from src.services.custom_integration_registry import custom_integration_registry
 
             await custom_integration_registry.refresh()
             logger.info("Custom integration registry loaded: %s", custom_integration_registry.names())
+            expired = prune_expired_dead_letters(
+                settings.ARTSA_CUSTOM_INTEGRATION_DEAD_LETTER_RETENTION_DAYS
+            )
+            if expired:
+                logger.info("Expired %s custom integration dead-letter payload(s)", expired)
             custom_integration_worker.start()
             alert_delivery_worker.start()
             app.state.custom_integration_drain_task = asyncio.create_task(drain_telemetry())

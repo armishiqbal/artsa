@@ -34,7 +34,7 @@ export function FloatingAssistantWidget() {
         "Summary: 2 Prompt Injection vectors intercepted (KILL), 1 network exfiltration attempt blocked, and benign system telemetry verified without false positives.";
     } else if (lower.includes("policy") || lower.includes("rule")) {
       botReply =
-        "Active policies: org-default (active), prompt-injection-shield (active), no-network-exfil (active). DefenderAgent hot-patched 1 containment rule in the latest round.";
+        "Active policies: org-default (active), prompt-injection-shield (active), no-network-exfil (active). Defender is a planned role and does not hot-patch containment rules in the current runtime.";
     } else if (lower.includes("req_")) {
       botReply = `Request inspection: The evaluated request matched policy 'strict-containment' with risk score 88.0 and was safely isolated.`;
     }

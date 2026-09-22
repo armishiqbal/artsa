@@ -140,12 +140,12 @@ export function deriveMissionPosture(events: AgentEvent[]): {
   if (under > 0) {
     return {
       posture: "elevated",
-      headline: `${under} agent${under === 1 ? "" : "s"} under attack — watch Target / Defender hop latency.`,
+      headline: `${under} agent${under === 1 ? "" : "s"} under attack — inspect the wired Target / Judge path.`,
     };
   }
   return {
     posture: "nominal",
-    headline: "All six agents nominal — detection curve tracking above baseline.",
+    headline: "Wired Red Team → Target → Judge path nominal; Research, Curator, and Defender are not wired.",
   };
 }
 
@@ -205,12 +205,11 @@ export function deriveGraphModel(
       .filter(([, s]) => s !== "nominal")
       .map(([id]) => id)
   );
-  // Canonical hot path during pressure: Red Team → Target → Judge → Defender
+  // The currently wired pressure path ends at Judge. Planned roles must not be
+  // promoted into an operational edge by a simulated event stream.
   const hotPairs = new Set<string>([
     "Red Team→Target",
     "Target→Judge",
-    "Judge→Defender",
-    "Defender→Target",
   ]);
 
   for (const [key, row] of traffic) {

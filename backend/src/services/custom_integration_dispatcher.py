@@ -20,13 +20,17 @@ resolved from the connector's encrypted secret store. No code execution.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import queue
+import random
 import re
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -36,6 +40,15 @@ logger = logging.getLogger(__name__)
 
 _WHOLE_TOKEN_RE = re.compile(r"^\{\{([^{}]+)\}\}$")
 _EMBEDDED_TOKEN_RE = re.compile(r"\{\{([^{}]+)\}\}")
+
+
+@dataclass(frozen=True)
+class DeliveryResult:
+    """Safe terminal result for one outbound request attempt sequence."""
+
+    delivered: bool
+    attempt_count: int
+    failure_code: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -176,6 +189,32 @@ def resolve_headers(integration: Any) -> dict[str, str]:
     return headers
 
 
+def delivery_identity(event_type: str, event: dict[str, Any], body: bytes) -> tuple[str, str]:
+    """Return stable delivery and correlation identities without retaining payloads."""
+    explicit_id = event.get("delivery_id") or event.get("event_id") or event.get("id")
+    delivery_id = str(explicit_id) if explicit_id else hashlib.sha256(
+        f"{event_type}:".encode() + body
+    ).hexdigest()
+    return delivery_id, str(event.get("trace_id") or event.get("session_id") or delivery_id)
+
+
+def delivery_headers(event_type: str, event: dict[str, Any], body: bytes) -> dict[str, str]:
+    """Create stable delivery metadata for downstream deduplication and tracing.
+
+    A receiver can safely retry a state-changing webhook by treating
+    ``Idempotency-Key`` / ``X-ARTSA-Delivery-ID`` as the delivery identity. The
+    payload is not placed in headers; only a SHA-256 derived fallback is used
+    when the source event has no stable ID.
+    """
+    delivery_id, correlation_id = delivery_identity(event_type, event, body)
+    return {
+        "Idempotency-Key": delivery_id,
+        "X-ARTSA-Delivery-ID": delivery_id,
+        "X-ARTSA-Event-Type": event_type,
+        "X-ARTSA-Correlation-ID": correlation_id,
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dispatch
 # ─────────────────────────────────────────────────────────────────────────────
@@ -191,23 +230,26 @@ def build_request(
         body = json.dumps(rendered).encode("utf-8")
     else:
         body = json.dumps(build_default_payload(event_type, event)).encode("utf-8")
+    headers = resolve_headers(integration)
+    headers.update(delivery_headers(event_type, event, body))
     return (
         (getattr(integration, "method", "POST") or "POST").upper(),
         integration.target_url,
-        resolve_headers(integration),
+        headers,
         body,
     )
 
 
-def send_request(
+def send_request_result(
     method: str,
     url: str,
     headers: dict[str, str],
     body: bytes,
     retries: int = 3,
     timeout: float = 10.0,
-) -> bool:
-    """POST/PUT/PATCH a payload to a target with bounded retries.
+    backoff_base_seconds: float = 0.25,
+) -> DeliveryResult:
+    """POST/PUT/PATCH a payload with bounded exponential retry and jitter.
 
     Returns True if any attempt succeeded. Never raises — failures are logged.
     """
@@ -223,7 +265,7 @@ def send_request(
                 len(body),
                 attempt,
             )
-            return True
+            return DeliveryResult(delivered=True, attempt_count=attempt)
         except Exception as exc:
             logger.warning(
                 "Custom integration %s %s attempt %s/%s failed: %s",
@@ -233,18 +275,56 @@ def send_request(
                 retries,
                 exc,
             )
-    return False
+            # Never sleep after the final attempt. Jitter spreads retries from
+            # multiple workers so an unavailable downstream service is not
+            # hit by a synchronized retry storm.
+            if attempt < max(int(retries), 1):
+                base = max(0.0, float(backoff_base_seconds))
+                delay = min(30.0, base * (2 ** (attempt - 1)))
+                if delay:
+                    time.sleep(delay * (1.0 + random.uniform(0.0, 0.25)))
+    return DeliveryResult(
+        delivered=False,
+        attempt_count=max(int(retries), 1),
+        failure_code="DELIVERY_ATTEMPTS_EXHAUSTED",
+    )
+
+
+def send_request(
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    body: bytes,
+    retries: int = 3,
+    timeout: float = 10.0,
+    backoff_base_seconds: float = 0.25,
+) -> bool:
+    """Compatibility wrapper returning whether the request was delivered."""
+    return send_request_result(
+        method,
+        url,
+        headers,
+        body,
+        retries=retries,
+        timeout=timeout,
+        backoff_base_seconds=backoff_base_seconds,
+    ).delivered
 
 
 def dispatch(integration: Any, event_type: str, event: dict[str, Any]) -> bool:
     """Dispatch one event through one connector, honoring its filters."""
+    return dispatch_result(integration, event_type, event).delivered
+
+
+def dispatch_result(integration: Any, event_type: str, event: dict[str, Any]) -> DeliveryResult:
+    """Dispatch one event and retain safe retry outcome metadata for the worker."""
     risk = float(event.get("risk_score") or 0.0)
     if event_type not in (getattr(integration, "event_types", None) or []):
-        return False
+        return DeliveryResult(delivered=False, attempt_count=0, failure_code="NOT_SUBSCRIBED")
     if risk < getattr(integration, "risk_threshold", 0.0):
-        return False
+        return DeliveryResult(delivered=False, attempt_count=0, failure_code="BELOW_RISK_THRESHOLD")
     method, url, headers, body = build_request(integration, event_type, event)
-    return send_request(
+    return send_request_result(
         method,
         url,
         headers,
@@ -263,7 +343,7 @@ class CustomIntegrationWorker:
     """Deliver queued events to matching connectors off the hot path."""
 
     def __init__(self, maxsize: int = 1000, workers: int = 2) -> None:
-        self._queue: queue.Queue[tuple[str, dict[str, Any]]] = queue.Queue(maxsize=maxsize)
+        self._queue: queue.Queue[str] = queue.Queue(maxsize=maxsize)
         self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="cix")
         self._workers = workers
         self._stop = threading.Event()
@@ -275,6 +355,15 @@ class CustomIntegrationWorker:
         self._started = True
         self._stop.clear()
         self._futures = [self._pool.submit(self._consume) for _ in range(self._workers)]
+        # A process restart or a full in-memory queue cannot discard durable
+        # pending records; recover them after consumers are ready.
+        try:
+            from src.services.custom_integration_outbox import pending_ids
+
+            for delivery_row_id in pending_ids(limit=self._queue.maxsize):
+                self._schedule(delivery_row_id)
+        except Exception as exc:
+            logger.warning("Custom integration outbox recovery skipped: %s", exc)
 
     def stop(self, wait: bool = True) -> None:
         self._started = False
@@ -285,38 +374,154 @@ class CustomIntegrationWorker:
             logger.debug("Dispatcher pool shutdown raced: %s", exc)
 
     def enqueue(self, event_type: str, event: dict[str, Any]) -> bool:
-        """Queue an event for dispatch. Returns False (drops) on a full queue."""
+        """Durably enqueue matching connectors before signalling the worker.
+
+        A full memory queue only delays delivery: the encrypted outbox row
+        remains PENDING and is recovered by the worker on its next startup.
+        """
+        from src.services.custom_integration_outbox import enqueue as outbox_enqueue
+        from src.services.custom_integration_registry import custom_integration_registry
+
+        tenant_id = event.get("tenant_id", "default_tenant")
+        if not isinstance(tenant_id, str) or not tenant_id.strip():
+            logger.warning("Custom integration event %s has no valid tenant; refusing enqueue", event_type)
+            return False
+        risk = float(event.get("risk_score") or 0.0)
+        accepted = False
+        for integration in custom_integration_registry.matching(event_type, risk, tenant_id.strip()):
+            try:
+                _method, _url, _headers, body = build_request(integration, event_type, event)
+                delivery_id, correlation_id = delivery_identity(event_type, event, body)
+                delivery_row_id = outbox_enqueue(
+                    tenant_id=tenant_id.strip(),
+                    integration_name=integration.name,
+                    event_type=event_type,
+                    delivery_id=delivery_id,
+                    correlation_id=correlation_id,
+                    payload_sha256=hashlib.sha256(body).hexdigest(),
+                    event=event,
+                )
+                accepted = True
+                self._schedule(delivery_row_id)
+            except Exception as exc:
+                logger.warning("Custom integration durable enqueue failed for %s: %s", integration.name, exc)
+        return accepted
+
+    def _schedule(self, delivery_row_id: str) -> bool:
+        """Signal a durable delivery without making an in-memory queue authoritative."""
         if not self._started:
             return False
         try:
-            self._queue.put_nowait((event_type, event))
+            self._queue.put_nowait(delivery_row_id)
             return True
         except queue.Full:
-            logger.warning("Custom integration queue full — dropping %s event", event_type)
+            logger.warning("Custom integration queue full — durable delivery %s remains pending", delivery_row_id)
             return False
+
+    def schedule_replay(self, delivery_row_id: str) -> bool:
+        """Signal an explicitly requeued dead letter; persistence happened first."""
+        return self._schedule(delivery_row_id)
 
     def _consume(self) -> None:
         while not self._stop.is_set():
             try:
-                item = self._queue.get(timeout=0.5)
+                delivery_row_id = self._queue.get(timeout=0.5)
             except queue.Empty:
                 continue
             try:
-                self._process(*item)
+                self._process_delivery(delivery_row_id)
             except Exception as exc:
                 logger.warning("Custom integration dispatch error: %s", exc)
             finally:
                 self._queue.task_done()
 
     def _process(self, event_type: str, event: dict[str, Any]) -> None:
+        """Legacy direct path retained for focused unit tests only.
+
+        Production dispatch always enters through ``enqueue`` and the durable
+        outbox path below.
+        """
         from src.services.custom_integration_registry import custom_integration_registry
 
         risk = float(event.get("risk_score") or 0.0)
-        for integration in custom_integration_registry.matching(event_type, risk):
+        tenant_id = event.get("tenant_id", "default_tenant")
+        if not isinstance(tenant_id, str) or not tenant_id.strip():
+            logger.warning("Custom integration event %s has no valid tenant; refusing delivery", event_type)
+            return
+        for integration in custom_integration_registry.matching(event_type, risk, tenant_id.strip()):
             try:
-                dispatch(integration, event_type, event)
+                _method, _url, _headers, body = build_request(integration, event_type, event)
+                delivery_id, correlation_id = delivery_identity(event_type, event, body)
+                result = dispatch_result(integration, event_type, event)
+                from src.services.custom_integration_delivery_ledger import record_delivery_outcome
+
+                record_delivery_outcome(
+                    tenant_id=tenant_id.strip(),
+                    integration_name=integration.name,
+                    event_type=event_type,
+                    delivery_id=delivery_id,
+                    correlation_id=correlation_id,
+                    payload_sha256=hashlib.sha256(body).hexdigest(),
+                    delivered=result.delivered,
+                    attempt_count=result.attempt_count,
+                    failure_code=result.failure_code,
+                )
             except Exception as exc:
                 logger.warning("Custom integration %s dispatch failed: %s", integration.name, exc)
+
+    def _process_delivery(self, delivery_row_id: str) -> None:
+        """Claim a durable row, deliver it, then persist outcome and evidence."""
+        from src.services.custom_integration_delivery_ledger import record_delivery_outcome
+        from src.services.custom_integration_outbox import claim, finish
+        from src.services.custom_integration_registry import custom_integration_registry
+
+        pending = claim(delivery_row_id)
+        if pending is None:
+            return
+        integration = custom_integration_registry.get(pending.integration_name, pending.tenant_id)
+        if integration is None:
+            finish(
+                pending.id,
+                delivered=False,
+                attempt_count=1,
+                failure_code="INTEGRATION_UNAVAILABLE",
+            )
+            record_delivery_outcome(
+                tenant_id=pending.tenant_id,
+                integration_name=pending.integration_name,
+                event_type=pending.event_type,
+                delivery_id=pending.delivery_id,
+                correlation_id=pending.correlation_id,
+                payload_sha256=pending.payload_sha256,
+                delivered=False,
+                attempt_count=1,
+                failure_code="INTEGRATION_UNAVAILABLE",
+            )
+            return
+        try:
+            result = dispatch_result(integration, pending.event_type, pending.event)
+        except Exception as exc:  # pragma: no cover - defensive worker boundary
+            logger.warning("Custom integration dispatch raised for %s: %s", pending.id, exc)
+            result = DeliveryResult(
+                delivered=False, attempt_count=1, failure_code="DISPATCH_EXCEPTION"
+            )
+        finish(
+            pending.id,
+            delivered=result.delivered,
+            attempt_count=result.attempt_count,
+            failure_code=result.failure_code,
+        )
+        record_delivery_outcome(
+            tenant_id=pending.tenant_id,
+            integration_name=pending.integration_name,
+            event_type=pending.event_type,
+            delivery_id=pending.delivery_id,
+            correlation_id=pending.correlation_id,
+            payload_sha256=pending.payload_sha256,
+            delivered=result.delivered,
+            attempt_count=result.attempt_count,
+            failure_code=result.failure_code,
+        )
 
 
 custom_integration_worker = CustomIntegrationWorker()
@@ -345,6 +550,7 @@ def enqueue_alert(alert: Any) -> None:
         "channel": alert.channel,
         "triggered_at": alert.triggered_at.isoformat(),
         "risk_score": risk,
+        "tenant_id": alert.tenant_id,
     }
     custom_integration_worker.enqueue("alert", event)
 

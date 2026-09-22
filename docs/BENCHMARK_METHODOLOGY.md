@@ -30,10 +30,46 @@ python scripts/check_independence.py     # independent-set non-duplication guard
 python scripts/contamination_audit.py    # generator self-referentiality audit
 ```
 
+`independent_gate.py --json` emits a SHA-256 of the exact dataset bytes,
+curation metadata and batch sources, embedding semantic mode, unavailable
+sample count/rate, evaluated-sample denominator, and p99 in-process evaluation
+latency. These fields are part of the evidence record; a score without them is
+not a reproducible safety claim. `semantic_mode=disabled` means the explicit
+`hash-1024` diagnostic path, while `semantic_mode=configured` means a real
+embedding backend was initialized. A failed backend is reported as
+`semantic_mode=unavailable` and is never silently replaced by hash embeddings.
+
 **Honesty rule:** `ARTSA_EMBEDDING_MODEL=hash-1024` (the `ENVIRONMENT=testing`
 default) disables the embedding detector — numbers produced that way do NOT
 represent the semantic layer. Every published number uses
 `local-bge-multilingual` unless stated otherwise.
+
+## Latest local diagnostic run
+
+On 2026-09-21, the independent gate was run with `hash-1024` (semantic layer
+disabled): recall@80 **0.491** (310/632), recall@50 **0.514**, and FPR@50
+**0.029** (13/452). This is a useful rule-layer regression diagnostic, but it
+is **not** a semantic-model result and must not support a production-safety
+claim. The weakest classes were multilingual (0.06), destructive tools (0.42),
+and cloud credentials / unusual credentials (0.50). Re-run with
+`local-bge-multilingual` before comparing a release with prior semantic runs.
+
+The configured semantic path was smoke-verified on the 70-sample curated set
+after initializing `local-bge-multilingual`: recall@80 **1.000**, FPR@50
+**0.000**, unavailable rate **0.000**, p99 in-process latency **67.777 ms**.
+This is only a semantic-path availability check; it is not evidence that the
+1,084-sample independent corpus has the same performance.
+
+The full independent corpus was then evaluated with the configured
+`local-bge-multilingual` backend: recall@80 **0.5854** (370/632), recall@50
+**0.6582**, FPR@50 **0.0288** (13/452), unavailable rate **0.000**, and p99
+in-process latency **144.480 ms**. The weakest attack classes were
+`destructive_tools` (**0.4194**), `multilingual` (**0.4766**),
+`cloud_credentials` (**0.5000**), and `credential_unusual` (**0.5000**).
+The measured semantic p99 is above the 50 ms target, so this result is evidence
+for generalization and availability—not a production-readiness claim.
+The machine-readable run record is kept at
+`backend/benchmarks/reports/independent_2026-09-21_local-bge-multilingual.json`.
 
 ## Sets
 

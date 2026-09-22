@@ -20,17 +20,26 @@ spec:
         prometheus.io/path: "/api/v1/metrics/prometheus"
       {{- end }}
     spec:
-      {{- if .Values.secrets.create }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       envFrom:
         - secretRef:
-            name: {{ include "artsa.name" . }}-secrets
-      {{- end }}
+            name: {{ include "artsa.secretName" . }}
       containers:
         - name: api
           image: "{{ .Values.image.api.repository }}:{{ .Values.image.api.tag }}"
           imagePullPolicy: {{ .Values.image.api.pullPolicy }}
           ports:
             - containerPort: 8000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           livenessProbe:
             httpGet:
               path: /api/v1/health
@@ -48,12 +57,8 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 3
           env:
-            {{- if not .Values.secrets.create }}
-            - name: DATABASE_URL
-              value: {{ include "artsa.databaseUrl" . | quote }}
-            {{- end }}
             {{- range $key, $value := .Values.env }}
-            {{- if not (and $.Values.secrets.create (eq $key "REDIS_URL")) }}
+            {{- if ne $key "REDIS_URL" }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
@@ -61,11 +66,15 @@ spec:
           resources:
             {{- toYaml .Values.resources.api | nindent 12 }}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             {{- if .Values.persistence.chroma.enabled }}
             - name: chroma-data
               mountPath: /app/backend/data/chroma
             {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
         {{- if .Values.persistence.chroma.enabled }}
         - name: chroma-data
           persistentVolumeClaim:

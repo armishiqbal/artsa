@@ -68,17 +68,12 @@ export function agentsFromTelemetry(
   const agents = idleAgents();
   if (!events.length) return agents;
 
-  const latest = events[0]!;
-  const risk = Number(latest.risk_score ?? 0);
-  const verdict = String(latest.verdict ?? "").toUpperCase();
-  const hot = risk >= 60 || verdict.includes("BREACH");
-
   agents.red_team = "done";
   agents.target = "done";
   agents.judge = "done";
-  agents.defender = hot ? "running" : "done";
-  agents.research = "idle";
-  agents.curator = "idle";
+  agents.defender = "not_wired";
+  agents.research = "not_wired";
+  agents.curator = "not_wired";
   return agents;
 }
 
