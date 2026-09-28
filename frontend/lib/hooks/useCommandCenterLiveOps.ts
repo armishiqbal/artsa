@@ -145,7 +145,7 @@ export interface LiveOpsState {
   error: string | null;
 }
 
-export type OperatorActionType = "KILL" | "QUARANTINE";
+export type OperatorActionType = "KILL" | "QUARANTINE" | "BLOCK_TOOL" | "REPLAY_ROUND";
 
 export interface OperatorActionResult {
   success: boolean;
