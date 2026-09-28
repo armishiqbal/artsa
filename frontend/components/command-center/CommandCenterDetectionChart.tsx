@@ -40,8 +40,6 @@ export function CommandCenterDetectionChart({
   const artsaMax = artsaVals.length ? Math.max(...artsaVals) : 92;
   const artsaLast = artsaVals.length ? artsaVals[artsaVals.length - 1]! : 86;
 
-  const baseMin = baseVals.length ? Math.min(...baseVals) : 42;
-  const baseMax = baseVals.length ? Math.max(...baseVals) : 46;
   const baseLast = baseVals.length ? baseVals[baseVals.length - 1]! : 44;
 
   const artsStroke = isLight ? "#0284c7" : "#38bdf8";

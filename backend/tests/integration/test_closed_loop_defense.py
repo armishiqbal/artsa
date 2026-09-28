@@ -17,15 +17,13 @@ import yaml
 
 from src.agents.defender_agent import DefenderAgent
 from src.agents.guardrails.adapters import OrgPolicyGuardrailAdapter, GuardrailContext
-from src.agents.handoff_worker import run_defender_hop, run_target_hop, run_judge_hop
+from src.agents.handoff_worker import run_defender_hop
 from src.core.hmac_handoff import sign_handoff
 from src.models import (
     AttackCategory,
     AttackPayload,
-    GuardrailConfig,
     JudgeScore,
     Severity,
-    TargetConfig,
     TargetResponse,
     Verdict,
 )
