@@ -253,6 +253,8 @@ class AttackProfile(BaseModel):
     category_weights: dict[str, float] = Field(default_factory=dict)
     mutations_enabled: bool = True
     max_mutations_per_attack: int = 3
+    multi_turn_enabled: bool = False
+    crescendo_turns: int = 4
 
 
 class CampaignConfig(BaseModel):

@@ -9,12 +9,14 @@ from typing import Any
 from src.agents.base_agent import BaseAgent
 from src.attacks import ATTACK_REGISTRY, PayloadMutator
 from src.attacks.base_attack import BaseAttack
+from src.attacks.crescendo import CrescendoAttackChain, CrescendoPlanner
 from src.data.attack_library import AttackLibrary
 from src.evolution.engine import EvolutionEngine
 from src.models import (
     AttackCategory,
     AttackPayload,
     AttackProfile,
+    AttackTemplate,
     JudgeScore,
     TargetConfig,
 )
@@ -66,6 +68,23 @@ class RedTeamAgent(BaseAgent):
             mutation_rate=config.get("evolution_mutation_rate", 0.7),
             crossover_rate=config.get("evolution_crossover_rate", 0.5),
             generation_interval=config.get("evolution_generation_interval", 5),
+        )
+
+        # Progressive multi-turn Crescendo planner
+        self.crescendo_planner = CrescendoPlanner()
+
+    def generate_crescendo_chain(
+        self,
+        category: AttackCategory,
+        template: AttackTemplate | None = None,
+        max_turns: int | None = None,
+    ) -> CrescendoAttackChain:
+        """Plan a progressive multi-turn Crescendo attack trajectory."""
+        turns = max_turns or getattr(self.attack_profile, "crescendo_turns", 4)
+        return self.crescendo_planner.plan_chain(
+            category=category,
+            template=template,
+            max_turns=turns,
         )
 
     def select_attack_category(

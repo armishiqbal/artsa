@@ -198,7 +198,8 @@ def run_judge_hop(
         raise HandoffIntegrityError("MALFORMED_BODY", sender="target", receiver="judge") from exc
     hop_agent = agent if agent is not None else build_judge_agent(opened.campaign_id)
     judge = hop_agent or JudgeAgent({"use_llm": False})
-    score = judge.evaluate(attack, response)
+    trajectory = attack.metadata.get("crescendo_trajectory") or attack.metadata.get("trajectory")
+    score = judge.evaluate(attack, response, trajectory=trajectory)
     return {
         "ok": True,
         "payload": attack.model_dump(mode="json"),

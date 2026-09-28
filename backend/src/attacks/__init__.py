@@ -1,6 +1,12 @@
 """ARTSA Attack Plugins — Modular attack implementations."""
 
 from src.attacks.base_attack import BaseAttack
+from src.attacks.crescendo import (
+    CrescendoAttackChain,
+    CrescendoPlanner,
+    CrescendoStage,
+    CrescendoTurn,
+)
 from src.attacks.data_extraction import DataExtractionAttack
 from src.attacks.jailbreak import JailbreakAttack
 from src.attacks.mcp_attack import MCPToolPoisoningAttack
@@ -23,6 +29,10 @@ ATTACK_REGISTRY: dict[AttackCategory, type[BaseAttack]] = {
 __all__ = [
     "ATTACK_REGISTRY",
     "BaseAttack",
+    "CrescendoAttackChain",
+    "CrescendoPlanner",
+    "CrescendoStage",
+    "CrescendoTurn",
     "DataExtractionAttack",
     "JailbreakAttack",
     "MCPToolPoisoningAttack",

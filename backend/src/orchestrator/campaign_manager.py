@@ -438,7 +438,18 @@ class CampaignManager:
                 is_chain = False
                 judge_envelope: dict | None = None
                 target_t0 = time.perf_counter()
-                if category == AttackCategory.SOCIAL_ENGINEERING:
+
+                # ─── 3a. Crescendo or Multi-Turn Chain Execution ───
+                chain = None
+                if getattr(self.config.attack_profile, "multi_turn_enabled", False):
+                    is_chain = True
+                    tmpl = self.red_team.attack_library.get_by_id(attack_payload.template_id)
+                    chain = self.red_team.generate_crescendo_chain(
+                        category=category,
+                        template=tmpl,
+                        max_turns=self.config.attack_profile.crescendo_turns,
+                    )
+                elif category == AttackCategory.SOCIAL_ENGINEERING:
                     se_plugin = self.red_team.plugins.get(AttackCategory.SOCIAL_ENGINEERING)
                     if isinstance(se_plugin, SocialEngineeringAttack):
                         template_id = attack_payload.template_id
@@ -446,34 +457,53 @@ class CampaignManager:
                         if template and se_plugin.is_multi_turn_template(template):
                             is_chain = True
                             chain = se_plugin.generate_chain(template)
-                            progress.update(
-                                task,
-                                description=f"[cyan]Round {round_idx}: Multi-turn chain ({chain.total_turns} turns)...",
+
+                if is_chain and chain is not None:
+                    total_turns_display = getattr(chain, "total_turns", len(getattr(chain, "planned_stages", [])))
+                    progress.update(
+                        task,
+                        description=f"[cyan]Round {round_idx}: Crescendo multi-turn probe ({total_turns_display} turns)...",
+                    )
+                    last_payload = attack_payload
+                    last_response = None
+                    judge_envelope = None
+                    while not chain.is_complete():
+                        last_payload = chain.current_payload()
+                        if hasattr(chain, "get_trajectory"):
+                            last_payload.metadata["crescendo_trajectory"] = chain.get_trajectory()
+                        history = chain.conversation_history or None
+                        hop = self._target_hop(
+                            last_payload, round_idx, history=history
+                        )
+                        hmac_handoffs.append(hop["hmac_meta"])
+                        last_payload = AttackPayload.model_validate(hop["payload"])
+                        last_response = TargetResponse.model_validate(hop["response"])
+                        judge_envelope = hop["judge_envelope"]
+
+                        try:
+                            chain.advance(
+                                last_response.response,
+                                blocked=last_response.blocked,
+                                blocked_by=last_response.blocked_by,
                             )
-                            last_payload = attack_payload
-                            last_response = None
-                            judge_envelope = None
-                            while not chain.is_complete():
-                                last_payload = chain.current_payload()
-                                history = chain.conversation_history or None
-                                hop = self._target_hop(
-                                    last_payload, round_idx, history=history
-                                )
-                                hmac_handoffs.append(hop["hmac_meta"])
-                                last_payload = AttackPayload.model_validate(hop["payload"])
-                                last_response = TargetResponse.model_validate(hop["response"])
-                                judge_envelope = hop["judge_envelope"]
-                                chain.advance(last_response.response)
-                                if last_response.blocked:
-                                    break
-                            if last_response is not None and judge_envelope is not None:
-                                attack_payload = last_payload
-                                attack_payload.metadata["is_multi_turn"] = True
-                                attack_payload.metadata["chain_turns"] = chain.total_turns
-                                target_response = last_response
-                            else:
-                                is_chain = False
-                                judge_envelope = None
+                        except TypeError:
+                            chain.advance(last_response.response)
+
+                        if last_response.blocked and not getattr(chain, "backtrack_count", 0):
+                            break
+
+                    if last_response is not None and judge_envelope is not None:
+                        attack_payload = last_payload
+                        attack_payload.metadata["is_multi_turn"] = True
+                        if hasattr(chain, "get_trajectory"):
+                            attack_payload.metadata["crescendo_trajectory"] = chain.get_trajectory()
+                        attack_payload.metadata["chain_turns"] = (
+                            len(chain.turns) if hasattr(chain, "turns") else chain.total_turns
+                        )
+                        target_response = last_response
+                    else:
+                        is_chain = False
+                        judge_envelope = None
 
                 if not is_chain:
                     progress.update(
@@ -496,7 +526,14 @@ class CampaignManager:
                 judge_t0 = time.perf_counter()
                 judge_hop = self._judge_hop(judge_envelope, round_idx)
                 hmac_handoffs.append(judge_hop["hmac_meta"])
-                attack_payload = AttackPayload.model_validate(judge_hop["payload"])
+                unpacked_payload = AttackPayload.model_validate(judge_hop["payload"])
+                if is_chain:
+                    unpacked_payload.metadata.setdefault("is_multi_turn", True)
+                    if "crescendo_trajectory" in attack_payload.metadata:
+                        unpacked_payload.metadata["crescendo_trajectory"] = attack_payload.metadata["crescendo_trajectory"]
+                    if "chain_turns" in attack_payload.metadata:
+                        unpacked_payload.metadata["chain_turns"] = attack_payload.metadata["chain_turns"]
+                attack_payload = unpacked_payload
                 target_response = TargetResponse.model_validate(judge_hop["response"])
                 score = JudgeScore.model_validate(judge_hop["score"])
                 judge_ms = (time.perf_counter() - judge_t0) * 1000
