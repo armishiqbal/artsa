@@ -28,9 +28,10 @@ router = APIRouter(tags=["Sessions"])
 
 
 class SessionActionRequest(BaseModel):
-    action: Literal["KILL", "QUARANTINE", "THROTTLE", "ALERT", "RELEASE", "CLOSE"] = Field(
-        ..., description="Action to enforce on agent session (RELEASE/CLOSE are incident workflow)"
+    action: Literal["KILL", "QUARANTINE", "THROTTLE", "ALERT", "RELEASE", "CLOSE", "BLOCK_TOOL"] = Field(
+        ..., description="Action to enforce on agent session (RELEASE/CLOSE are incident workflow, BLOCK_TOOL is tool quarantine)"
     )
+    tool_name: str | None = Field(default=None, description="Tool name to quarantine when action is BLOCK_TOOL")
 
 
 class TimelineEntry(BaseModel):
@@ -168,7 +169,7 @@ async def enforce_session_action(
             "idempotent": True,
         }
 
-    tracker.apply_action(session_id, payload.action)
+    tracker.apply_action(session_id, payload.action, payload.tool_name)
     repo = SessionRepository(db)
     updated = await repo.apply_action(session_id, payload.action)
     final = updated or tracker.get_session(session_id) or session
@@ -184,6 +185,7 @@ async def enforce_session_action(
             "tenant_id": tenant_id,
             "agent_id": final.agent_id,
             "action": payload.action,
+            "tool_name": payload.tool_name,
             "session_status": final.status,
             "risk_score": final.max_risk_score,
             "verdict": "BREACHED" if payload.action == "KILL" else "SUSPICIOUS",
@@ -199,13 +201,82 @@ async def enforce_session_action(
 
     logger.info("Enforced action %s on session %s → %s", payload.action, session_id, final.status)
 
-    return {
+    res_body: dict[str, Any] = {
         "session_id": str(session_id),
         "enforced_action": payload.action,
         "status": final.status,
         "idempotent": False,
         "trace_id": trace_id,
         "event_id": event_id,
+    }
+    if payload.tool_name:
+        res_body["tool_name"] = payload.tool_name
+        res_body["blocked_tools"] = tracker.get_blocked_tools(session_id)
+    return res_body
+
+
+@router.post("/sessions/{session_id}/tools/{tool_name}/block")
+async def block_session_tool(
+    session_id: uuid.UUID,
+    tool_name: str,
+    db: AsyncSession = Depends(get_db),
+    tracker: SessionTracker = Depends(get_session_tracker),
+    tenant_id: str = Depends(get_current_tenant),
+):
+    """Granularly revoke and quarantine a specific tool for this session."""
+    session = await _require_tenant_session(session_id, tenant_id, tracker, db)
+    if not tracker.get_session(session_id):
+        tracker.active_sessions[str(session_id)] = session
+
+    tracker.block_tool(session_id, tool_name)
+    event_id = str(uuid.uuid4())
+    trace_id = str(uuid.uuid4())
+
+    telemetry_bus.publish(
+        {
+            "type": "tool_quarantine",
+            "event_id": event_id,
+            "trace_id": trace_id,
+            "session_id": str(session_id),
+            "tenant_id": tenant_id,
+            "agent_id": session.agent_id,
+            "action": "BLOCK_TOOL",
+            "tool_name": tool_name,
+            "session_status": session.status,
+            "verdict": "CONTAINED",
+            "severity": "HIGH",
+            "actor": tenant_id,
+            "result": "BLOCKED",
+            "reason": f"Tool '{tool_name}' quarantined by operator.",
+        }
+    )
+
+    logger.info("Tool '%s' blocked on session %s by tenant %s", tool_name, session_id, tenant_id)
+
+    return {
+        "session_id": str(session_id),
+        "tool_name": tool_name,
+        "action": "BLOCK_TOOL",
+        "status": "QUARANTINED",
+        "blocked": True,
+        "blocked_tools": tracker.get_blocked_tools(session_id),
+        "event_id": event_id,
+        "trace_id": trace_id,
+    }
+
+
+@router.get("/sessions/{session_id}/tools/blocked")
+async def list_blocked_tools(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tracker: SessionTracker = Depends(get_session_tracker),
+    tenant_id: str = Depends(get_current_tenant),
+):
+    """List all quarantined / blocked tools for this session."""
+    await _require_tenant_session(session_id, tenant_id, tracker, db)
+    return {
+        "session_id": str(session_id),
+        "blocked_tools": tracker.get_blocked_tools(session_id),
     }
 
 

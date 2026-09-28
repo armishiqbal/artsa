@@ -179,8 +179,10 @@ OPERATOR_ACTIONS: tuple[OperatorActionSpec, ...] = (
     ),
     OperatorActionSpec(
         action_id="BLOCK_TOOL",
-        implemented=False,
-        note="TODO: no per-tool block API. Policy rules can approximate via /policies.",
+        implemented=True,
+        method="POST",
+        path="/api/v1/sessions/{session_id}/tools/{tool_name}/block",
+        note="Granularly revokes and quarantines execution permissions for a specific tool on the session/target.",
     ),
     OperatorActionSpec(
         action_id="REPLAY_ROUND",

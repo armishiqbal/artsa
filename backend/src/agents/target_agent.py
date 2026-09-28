@@ -94,8 +94,33 @@ class TargetAgent(BaseAgent):
         trace = []
         bypass_depth = 0
 
-        # 0. Tool Execution / Escape Detection Monitoring (EDS)
+        # 0. Tool Execution / Escape Detection Monitoring (EDS) & Granular Tool Quarantine
         tool_name = (metadata.get("tool_name") or metadata.get("tool") or "") if metadata else ""
+        session_id = (metadata.get("session_id") or "") if metadata else ""
+        if tool_name and session_id:
+            try:
+                from src.services.session_tracker import session_tracker
+
+                if session_tracker.is_tool_blocked(session_id, tool_name):
+                    trace.append(
+                        GuardrailResult(
+                            layer=GuardrailLayer.INPUT_FILTER,
+                            passed=False,
+                            details=f"Tool '{tool_name}' permissions revoked by operator quarantine for session {session_id}.",
+                        )
+                    )
+                    return TargetResponse(
+                        response=f"[BLOCKED: Tool '{tool_name}' quarantined]",
+                        guardrail_trace=trace,
+                        bypass_depth=bypass_depth,
+                        blocked=True,
+                        blocked_by="tool_quarantine",
+                        latency_ms=(time.time() - start_time) * 1000,
+                        token_usage={"total_tokens": 0},
+                    )
+            except Exception as exc:
+                logger.warning("Could not check tool quarantine: %s", exc)
+
         if tool_name:
             from src.agents.eds_engine import EscapeDetectionEngine, ToolCallMonitorRequest
 

@@ -33,4 +33,4 @@ def test_ops_snapshot_is_disconnected_without_events():
     assert agents["defender"]["state"] == "not_wired"
     implemented = {a["action_id"]: a["implemented"] for a in data["operator_actions"]}
     assert implemented["KILL_SESSION"] is True
-    assert implemented["BLOCK_TOOL"] is False
+    assert implemented["BLOCK_TOOL"] is True

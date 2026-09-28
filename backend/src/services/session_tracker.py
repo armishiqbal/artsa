@@ -13,6 +13,7 @@ class SessionTracker:
     def __init__(self) -> None:
         self.active_sessions: dict[str, Session] = {}
         self.session_events: dict[str, list[ToolCallEvent]] = {}
+        self.blocked_tools: dict[str, set[str]] = {}
 
     def start_session(self, agent_id: str, tenant_id: str = "default_tenant") -> Session:
         """Start a new agent execution session."""
@@ -58,12 +59,49 @@ class SessionTracker:
                 session.status = "BREACHED"
         return session
 
-    def apply_action(self, session_id: uuid.UUID, action: str) -> Session | None:
+    def block_tool(self, session_id: uuid.UUID | str, tool_name: str) -> bool:
+        """Revoke execution permissions for a specific tool on this session."""
+        sid = str(session_id)
+        clean_tool = tool_name.strip().lower()
+        if not clean_tool:
+            return False
+        if sid not in self.blocked_tools:
+            self.blocked_tools[sid] = set()
+        self.blocked_tools[sid].add(clean_tool)
+        return True
+
+    def unblock_tool(self, session_id: uuid.UUID | str, tool_name: str) -> bool:
+        """Restore execution permissions for a specific tool on this session."""
+        sid = str(session_id)
+        clean_tool = tool_name.strip().lower()
+        if sid in self.blocked_tools and clean_tool in self.blocked_tools[sid]:
+            self.blocked_tools[sid].remove(clean_tool)
+            return True
+        return False
+
+    def is_tool_blocked(self, session_id: uuid.UUID | str, tool_name: str) -> bool:
+        """Check if a tool is currently blocked for this session."""
+        sid = str(session_id)
+        clean_tool = tool_name.strip().lower()
+        return clean_tool in self.blocked_tools.get(sid, set())
+
+    def get_blocked_tools(self, session_id: uuid.UUID | str) -> list[str]:
+        """Return list of all blocked tool names for this session."""
+        sid = str(session_id)
+        return sorted(self.blocked_tools.get(sid, set()))
+
+    def apply_action(
+        self,
+        session_id: uuid.UUID,
+        action: str,
+        tool_name: str | None = None,
+    ) -> Session | None:
         """Apply containment action to an in-memory session.
 
         WS-3.3 incident workflow: RELEASE restores a quarantined (or breached)
         session to ACTIVE after operator review; CLOSE closes a contained
         session permanently without re-activating it.
+        BLOCK_TOOL revokes granular execution permissions for a specific tool.
         """
         from datetime import datetime
 
@@ -82,6 +120,11 @@ class SessionTracker:
         elif action_u == "THROTTLE":
             # Soft control — keep ACTIVE but mark elevated risk floor
             session.max_risk_score = max(session.max_risk_score, 50.0)
+        elif action_u == "BLOCK_TOOL":
+            if tool_name:
+                self.block_tool(session_id, tool_name)
+            # Retain session status, but record containment intervention
+            session.max_risk_score = max(session.max_risk_score, 65.0)
         elif action_u == "RELEASE":
             # Operator reviewed the incident: resume normal operation.
             if session.status in ("QUARANTINED", "BREACHED", "PENDING_APPROVAL"):

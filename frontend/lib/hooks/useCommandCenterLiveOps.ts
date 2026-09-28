@@ -207,10 +207,10 @@ export const DEFAULT_OPERATOR_ACTIONS: LiveOpsOperatorActionSpec[] = [
   },
   {
     actionId: "BLOCK_TOOL",
-    implemented: false,
-    method: null,
-    path: null,
-    note: "TODO: no per-tool block API.",
+    implemented: true,
+    method: "POST",
+    path: "/api/v1/sessions/{session_id}/tools/{tool_name}/block",
+    note: "Granularly revokes and quarantines execution permissions for a specific tool on the session/target.",
   },
   {
     actionId: "REPLAY_ROUND",
@@ -592,7 +592,8 @@ export function buildSimulationFallbackState(currentRoundIdx = 0): LiveOpsState 
  */
 export async function executeOperatorAction(
   sessionId: string,
-  action: OperatorActionType
+  action: OperatorActionType,
+  toolName?: string
 ): Promise<OperatorActionResult> {
   const cleanSessionId = typeof sessionId === "string" ? sessionId.trim() : "";
   if (!cleanSessionId) {
@@ -604,14 +605,17 @@ export async function executeOperatorAction(
     };
   }
 
-  const endpoint = `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/action`;
+  const endpoint =
+    action === "BLOCK_TOOL" && toolName
+      ? `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/tools/${encodeURIComponent(toolName.trim())}/block`
+      : `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/action`;
   const url = `${API_BASE_URL}${endpoint}`;
 
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: buildHeaders(),
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, tool_name: toolName }),
     });
 
     if (res.status === 401) {
