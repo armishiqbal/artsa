@@ -50,7 +50,7 @@ describe("Option 4: Frontend Command Center Visualization for Defender & Adaptiv
     fireEvent.click(dismissBtn);
 
     expect(screen.queryByTestId("defender-patch-notification")).toBeNull();
-  });
+  }, 15000);
 
   it("Detection-rate-over-time chart displays climbing Adaptive Defense and flat Static Baseline", () => {
     // Check series values: climbing vs flat

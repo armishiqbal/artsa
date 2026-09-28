@@ -214,10 +214,10 @@ export const DEFAULT_OPERATOR_ACTIONS: LiveOpsOperatorActionSpec[] = [
   },
   {
     actionId: "REPLAY_ROUND",
-    implemented: false,
-    method: null,
-    path: null,
-    note: "TODO: rounds are persisted; re-execution is not an API.",
+    implemented: true,
+    method: "POST",
+    path: "/api/v1/campaigns/{campaign_id}/rounds/{round_number}/replay",
+    note: "Re-evaluates a historical attack round against active policies and targets to measure regression and mitigation.",
   },
   {
     actionId: "DEPLOY_MITIGATION",

@@ -186,8 +186,10 @@ OPERATOR_ACTIONS: tuple[OperatorActionSpec, ...] = (
     ),
     OperatorActionSpec(
         action_id="REPLAY_ROUND",
-        implemented=False,
-        note="TODO: rounds are persisted; re-execution is not an API.",
+        implemented=True,
+        method="POST",
+        path="/api/v1/campaigns/{campaign_id}/rounds/{round_number}/replay",
+        note="Re-evaluates a historical attack round against active policies and targets to measure regression and mitigation.",
     ),
     OperatorActionSpec(
         action_id="DEPLOY_MITIGATION",
