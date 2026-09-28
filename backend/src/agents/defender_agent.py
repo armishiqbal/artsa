@@ -61,6 +61,7 @@ class DefenderResult(BaseModel):
     risk_score: float = 85.0
     playbook_version: int | None = None
     overblock_checked: bool = True
+    semantic_hot_patched: bool = False
     rationale: str = ""
     details: dict[str, Any] = Field(default_factory=dict)
 
@@ -204,6 +205,22 @@ class DefenderAgent(BaseAgent):
         content_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
         rule_name = f"auto_defender_{category}_{content_hash}"
 
+        # Register in dynamic semantic registry so paraphrased/synonym variations are caught
+        semantic_record_id = None
+        try:
+            from src.containment.dynamic_semantic_registry import DynamicSemanticRegistry
+
+            record = DynamicSemanticRegistry.get_instance().register_breach(
+                phrase=content,
+                campaign_id=campaign_id or "",
+                round_id=round_id,
+                category=category,
+            )
+            if record:
+                semantic_record_id = record.id
+        except Exception as exc:
+            logger.warning("Could not register breach in DynamicSemanticRegistry: %s", exc)
+
         rule_dict = {
             "name": rule_name,
             "pattern": pattern,
@@ -214,6 +231,7 @@ class DefenderAgent(BaseAgent):
             "tool": tool_name.lower() if tool_name else None,
             "source": "Autonomous Defender",
             "hot_patched": True,
+            "semantic_breach_id": semantic_record_id,
         }
 
         current_rules: list[dict[str, Any]] = []
@@ -244,10 +262,11 @@ class DefenderAgent(BaseAgent):
             playbook_version = len(current_rules)
 
         logger.info(
-            "DefenderAgent patched policy: rule=%s version=%s pattern=%s",
+            "DefenderAgent patched policy: rule=%s version=%s pattern=%s semantic_id=%s",
             rule_name,
             playbook_version,
             pattern,
+            semantic_record_id,
         )
 
         return DefenderResult(
@@ -258,6 +277,7 @@ class DefenderAgent(BaseAgent):
             risk_score=rule_dict["risk_score"],
             playbook_version=playbook_version,
             overblock_checked=True,
+            semantic_hot_patched=semantic_record_id is not None,
             rationale=f"Patched policy rule '{rule_name}' containing {category} exploit.",
             details=rule_dict,
         )

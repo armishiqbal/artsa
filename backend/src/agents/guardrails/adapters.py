@@ -187,6 +187,47 @@ class OrgPolicyGuardrailAdapter:
         )
 
 
+class DynamicSemanticGuardrailAdapter:
+    """Evaluates input prompts against dynamically learned breach vectors in DynamicSemanticRegistry.
+
+    Catches paraphrased or synonym-substituted adversarial vectors that evade strict regex rules.
+    """
+
+    name = "dynamic_semantic"
+    layer = GuardrailLayer.INPUT_FILTER
+
+    def __init__(self, threshold: float = 0.72) -> None:
+        self.threshold = threshold
+
+    def check(self, ctx: GuardrailContext) -> GuardrailResult:
+        try:
+            from src.containment.dynamic_semantic_registry import DynamicSemanticRegistry
+
+            registry = DynamicSemanticRegistry.get_instance()
+            is_match, score, matched = registry.check_similarity(ctx.text, threshold=self.threshold)
+            if is_match and matched:
+                return GuardrailResult(
+                    layer=self.layer,
+                    passed=False,
+                    details=(
+                        f"Blocked by dynamic semantic guardrail: similarity {score:.2f} >= "
+                        f"{self.threshold:.2f} to breach '{matched.id}' ({matched.category})"
+                    ),
+                )
+        except Exception as exc:
+            return GuardrailResult(
+                layer=self.layer,
+                passed=True,
+                details=f"Dynamic semantic guardrail unavailable, fail-open: {exc}",
+            )
+
+        return GuardrailResult(
+            layer=self.layer,
+            passed=True,
+            details="Passed dynamic semantic guardrail",
+        )
+
+
 class AzureContentSafetyAdapter:
     """Optional Azure AI Content Safety when AZURE_CONTENT_SAFETY_KEY is set."""
 
@@ -237,7 +278,13 @@ class AzureContentSafetyAdapter:
 
 
 def get_input_adapters() -> list[GuardrailAdapter]:
-    return [OrgPolicyGuardrailAdapter(), HeuristicInputFilter(), HeuristicInjectionDetector(), ExternalSafetyAdapter()]
+    return [
+        OrgPolicyGuardrailAdapter(),
+        DynamicSemanticGuardrailAdapter(),
+        HeuristicInputFilter(),
+        HeuristicInjectionDetector(),
+        ExternalSafetyAdapter(),
+    ]
 
 
 def get_output_adapters() -> list[GuardrailAdapter]:
