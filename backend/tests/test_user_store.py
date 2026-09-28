@@ -10,6 +10,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+
+pytest.importorskip("pymongo")
 from pymongo.errors import DuplicateKeyError
 from src.core.config import settings
 from src.data.user_store import (
