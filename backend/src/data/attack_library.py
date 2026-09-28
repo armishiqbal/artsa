@@ -43,3 +43,27 @@ class AttackLibrary:
 
     def get_by_id(self, template_id: str) -> AttackTemplate | None:
         return self._templates.get(template_id)
+
+    def add_template(self, template: AttackTemplate) -> None:
+        """Register a single attack template into the library."""
+        self._templates[template.id] = template
+        cat_list = self._by_category.setdefault(template.category, [])
+        if not any(t.id == template.id for t in cat_list):
+            cat_list.append(template)
+        if self.vector_store:
+            self.vector_store.upsert_templates([template])
+
+    def add_templates(self, templates: list[AttackTemplate]) -> int:
+        """Register multiple attack templates into the library."""
+        count = 0
+        for t in templates:
+            self.add_template(t)
+            count += 1
+        return count
+
+    def list_templates(self, category: AttackCategory | None = None) -> list[AttackTemplate]:
+        """List all templates or filter by category."""
+        if category is not None:
+            return list(self._by_category.get(category, []))
+        return list(self._templates.values())
+

@@ -173,12 +173,14 @@ class HopLatencyMs(BaseModel):
     """Measured wall-clock latency for agents that actually ran this round.
 
     Missing / None means the hop was not timed (do not invent a number).
-    Research, Curator, and Defender are not fields — they do not execute.
     """
 
+    research: float | None = None
+    curator: float | None = None
     red_team: float | None = None
     target: float | None = None
     judge: float | None = None
+    defender: float | None = None
 
 
 class RoundResult(BaseModel):
@@ -192,6 +194,7 @@ class RoundResult(BaseModel):
     duration_ms: float = 0.0
     hop_latency_ms: HopLatencyMs = Field(default_factory=HopLatencyMs)
     hmac_handoffs: list[dict[str, Any]] = Field(default_factory=list)
+    defender_result: dict[str, Any] | None = None
 
 
 class GuardrailConfig(BaseModel):
@@ -231,6 +234,7 @@ class TargetConfig(BaseModel):
     provider_ref: str | None = None
     guardrails: GuardrailConfig = Field(default_factory=GuardrailConfig)
     rag: RAGConfig = Field(default_factory=RAGConfig)
+    tools: list[str] = Field(default_factory=list)
 
 
 class AttackProfile(BaseModel):

@@ -21,6 +21,8 @@ interface PolicyRule {
   severity: string;
   risk_score: number;
   description: string;
+  source?: string;
+  hot_patched?: boolean;
 }
 
 export default function PoliciesPage() {
@@ -126,27 +128,73 @@ export default function PoliciesPage() {
       </DashboardCard>
 
       <div className="space-y-3">
-        {localRules.map((rule, i) => (
-          <DashboardCard key={`${rule.name}-${i}`} title={rule.name} badge={<Badge variant={rule.severity === "CRITICAL" ? "critical" : rule.severity === "HIGH" ? "warning" : rule.severity === "MEDIUM" ? "secondary" : "success"}>{rule.severity}</Badge>}>
-            <p className="text-sm text-foreground">
-              {rule.description || "Custom detection rule for agent tool calls."}
-            </p>
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                Technical pattern (for engineers)
-              </summary>
-              <p className="mt-2 rounded-md border border-border bg-muted/20 px-2 py-1.5 font-mono text-[10px] text-muted-foreground break-all">
-                /{rule.pattern}/
+        {localRules.map((rule, i) => {
+          const isAutonomousDefender =
+            rule.source === "Autonomous Defender" ||
+            rule.hot_patched === true ||
+            rule.name.startsWith("auto_defender_") ||
+            rule.description?.toLowerCase().includes("autonomous defender");
+
+          return (
+            <DashboardCard
+              key={`${rule.name}-${i}`}
+              title={rule.name}
+              badge={
+                <div className="flex items-center gap-2">
+                  {isAutonomousDefender && (
+                    <Badge variant="outline" className="border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono text-[10px]">
+                      Source: Autonomous Defender
+                    </Badge>
+                  )}
+                  <Badge
+                    variant={
+                      rule.severity === "CRITICAL"
+                        ? "critical"
+                        : rule.severity === "HIGH"
+                          ? "warning"
+                          : rule.severity === "MEDIUM"
+                            ? "secondary"
+                            : "success"
+                    }
+                  >
+                    {rule.severity}
+                  </Badge>
+                </div>
+              }
+            >
+              <p className="text-sm text-foreground">
+                {rule.description || "Custom detection rule for agent tool calls."}
               </p>
-            </details>
-            <div className="mt-3 flex items-center justify-between">
-              <RiskScoreInline score={rule.risk_score} />
-              <Button variant="ghost" size="sm" onClick={() => removeRule(i)} aria-label={`Remove ${rule.name}`}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
-          </DashboardCard>
-        ))}
+              {isAutonomousDefender && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-sky-600 dark:text-sky-400 font-mono">
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>Synthesized by Autonomous Defender upon adversarial breach containment</span>
+                </div>
+              )}
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                  Technical pattern (for engineers)
+                </summary>
+                <p className="mt-2 rounded-md border border-border bg-muted/20 px-2 py-1.5 font-mono text-[10px] text-muted-foreground break-all">
+                  /{rule.pattern}/
+                </p>
+              </details>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <RiskScoreInline score={rule.risk_score} />
+                  {isAutonomousDefender && (
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-sky-500/80">
+                      [Hot-Patched]
+                    </span>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => removeRule(i)} aria-label={`Remove ${rule.name}`}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </DashboardCard>
+          );
+        })}
       </div>
     </PageStack>
   );

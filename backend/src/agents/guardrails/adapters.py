@@ -84,23 +84,23 @@ class HeuristicOutputFilter:
         )
 
 
-class LakeraGuardAdapter:
-    """Optional Lakera Guard API integration when LAKERA_API_KEY is set."""
+class ExternalSafetyAdapter:
+    """Optional external guardrail API integration when EXTERNAL_GUARD_API_KEY is configured."""
 
-    name = "lakera_guard"
+    name = "external_safety"
     layer = GuardrailLayer.INPUT_FILTER
 
     def __init__(self) -> None:
         from src.core.config import settings
-        self.api_key = settings.LAKERA_API_KEY
-        self.base_url = (settings.LAKERA_BASE_URL or "https://api.lakera.ai/v2").rstrip("/")
+        self.api_key = getattr(settings, "EXTERNAL_GUARD_API_KEY", None) or getattr(settings, "LAKERA_API_KEY", None)
+        self.base_url = (getattr(settings, "EXTERNAL_GUARD_BASE_URL", None) or getattr(settings, "LAKERA_BASE_URL", None) or "https://api.artsa.security/v1").rstrip("/")
 
     def check(self, ctx: GuardrailContext) -> GuardrailResult:
         if not self.api_key:
             return GuardrailResult(
                 layer=self.layer,
                 passed=True,
-                details="Lakera Guard skipped (no LAKERA_API_KEY)",
+                details="External safety guard skipped (no API key configured)",
             )
         try:
             import json
@@ -119,14 +119,72 @@ class LakeraGuardAdapter:
             return GuardrailResult(
                 layer=self.layer,
                 passed=not flagged,
-                details="Lakera Guard: clean" if not flagged else "Lakera Guard: flagged",
+                details="External safety: clean" if not flagged else "External safety: flagged",
             )
         except Exception as exc:
             return GuardrailResult(
                 layer=self.layer,
                 passed=True,
-                details=f"Lakera Guard unavailable, fail-open: {exc}",
+                details=f"External safety unavailable, fail-open: {exc}",
             )
+
+
+# Backwards compatibility alias
+LakeraGuardAdapter = ExternalSafetyAdapter
+
+
+class OrgPolicyGuardrailAdapter:
+    """Evaluates input prompts against active org policy rules, including Defender patches."""
+
+    name = "org_policy"
+    layer = GuardrailLayer.INPUT_FILTER
+
+    def __init__(self, policy_path: Any = None) -> None:
+        if policy_path is None:
+            from pathlib import Path
+            self.policy_path = (
+                Path(__file__).resolve().parent.parent.parent.parent
+                / "configs"
+                / "org_policies"
+                / "default.yaml"
+            )
+        else:
+            from pathlib import Path
+            self.policy_path = Path(policy_path)
+
+    def _load_rules(self) -> list[dict]:
+        if not self.policy_path.exists():
+            return []
+        try:
+            import yaml
+            with self.policy_path.open(encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            return data.get("rules", [])
+        except Exception:
+            return []
+
+    def check(self, ctx: GuardrailContext) -> GuardrailResult:
+        import re
+        rules = self._load_rules()
+        for rule in rules:
+            pattern = rule.get("pattern")
+            if not pattern:
+                continue
+            try:
+                if re.search(pattern, ctx.text):
+                    rule_name = rule.get("name", "unnamed_rule")
+                    return GuardrailResult(
+                        layer=self.layer,
+                        passed=False,
+                        details=f"Blocked by active org policy rule: {rule_name}",
+                    )
+            except re.error:
+                continue
+        return GuardrailResult(
+            layer=self.layer,
+            passed=True,
+            details="Passed active org policy rules",
+        )
 
 
 class AzureContentSafetyAdapter:
@@ -179,7 +237,7 @@ class AzureContentSafetyAdapter:
 
 
 def get_input_adapters() -> list[GuardrailAdapter]:
-    return [HeuristicInputFilter(), HeuristicInjectionDetector(), LakeraGuardAdapter()]
+    return [OrgPolicyGuardrailAdapter(), HeuristicInputFilter(), HeuristicInjectionDetector(), ExternalSafetyAdapter()]
 
 
 def get_output_adapters() -> list[GuardrailAdapter]:

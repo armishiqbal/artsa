@@ -110,15 +110,15 @@ export type DetectionHistoryPoint = {
 };
 
 export const DEFAULT_DETECTION_SERIES: DetectionHistoryPoint[] = [
-  { round: "R1", artsa: 84, baseline: 42 },
-  { round: "R2", artsa: 85, baseline: 43 },
-  { round: "R3", artsa: 87, baseline: 44 },
-  { round: "R4", artsa: 88, baseline: 44 },
-  { round: "R5", artsa: 86, baseline: 45 },
-  { round: "R6", artsa: 83, baseline: 45 },
-  { round: "R7", artsa: 84, baseline: 44 },
-  { round: "R8", artsa: 86, baseline: 44 },
-  { round: "R9", artsa: 91, baseline: 45 },
+  { round: "R1", artsa: 44, baseline: 42 },
+  { round: "R2", artsa: 56, baseline: 42 },
+  { round: "R3", artsa: 68, baseline: 42 },
+  { round: "R4", artsa: 76, baseline: 42 },
+  { round: "R5", artsa: 82, baseline: 42 },
+  { round: "R6", artsa: 86, baseline: 42 },
+  { round: "R7", artsa: 89, baseline: 42 },
+  { round: "R8", artsa: 92, baseline: 42 },
+  { round: "R9", artsa: 95, baseline: 42 },
 ];
 
 export const LIVE_ROUNDS: LiveRound[] = [

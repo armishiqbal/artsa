@@ -74,13 +74,16 @@ export function CommandCenterDetectionChart({
         <div className="flex items-center gap-4 font-mono text-[11px] tabular-nums lowercase">
           <span className="flex items-center gap-1.5 text-foreground">
             <span className="text-sky-400 font-bold">—</span>
-            <span className="text-muted-foreground">adaptive ·</span>
-            <span>min {artsaMin} max {artsaMax} last {artsaLast}</span>
+            <span className="text-muted-foreground">adaptive · climbing defense</span>
+            <span>min {artsaMin}% max {artsaMax}% last {artsaLast}%</span>
           </span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="text-slate-500 font-bold">—</span>
-            <span>baseline ·</span>
-            <span>min {baseMin} max {baseMax} last {baseLast}</span>
+            <span>baseline · flat static</span>
+            <span>flat {baseLast}%</span>
+          </span>
+          <span className="flex items-center gap-1 text-emerald-500 font-bold uppercase">
+            <span>lift +{Math.max(0, artsaLast - baseLast)}pp</span>
           </span>
         </div>
       </div>
@@ -128,7 +131,10 @@ export function CommandCenterDetectionChart({
                 color: tooltipText,
                 boxShadow: isLight ? "0 4px 12px rgba(0,0,0,0.1)" : "0 8px 24px rgba(0,0,0,0.6)",
               }}
-              formatter={(value, name) => [`${value}%`, name === "artsa" ? "ARTSA (Adaptive)" : "Static Baseline"]}
+              formatter={(value, name) => [
+                `${value}%`,
+                name === "artsa" ? "Adaptive Defense (Climbing)" : "Static Baseline (Flat)",
+              ]}
             />
             {activeRoundKey ? (
               <ReferenceLine

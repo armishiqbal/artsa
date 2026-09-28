@@ -37,7 +37,14 @@ from src.data.redis_client import get_redis_stream_client, redis_is_live
 
 INBOX_PREFIX = "artsa:handoff:inbox:"
 REPLY_PREFIX = "artsa:handoff:reply:"
-PEER_OF = {"target": "red_team", "judge": "target"}
+PEER_OF = {
+    "curator": "research",
+    "red_team": "curator",
+    "target": "red_team",
+    "judge": "target",
+    "defender": "judge",
+    "research": "defender",
+}
 
 
 def accept_envelope(
@@ -46,7 +53,7 @@ def accept_envelope(
     *,
     receiver_process: str = "in_process",
 ) -> SignedHandoff:
-    """Verify on the named receiver. Research/Curator/Defender are not valid roles."""
+    """Verify on the named receiver across the Six-agent chain."""
     if role not in PEER_OF:
         raise HandoffIntegrityError("WRONG_PEER", receiver=role)
     return receive_handoff(
@@ -137,9 +144,9 @@ def run_target_hop(
     else:
         conv = _coerce_history(extra.get("history") or history)
         if conv:
-            response = hop_agent.process_with_history(payload.prompt, conv)
+            response = hop_agent.process_with_history(payload.prompt, conv, metadata=payload.metadata)
         else:
-            response = hop_agent.process(payload.prompt)
+            response = hop_agent.process(payload.prompt, metadata=payload.metadata)
 
     judge_envelope = sign_handoff(
         sender="target",
@@ -201,6 +208,209 @@ def run_judge_hop(
     }
 
 
+def run_defender_hop(
+    envelope: SignedHandoff | dict[str, Any],
+    *,
+    agent: Any = None,
+    dispatch: bool = True,
+    receiver_process: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Verify as Defender, then patch policy. The orchestrator must not defend first."""
+    extra = dict(extra or {})
+    if dispatch and settings.ARTSA_HMAC_RECEIVER_WORKERS:
+        env = envelope if isinstance(envelope, SignedHandoff) else SignedHandoff.model_validate(envelope)
+        extra.setdefault("exec_ref", {"campaign_id": env.campaign_id, "role": "defender"})
+        try:
+            assert_no_secret_fields(extra)
+        except ValueError as exc:
+            raise HandoffIntegrityError("SECRET_ON_QUEUE", receiver="defender") from exc
+        return _queue_execute("defender", envelope, extra=extra)
+
+    process = receiver_process or "in_process"
+    opened = accept_envelope("defender", envelope, receiver_process=process)
+    from src.agents.defender_agent import DefenderAgent
+    from src.models import AttackPayload, JudgeScore, TargetResponse
+
+    try:
+        attack = AttackPayload.model_validate(opened.body["attack"])
+        response = TargetResponse.model_validate(opened.body["response"])
+        score = JudgeScore.model_validate(opened.body["score"])
+    except (ValidationError, KeyError, TypeError) as exc:
+        raise HandoffIntegrityError("MALFORMED_BODY", sender="judge", receiver="defender") from exc
+
+    defender = agent or DefenderAgent()
+    round_id = int(opened.round_id or 1)
+    defender_result = defender.defend(
+        attack_payload=attack,
+        target_response=response,
+        score=score,
+        campaign_id=opened.campaign_id,
+        round_id=round_id,
+    )
+    return {
+        "ok": True,
+        "payload": attack.model_dump(mode="json"),
+        "response": response.model_dump(mode="json"),
+        "score": score.model_dump(mode="json"),
+        "defender_result": defender_result.model_dump(mode="json"),
+        "hmac_meta": _hop_meta(opened, receiver_process=process),
+    }
+
+
+def run_research_hop(
+    envelope: SignedHandoff | dict[str, Any] | None = None,
+    *,
+    agent: Any = None,
+    campaign_id: str = "campaign-default",
+    round_id: int | str = 1,
+    focus_categories: list[Any] | None = None,
+    dispatch: bool = True,
+    receiver_process: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Execute Research hop: gather threat intel and sign Research → Curator envelope."""
+    extra = dict(extra or {})
+    if dispatch and settings.ARTSA_HMAC_RECEIVER_WORKERS and envelope:
+        env = envelope if isinstance(envelope, SignedHandoff) else SignedHandoff.model_validate(envelope)
+        extra.setdefault("exec_ref", {"campaign_id": env.campaign_id, "role": "research"})
+        try:
+            assert_no_secret_fields(extra)
+        except ValueError as exc:
+            raise HandoffIntegrityError("SECRET_ON_QUEUE", receiver="research") from exc
+        return _queue_execute("research", envelope, extra=extra)
+
+    process = receiver_process or "in_process"
+    opened = None
+    if envelope is not None:
+        opened = accept_envelope("research", envelope, receiver_process=process)
+        campaign_id = opened.campaign_id
+        round_id = opened.round_id or round_id
+
+    from src.agents.research_agent import ResearchAgent
+
+    researcher = agent or ResearchAgent()
+    findings = researcher.gather_threat_intel(focus_categories=focus_categories)
+
+    curator_envelope = sign_handoff(
+        sender="research",
+        receiver="curator",
+        body={"threat_intel": [f.model_dump(mode="json") for f in findings]},
+        campaign_id=campaign_id,
+        round_id=round_id,
+    )
+
+    hmac_meta = _hop_meta(opened, receiver_process=process) if opened else {
+        "sender": "research",
+        "receiver": "curator",
+        "hmac_state": "ok",
+        "hmac_verified": True,
+        "replay_detected": False,
+        "nonce_sha256": nonce_digest(curator_envelope.nonce),
+        "event_id": curator_envelope.event_id,
+        "verification_result": "OK",
+        "receiver_process": process,
+    }
+
+    return {
+        "ok": True,
+        "threat_intel": [f.model_dump(mode="json") for f in findings],
+        "curator_envelope": curator_envelope.model_dump(mode="json"),
+        "hmac_meta": hmac_meta,
+    }
+
+
+def run_curator_hop(
+    envelope: SignedHandoff | dict[str, Any],
+    *,
+    agent: Any = None,
+    target_surface: Any = None,
+    attack_library: Any = None,
+    dispatch: bool = True,
+    receiver_process: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Verify as Curator, filter against target surface, generate seeds, sign Curator → Red Team."""
+    extra = dict(extra or {})
+    if dispatch and settings.ARTSA_HMAC_RECEIVER_WORKERS:
+        env = envelope if isinstance(envelope, SignedHandoff) else SignedHandoff.model_validate(envelope)
+        extra.setdefault("exec_ref", {"campaign_id": env.campaign_id, "role": "curator"})
+        try:
+            assert_no_secret_fields(extra)
+        except ValueError as exc:
+            raise HandoffIntegrityError("SECRET_ON_QUEUE", receiver="curator") from exc
+        return _queue_execute("curator", envelope, extra=extra)
+
+    process = receiver_process or "in_process"
+    opened = accept_envelope("curator", envelope, receiver_process=process)
+    from src.agents.curator_agent import CuratorAgent
+    from src.agents.research_agent import ThreatIntelligenceRecord
+
+    try:
+        raw_intel = opened.body.get("threat_intel", [])
+        records = [ThreatIntelligenceRecord.model_validate(r) for r in raw_intel]
+    except Exception as exc:
+        raise HandoffIntegrityError("MALFORMED_BODY", sender="research", receiver="curator") from exc
+
+    curator = agent or CuratorAgent()
+    seeds = curator.curate_and_seed(records, target_surface, attack_library=attack_library)
+
+    red_team_envelope = sign_handoff(
+        sender="curator",
+        receiver="red_team",
+        body={"attack_seeds": [s.model_dump(mode="json") for s in seeds]},
+        campaign_id=opened.campaign_id,
+        round_id=opened.round_id,
+    )
+
+    return {
+        "ok": True,
+        "attack_seeds": [s.model_dump(mode="json") for s in seeds],
+        "red_team_envelope": red_team_envelope.model_dump(mode="json"),
+        "hmac_meta": _hop_meta(opened, receiver_process=process),
+    }
+
+
+def run_red_team_hop(
+    envelope: SignedHandoff | dict[str, Any],
+    *,
+    agent: Any = None,
+    dispatch: bool = True,
+    receiver_process: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Verify as Red Team, ingest curated seeds from Curator, and confirm readiness."""
+    extra = dict(extra or {})
+    if dispatch and settings.ARTSA_HMAC_RECEIVER_WORKERS:
+        env = envelope if isinstance(envelope, SignedHandoff) else SignedHandoff.model_validate(envelope)
+        extra.setdefault("exec_ref", {"campaign_id": env.campaign_id, "role": "red_team"})
+        try:
+            assert_no_secret_fields(extra)
+        except ValueError as exc:
+            raise HandoffIntegrityError("SECRET_ON_QUEUE", receiver="red_team") from exc
+        return _queue_execute("red_team", envelope, extra=extra)
+
+    process = receiver_process or "in_process"
+    opened = accept_envelope("red_team", envelope, receiver_process=process)
+    raw_seeds = opened.body.get("attack_seeds", [])
+
+    if agent and hasattr(agent, "attack_library") and agent.attack_library is not None:
+        from src.models import AttackTemplate
+
+        templates = [
+            AttackTemplate.model_validate(s) for s in raw_seeds if isinstance(s, dict)
+        ]
+        if templates:
+            agent.attack_library.add_templates(templates)
+
+    return {
+        "ok": True,
+        "seeds_count": len(raw_seeds),
+        "attack_seeds": raw_seeds,
+        "hmac_meta": _hop_meta(opened, receiver_process=process),
+    }
+
+
 def deliver_handoff(envelope: SignedHandoff) -> SignedHandoff:
     """Verify-only delivery (no process/score). Prefer run_target_hop / run_judge_hop."""
     if settings.ARTSA_HMAC_RECEIVER_WORKERS:
@@ -250,7 +460,7 @@ def _queue_execute(
 
 
 def serve_role(role: str) -> None:
-    """Block on the Redis inbox and execute the Target or Judge hop in this process."""
+    """Block on the Redis inbox and execute the Target, Judge, or Defender hop in this process."""
     if role not in PEER_OF:
         raise SystemExit(f"unsupported role {role}")
     client = get_redis_stream_client()
@@ -271,8 +481,24 @@ def serve_role(role: str) -> None:
                     extra=extra,
                     history=extra.get("history") or None,
                 )
-            else:
+            elif role == "judge":
                 result = run_judge_hop(
+                    msg, dispatch=False, receiver_process="worker", extra=extra
+                )
+            elif role == "defender":
+                result = run_defender_hop(
+                    msg, dispatch=False, receiver_process="worker", extra=extra
+                )
+            elif role == "curator":
+                result = run_curator_hop(
+                    msg, dispatch=False, receiver_process="worker", extra=extra
+                )
+            elif role == "red_team":
+                result = run_red_team_hop(
+                    msg, dispatch=False, receiver_process="worker", extra=extra
+                )
+            else:
+                result = run_research_hop(
                     msg, dispatch=False, receiver_process="worker", extra=extra
                 )
         except HandoffIntegrityError as exc:
@@ -301,7 +527,23 @@ def execute_once(role: str, envelope: dict[str, Any], extra: dict[str, Any] | No
                 extra=extra,
                 history=extra.get("history") or None,
             )
-        return run_judge_hop(
+        elif role == "judge":
+            return run_judge_hop(
+                envelope, dispatch=False, receiver_process="worker", extra=extra
+            )
+        elif role == "defender":
+            return run_defender_hop(
+                envelope, dispatch=False, receiver_process="worker", extra=extra
+            )
+        elif role == "curator":
+            return run_curator_hop(
+                envelope, dispatch=False, receiver_process="worker", extra=extra
+            )
+        elif role == "red_team":
+            return run_red_team_hop(
+                envelope, dispatch=False, receiver_process="worker", extra=extra
+            )
+        return run_research_hop(
             envelope, dispatch=False, receiver_process="worker", extra=extra
         )
     except HandoffIntegrityError as exc:

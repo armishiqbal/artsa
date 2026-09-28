@@ -9,16 +9,24 @@ consolidated into :mod:`src.services.provider_registry` (see the
 
 from src.agents.action_monitor import StepwiseActionMonitor
 from src.agents.base_agent import BaseAgent
+from src.agents.curator_agent import CuratorAgent
+from src.agents.defender_agent import DefenderAgent, DefenderResult
 from src.agents.eds_engine import EscapeDetectionEngine
 from src.agents.judge_agent import JudgeAgent
 from src.agents.red_team_agent import RedTeamAgent
+from src.agents.research_agent import ResearchAgent, ThreatIntelligenceRecord
 from src.agents.target_agent import TargetAgent
 
 __all__ = [
     "BaseAgent",
+    "CuratorAgent",
+    "DefenderAgent",
+    "DefenderResult",
     "EscapeDetectionEngine",
     "JudgeAgent",
     "RedTeamAgent",
+    "ResearchAgent",
     "StepwiseActionMonitor",
     "TargetAgent",
+    "ThreatIntelligenceRecord",
 ]

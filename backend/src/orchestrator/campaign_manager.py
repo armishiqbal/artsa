@@ -19,8 +19,23 @@ if sys.platform == "win32":
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
-from src.agents import JudgeAgent, RedTeamAgent, TargetAgent
-from src.agents.handoff_worker import deliver_handoff, run_judge_hop, run_target_hop
+from src.agents import (
+    CuratorAgent,
+    DefenderAgent,
+    JudgeAgent,
+    RedTeamAgent,
+    ResearchAgent,
+    TargetAgent,
+)
+from src.agents.handoff_worker import (
+    deliver_handoff,
+    run_curator_hop,
+    run_defender_hop,
+    run_judge_hop,
+    run_red_team_hop,
+    run_research_hop,
+    run_target_hop,
+)
 from src.attacks.social_engineering import SocialEngineeringAttack
 from src.core.campaign_exec import context_from_campaign, publish_exec_context
 from src.core.config import settings
@@ -79,13 +94,19 @@ class CampaignManager:
         )
 
         if settings.ARTSA_HMAC_RECEIVER_WORKERS:
-            # Workers construct Target/Judge from the exec snapshot and
+            # Workers construct agents from the exec snapshot and
             # resolve secrets locally. Do not send keys over Redis.
             self.target_agent = None
             self.judge = None
+            self.defender = None
+            self.research = None
+            self.curator = None
         else:
             self.target_agent = TargetAgent(config.target, explicit_api_key=transient_target_api_key)
             self.judge = JudgeAgent(config=app_config["artsa"]["judge"])
+            self.defender = DefenderAgent(config=app_config.get("artsa", {}).get("defender", {}))
+            self.research = ResearchAgent(config=app_config.get("artsa", {}).get("research", {}))
+            self.curator = CuratorAgent(config=app_config.get("artsa", {}).get("curator", {}))
 
         try:
             publish_exec_context(context_from_campaign(config, app_config))
@@ -234,6 +255,97 @@ class CampaignManager:
             )
             raise
 
+    def _defender_hop(
+        self,
+        attack_payload: AttackPayload,
+        target_response: TargetResponse,
+        score: JudgeScore,
+        round_idx: int,
+    ) -> dict[str, Any]:
+        """Judge signs envelope for Defender; Defender verifies and patches policy."""
+        envelope = sign_handoff(
+            sender="judge",
+            receiver="defender",
+            body={
+                "attack": attack_payload.model_dump(mode="json"),
+                "response": target_response.model_dump(mode="json"),
+                "score": score.model_dump(mode="json"),
+            },
+            campaign_id=self.config.id,
+            round_id=round_idx,
+        )
+        extra = {"exec_ref": {"campaign_id": self.config.id, "role": "defender"}}
+        try:
+            return run_defender_hop(
+                envelope,
+                agent=None if settings.ARTSA_HMAC_RECEIVER_WORKERS else self.defender,
+                extra=extra,
+            )
+        except HandoffIntegrityError as exc:
+            self._log_hmac_abort(
+                sender="judge", receiver="defender", round_idx=round_idx, reason=exc.reason
+            )
+            raise
+
+    def _research_hop(self, round_idx: int) -> dict[str, Any]:
+        """Research Agent ingests threat intelligence and signs envelope for Curator."""
+        envelope = sign_handoff(
+            sender="defender",
+            receiver="research",
+            body={"status": "RESEARCH_START", "round": round_idx},
+            campaign_id=self.config.id,
+            round_id=round_idx,
+        )
+        extra = {"exec_ref": {"campaign_id": self.config.id, "role": "research"}}
+        try:
+            return run_research_hop(
+                envelope,
+                agent=None if settings.ARTSA_HMAC_RECEIVER_WORKERS else self.research,
+                campaign_id=self.config.id,
+                round_id=round_idx,
+                focus_categories=self.config.attack_profile.categories,
+                extra=extra,
+            )
+        except HandoffIntegrityError as exc:
+            self._log_hmac_abort(
+                sender="defender", receiver="research", round_idx=round_idx, reason=exc.reason
+            )
+            raise
+
+    def _curator_hop(self, curator_envelope: dict[str, Any] | Any, round_idx: int) -> dict[str, Any]:
+        """Curator Agent filters intelligence against target surface, seeds AttackLibrary, signs for Red Team."""
+        extra = {"exec_ref": {"campaign_id": self.config.id, "role": "curator"}}
+        try:
+            return run_curator_hop(
+                curator_envelope,
+                agent=None if settings.ARTSA_HMAC_RECEIVER_WORKERS else self.curator,
+                target_surface=self.config.target,
+                attack_library=self.attack_library,
+                extra=extra,
+            )
+        except HandoffIntegrityError as exc:
+            self._log_hmac_abort(
+                sender="research", receiver="curator", round_idx=round_idx, reason=exc.reason
+            )
+            raise
+
+    def _red_team_curator_hop(
+        self, red_team_envelope: dict[str, Any] | Any, round_idx: int
+    ) -> dict[str, Any]:
+        """Red Team Agent verifies handoff envelope from Curator."""
+        extra = {"exec_ref": {"campaign_id": self.config.id, "role": "red_team"}}
+        try:
+            return run_red_team_hop(
+                red_team_envelope,
+                agent=self.red_team,
+                extra=extra,
+            )
+        except HandoffIntegrityError as exc:
+            self._log_hmac_abort(
+                sender="curator", receiver="red_team", round_idx=round_idx, reason=exc.reason
+            )
+            raise
+
     def run(self, on_round_complete=None) -> CampaignSummary:
         """Run the campaign with evolutionary attack learning."""
         self.fsm.start()
@@ -273,6 +385,25 @@ class CampaignManager:
                     break
 
                 round_start = time.time()
+                hmac_handoffs: list[dict[str, Any]] = []
+
+                # ─── 0. Research & Curator Handoff Hops ─────────────────
+                progress.update(
+                    task,
+                    description=f"[cyan]Round {round_idx}: Research & Curator intelligence pipeline...",
+                )
+                res_t0 = time.perf_counter()
+                res_hop = self._research_hop(round_idx)
+                research_ms = (time.perf_counter() - res_t0) * 1000
+                hmac_handoffs.append(res_hop["hmac_meta"])
+
+                cur_t0 = time.perf_counter()
+                cur_hop = self._curator_hop(res_hop["curator_envelope"], round_idx)
+                curator_ms = (time.perf_counter() - cur_t0) * 1000
+                hmac_handoffs.append(cur_hop["hmac_meta"])
+
+                rt_cur_hop = self._red_team_curator_hop(cur_hop["red_team_envelope"], round_idx)
+                hmac_handoffs.append(rt_cur_hop["hmac_meta"])
 
                 # ─── 1. Maybe evolve the population ────────────────
                 if round_idx > 1:
@@ -305,7 +436,6 @@ class CampaignManager:
 
                 # ─── 3. Target processes the attack (HMAC-verified handoff) ──
                 is_chain = False
-                hmac_handoffs: list[dict[str, Any]] = []
                 judge_envelope: dict | None = None
                 target_t0 = time.perf_counter()
                 if category == AttackCategory.SOCIAL_ENGINEERING:
@@ -371,6 +501,28 @@ class CampaignManager:
                 score = JudgeScore.model_validate(judge_hop["score"])
                 judge_ms = (time.perf_counter() - judge_t0) * 1000
 
+                # ─── 4b. Defender synthesizes mitigation on breach ─────────
+                defender_ms: float | None = None
+                defender_result: dict[str, Any] | None = None
+                if score.verdict == Verdict.SUCCESS or score.attack_success_score >= 7:
+                    progress.update(
+                        task,
+                        description=f"[cyan]Round {round_idx}: Defender containing breach...",
+                    )
+                    def_t0 = time.perf_counter()
+                    def_hop = self._defender_hop(
+                        attack_payload, target_response, score, round_idx
+                    )
+                    hmac_handoffs.append(def_hop["hmac_meta"])
+                    defender_result = def_hop.get("defender_result")
+                    defender_ms = (time.perf_counter() - def_t0) * 1000
+                    if defender_result and defender_result.get("action") == "PATCHED":
+                        console.print(
+                            f"   [bold yellow]🛡️ Defender Patched:[/bold yellow] "
+                            f"[green]{defender_result.get('rule_name')}[/green] "
+                            f"(Pattern: [dim]{defender_result.get('pattern')}[/dim])"
+                        )
+
                 duration = (time.time() - round_start) * 1000
 
                 # ─── 5. Record result ────────────────────────────────
@@ -381,11 +533,15 @@ class CampaignManager:
                     score=score,
                     duration_ms=duration,
                     hop_latency_ms=HopLatencyMs(
+                        research=research_ms,
+                        curator=curator_ms,
                         red_team=red_team_ms,
                         target=target_ms,
                         judge=judge_ms,
+                        defender=defender_ms,
                     ),
                     hmac_handoffs=hmac_handoffs,
+                    defender_result=defender_result,
                 )
 
                 self.results_store.save_round(self.config.id, result)

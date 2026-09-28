@@ -52,7 +52,7 @@ INJECTION_PATTERNS: list[tuple[str, str, float, str]] = [
         "Instruction erasure attempt (forget guidelines)",
     ),
     (
-        r"(?i)(?:including|include|repeat|reproduce|translate|print|output|leak|reveal|dump|show|extract|copy|echo)\b.{0,80}(?:developer|system|hidden|confidential|internal|prior|initial)\s+(?:instructions?|prompts?|guidelines?|rules?|directives?|message)",
+        r"(?i)(?<!\bnever\s)(?<!\bdo\snot\s)(?<!\bdon't\s)(?:including|include|repeat|reproduce|translate|print|output|leak|reveal|dump|show|extract|copy|echo)\b.{0,80}(?:developer|system|hidden|confidential|internal|prior|initial)\s+(?:instructions?|prompts?|guidelines?|rules?|directives?|message)",
         "PROMPT_INJECTION",
         88.0,
         "System or developer instruction extraction attempt",

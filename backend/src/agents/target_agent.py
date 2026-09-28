@@ -83,11 +83,47 @@ class TargetAgent(BaseAgent):
 
         return accept_envelope("target", envelope)
 
-    def process(self, attack_prompt: str) -> TargetResponse:
+    def process(
+        self,
+        attack_prompt: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> TargetResponse:
         """Process an attack through the entire defense pipeline."""
         start_time = time.time()
         trace = []
         bypass_depth = 0
+
+        # 0. Tool Execution / Escape Detection Monitoring (EDS)
+        tool_name = (metadata.get("tool_name") or metadata.get("tool") or "") if metadata else ""
+        if tool_name:
+            from src.agents.eds_engine import EscapeDetectionEngine, ToolCallMonitorRequest
+
+            eds = EscapeDetectionEngine()
+            args = metadata.get("arguments") or metadata.get("args") or {"command": attack_prompt}
+            req = ToolCallMonitorRequest(
+                agent_id=self.name,
+                tool_name=tool_name,
+                arguments=args if isinstance(args, dict) else {"arg": str(args)},
+            )
+            eds_res = eds.monitor_tool_call(req)
+            if eds_res.action in ("TERMINATE", "QUARANTINE") or eds_res.containment_risk_score >= 50.0:
+                trace.append(
+                    GuardrailResult(
+                        layer=GuardrailLayer.INPUT_FILTER,
+                        passed=False,
+                        details=f"Blocked by EDS ({eds_res.risk_level}): {', '.join(eds_res.detected_anomalies)}",
+                    )
+                )
+                return TargetResponse(
+                    response="[BLOCKED BY ESCAPE DETECTION ENGINE]",
+                    guardrail_trace=trace,
+                    bypass_depth=bypass_depth,
+                    blocked=True,
+                    blocked_by="eds_engine",
+                    latency_ms=(time.time() - start_time) * 1000,
+                    token_usage={"total_tokens": 0},
+                )
         
         # 1. Input Guardrails
         input_passed, input_results = self._check_input_guardrails(attack_prompt)
@@ -192,6 +228,8 @@ class TargetAgent(BaseAgent):
         self,
         attack_prompt: str,
         history: list[dict[str, str]],
+        *,
+        metadata: dict[str, Any] | None = None,
     ) -> TargetResponse:
         """Process an attack with conversation history for multi-turn chains.
 
@@ -201,6 +239,37 @@ class TargetAgent(BaseAgent):
         start_time = time.time()
         trace = []
         bypass_depth = 0
+
+        # 0. Tool Execution / Escape Detection Monitoring (EDS)
+        tool_name = (metadata.get("tool_name") or metadata.get("tool") or "") if metadata else ""
+        if tool_name:
+            from src.agents.eds_engine import EscapeDetectionEngine, ToolCallMonitorRequest
+
+            eds = EscapeDetectionEngine()
+            args = metadata.get("arguments") or metadata.get("args") or {"command": attack_prompt}
+            req = ToolCallMonitorRequest(
+                agent_id=self.name,
+                tool_name=tool_name,
+                arguments=args if isinstance(args, dict) else {"arg": str(args)},
+            )
+            eds_res = eds.monitor_tool_call(req)
+            if eds_res.action in ("TERMINATE", "QUARANTINE") or eds_res.containment_risk_score >= 50.0:
+                trace.append(
+                    GuardrailResult(
+                        layer=GuardrailLayer.INPUT_FILTER,
+                        passed=False,
+                        details=f"Blocked by EDS ({eds_res.risk_level}): {', '.join(eds_res.detected_anomalies)}",
+                    )
+                )
+                return TargetResponse(
+                    response="[BLOCKED BY ESCAPE DETECTION ENGINE]",
+                    guardrail_trace=trace,
+                    bypass_depth=bypass_depth,
+                    blocked=True,
+                    blocked_by="eds_engine",
+                    latency_ms=(time.time() - start_time) * 1000,
+                    token_usage={"total_tokens": 0},
+                )
 
         # 1. Input Guardrails (check current prompt only)
         input_passed, input_results = self._check_input_guardrails(attack_prompt)
