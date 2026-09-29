@@ -28,10 +28,22 @@ router = APIRouter(tags=["Sessions"])
 
 
 class SessionActionRequest(BaseModel):
-    action: Literal["KILL", "QUARANTINE", "THROTTLE", "ALERT", "RELEASE", "CLOSE", "BLOCK_TOOL"] = Field(
-        ..., description="Action to enforce on agent session (RELEASE/CLOSE are incident workflow, BLOCK_TOOL is tool quarantine)"
+    action: Literal["KILL", "QUARANTINE", "THROTTLE", "ALERT", "RELEASE", "CLOSE", "BLOCK_TOOL", "DEPLOY_MITIGATION"] = Field(
+        ..., description="Action to enforce on agent session (RELEASE/CLOSE are incident workflow, BLOCK_TOOL is tool quarantine, DEPLOY_MITIGATION is policy hotpatch)"
     )
     tool_name: str | None = Field(default=None, description="Tool name to quarantine when action is BLOCK_TOOL")
+
+
+class SessionMitigateRequest(BaseModel):
+    rule_name: str | None = Field(default=None, description="Descriptive name for the mitigation rule")
+    content: str | None = Field(default=None, description="Offending attack payload or trigger phrase")
+    trigger_phrases: list[str] = Field(default_factory=list, description="Specific trigger phrases to block")
+    pattern: str | None = Field(default=None, description="Explicit regex pattern to enforce; synthesized if omitted")
+    event_type: str = Field(default="PROMPT_INJECTION", description="Detector event category (e.g. PROMPT_INJECTION, TOOL_ABUSE)")
+    severity: str = Field(default="HIGH", description="Severity of the mitigation rule")
+    risk_score: float = Field(default=85.0, ge=0.0, le=100.0, description="Risk score assigned to matches")
+    tool: str | None = Field(default=None, description="Optional tool name to scope this rule to")
+    hot_patch_semantic: bool = Field(default=True, description="Also register pattern in DynamicSemanticRegistry")
 
 
 class TimelineEntry(BaseModel):
@@ -169,6 +181,15 @@ async def enforce_session_action(
             "idempotent": True,
         }
 
+    if payload.action == "DEPLOY_MITIGATION":
+        return await deploy_session_mitigation(
+            session_id=session_id,
+            payload=SessionMitigateRequest(rule_name=f"Mitigate: {payload.tool_name or 'operator'}"),
+            db=db,
+            tracker=tracker,
+            tenant_id=tenant_id,
+        )
+
     tracker.apply_action(session_id, payload.action, payload.tool_name)
     repo = SessionRepository(db)
     updated = await repo.apply_action(session_id, payload.action)
@@ -277,6 +298,113 @@ async def list_blocked_tools(
     return {
         "session_id": str(session_id),
         "blocked_tools": tracker.get_blocked_tools(session_id),
+    }
+
+
+@router.post("/sessions/{session_id}/mitigate")
+async def deploy_session_mitigation(
+    session_id: uuid.UUID,
+    payload: SessionMitigateRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    tracker: SessionTracker = Depends(get_session_tracker),
+    tenant_id: str = Depends(get_current_tenant),
+):
+    """Synthesize, snapshot, and deploy an authoritative policy mitigation rule for this session."""
+    session = await _require_tenant_session(session_id, tenant_id, tracker, db)
+    req = payload or SessionMitigateRequest()
+
+    from src.api.routes.policies import _synthesize_pattern, _write_rules, list_policies
+
+    content = req.content
+    trigger_phrases = list(req.trigger_phrases)
+    if not content and not trigger_phrases:
+        events = tracker.session_events.get(str(session_id), [])
+        if not events:
+            event_repo = EventRepository(db)
+            events = await event_repo.get_by_session(session_id)
+        if events:
+            sorted_events = sorted(events, key=lambda e: getattr(e, "timestamp", 0), reverse=True)
+            latest_evt = sorted_events[0]
+            from src.containment.detectors.policy import _args_text
+
+            content = _args_text(latest_evt) if hasattr(latest_evt, "arguments") else str(latest_evt)
+            if not req.rule_name:
+                tool_label = getattr(latest_evt, "tool_name", None) or "session"
+                req.rule_name = f"Mitigate {session.agent_id}: {tool_label}"
+        else:
+            content = f"mitigate_breach_{session.agent_id}"
+
+    pattern = req.pattern or _synthesize_pattern(content or "suspicious", trigger_phrases)
+    rule_name = req.rule_name or f"Mitigate {session.agent_id} Breach"
+
+    current = await list_policies()
+    rules = list(current.get("rules", []))
+    new_rule = {
+        "name": rule_name,
+        "pattern": pattern,
+        "event_type": req.event_type,
+        "severity": req.severity,
+        "risk_score": req.risk_score,
+        "description": f"Authoritative mitigation deployed by operator for session {session_id}.",
+    }
+    if req.tool:
+        new_rule["tool"] = req.tool.lower()
+
+    rules.append(new_rule)
+    version_meta = _write_rules(rules, trigger="operator_mitigation", note=f"Mitigation deployed on session {session_id}")
+
+    semantic_patched = False
+    if req.hot_patch_semantic and content:
+        try:
+            from src.containment.dynamic_semantic_registry import DynamicSemanticRegistry
+
+            registry = DynamicSemanticRegistry.get_instance()
+            registry.register_breach(
+                phrase=content[:250],
+                campaign_id="operator_mitigation",
+                round_id=int(version_meta.get("version", 1)),
+                category=req.event_type,
+            )
+            semantic_patched = True
+        except Exception as exc:
+            logger.warning("Could not hot-patch semantic registry: %s", exc)
+
+    event_id = str(uuid.uuid4())
+    trace_id = str(uuid.uuid4())
+
+    telemetry_bus.publish(
+        {
+            "type": "operator_action",
+            "event_id": event_id,
+            "trace_id": trace_id,
+            "session_id": str(session_id),
+            "tenant_id": tenant_id,
+            "agent_id": session.agent_id,
+            "action": "DEPLOY_MITIGATION",
+            "rule_name": rule_name,
+            "pattern": pattern,
+            "playbook_version": version_meta.get("version", 1),
+            "session_status": session.status,
+            "verdict": "CONTAINED",
+            "severity": req.severity,
+            "actor": tenant_id,
+            "result": "MITIGATED",
+            "reason": f"Mitigation deployed by operator: {rule_name}",
+        }
+    )
+
+    logger.info("Deployed mitigation '%s' (v%s) on session %s by tenant %s", rule_name, version_meta.get("version"), session_id, tenant_id)
+
+    return {
+        "session_id": str(session_id),
+        "action": "DEPLOY_MITIGATION",
+        "status": "mitigation_deployed",
+        "rule_name": rule_name,
+        "pattern": pattern,
+        "playbook_version": version_meta.get("version", 1),
+        "semantic_hot_patched": semantic_patched,
+        "event_id": event_id,
+        "trace_id": trace_id,
     }
 
 

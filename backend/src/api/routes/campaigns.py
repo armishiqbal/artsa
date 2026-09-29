@@ -866,6 +866,112 @@ async def replay_campaign_round(
     }
 
 
+class CampaignRoundMitigateRequest(BaseModel):
+    rule_name: str | None = None
+    hot_patch_semantic: bool = True
+    event_type: str = "PROMPT_INJECTION"
+    severity: str = "HIGH"
+    risk_score: float = 85.0
+
+
+@router.post("/campaigns/{campaign_id}/rounds/{round_number}/mitigate")
+async def mitigate_campaign_round(
+    campaign_id: str,
+    round_number: int,
+    payload: CampaignRoundMitigateRequest | None = None,
+    tenant_id: str = Depends(get_current_tenant),
+) -> dict[str, Any]:
+    """Deploy policy mitigation synthesized from a specific campaign round attack."""
+    from src.api.routes.policies import _synthesize_pattern, _write_rules, list_policies
+    from src.data.results_store import ResultsStore
+    from src.services.campaign_live_bus import campaign_live_bus
+    from src.services.telemetry_bus import telemetry_bus
+
+    results_dir = BACKEND_DIR / "data" / "results"
+    store = ResultsStore(str(results_dir))
+    rounds = store.load_rounds(campaign_id)
+    if not rounds:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+
+    target_round = next((r for r in rounds if r.round_number == round_number), None)
+    if not target_round:
+        raise HTTPException(status_code=404, detail=f"Round {round_number} not found for campaign '{campaign_id}'")
+
+    req = payload or CampaignRoundMitigateRequest()
+    attack_prompt = target_round.attack.prompt
+    cat = (
+        target_round.attack.category.value
+        if hasattr(target_round.attack.category, "value")
+        else str(target_round.attack.category)
+    )
+
+    pattern = _synthesize_pattern(attack_prompt, [])
+    rule_name = req.rule_name or f"Mitigate {cat}: Round {round_number} ({campaign_id[:8]})"
+
+    current = await list_policies()
+    rules = list(current.get("rules", []))
+    new_rule = {
+        "name": rule_name,
+        "pattern": pattern,
+        "event_type": req.event_type or cat,
+        "severity": req.severity,
+        "risk_score": req.risk_score,
+        "description": f"Auto-mitigation deployed from campaign {campaign_id} round {round_number}.",
+    }
+    rules.append(new_rule)
+    version_meta = _write_rules(rules, trigger="campaign_mitigation", note=f"Mitigation from round {round_number}")
+
+    semantic_patched = False
+    if req.hot_patch_semantic:
+        try:
+            from src.containment.dynamic_semantic_registry import DynamicSemanticRegistry
+
+            registry = DynamicSemanticRegistry.get_instance()
+            registry.register_breach(
+                phrase=attack_prompt[:250],
+                campaign_id=campaign_id,
+                round_id=round_number,
+                category=cat,
+            )
+            semantic_patched = True
+        except Exception as exc:
+            logger.warning("Could not hot-patch semantic registry: %s", exc)
+
+    event_id = str(uuid.uuid4())
+    trace_id = str(uuid.uuid4())
+    evt_payload = {
+        "type": "operator_action",
+        "action": "DEPLOY_MITIGATION",
+        "campaign_id": campaign_id,
+        "round_number": round_number,
+        "rule_name": rule_name,
+        "pattern": pattern,
+        "playbook_version": version_meta.get("version", 1),
+        "semantic_hot_patched": semantic_patched,
+        "event_id": event_id,
+        "trace_id": trace_id,
+        "actor": tenant_id,
+        "timestamp": time.time(),
+    }
+    telemetry_bus.publish(evt_payload)
+    campaign_live_bus.publish(campaign_id, evt_payload)
+
+    logger.info("Deployed mitigation '%s' from campaign %s round %d", rule_name, campaign_id, round_number)
+
+    return {
+        "campaign_id": campaign_id,
+        "round_number": round_number,
+        "action": "DEPLOY_MITIGATION",
+        "status": "mitigation_deployed",
+        "rule_name": rule_name,
+        "pattern": pattern,
+        "playbook_version": version_meta.get("version", 1),
+        "semantic_hot_patched": semantic_patched,
+        "event_id": event_id,
+        "trace_id": trace_id,
+    }
+
+
 @router.get("/campaigns/{campaign_id}/live/events")
 async def get_campaign_live_events(
     campaign_id: str,

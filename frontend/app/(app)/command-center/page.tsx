@@ -22,6 +22,8 @@ export default function CommandCenterPage() {
         liveOps={liveOps.state}
         onKillSession={liveOps.killSession}
         onQuarantineAgent={liveOps.quarantineAgent}
+        onBlockTool={liveOps.blockTool}
+        onDeployMitigation={liveOps.deployMitigation}
         onRefreshLiveOps={liveOps.refresh}
       />
     </div>

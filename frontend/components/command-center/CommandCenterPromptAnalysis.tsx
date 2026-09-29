@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   highlightPrompt,
@@ -8,6 +8,7 @@ import {
   type LiveRound,
   type PromptSpan,
 } from "./prototype/liveRounds";
+import { CrescendoTrajectoryStepper } from "./CrescendoTrajectoryStepper";
 
 export function CommandCenterPromptAnalysis({
   round,
@@ -16,6 +17,7 @@ export function CommandCenterPromptAnalysis({
   onSelectHighlight,
   onSelectBadge,
   onQuarantineTarget,
+  onDeployMitigation,
 }: {
   round: LiveRound;
   className?: string;
@@ -23,7 +25,9 @@ export function CommandCenterPromptAnalysis({
   onSelectHighlight?: (span: PromptSpan) => void;
   onSelectBadge?: () => void;
   onQuarantineTarget?: (target: string) => void;
+  onDeployMitigation?: (content: string) => void;
 }) {
+  const [showCrescendoStepper, setShowCrescendoStepper] = useState(false);
   const spans = useMemo(
     () => highlightPrompt(round.prompt, round.highlights),
     [round.prompt, round.highlights]
@@ -49,10 +53,35 @@ export function CommandCenterPromptAnalysis({
     >
       {/* Header bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-          LIVE PROMPT ANALYSIS · {round.from} → {round.to}
-        </span>
         <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            LIVE PROMPT ANALYSIS · {round.from} → {round.to}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowCrescendoStepper((prev) => !prev)}
+            className={cn(
+              "rounded px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider border transition-colors cursor-pointer",
+              showCrescendoStepper
+                ? "border-rose-500/80 bg-rose-500/20 text-rose-300"
+                : "border-border/60 bg-muted/40 text-muted-foreground hover:text-foreground"
+            )}
+            title="Toggle Crescendo multi-turn steering trajectory stepper"
+          >
+            {showCrescendoStepper ? "Hide Crescendo Stepper" : "Crescendo Stepper"}
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          {onDeployMitigation ? (
+            <button
+              type="button"
+              onClick={() => onDeployMitigation(round.prompt)}
+              className="rounded px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider border border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+              title="Deploy authoritative policy mitigation rule from this prompt"
+            >
+              DEPLOY MITIGATION
+            </button>
+          ) : null}
           {onQuarantineTarget ? (
             <button
               type="button"
@@ -83,6 +112,14 @@ export function CommandCenterPromptAnalysis({
           </button>
         </div>
       </div>
+
+      {showCrescendoStepper && (
+        <div className="mb-4">
+          <CrescendoTrajectoryStepper
+            onDeployMitigation={(turn) => onDeployMitigation?.(turn.prompt)}
+          />
+        </div>
+      )}
 
       {/* Code Box */}
       <div className="rounded-lg border border-border bg-muted/40 p-4 text-[13px] leading-relaxed text-foreground dark:border-white/[0.06] dark:bg-[#05070a] dark:text-slate-200">

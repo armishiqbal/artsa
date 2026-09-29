@@ -449,6 +449,36 @@ describe("Command Center Live Ops Adapter (Phase 2.2)", () => {
       expect(result.data?.idempotent).toBe(true);
     });
 
+    it("executes DEPLOY_MITIGATION successfully (HTTP 200)", async () => {
+      const mockResponse = {
+        session_id: "sess_mitigate",
+        action: "DEPLOY_MITIGATION",
+        status: "mitigation_deployed",
+        rule_name: "Block Admin Secrets",
+        pattern: "(?i)(admin secrets)",
+        playbook_version: 5,
+        semantic_hot_patched: true,
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const result = await executeOperatorAction("sess_mitigate", "DEPLOY_MITIGATION", undefined, {
+        ruleName: "Block Admin Secrets",
+        content: "admin secrets",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.action).toBe("DEPLOY_MITIGATION");
+      expect(result.statusCode).toBe(200);
+      expect(result.data?.status).toBe("mitigation_deployed");
+      expect(result.data?.rule_name).toBe("Block Admin Secrets");
+      expect(result.data?.playbook_version).toBe(5);
+    });
+
     it("handles 403 Forbidden properly with informative message", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,

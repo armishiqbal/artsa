@@ -51,6 +51,8 @@ export interface CommandCenterFloorProps {
   liveOps?: LiveOpsState;
   onKillSession?: (sessionId: string) => Promise<OperatorActionResult>;
   onQuarantineAgent?: (sessionId: string) => Promise<OperatorActionResult>;
+  onBlockTool?: (sessionId: string, toolName: string) => Promise<OperatorActionResult>;
+  onDeployMitigation?: (sessionId: string, options?: any) => Promise<OperatorActionResult>;
   onRefreshLiveOps?: () => void;
 }
 
@@ -62,6 +64,8 @@ export function CommandCenterFloor({
   liveOps,
   onKillSession,
   onQuarantineAgent,
+  onBlockTool,
+  onDeployMitigation,
   onRefreshLiveOps,
 }: CommandCenterFloorProps) {
   const [roundIdx, setRoundIdx] = useState(0);
@@ -146,12 +150,44 @@ export function CommandCenterFloor({
           setLastOperatorAction(`${targetName} quarantined. Tool permissions revoked.`);
         }
       } else if (actionType === "BLOCK_TOOL") {
-        setLastOperatorAction(`Tool "${targetName}" blocked across active agents.`);
+        if (onBlockTool) {
+          try {
+            const result = await onBlockTool(targetSessionId, targetName);
+            if (result.success) {
+              setLastOperatorAction(`Tool "${targetName}" quarantined on session ${targetSessionId}.`);
+            } else {
+              setLastOperatorAction(`BLOCK_TOOL failed on "${targetName}": ${result.error || "Server rejected request"}`);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setLastOperatorAction(`BLOCK_TOOL error: ${msg}`);
+          }
+        } else {
+          setLastOperatorAction(`Tool "${targetName}" blocked across active agents.`);
+        }
       } else if (actionType === "DEPLOY_MITIGATION") {
-        setLastOperatorAction(`Mitigation patch deployed to runtime enforcement layer.`);
+        if (onDeployMitigation) {
+          try {
+            const result = await onDeployMitigation(targetSessionId, { ruleName: `Mitigate: ${targetName}` });
+            if (result.success) {
+              const ruleName = result.data?.rule_name || result.data?.ruleName || targetName;
+              const version = result.data?.playbook_version || result.data?.playbookVersion || 1;
+              setLastOperatorAction(
+                `Mitigation rule "${ruleName}" (v${version}) deployed to policy playbook on session ${targetSessionId}.`
+              );
+            } else {
+              setLastOperatorAction(`DEPLOY_MITIGATION failed: ${result.error || "Server rejected request"}`);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setLastOperatorAction(`DEPLOY_MITIGATION error: ${msg}`);
+          }
+        } else {
+          setLastOperatorAction(`Mitigation patch deployed to runtime enforcement layer.`);
+        }
       }
     },
-    [liveOps, onKillSession, onQuarantineAgent]
+    [liveOps, onKillSession, onQuarantineAgent, onBlockTool, onDeployMitigation]
   );
 
   // Keyboard shortcuts (Capability 12: Space to pause/resume, ArrowRight to step, Escape to close drawer/modal)
@@ -810,6 +846,7 @@ export function CommandCenterFloor({
                 onSelectHighlight={inspectHighlight}
                 onSelectBadge={inspectStatusBadge}
                 onQuarantineTarget={(target) => handleRequestOperatorAction("QUARANTINE_AGENT", target)}
+                onDeployMitigation={(prompt) => handleRequestOperatorAction("DEPLOY_MITIGATION", prompt.slice(0, 30))}
               />
             </section>
 

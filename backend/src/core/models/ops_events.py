@@ -193,7 +193,9 @@ OPERATOR_ACTIONS: tuple[OperatorActionSpec, ...] = (
     ),
     OperatorActionSpec(
         action_id="DEPLOY_MITIGATION",
-        implemented=False,
-        note="Human-gated: POST /policies/suggest and POST /findings/{id}/promote exist; no auto-deploy.",
+        implemented=True,
+        method="POST",
+        path="/api/v1/sessions/{session_id}/mitigate",
+        note="Synthesizes, snapshots, and deploys an authoritative policy mitigation rule to active containment guardrails for a session or campaign finding.",
     ),
 )

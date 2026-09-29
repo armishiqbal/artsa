@@ -145,7 +145,7 @@ export interface LiveOpsState {
   error: string | null;
 }
 
-export type OperatorActionType = "KILL" | "QUARANTINE" | "BLOCK_TOOL" | "REPLAY_ROUND";
+export type OperatorActionType = "KILL" | "QUARANTINE" | "BLOCK_TOOL" | "REPLAY_ROUND" | "DEPLOY_MITIGATION";
 
 export interface OperatorActionResult {
   success: boolean;
@@ -153,12 +153,26 @@ export interface OperatorActionResult {
   sessionId: string;
   statusCode?: number;
   data?: {
-    sessionId: string;
-    enforcedAction: string;
+    sessionId?: string;
+    session_id?: string;
+    enforcedAction?: string;
+    enforced_action?: string;
     status: string;
+    action?: string;
+    ruleName?: string;
+    rule_name?: string;
+    pattern?: string;
+    playbookVersion?: number;
+    playbook_version?: number;
+    semanticHotPatched?: boolean;
+    semantic_hot_patched?: boolean;
     idempotent?: boolean;
     traceId?: string;
+    trace_id?: string;
     eventId?: string;
+    event_id?: string;
+    tool_name?: string;
+    blocked_tools?: string[];
   };
   error?: string;
 }
@@ -593,7 +607,17 @@ export function buildSimulationFallbackState(currentRoundIdx = 0): LiveOpsState 
 export async function executeOperatorAction(
   sessionId: string,
   action: OperatorActionType,
-  toolName?: string
+  toolName?: string,
+  mitigationOptions?: {
+    ruleName?: string;
+    content?: string;
+    triggerPhrases?: string[];
+    pattern?: string;
+    eventType?: string;
+    severity?: string;
+    riskScore?: number;
+    hotPatchSemantic?: boolean;
+  }
 ): Promise<OperatorActionResult> {
   const cleanSessionId = typeof sessionId === "string" ? sessionId.trim() : "";
   if (!cleanSessionId) {
@@ -605,17 +629,31 @@ export async function executeOperatorAction(
     };
   }
 
-  const endpoint =
-    action === "BLOCK_TOOL" && toolName
-      ? `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/tools/${encodeURIComponent(toolName.trim())}/block`
-      : `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/action`;
+  let endpoint = `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/action`;
+  let reqBody: Record<string, any> = { action, tool_name: toolName };
+
+  if (action === "BLOCK_TOOL" && toolName) {
+    endpoint = `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/tools/${encodeURIComponent(toolName.trim())}/block`;
+  } else if (action === "DEPLOY_MITIGATION") {
+    endpoint = `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/mitigate`;
+    reqBody = {
+      rule_name: mitigationOptions?.ruleName,
+      content: mitigationOptions?.content,
+      trigger_phrases: mitigationOptions?.triggerPhrases,
+      pattern: mitigationOptions?.pattern,
+      event_type: mitigationOptions?.eventType || "PROMPT_INJECTION",
+      severity: mitigationOptions?.severity || "HIGH",
+      risk_score: mitigationOptions?.riskScore ?? 85.0,
+      hot_patch_semantic: mitigationOptions?.hotPatchSemantic ?? true,
+    };
+  }
   const url = `${API_BASE_URL}${endpoint}`;
 
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: buildHeaders(),
-      body: JSON.stringify({ action, tool_name: toolName }),
+      body: JSON.stringify(reqBody),
     });
 
     if (res.status === 401) {
@@ -687,11 +725,19 @@ export async function executeOperatorAction(
       statusCode: res.status,
       data: {
         sessionId: String(data.session_id || cleanSessionId),
-        enforcedAction: String(data.enforced_action || action),
+        enforcedAction: String(data.enforced_action || data.action || action),
         status: String(data.status || ""),
         idempotent: Boolean(data.idempotent),
         traceId: data.trace_id ? String(data.trace_id) : undefined,
         eventId: data.event_id ? String(data.event_id) : undefined,
+        rule_name: data.rule_name ? String(data.rule_name) : undefined,
+        ruleName: (data.rule_name || data.ruleName) ? String(data.rule_name || data.ruleName) : undefined,
+        pattern: data.pattern ? String(data.pattern) : undefined,
+        playbook_version: typeof data.playbook_version === "number" ? data.playbook_version : undefined,
+        playbookVersion: typeof (data.playbook_version ?? data.playbookVersion) === "number" ? Number(data.playbook_version ?? data.playbookVersion) : undefined,
+        semantic_hot_patched: typeof data.semantic_hot_patched === "boolean" ? data.semantic_hot_patched : undefined,
+        tool_name: data.tool_name ? String(data.tool_name) : undefined,
+        blocked_tools: Array.isArray(data.blocked_tools) ? (data.blocked_tools as string[]) : undefined,
       },
     };
   } catch (err: unknown) {
@@ -910,10 +956,35 @@ export function useCommandCenterLiveOps(options: UseCommandCenterLiveOpsOptions 
     return executeOperatorAction(sessionId, "QUARANTINE");
   }, []);
 
+  const blockTool = useCallback(async (sessionId: string, toolName: string): Promise<OperatorActionResult> => {
+    return executeOperatorAction(sessionId, "BLOCK_TOOL", toolName);
+  }, []);
+
+  const deployMitigation = useCallback(
+    async (
+      sessionId: string,
+      options?: {
+        ruleName?: string;
+        content?: string;
+        triggerPhrases?: string[];
+        pattern?: string;
+        eventType?: string;
+        severity?: string;
+        riskScore?: number;
+        hotPatchSemantic?: boolean;
+      }
+    ): Promise<OperatorActionResult> => {
+      return executeOperatorAction(sessionId, "DEPLOY_MITIGATION", undefined, options);
+    },
+    []
+  );
+
   return {
     state,
     killSession,
     quarantineAgent,
+    blockTool,
+    deployMitigation,
     refresh: fetchSnapshot,
   };
 }
