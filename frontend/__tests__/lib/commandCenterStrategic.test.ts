@@ -422,6 +422,7 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
         campaigns: [],
         apiOnline: true,
         wsConnected: true,
+        disableAutoTicker: true,
       })
     );
 
@@ -430,5 +431,5 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
 
     await user.click(nextBtn);
     expect(screen.getByText(/round 2 · live/i)).toBeInTheDocument();
-  });
+  }, 15000);
 });

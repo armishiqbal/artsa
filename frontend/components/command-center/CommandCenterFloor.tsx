@@ -49,6 +49,7 @@ export interface CommandCenterFloorProps {
   apiOnline: boolean;
   wsConnected: boolean;
   liveOps?: LiveOpsState;
+  disableAutoTicker?: boolean;
   onKillSession?: (sessionId: string) => Promise<OperatorActionResult>;
   onQuarantineAgent?: (sessionId: string) => Promise<OperatorActionResult>;
   onBlockTool?: (sessionId: string, toolName: string) => Promise<OperatorActionResult>;
@@ -62,6 +63,7 @@ export function CommandCenterFloor({
   apiOnline,
   wsConnected,
   liveOps,
+  disableAutoTicker = false,
   onKillSession,
   onQuarantineAgent,
   onBlockTool,
@@ -91,12 +93,12 @@ export function CommandCenterFloor({
 
   // Automatic round progression for simulation mode ("the whole page moves together each round")
   useEffect(() => {
-    if (isPaused || isLiveMode) return;
+    if (isPaused || isLiveMode || disableAutoTicker) return;
     const id = window.setInterval(() => {
       setRoundIdx((prev) => nextRoundIndex(prev, LIVE_ROUNDS.length));
     }, LIVE_ROUND_MS);
     return () => window.clearInterval(id);
-  }, [isPaused, isLiveMode]);
+  }, [isPaused, isLiveMode, disableAutoTicker]);
 
   // Operator Action Handlers
   const handleRequestOperatorAction = useCallback(

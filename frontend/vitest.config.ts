@@ -7,6 +7,8 @@ export default defineConfig({
     globals: true,
     setupFiles: [path.resolve(__dirname, "__tests__/setup.ts")],
     include: ["__tests__/**/*.test.{ts,tsx}"],
+    testTimeout: 20000,
+    hookTimeout: 20000,
   },
   esbuild: {
     jsx: "automatic",

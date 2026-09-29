@@ -93,3 +93,65 @@ def test_api_framework_metrics():
     assert "NIST_AI_RMF" in sources
     assert "OWASP_ASI" in sources
     assert "MITRE_ATLAS" in sources
+
+
+def test_api_curate_preview():
+    headers = {"X-Tenant-ID": "test-research-tenant"}
+
+    # Target with NO database and NO bash tools
+    payload = {
+        "tools": ["web_search", "summarize_text"],
+        "has_database": False,
+        "has_bash": False,
+        "has_filesystem": False,
+        "has_rag": True,
+    }
+    res = client.post("/api/v1/research/curate/preview", headers=headers, json=payload)
+    assert res.status_code == 200
+    data = unwrap_response(res)
+
+    assert data["total_considered"] > 10
+    assert data["retained_count"] > 0
+    assert data["discarded_count"] > 0
+    assert len(data["retained"]) == data["retained_count"]
+    assert len(data["discarded"]) == data["discarded_count"]
+
+    # Verify that SQL injection or bash tools were discarded with a rationale
+    discarded_rationales = [d["rationale"] for d in data["discarded"]]
+    assert any("database" in r.lower() or "bash" in r.lower() or "surface" in r.lower() for r in discarded_rationales)
+
+    # Retained items must have synthesized preview seeds
+    first_retained = data["retained"][0]
+    assert "preview_seeds" in first_retained
+    assert len(first_retained["preview_seeds"]) > 0
+
+
+def test_api_curate_promote(tmp_path, monkeypatch):
+    import src.api.routes.attack_library as attack_lib_mod
+
+    temp_custom_json = tmp_path / "attack_library_custom.json"
+    monkeypatch.setattr(attack_lib_mod, "CUSTOM_PATH", temp_custom_json)
+
+    headers = {"X-Tenant-ID": "test-curator-org"}
+    payload = {
+        "threat_ids": ["AML.T0051", "ASI01"],
+        "tools": ["database_query", "web_search"],
+        "has_database": True,
+    }
+
+    res = client.post("/api/v1/research/curate/promote", headers=headers, json=payload)
+    assert res.status_code == 200
+    data = unwrap_response(res)
+
+    assert data["status"] == "promoted"
+    assert data["promoted_count"] >= 1
+    assert len(data["template_ids"]) == data["promoted_count"]
+    assert len(data["templates"]) == data["promoted_count"]
+
+    # Verify templates were saved in the custom attack library
+    saved_templates = attack_lib_mod._load_custom_templates()
+    assert len(saved_templates) >= 1
+    promoted_t = saved_templates[0]
+    assert promoted_t["source"] == "curator_agent"
+    assert promoted_t["tenant_id"] == "test-curator-org"
+

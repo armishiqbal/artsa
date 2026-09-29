@@ -17,6 +17,7 @@ import {
 import { toast } from "@/lib/stores/toast";
 import { kindLabel, type Target } from "@/lib/targets";
 import { cn } from "@/lib/utils";
+import { Sparkles } from "lucide-react";
 
 const ATTACK_SETS = [
   "Prompt Injection",
@@ -105,6 +106,26 @@ function CampaignBuilder() {
   const [iterations, setIterations] = useState(10);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [launching, setLaunching] = useState(false);
+
+  const isResearchSource = searchParams.get("source") === "research";
+  const researchThreatIds = useMemo(() => {
+    const raw = searchParams.get("threat_ids");
+    return raw ? raw.split(",").filter(Boolean) : [];
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (isResearchSource) {
+      const customName = searchParams.get("name");
+      if (customName) setName(customName);
+      const customSets = searchParams.get("sets");
+      if (customSets) {
+        const matching = ATTACK_SETS.filter((s) =>
+          customSets.toLowerCase().includes(s.toLowerCase().slice(0, 4))
+        );
+        if (matching.length > 0) setSets(matching);
+      }
+    }
+  }, [isResearchSource, searchParams]);
 
   const categories = useMemo(() => mergeCampaignCategories(sets, matrix), [sets, matrix]);
   const intensity = useMemo(() => intensityFromMatrix(matrix), [matrix]);
@@ -229,6 +250,23 @@ function CampaignBuilder() {
           </Link>{" "}
           so this campaign can be compared against later versions.
         </p>
+      )}
+
+      {isResearchSource && (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3.5 flex items-start gap-3">
+          <div className="rounded p-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-mono text-[12px] font-bold text-foreground">
+              Curated Threat Assessment Workflow
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground font-mono">
+              Pre-configured from Threat Intelligence Feeds with {researchThreatIds.length} prioritized attack vector{researchThreatIds.length !== 1 ? "s" : ""}.
+              {researchThreatIds.length > 0 && ` Targeted frameworks: ${researchThreatIds.slice(0, 4).join(", ")}.`}
+            </p>
+          </div>
+        </div>
       )}
 
       <RedTeamSimpleSteps
