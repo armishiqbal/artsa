@@ -2,45 +2,54 @@
 
 import { LandingAnnouncementBar } from "./LandingAnnouncementBar";
 import { LandingBackdrop } from "./LandingBackdrop";
-import { LandingChallenge } from "./LandingChallenge";
-import { LandingComparison } from "./LandingComparison";
-import { LandingContactSection } from "./LandingContactSection";
-import { LandingCTA } from "./LandingCTA";
-import { LandingFAQ } from "./LandingFAQ";
-import { LandingFooter } from "./LandingFooter";
 import { LandingHero } from "./LandingHero";
-import { LandingImpact } from "./LandingImpact";
-import { LandingJumpNav } from "./LandingJumpNav";
 import { LandingLogoWall } from "./LandingLogoWall";
-import { LandingNav } from "./LandingNav";
-import { LandingPlatforms } from "./LandingPlatforms";
-import { LandingPricing } from "./LandingPricing";
-import { LandingSignInRoot } from "./LandingSignInRoot";
+import { LandingStats } from "./LandingStats";
+import { LandingChallenge } from "./LandingChallenge";
 import { LandingSolution } from "./LandingSolution";
+import { LandingMultiAgentFlow } from "./LandingMultiAgentFlow";
+import { LandingFeatureBento } from "./LandingFeatureBento";
+import { LandingFindingsSpotlight } from "./LandingFindingsSpotlight";
+import { LandingBoundaries } from "./LandingBoundaries";
+import { LandingCodeShowcase } from "./LandingCodeShowcase";
+import { LandingComparison } from "./LandingComparison";
 import { LandingUseCases } from "./LandingUseCases";
+import { LandingPricing } from "./LandingPricing";
+import { LandingFAQ } from "./LandingFAQ";
+import { LandingCTA } from "./LandingCTA";
+import { LandingContactSection } from "./LandingContactSection";
+import { LandingFooter } from "./LandingFooter";
+import { LandingNav } from "./LandingNav";
+import { LandingSignInRoot } from "./LandingSignInRoot";
 
 export function LandingPage() {
   return (
     <LandingSignInRoot>
-      <div className="lp lp--obsidian relative min-h-screen">
+      <div
+        className="lp lp--light relative min-h-screen bg-white text-slate-900 selection:bg-blue-100 selection:text-blue-900"
+        data-theme="light"
+      >
         <LandingBackdrop />
-        <div className="relative z-10">
+        <div className="relative z-10 flex min-h-screen flex-col">
           <LandingAnnouncementBar />
           <LandingNav />
-          <main id="main-content">
+          <main id="main-content" className="flex-1">
             <LandingHero />
-            <LandingJumpNav />
             <LandingLogoWall />
+            <LandingStats />
             <LandingChallenge />
             <LandingSolution />
-            <LandingPlatforms />
-            <LandingUseCases />
+            <LandingMultiAgentFlow />
+            <LandingFeatureBento />
+            <LandingFindingsSpotlight />
+            <LandingBoundaries />
+            <LandingCodeShowcase />
             <LandingComparison />
-            <LandingImpact />
+            <LandingUseCases />
             <LandingPricing />
             <LandingFAQ />
-            <LandingContactSection />
             <LandingCTA />
+            <LandingContactSection />
           </main>
           <LandingFooter />
         </div>

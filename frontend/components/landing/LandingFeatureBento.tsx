@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { staggerContainer } from "@/lib/motionPresets";
 import { demoHref } from "@/lib/demoRoutes";
-import { LandingMotionCard } from "./LandingMotionCard";
 
 interface BentoCard {
   icon: LucideIcon;
@@ -31,75 +30,75 @@ interface BentoCard {
 const CARDS: BentoCard[] = [
   {
     icon: Shield,
-    title: "Runtime guard",
-    body: "Sub-50ms tool-call scoring with ALLOW, QUARANTINE, or KILL.",
+    title: "Runtime Guard (EDS)",
+    body: "Submit tool-call events for policy evaluation and review the backend response before your runtime proceeds.",
     href: demoHref("guard"),
-    tag: "Core",
+    tag: "Inline Defense",
     className: "md:col-span-2 md:row-span-2",
     large: true,
   },
   {
     icon: Crosshair,
-    title: "Red team console",
-    body: "Coverage grids and judge verdicts.",
+    title: "Red Team Console",
+    body: "Run configured adversarial campaigns and inspect their recorded rounds and judge evaluations.",
     href: demoHref("redteam"),
     tag: "Attack",
     className: "",
   },
   {
     icon: FileSearch,
-    title: "Findings registry",
-    body: "Chain-of-custody and playbook promotion.",
+    title: "Findings Registry",
+    body: "Review backend findings, recorded custody fields, and the playbook suggestion workflow.",
     href: demoHref("findings"),
     tag: "Govern",
     className: "",
   },
   {
     icon: Rewind,
-    title: "Session autopsy",
-    body: "Film timeline and layer forensics.",
+    title: "Session Replay & Evidence",
+    body: "Inspect recorded event arguments, tool responses, and backend evaluations for a selected session.",
     href: demoHref("replay"),
     tag: "Forensics",
     className: "",
   },
   {
     icon: Network,
-    title: "Swarm containment",
-    body: "Map agent topologies and lateral tool paths.",
+    title: "Swarm Containment",
+    body: "View recorded agent handoffs and request supported actions against the selected session.",
     href: demoHref("pipeline"),
-    tag: "Agents",
+    tag: "Swarm DAG",
     className: "",
   },
   {
     icon: Zap,
-    title: "Fast fallback",
-    body: "Predictable failure modes when backends are unreachable.",
+    title: "Fast Fallback SRE",
+    body: "Deterministic, predictable fail-closed and fail-open policies when backends degrade.",
     href: demoHref("guard"),
-    tag: "SRE",
+    tag: "SRE Reliability",
     className: "",
   },
   {
     icon: Layers,
-    title: "Layered detection",
-    body: "Semantic, policy, and behavioral layers into one verdict.",
+    title: "Layered Detection",
+    body: "Semantic embeddings, regex AST rules, and behavioral heuristics fused into one score.",
     href: demoHref("guard"),
     tag: "Engine",
     className: "",
   },
   {
     icon: GitBranch,
-    title: "Playbook promotion",
-    body: "Turn red team hits into versioned enforcement rules.",
+    title: "Playbook Promotion",
+    body: "Create a reviewable playbook suggestion from a finding; deployment requires a separate policy workflow.",
     href: "/admin/policies",
     tag: "Policy",
     className: "",
   },
   {
     icon: Activity,
-    title: "Live observatory",
-    body: "Streaming telemetry, latency budgets, and live sessions.",
+    title: "Live Observatory",
+    body: "Review telemetry and session records returned by the connected backend.",
     href: demoHref("command"),
-    tag: "Observe",
+    tag: "Observability",
     className: "md:col-span-2",
     large: true,
   },
@@ -107,58 +106,55 @@ const CARDS: BentoCard[] = [
 
 export function LandingFeatureBento() {
   return (
-    <section id="features" className="px-4 py-16 sm:px-6 sm:py-24">
+    <section id="features" className="scroll-mt-24 border-b border-slate-100 bg-white px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-6xl">
-        <div className="max-w-2xl">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Architecture
-          </p>
-          <h2 className="mt-2 text-2xl font-medium tracking-tight sm:text-3xl md:text-4xl">
-            Built for security teams shipping agentic AI
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/80 bg-blue-50 px-3.5 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
+            <Layers className="h-3.5 w-3.5" />
+            UNIFIED PLATFORM CAPABILITIES
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+            Security Workflows for Agent Systems
           </h2>
-          <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-            Every layer from ingest to post-incident forensics, unified in one platform.
+          <p className="mt-4 text-base text-slate-600 sm:text-lg">
+            Review events, campaign results, and session evidence. Verify provider connectivity and runtime enforcement in your own deployment.
           </p>
         </div>
 
         <motion.div
-          className="mt-10 grid gap-3 sm:grid-cols-2 md:grid-cols-3 md:auto-rows-[minmax(140px,auto)]"
+          className="mt-14 grid gap-4 sm:grid-cols-2 md:grid-cols-3 md:auto-rows-[minmax(140px,auto)]"
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
         >
-          {CARDS.map((card, i) => (
+          {CARDS.map((card) => (
             <Link
               key={card.title}
               href={card.href}
-              className={`block h-full ${card.className}`}
+              className={`group block h-full rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs transition-all hover:border-blue-400 hover:shadow-md ${card.className}`}
             >
-              <LandingMotionCard index={i} className="h-full p-5 sm:p-6">
-                <div className="flex h-full flex-col">
-                  <div className="flex items-start justify-between gap-2">
-                    <motion.div
-                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary"
-                      whileHover={{ rotate: [0, -8, 8, 0], scale: 1.08 }}
-                      transition={{ duration: 0.45 }}
-                    >
-                      <card.icon className="h-4 w-4" aria-hidden />
-                    </motion.div>
-                    <span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground">
-                      {card.tag}
-                    </span>
-                  </div>
-                  <h3 className={`mt-4 font-medium tracking-tight ${card.large ? "text-lg sm:text-xl" : "text-base"}`}>
-                    {card.title}
-                  </h3>
-                  <p className={`mt-2 text-muted-foreground ${card.large ? "text-sm sm:text-base" : "text-sm"}`}>
-                    {card.body}
-                  </p>
-                  <span className="mt-auto pt-4 text-xs text-muted-foreground transition-colors group-hover:text-primary">
-                    Open in demo →
+              <div className="flex h-full flex-col">
+                <div className="flex items-start justify-between gap-2">
+                  <motion.div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-transform group-hover:scale-105"
+                  >
+                    <card.icon className="h-5 w-5" aria-hidden />
+                  </motion.div>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-mono text-slate-600 font-medium">
+                    {card.tag}
                   </span>
                 </div>
-              </LandingMotionCard>
+                <h3 className={`mt-4 font-semibold text-slate-900 tracking-tight ${card.large ? "text-xl sm:text-2xl" : "text-base"}`}>
+                  {card.title}
+                </h3>
+                <p className={`mt-2 text-slate-600 leading-relaxed ${card.large ? "text-sm sm:text-base" : "text-sm"}`}>
+                  {card.body}
+                </p>
+                <span className="mt-auto pt-4 text-xs font-mono font-semibold text-blue-600 transition-colors group-hover:text-blue-800">
+                  Open in demo →
+                </span>
+              </div>
             </Link>
           ))}
         </motion.div>

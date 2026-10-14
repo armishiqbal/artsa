@@ -119,7 +119,7 @@ export function LandingDesignGallery() {
         <LandingSectionHeader
           badge="Product design"
           title="Explore the command center — product screenshots"
-          description="High-fidelity previews of every ARTSA surface — filter by workflow, open any screen, or browse similar SaaS dashboards on Landbook."
+          description="Illustrative product previews with sample values. They are not live telemetry or customer findings."
           align="center"
           className="mx-auto max-w-3xl"
         />

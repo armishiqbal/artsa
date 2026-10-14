@@ -6,7 +6,7 @@ import { easeOut } from "@/lib/motionPresets";
 const ITEMS = [
   "OWASP LLM Top 10",
   "MITRE ATLAS",
-  "Sub-50ms containment",
+  "Policy evaluation",
   "Multi-tenant RBAC",
   "Chain of custody",
   "Red team campaigns",

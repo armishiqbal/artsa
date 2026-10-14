@@ -19,6 +19,7 @@ const eslintConfig = [
     // Build artifacts, generated types, and framework config files are not source.
     ignores: [
       ".next/**",
+      ".next-*/**",
       "node_modules/**",
       "public/**",
       "test-results/**",
@@ -26,6 +27,12 @@ const eslintConfig = [
       "next-env.d.ts",
       "tsconfig.tsbuildinfo",
     ],
+  },
+  {
+    // This is the App Router root layout, so its global font stylesheet is
+    // already shared by every route; the rule only understands Pages Router.
+    files: ["app/layout.tsx"],
+    rules: { "@next/next/no-page-custom-font": "off" },
   },
 ];
 

@@ -31,9 +31,9 @@ const ConnectionContext = createContext<ConnectionContextValue>({
 });
 
 /** Health can briefly fail during uvicorn reload or a busy campaign — don't flap the badge. */
-const HEALTH_TIMEOUT_MS = 5_000;
+const HEALTH_TIMEOUT_MS = 2_000;
 const ONLINE_POLL_MS = 20_000;
-const OFFLINE_POLL_MS = 4_000;
+const OFFLINE_POLL_MS = 6_000;
 const FAILURES_BEFORE_OFFLINE = 2;
 
 export function ConnectionProvider({ children }: { children: ReactNode }) {
@@ -43,27 +43,34 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   const [apiGatewayStatus, setApiGatewayStatus] = useState<ApiGatewayStatus>("unknown");
   const failStreakRef = useRef(0);
   const onlineRef = useRef(false);
+  const inFlightRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    const health = await fetchFromBackend<{
-      api_gateway?: { status?: string };
-    }>("/api/v1/health", { silent: true, timeoutMs: HEALTH_TIMEOUT_MS });
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    try {
+      const health = await fetchFromBackend<{
+        api_gateway?: { status?: string };
+      }>("/api/v1/health", { silent: true, timeoutMs: HEALTH_TIMEOUT_MS });
 
-    if (health) {
-      failStreakRef.current = 0;
-      onlineRef.current = true;
-      setApiOnline(true);
-      const gw = health.api_gateway?.status;
-      setApiGatewayStatus(gw === "fully_connected" ? "fully_connected" : "unknown");
-      return;
-    }
+      if (health) {
+        failStreakRef.current = 0;
+        onlineRef.current = true;
+        setApiOnline(true);
+        const gw = health.api_gateway?.status;
+        setApiGatewayStatus(gw === "reachable" ? "reachable" : "unknown");
+        return;
+      }
 
-    failStreakRef.current += 1;
-    // Stay "online" through a single blip (reload / GC / campaign spike).
-    if (failStreakRef.current >= FAILURES_BEFORE_OFFLINE) {
-      onlineRef.current = false;
-      setApiOnline(false);
-      setApiGatewayStatus("offline");
+      failStreakRef.current += 1;
+      // Stay "online" through a single blip (reload / GC / campaign spike).
+      if (failStreakRef.current >= FAILURES_BEFORE_OFFLINE) {
+        onlineRef.current = false;
+        setApiOnline(false);
+        setApiGatewayStatus("offline");
+      }
+    } finally {
+      inFlightRef.current = false;
     }
   }, []);
 

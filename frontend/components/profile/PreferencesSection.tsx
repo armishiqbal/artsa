@@ -154,7 +154,7 @@ export function PreferencesSection() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-foreground">Dark Theme</p>
-              <p className="text-[11px] text-muted-foreground">Obsidian tactical control room</p>
+              <p className="text-[11px] text-muted-foreground">Tactical dark control room</p>
             </div>
           </button>
         </div>

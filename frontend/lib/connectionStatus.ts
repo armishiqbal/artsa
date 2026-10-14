@@ -2,7 +2,7 @@
 
 import { CONNECTION_UI } from "@/lib/getStartedLabels";
 
-export type ApiGatewayStatus = "fully_connected" | "offline" | "unknown";
+export type ApiGatewayStatus = "reachable" | "offline" | "unknown";
 
 export function formatTopNavConnectionLabel(
   apiOnline: boolean,
@@ -11,7 +11,7 @@ export function formatTopNavConnectionLabel(
 ): string {
   if (!apiOnline) return CONNECTION_UI.offlineNav;
   if (wsConnected) return "Live";
-  if (apiGatewayStatus === "fully_connected") return CONNECTION_UI.pollingNav;
+  if (apiGatewayStatus === "reachable") return CONNECTION_UI.pollingNav;
   return CONNECTION_UI.pollingNav;
 }
 

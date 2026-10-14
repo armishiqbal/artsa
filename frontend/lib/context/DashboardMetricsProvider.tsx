@@ -5,11 +5,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { fetchFromBackend } from "@/lib/api";
-import { mergeTelemetryEvents } from "@/lib/ingestTelemetry";
+import { mergeTelemetryEvents, telemetryFingerprint } from "@/lib/ingestTelemetry";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { useAuthStore, hydrateAuthStore } from "@/lib/stores/auth";
 import { buildWebSocketUrl } from "@/lib/ws";
@@ -18,10 +19,11 @@ import { useReconnectingWebSocket } from "@/lib/hooks/useReconnectingWebSocket";
 export interface DashboardMetrics {
   severity_counts: Record<string, number>;
   defense_layers: Record<string, number>;
-  defense_score: number;
+  defense_score: number | null;
   risk_trend: Array<{ timestamp: string; risk_score: number; tool_name?: string }>;
-  avg_risk_score: number;
-  max_risk_score: number;
+  risk_score_count?: number;
+  avg_risk_score: number | null;
+  max_risk_score: number | null;
   active_sessions: number;
   event_rate: number;
   total_events: number;
@@ -30,10 +32,11 @@ export interface DashboardMetrics {
 const EMPTY_METRICS: DashboardMetrics = {
   severity_counts: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 },
   defense_layers: {},
-  defense_score: 0,
+  defense_score: null,
   risk_trend: [],
-  avg_risk_score: 0,
-  max_risk_score: 0,
+  risk_score_count: 0,
+  avg_risk_score: null,
+  max_risk_score: null,
   active_sessions: 0,
   event_rate: 0,
   total_events: 0,
@@ -41,16 +44,34 @@ const EMPTY_METRICS: DashboardMetrics = {
 
 /** REST is only a safety net — live path is WebSocket (sub‑second). */
 const POLL_WHEN_WS_MS = 20_000;
-const POLL_WHEN_OFFLINE_MS = 500;
+const POLL_WHEN_OFFLINE_MS = 10_000;
 
-function severityOf(event: Record<string, unknown>): string {
+function optionalRiskScore(value: unknown): number | null {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const risk = Number(value);
+  return Number.isFinite(risk) && risk >= 0 && risk <= 100 ? risk : null;
+}
+
+function rememberEventFingerprint(seen: Set<string>, event: Record<string, unknown>): boolean {
+  const fingerprint = telemetryFingerprint(event);
+  if (seen.has(fingerprint)) return false;
+  seen.add(fingerprint);
+  if (seen.size > 1000) {
+    const oldest = seen.values().next().value;
+    if (oldest) seen.delete(oldest);
+  }
+  return true;
+}
+
+function severityOf(event: Record<string, unknown>): string | null {
   const raw = String(event.severity ?? "").toUpperCase();
   if (raw === "CRITICAL" || raw === "HIGH" || raw === "MEDIUM" || raw === "LOW") return raw;
-  const risk = Number(event.risk_score ?? 0);
+  const risk = optionalRiskScore(event.risk_score);
+  if (risk === null) return null;
   if (risk >= 80) return "CRITICAL";
   if (risk >= 60) return "HIGH";
   if (risk >= 40) return "MEDIUM";
-  if (risk > 0) return "LOW";
   return "LOW";
 }
 
@@ -59,33 +80,43 @@ function applyLiveEventToMetrics(
   prev: DashboardMetrics,
   event: Record<string, unknown>
 ): DashboardMetrics {
-  const risk = Number(event.risk_score ?? 0);
+  const risk = optionalRiskScore(event.risk_score);
   const severity = severityOf(event);
   const total = prev.total_events + 1;
-  const prevSum = prev.avg_risk_score * prev.total_events;
+  const prevRiskCount = prev.risk_score_count ?? prev.risk_trend.length;
+  const prevRiskSum = (prev.avg_risk_score ?? 0) * prevRiskCount;
   const severity_counts = {
     CRITICAL: prev.severity_counts.CRITICAL ?? 0,
     HIGH: prev.severity_counts.HIGH ?? 0,
     MEDIUM: prev.severity_counts.MEDIUM ?? 0,
     LOW: prev.severity_counts.LOW ?? 0,
   };
-  severity_counts[severity as keyof typeof severity_counts] =
-    (severity_counts[severity as keyof typeof severity_counts] ?? 0) + 1;
-  const ts = String(event.timestamp ?? event.triggered_at ?? new Date().toISOString());
-  const risk_trend = [
-    ...prev.risk_trend,
-    { timestamp: ts, risk_score: risk, tool_name: String(event.tool_name ?? "") },
-  ].slice(-48);
+  if (severity !== null) {
+    severity_counts[severity as keyof typeof severity_counts] =
+      (severity_counts[severity as keyof typeof severity_counts] ?? 0) + 1;
+  }
+  const timestamp = event.timestamp ?? event.triggered_at ?? event.ts;
+  const risk_trend = risk === null || timestamp == null
+    ? prev.risk_trend
+    : [...prev.risk_trend, {
+        timestamp: String(timestamp),
+        risk_score: risk,
+        tool_name: String(event.tool_name ?? ""),
+      }].slice(-48);
+  const risk_score_count = prevRiskCount + (risk === null ? 0 : 1);
 
   return {
     ...prev,
     severity_counts,
     total_events: total,
-    avg_risk_score: total > 0 ? (prevSum + risk) / total : risk,
-    max_risk_score: Math.max(prev.max_risk_score, risk),
-    event_rate: prev.event_rate + 1,
+    avg_risk_score: risk === null
+      ? prev.avg_risk_score
+      : (prevRiskSum + risk) / risk_score_count,
+    max_risk_score: risk === null
+      ? prev.max_risk_score
+      : Math.max(prev.max_risk_score ?? risk, risk),
+    risk_score_count,
     risk_trend,
-    active_sessions: Math.max(prev.active_sessions, 1),
   };
 }
 
@@ -107,6 +138,8 @@ export function DashboardMetricsProvider({ children }: { children: ReactNode }) 
   const [liveEvents, setLiveEvents] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(true);
   const [authHydrated, setAuthHydrated] = useState(false);
+  const isRefreshingRef = useRef(false);
+  const seenEventFingerprintsRef = useRef(new Set<string>());
   const { apiOnline, setWsConnected } = useConnection();
   const bearerToken = useAuthStore((s) => s.bearerToken);
   const apiKey = useAuthStore((s) => s.apiKey);
@@ -125,33 +158,40 @@ export function DashboardMetricsProvider({ children }: { children: ReactNode }) 
       { silent: true, timeoutMs: 2500 }
     );
     if (!recent?.events?.length) return;
+    for (const event of recent.events) rememberEventFingerprint(seenEventFingerprintsRef.current, event);
     setLiveEvents((prev) =>
       mergeWithExisting ? mergeTelemetryEvents(prev, recent.events!) : recent.events!
     );
   }, []);
 
   const refreshMetrics = useCallback(async () => {
-    if (!apiOnline || !authHydrated) {
-      setMetrics(EMPTY_METRICS);
-      setLoading(false);
+    if (!apiOnline || !authHydrated || isRefreshingRef.current) {
+      if (!apiOnline || !authHydrated) {
+        setMetrics(EMPTY_METRICS);
+        setLoading(false);
+      }
       return;
     }
-    const data = await fetchFromBackend<DashboardMetrics>("/api/v1/metrics/dashboard", {
-      silent: true,
-      timeoutMs: 2500,
-    });
-    if (data) {
-      setMetrics(data);
-    } else {
-      setMetrics(EMPTY_METRICS);
+    isRefreshingRef.current = true;
+    try {
+      const data = await fetchFromBackend<DashboardMetrics>("/api/v1/metrics/dashboard", {
+        silent: true,
+        timeoutMs: 2500,
+      });
+      if (data) {
+        setMetrics(data);
+      }
+      await pullTelemetryRecent(true);
+    } finally {
+      isRefreshingRef.current = false;
+      setLoading(false);
     }
-    await pullTelemetryRecent(true);
-    setLoading(false);
   }, [apiOnline, authHydrated, pullTelemetryRecent]);
 
   const appendLiveEvent = useCallback((event: Record<string, unknown>) => {
+    const isNewEvent = rememberEventFingerprint(seenEventFingerprintsRef.current, event);
     setLiveEvents((prev) => mergeTelemetryEvents(prev, [event]));
-    setMetrics((prev) => applyLiveEventToMetrics(prev, event));
+    if (isNewEvent) setMetrics((prev) => applyLiveEventToMetrics(prev, event));
   }, []);
 
   const handleWsMessage = useCallback((payload: unknown) => {
@@ -165,6 +205,7 @@ export function DashboardMetricsProvider({ children }: { children: ReactNode }) 
     }
     if (message.type === "history" || message.type === "replay") {
       if (message.events?.length) {
+        for (const event of message.events) rememberEventFingerprint(seenEventFingerprintsRef.current, event);
         setLiveEvents((prev) => mergeTelemetryEvents(message.events!, prev));
       } else {
         setLiveEvents(message.events || []);
@@ -174,8 +215,9 @@ export function DashboardMetricsProvider({ children }: { children: ReactNode }) 
     if (message.type === "telemetry" && message.event) {
       // Millisecond path: patch UI from the WS frame — no REST wait.
       const evt = message.event;
+      const isNewEvent = rememberEventFingerprint(seenEventFingerprintsRef.current, evt);
       setLiveEvents((prev) => mergeTelemetryEvents(prev, [evt]));
-      setMetrics((prev) => applyLiveEventToMetrics(prev, evt));
+      if (isNewEvent) setMetrics((prev) => applyLiveEventToMetrics(prev, evt));
     }
   }, []);
 

@@ -21,7 +21,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const redTeam = pathname.startsWith("/red-team");
   const commandCenter = pathname.startsWith("/command-center");
   const playground = pathname.startsWith("/playground");
-  const isCleanConsole = pathname.startsWith("/logs") || pathname.startsWith("/projects");
+  const replay = pathname.startsWith("/replay");
+  const isCleanConsole = pathname.startsWith("/logs") || pathname.startsWith("/projects") || replay;
 
   // AppShell persists across client-side route changes, so its scrollable main
   // element would otherwise retain the previous page's scrollTop and hide the
@@ -57,8 +58,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       ? "min-h-full w-full max-w-none"
                       : playground
                         ? "h-full min-h-0 w-full max-w-none"
-                        : redTeam
+                      : redTeam
                         ? "w-full max-w-[1400px]"
+                        : replay
+                          ? "w-full max-w-[1680px]"
                         : "w-full max-w-[1200px]"
                   )}
                 >

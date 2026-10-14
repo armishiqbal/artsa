@@ -264,7 +264,7 @@ function SignupFormInner() {
 
         {error ? (
           <p
-            className="rounded-[8px] border border-border bg-background px-3 py-2 text-[13px] text-muted-foreground"
+            className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700"
             role="alert"
           >
             {error}
@@ -273,23 +273,23 @@ function SignupFormInner() {
 
         <button
           type="submit"
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded bg-button text-[14px] font-semibold tracking-[0.04em] text-button-foreground transition-colors hover:bg-button-hover disabled:opacity-50"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 disabled:opacity-50"
           disabled={loading}
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           {loading ? "Signing up…" : "Sign up"}
         </button>
 
-        <p className="text-center text-[12px] text-muted-foreground">
+        <p className="text-center text-xs text-slate-400">
           By signing up you agree to use ARTSA for authorized security testing only.
         </p>
       </form>
 
-      <p className="mt-6 text-center text-[14px] text-muted-foreground">
+      <p className="mt-6 text-center text-xs text-slate-500">
         Already have an account?{" "}
         <Link
           href={authLoginHref({ returnTo: dest !== "/command-center" ? dest : undefined })}
-          className="font-medium text-foreground hover:text-[#67b3ef]"
+          className="font-semibold text-blue-600 underline-offset-4 hover:underline"
         >
           Sign in
         </Link>
@@ -302,8 +302,8 @@ export default function SignupClient() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
+        <div className="flex min-h-screen items-center justify-center bg-white" data-theme="light">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
         </div>
       }
     >

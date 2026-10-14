@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Allow multiple local dev servers to keep separate manifests and assets.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: true,
   compress: true,
   swcMinify: true,
@@ -44,8 +46,6 @@ const nextConfig = {
       { source: "/policies/:path*", destination: "/admin/policies/:path*", permanent: true },
       { source: "/providers/:path*", destination: "/admin/providers/:path*", permanent: true },
       { source: "/topology/:path*", destination: "/command-center/topology/:path*", permanent: true },
-      { source: "/register", destination: "/login?mode=register", permanent: false },
-      { source: "/signup", destination: "/login?mode=register", permanent: false },
       // Command Center moved from /dashboard → /command-center
       { source: "/dashboard", destination: "/command-center", permanent: false },
       { source: "/dashboard/:path*", destination: "/command-center/:path*", permanent: false },

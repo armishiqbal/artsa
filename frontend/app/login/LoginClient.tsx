@@ -12,9 +12,9 @@ import {
   RETURN_TO_KEY,
   authSignupHref,
 } from "@/lib/authSession";
-import { unwrapEnvelope } from "@/lib/api";
+import { fetchFromBackend } from "@/lib/api";
 import { isOidcEnabled, startOidcLogin } from "@/lib/oidc";
-import { useAuthStore } from "@/lib/stores/auth";
+import { hydrateAuthStore, useAuthStore } from "@/lib/stores/auth";
 
 function LoginFormInner() {
   const router = useRouter();
@@ -28,16 +28,16 @@ function LoginFormInner() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/backend/api/v1/auth/status")
-      .then((res) => res.json())
-      .then((raw) => {
+    fetchFromBackend<AuthStatus>("/api/v1/auth/status", { silent: true, timeoutMs: 1500 })
+      .then((status) => {
         if (cancelled) return;
-        const status = unwrapEnvelope(raw) as AuthStatus;
-        setRegistrationOpen(Boolean(status?.registration_open));
+        if (status) {
+          setRegistrationOpen(Boolean(status.registration_open));
+        }
       })
       .catch(() => {
         if (!cancelled) setRegistrationOpen(true);
@@ -47,7 +47,11 @@ function LoginFormInner() {
     };
   }, []);
 
-  const finishWithSession = (session: AuthResponse) => {
+  const finishWithSession = async (session: AuthResponse) => {
+    // The first store hydration can still be in flight if login returns before
+    // the app shell finishes mounting. Wait so an older persisted value cannot
+    // overwrite this newly issued session during the protected-route redirect.
+    await hydrateAuthStore();
     setSession({ access_token: session.access_token, expires_in: session.expires_in }, session.user);
     router.replace(dest);
   };
@@ -65,7 +69,7 @@ function LoginFormInner() {
         email: email.trim(),
         password,
       });
-      finishWithSession(session);
+      await finishWithSession(session);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid email or password.";
       setError(
@@ -142,7 +146,7 @@ function LoginFormInner() {
 
         {error ? (
           <p
-            className="rounded-[8px] border border-border bg-background px-3 py-2 text-[13px] text-muted-foreground"
+            className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700"
             role="alert"
           >
             {error}
@@ -151,7 +155,7 @@ function LoginFormInner() {
 
         <button
           type="submit"
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded bg-button text-[14px] font-semibold tracking-[0.04em] text-button-foreground transition-colors hover:bg-button-hover disabled:opacity-50"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 disabled:opacity-50"
           disabled={loading}
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
@@ -160,11 +164,11 @@ function LoginFormInner() {
       </form>
 
       {isOidcEnabled() ? (
-        <div className="mt-4">
-          <p className="mb-3 text-center text-[12px] uppercase tracking-[0.08em] text-muted-foreground">or</p>
+        <div className="mt-5">
+          <p className="mb-3 text-center text-xs font-mono uppercase tracking-wider text-slate-400">or</p>
           <button
             type="button"
-            className="inline-flex h-11 w-full items-center justify-center rounded-[8px] border border-border text-[14px] font-medium text-foreground hover:border-[#a7a7a7] disabled:opacity-50"
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-xs transition-colors hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50"
             onClick={() => void handleSsoLogin()}
             disabled={loading}
           >
@@ -173,11 +177,11 @@ function LoginFormInner() {
         </div>
       ) : null}
 
-      <p className="mt-6 text-center text-[14px] text-muted-foreground">
+      <p className="mt-6 text-center text-xs text-slate-500">
         {registrationOpen === false ? (
           <>
             Need access?{" "}
-            <Link href="/#contact" className="font-medium text-foreground hover:text-[#67b3ef]">
+            <Link href="/#contact" className="font-semibold text-blue-600 underline-offset-4 hover:underline">
               Contact sales
             </Link>
           </>
@@ -186,7 +190,7 @@ function LoginFormInner() {
             New here?{" "}
             <Link
               href={authSignupHref({ returnTo: dest !== "/command-center" ? dest : undefined })}
-              className="font-medium text-foreground hover:text-[#67b3ef]"
+              className="font-semibold text-blue-600 underline-offset-4 hover:underline"
             >
               Sign up
             </Link>
@@ -201,8 +205,8 @@ export default function LoginClient() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
+        <div className="flex min-h-screen items-center justify-center bg-white" data-theme="light">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
         </div>
       }
     >

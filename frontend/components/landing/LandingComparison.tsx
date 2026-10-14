@@ -1,120 +1,55 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, Minus } from "lucide-react";
 import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
-import { cn } from "@/lib/utils";
 
-type CellValue = "full" | "partial" | "none";
-
-interface ComparisonRow {
-  feature: string;
-  artsa: CellValue;
-  peer: CellValue;
-  hiddenlayer: CellValue;
-  note?: string;
-}
-
-const ROWS: ComparisonRow[] = [
+const WORKFLOWS = [
   {
-    feature: "Sub-50ms runtime containment",
-    artsa: "partial",
-    peer: "partial",
-    hiddenlayer: "partial",
-    note: "LLM proxy, ingest gate, MCP stdio, and the bounded managed GitHub MCP HTTP gateway are live; arbitrary MCP forwarding is not a v1 capability",
+    capability: "Authentication",
+    behavior: "Password sessions, API credentials, and OIDC credentials are accepted by protected API routes.",
+    boundary: "Configure an authentication method and secret before enabling protected production access.",
   },
   {
-    feature: "Red-team campaign console",
-    artsa: "full",
-    peer: "full",
-    hiddenlayer: "partial",
+    capability: "Campaign execution",
+    behavior: "Backend campaign jobs run the configured agent pipeline and publish recorded progress and events.",
+    boundary: "Provider connectivity and durable storage depend on the deployment configuration.",
   },
   {
-    feature: "Multi-agent topology & pipeline DAG",
-    artsa: "full",
-    peer: "partial",
-    hiddenlayer: "partial",
+    capability: "Session actions",
+    behavior: "The backend records supported KILL and QUARANTINE actions against a session.",
+    boundary: "Session state does not revoke a durable agent identity or prove an external tool was stopped.",
   },
   {
-    feature: "Findings → versioned playbooks",
-    artsa: "full",
-    peer: "partial",
-    hiddenlayer: "partial",
+    capability: "Public walkthrough",
+    behavior: "The unauthenticated demo uses illustrative sample records to show the interface.",
+    boundary: "It is not live customer traffic or evidence from a connected deployment.",
   },
-  {
-    feature: "Session autopsy / film replay",
-    artsa: "full",
-    peer: "none",
-    hiddenlayer: "partial",
-  },
-  {
-    feature: "OWASP LLM + MITRE ATLAS mapping",
-    artsa: "full",
-    peer: "full",
-    hiddenlayer: "full",
-  },
-  {
-    feature: "Unified command center",
-    artsa: "full",
-    peer: "partial",
-    hiddenlayer: "partial",
-  },
-  {
-    feature: "Readiness & audit exports",
-    artsa: "full",
-    peer: "partial",
-    hiddenlayer: "full",
-  },
-];
-
-const VENDORS = ["ARTSA", "Peer Guard", "HiddenLayer"] as const;
-
-function CellIcon({ value }: { value: CellValue }) {
-  if (value === "full") {
-    return (
-      <span className="inline-flex items-center justify-center gap-1 text-[var(--color-pistachio)]">
-        <Check className="h-3.5 w-3.5" aria-hidden />
-        <span className="hidden text-[12px] sm:inline">Full</span>
-      </span>
-    );
-  }
-  if (value === "partial") {
-    return (
-      <span className="inline-flex items-center justify-center gap-1 text-[var(--color-ash)]">
-        <Minus className="h-3.5 w-3.5" aria-hidden />
-        <span className="hidden text-[12px] sm:inline">Partial</span>
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center justify-center gap-1 text-[var(--color-fog)]">
-      <Minus className="h-3.5 w-3.5" aria-hidden />
-      <span className="hidden text-[12px] sm:inline">—</span>
-    </span>
-  );
-}
+] as const;
 
 export function LandingComparison() {
   return (
-    <section id="compare" className="lp-section border-t border-[var(--color-steel-border)]">
+    <section id="compare" className="lp-section scroll-mt-24 border-t border-slate-200/80 bg-white py-20 sm:py-28">
       <div className="lp-shell">
         <motion.div
-          className="mx-auto max-w-2xl text-center"
+          className="mx-auto max-w-3xl text-center"
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.45, ease: easeOut }}
         >
-          <p className="lp-eyebrow">Compare</p>
-          <h2 className="lp-heading mt-6">ARTSA vs. point solutions</h2>
-          <p className="lp-body mt-4">
-            Runtime containment, red-team testing, and governance in one lifecycle — not separate
-            Guard and testing tools.
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 font-mono text-xs font-medium text-blue-700 shadow-xs">
+            WORKFLOW SCOPE
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+            What Each Workflow Actually Confirms
+          </h2>
+          <p className="mt-4 text-base text-slate-600 sm:text-lg">
+            Authentication, backend records, and runtime enforcement are separate checks. Review the boundary before treating a status as proof of an external outcome.
           </p>
         </motion.div>
 
         <motion.div
-          className="lp-card mt-10 overflow-hidden"
+          className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs"
           variants={fadeUp}
           initial="hidden"
           whileInView="visible"
@@ -122,65 +57,31 @@ export function LandingComparison() {
           transition={{ ease: easeOut }}
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-left text-[14px]">
+            <table className="w-full min-w-[48rem] text-left text-sm">
               <thead>
-                <tr className="border-b border-[var(--color-steel-border)] bg-[var(--color-deep-coal)]">
-                  <th className="px-4 py-3.5 font-medium text-[var(--color-ash)] sm:px-6">
-                    Capability
-                  </th>
-                  {VENDORS.map((v) => (
-                    <th
-                      key={v}
-                      className={cn(
-                        "px-3 py-3.5 text-center font-medium sm:px-4",
-                        v === "ARTSA"
-                          ? "text-[var(--color-pistachio)]"
-                          : "text-[var(--color-snow)]"
-                      )}
-                    >
-                      {v}
-                    </th>
-                  ))}
+                <tr className="border-b border-slate-200 bg-slate-50/80 font-mono text-xs uppercase tracking-wider text-slate-700">
+                  <th className="px-5 py-4 font-semibold sm:px-6">Workflow</th>
+                  <th className="px-5 py-4 font-semibold sm:px-6">Backend behavior</th>
+                  <th className="px-5 py-4 font-semibold sm:px-6">Boundary</th>
                 </tr>
               </thead>
-              <motion.tbody
-                variants={staggerContainer}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-              >
-                {ROWS.map((row) => (
+              <motion.tbody variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+                {WORKFLOWS.map((row) => (
                   <motion.tr
-                    key={row.feature}
+                    key={row.capability}
                     variants={fadeUp}
                     transition={{ ease: easeOut }}
-                    className="border-b border-[var(--color-steel-border)]"
+                    className="border-b border-slate-100 transition-colors hover:bg-slate-50/60"
                   >
-                    <td className="px-4 py-3.5 sm:px-6">
-                      <span className="font-medium text-[var(--color-snow)]">{row.feature}</span>
-                      {row.note ? (
-                        <p className="mt-0.5 text-[12px] text-[var(--color-fog)]">{row.note}</p>
-                      ) : null}
-                    </td>
-                    <td className="bg-[var(--color-deep-coal)]/60 px-3 py-3.5 text-center sm:px-4">
-                      <CellIcon value={row.artsa} />
-                    </td>
-                    <td className="px-3 py-3.5 text-center sm:px-4">
-                      <CellIcon value={row.peer} />
-                    </td>
-                    <td className="px-3 py-3.5 text-center sm:px-4">
-                      <CellIcon value={row.hiddenlayer} />
-                    </td>
+                    <td className="px-5 py-4 font-semibold text-slate-900 sm:px-6">{row.capability}</td>
+                    <td className="px-5 py-4 leading-relaxed text-slate-700 sm:px-6">{row.behavior}</td>
+                    <td className="px-5 py-4 leading-relaxed text-slate-600 sm:px-6">{row.boundary}</td>
                   </motion.tr>
                 ))}
               </motion.tbody>
             </table>
           </div>
         </motion.div>
-
-        <p className="mt-4 text-center text-[12px] text-[var(--color-fog)]">
-          Comparison reflects publicly marketed capabilities. Evaluate against your architecture.
-        </p>
       </div>
     </section>
   );

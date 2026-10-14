@@ -28,29 +28,28 @@ interface AuthGuardProps {
 }
 
 /**
- * Login wall: every non-public route requires a real client credential — a
- * password session token (or an explicitly entered API key) stored in the auth
- * store. Without one the visitor is sent to the dedicated /login page.
- * This deliberately does NOT trust the backend's resolved identity, because
- * the BFF proxy always injects a server API key and would otherwise report
- * "authenticated" for anonymous visitors.
+ * Client-side navigation guard for operational pages. Backend authorization
+ * remains the security boundary; public product demonstrations live at /demo.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
   const apiKey = useAuthStore((s) => s.apiKey);
   const hasBearer = useAuthStore((s) => Boolean(s.bearerToken));
-  const [hydrated, setHydrated] = useState(() =>
-    typeof window !== "undefined" && useAuthStore.persist.hasHydrated()
-  );
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    hydrateAuthStore();
-    if (useAuthStore.persist.hasHydrated()) {
-      setHydrated(true);
-      return;
-    }
-    return useAuthStore.persist.onFinishHydration(() => setHydrated(true));
+    let mounted = true;
+    void hydrateAuthStore().then(() => {
+      if (mounted) setHydrated(true);
+    });
+    const timer = setTimeout(() => {
+      if (mounted) setHydrated(true);
+    }, 100);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   const isPublic = isPublicPath(pathname);

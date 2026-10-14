@@ -14,8 +14,8 @@ export default function RegisterRedirect() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
+    <div className="flex min-h-screen items-center justify-center bg-white" data-theme="light">
+      <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
     </div>
   );
 }

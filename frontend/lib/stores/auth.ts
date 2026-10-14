@@ -136,20 +136,34 @@ export function getTokenExpiresAt(): number | null {
 }
 
 // Single-flight guard: hydrateAuthStore() runs from both AuthHydrator and
-// AuthGuard on mount. The module flag covers a second caller arriving while
-// rehydration is still in flight; hasHydrated() covers re-mounts after the
-// store already finished rehydrating (e.g. HMR).
-let hydrationStarted = false;
+// AuthGuard on mount. Callers that need auth state before continuing (such as
+// the login redirect) can await the same hydration operation.
+let hydrationPromise: Promise<void> | null = null;
 
 /** Rehydrate persisted auth state on the client after mount. Idempotent — safe
- * to call from multiple components; only the first invocation rehydrates, so
- * the first /config/me request never races a second rehydrate. */
-export function hydrateAuthStore(): void {
-  if (typeof window === "undefined" || hydrationStarted || useAuthStore.persist.hasHydrated()) {
-    return;
+ * to call from multiple components; only the first invocation rehydrates. */
+export function hydrateAuthStore(): Promise<void> {
+  if (typeof window === "undefined" || useAuthStore.persist.hasHydrated()) {
+    return Promise.resolve();
   }
-  hydrationStarted = true;
-  void useAuthStore.persist.rehydrate();
+  if (hydrationPromise) return hydrationPromise;
+
+  hydrationPromise = new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const timer = setTimeout(finish, 200);
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
+      clearTimeout(timer);
+      unsubscribe();
+      finish();
+    });
+    void useAuthStore.persist.rehydrate();
+  });
+  return hydrationPromise;
 }
 
 /** True when access token expires within the given buffer (default 5 min). */

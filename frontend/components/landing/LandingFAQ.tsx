@@ -6,50 +6,50 @@ import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
 
 const FAQ = [
   {
-    q: "What is AI agent containment?",
-    a: "AI agent containment is runtime enforcement over autonomous agents — their identities, privileges, tool calls, MCP interactions, and cross-agent handoffs. ARTSA's designed action enum is ALLOW, QUARANTINE, or KILL. The LLM proxy, ingest path, MCP stdio wrapper, and managed GitHub MCP Streamable HTTP boundary block or withhold in-session; QUARANTINE waits for operator approval. The session-scoped ASI08 circuit breaker stops repeated hard containment decisions. The GitHub MCP catalog is deliberately bounded; arbitrary third-party MCP forwarding is not a v1 capability. The live campaign handoff path is Red Team → Target → Judge; the six-role topology displays Research, Curator, and Defender as planned, not wired roles.",
+    q: "Where can ARTSA apply runtime decisions?",
+    a: "ARTSA supports checks at provider proxy, SDK or agent wrapper, and MCP stdio boundaries. The exact point in the request depends on the integration: some checks happen before a response is returned, while wrapper checks inspect tool results after execution.",
   },
   {
-    q: "How is containment different from observability?",
-    a: "Observability tells you the trace, the latency, and the model output. Containment tells you whether the agent stayed inside policy, whether its behavior matched its declared identity, and whether the rest of the chain should be allowed to continue. ARTSA is a security control plane, not an APM.",
+    q: "What happens when a request is quarantined?",
+    a: "On supported paths, ARTSA holds the result for operator approval instead of returning it immediately. The integration determines whether the check runs before or after a tool executes.",
   },
   {
-    q: "Why isn't audit log review enough?",
-    a: "Audit logs arrive too late to stop misuse, are siloed across every AI platform you run, and do not reconstruct what happened inside the tools agents connect into. Those interactions only exist at runtime — which is where ARTSA scores and contains them.",
+    q: "Can I evaluate ARTSA without connecting a production agent?",
+    a: "Yes. The interactive demo uses sample events and does not show live customer traffic. Use it to explore the Guard and Red Team workflows before configuring an integration.",
   },
   {
-    q: "Do I need to rewrite my agents?",
-    a: "No. Use curl, the Python/TypeScript SDK, or provider configs. Your agents keep their stack — ARTSA observes at the gateway and enforces at ingest.",
+    q: "Do I need to replace my agent framework?",
+    a: "No. ARTSA integrates at supported proxy, SDK or framework wrapper, and MCP stdio boundaries. Review the integration guide to choose the path that matches your stack.",
   },
   {
-    q: "Will runtime screening slow down employees or developers?",
-    a: "We target sub-50ms p99 from ingest to verdict. There is no SDK to install in the agent loop for the core path. Coding and support agents keep operating at full speed while security gains a live chain score.",
-  },
-  {
-    q: "Can ARTSA enforce policy, not just monitor?",
-    a: "Verdicts are explicit actions — ALLOW, QUARANTINE, or KILL — never an auto-destructive side effect. Campaign findings already promote into versioned playbooks. The LLM proxy, ingest path, MCP stdio wrapper, and managed GitHub MCP Streamable HTTP boundary intercept supported tool calls at runtime; QUARANTINE withholds the result for operator approval. The v1 catalog does not forward arbitrary third-party MCP servers.",
-  },
-  {
-    q: "Do I need to sign up to try ARTSA?",
-    a: "No. The live demo runs in your browser — guard scans, red-team grid, findings, and replay — with no account. Contact sales for SSO/SAML, VPC deploy, and compliance packs.",
+    q: "What evidence is retained for an investigation?",
+    a: "Runtime forensic records retain digests and redacted findings for supported checks. Campaign results and session records provide additional context for investigation.",
   },
 ] as const;
 
 export function LandingFAQ() {
   return (
-    <section id="faq" className="lp-section scroll-mt-24">
+    <section id="faq" className="lp-section scroll-mt-24 border-t border-slate-200/80 bg-slate-50/70 py-20 sm:py-28">
       <div className="lp-shell max-w-3xl">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.45, ease: easeOut }}
+          className="text-center"
         >
-          <p className="lp-eyebrow">FAQ</p>
-          <h2 className="lp-heading mt-6">Frequently asked questions</h2>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
+            FREQUENTLY ASKED QUESTIONS
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+            Everything You Need to Know
+          </h2>
+          <p className="mt-3 text-base text-slate-600">
+            Clear answers on latency, deployment models, data privacy, and integration architecture.
+          </p>
         </motion.div>
         <motion.div
-          className="mt-10 space-y-2"
+          className="mt-12 space-y-3"
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
@@ -60,16 +60,16 @@ export function LandingFAQ() {
               key={item.q}
               variants={fadeUp}
               transition={{ ease: easeOut }}
-              className="group rounded-2xl border border-[var(--color-steel-border)] bg-[var(--color-card-carbon)] open:border-white/20"
+              className="group rounded-2xl border border-slate-200 bg-white shadow-xs transition-all open:border-blue-200 open:shadow-md"
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-[16px] font-medium text-[var(--color-snow)] marker:content-none hover:text-[var(--color-pistachio)]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-base font-semibold text-slate-900 marker:content-none hover:text-blue-600 select-none">
                 {item.q}
                 <ChevronDown
-                  className="h-4 w-4 shrink-0 text-[var(--color-ash)] transition-transform group-open:rotate-180"
+                  className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180 group-open:text-blue-600"
                   aria-hidden
                 />
               </summary>
-              <p className="border-t border-[var(--color-steel-border)] px-5 pb-4 pt-3 text-[15px] leading-relaxed text-[var(--color-ash)]">
+              <p className="border-t border-slate-100 px-6 pb-5 pt-4 text-sm leading-relaxed text-slate-600">
                 {item.a}
               </p>
             </motion.details>

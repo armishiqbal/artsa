@@ -14,10 +14,6 @@ import { useTenantStore } from "@/lib/stores/tenant";
 
 const API_BASE_URL = "/api/backend";
 
-function isOfflinePreviewToken(token: string | null): boolean {
-  return token === "demo_preview_token" || Boolean(token?.startsWith("admin_token_"));
-}
-
 /**
  * Auth-only headers (X-API-Key or session Bearer) with no Content-Type, so the
  * browser sets its own where required (e.g. the multipart boundary on FormData).
@@ -29,9 +25,7 @@ export function authHeaders(): Record<string, string> {
     headers["X-API-Key"] = apiKey;
   } else {
     const bearer = getBearerToken();
-    if (bearer && !isOfflinePreviewToken(bearer)) {
-      headers["Authorization"] = `Bearer ${bearer}`;
-    }
+    if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
   }
   return headers;
 }
@@ -113,19 +107,8 @@ export async function fetchFromBackend<T = unknown>(
 
 
     if (!res.ok) {
-      const hadBearer = Boolean(getBearerToken()) && !getApiKey();
-      // Stale JWT: drop it and retry once so the BFF can inject ARTSA_API_KEY.
-      if (res.status === 401 && hadBearer) {
-        useAuthStore.getState().clearBearerKeepUser();
-        const retryRes = await fetch(url, {
-          ...requestInit,
-          signal,
-          headers: buildHeaders(requestInit.headers),
-        });
-        if (retryRes.ok) {
-          const raw = await retryRes.json();
-          return unwrapEnvelope(raw) as T;
-        }
+      if (res.status === 401 && (getBearerToken() || getApiKey())) {
+        useAuthStore.getState().clearAuth();
       }
       if (!silent) {
         // Attempt to extract error detail from envelope or raw body

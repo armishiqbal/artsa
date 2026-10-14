@@ -16,7 +16,7 @@ import { LandingSectionHeader } from "./LandingSectionHeader";
 
 const INTEGRATIONS = [
   { icon: Plug, name: "REST ingest API", detail: "POST /api/v1/ingest" },
-  { icon: Radio, name: "Live WebSocket", detail: "Real-time observatory feed" },
+  { icon: Radio, name: "WebSocket telemetry", detail: "Backend event stream when connected" },
   { icon: Server, name: "Provider registry", detail: "Groq, OpenAI, Anthropic, custom" },
   { icon: Webhook, name: "Campaign gateway", detail: "Red-team job orchestration" },
   { icon: FileJson, name: "Readiness exports", detail: "FYP & audit snapshots" },
@@ -30,7 +30,7 @@ export function LandingIntegrations() {
         <LandingSectionHeader
           badge="Integration & scale"
           title="API-first deployment that scales with your stack"
-          description="Like cloud-native architectures and CI/CD hooks — wire ARTSA into ingest, providers, and export pipelines without rip-and-replace."
+          description="Connect the ingest API, provider registry, and export paths that your deployment is configured to use."
           align="center"
           className="mx-auto max-w-3xl"
         />
@@ -66,7 +66,7 @@ export function LandingIntegrations() {
           </Link>
           {" · "}
           <Link href={demoHref("guard")} className="text-foreground underline-offset-4 hover:underline">
-            Try live demo
+            Try sample demo
           </Link>
         </p>
       </div>

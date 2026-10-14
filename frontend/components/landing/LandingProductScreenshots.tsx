@@ -35,6 +35,9 @@ export function LandingProductScreenshot({
         ))}
       </aside>
       <div className="min-w-0 flex-1 p-2">
+        <div className="mb-1 font-mono text-[6px] font-semibold uppercase tracking-wide text-[#a7a7a7]">
+          Illustrative preview · sample values, not live telemetry
+        </div>
         {screen === "command" && <CommandScreen />}
         {screen === "findings" && <FindingsScreen />}
         {screen === "redteam" && <RedTeamScreen />}
@@ -72,7 +75,7 @@ function ScreenHeader({ title, badge }: { title: string; badge?: string }) {
 function CommandScreen() {
   return (
     <>
-      <ScreenHeader title="Command Center" badge="LIVE" />
+      <ScreenHeader title="Command Center" badge="SAMPLE" />
       <div className="mb-1.5 grid grid-cols-4 gap-1">
         {[
           { v: "42ms", l: "p99" },

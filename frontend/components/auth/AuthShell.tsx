@@ -6,7 +6,7 @@ import { authLoginHref, authSignupHref } from "@/lib/authSession";
 import { cn } from "@/lib/utils";
 
 const POINTS = [
-  { title: "Contain at runtime", body: "Score every tool call under 50ms before it executes." },
+  { title: "Contain at runtime", body: "Evaluate each tool call before execution." },
   { title: "Prove control", body: "Findings, custody trails, and readiness exports for auditors." },
   { title: "Test like attackers", body: "Red-team campaigns with coverage grids and judge verdicts." },
 ] as const;
@@ -28,14 +28,17 @@ export function AuthShell({
   const signUpHref = authSignupHref({ returnTo });
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground">
+    <div
+      className="relative min-h-screen bg-white text-slate-900 selection:bg-blue-100 selection:text-blue-900"
+      data-theme="light"
+    >
       {/* Subtle grid on whole page */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-100"
+        className="pointer-events-none absolute inset-0 opacity-[0.4]"
         style={{
           backgroundImage:
-            "linear-gradient(hsl(var(--border)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
+            "linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
           maskImage: "radial-gradient(ellipse 70% 60% at 30% 40%, black, transparent)",
         }}
         aria-hidden
@@ -43,69 +46,70 @@ export function AuthShell({
 
       <div className="relative z-10 grid min-h-screen lg:grid-cols-2">
         {/* Brand column */}
-        <aside className="relative hidden flex-col border-r border-border bg-background/90 p-10 lg:flex xl:p-14">
+        <aside className="relative hidden flex-col border-r border-slate-200 bg-slate-50/70 p-10 lg:flex xl:p-14">
           <Link href="/" className="inline-flex w-fit" aria-label="ARTSA home">
             <Logo iconSize={22} />
           </Link>
 
           <div className="my-auto max-w-lg py-16">
-            <p className="font-mono text-[12px] uppercase tracking-[0.85px] text-[#67b3ef]">
-              Agent security platform
-            </p>
-            <h1 className="mt-5 text-[44px] font-semibold leading-[1.12] tracking-[-1.2px] text-foreground">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-mono font-medium text-blue-700 shadow-xs mb-3">
+              AGENT SECURITY PLATFORM
+            </div>
+            <h1 className="mt-3 text-[40px] font-bold leading-[1.15] tracking-tight text-slate-900 xl:text-[44px]">
               Secure every agent action before it lands.
             </h1>
-            <div className="mt-12 space-y-6">
+            <div className="mt-10 space-y-5">
               {POINTS.map((p) => (
-                <div key={p.title} className="flex gap-4">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#67b3ef]" aria-hidden />
+                <div key={p.title} className="flex items-start gap-3.5">
+                  <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 font-bold text-xs" aria-hidden>
+                    ✓
+                  </span>
                   <div>
-                    <p className="text-[15px] font-medium tracking-[-0.19px] text-foreground">{p.title}</p>
-                    <p className="mt-1 text-[14px] leading-relaxed text-muted-foreground">{p.body}</p>
+                    <p className="text-[15px] font-semibold tracking-tight text-slate-900">{p.title}</p>
+                    <p className="mt-0.5 text-sm leading-relaxed text-slate-600">{p.body}</p>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Mini product chrome */}
-            <div
-              className="mt-14 overflow-hidden rounded-[8px] border border-border"
-              style={{ backgroundColor: "hsl(var(--card))" }}
-            >
-              <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-                <span className="h-2 w-2 rounded-full bg-muted-foreground" />
-                <span className="h-2 w-2 rounded-full bg-muted-foreground" />
-                <span className="h-2 w-2 rounded-full bg-muted-foreground" />
-                <span className="ml-2 font-mono text-[11px] tracking-[0.85px] text-muted-foreground">
-                  runtime guard · live
+            <div className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+              <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5 bg-slate-50/70">
+                <span className="h-2 w-2 rounded-full bg-slate-300" />
+                <span className="h-2 w-2 rounded-full bg-slate-300" />
+                <span className="h-2 w-2 rounded-full bg-slate-300" />
+                <span className="ml-2 font-mono text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  illustrative · not live telemetry
                 </span>
               </div>
-              <div className="space-y-2 p-4 font-mono text-[11px]">
-                <p className="text-muted-foreground">tool_call · query_database</p>
-                <p className="text-[#67b3ef]">QUARANTINE · 4.2ms · risk 94</p>
+              <div className="space-y-2 p-4 font-mono text-xs">
+                <p className="text-slate-600">example tool call · query_database</p>
+                <div className="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                  sample policy decision · QUARANTINE
+                </div>
               </div>
             </div>
           </div>
 
-          <p className="text-[12px] text-muted-foreground">
-            © {new Date().getFullYear()} ARTSA
+          <p className="text-xs text-slate-400 font-mono">
+            © {new Date().getFullYear()} ARTSA Security Inc.
           </p>
         </aside>
 
         {/* Form column */}
-        <main className="flex flex-col bg-muted px-5 py-8 sm:px-8 lg:bg-background lg:px-12 xl:px-16">
+        <main className="flex flex-col bg-white px-5 py-8 sm:px-8 lg:px-12 xl:px-16 justify-between">
           <div className="mb-8 flex items-center justify-between lg:mb-0 lg:justify-end">
             <Link href="/" className="lg:hidden" aria-label="ARTSA home">
               <Logo iconSize={20} />
             </Link>
-            <div className="flex items-center gap-1 rounded-[8px] border border-border bg-card p-1">
+            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-2xs">
               <Link
                 href={signInHref}
                 className={cn(
-                  "rounded-[6px] px-3.5 py-1.5 text-[13px] font-medium tracking-[-0.17px] transition-colors",
+                  "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all",
                   mode === "signin"
-                    ? "bg-card text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 )}
               >
                 Sign in
@@ -113,10 +117,10 @@ export function AuthShell({
               <Link
                 href={signUpHref}
                 className={cn(
-                  "rounded-[6px] px-3.5 py-1.5 text-[13px] font-medium tracking-[-0.17px] transition-colors",
+                  "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all",
                   mode === "signup"
-                    ? "bg-card text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 )}
               >
                 Sign up
@@ -125,25 +129,22 @@ export function AuthShell({
           </div>
 
           <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col justify-center py-6 lg:py-10">
-            <div
-              className="rounded-[8px] border border-border p-6 sm:p-8"
-              style={{ backgroundColor: "hsl(var(--card))" }}
-            >
-              <h2 className="text-[28px] font-semibold leading-[1.2] tracking-[-0.6px] text-foreground sm:text-[32px]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-7 sm:p-9 shadow-xl">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                 {title}
               </h2>
-              <p className="mt-2 text-[14px] leading-relaxed tracking-[-0.17px] text-muted-foreground">
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
                 {subtitle}
               </p>
               <div className="mt-7">{children}</div>
             </div>
 
-            <p className="mt-6 text-center text-[13px] text-muted-foreground">
-              <Link href="/" className="hover:text-muted-foreground">
+            <p className="mt-6 text-center text-xs text-slate-500 font-medium">
+              <Link href="/" className="hover:text-blue-600 hover:underline">
                 ← Back to home
               </Link>
-              <span className="mx-2 text-muted-foreground">·</span>
-              <Link href="/#contact" className="hover:text-muted-foreground">
+              <span className="mx-2 text-slate-300">·</span>
+              <Link href="/#contact" className="hover:text-blue-600 hover:underline">
                 Contact sales
               </Link>
             </p>
@@ -155,7 +156,7 @@ export function AuthShell({
 }
 
 export const authFieldClass =
-  "w-full rounded-[8px] border border-border bg-background px-3 py-2.5 text-[14px] tracking-[-0.17px] text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary";
+  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-2xs outline-none transition-colors focus:border-blue-600 focus:ring-1 focus:ring-blue-600";
 
 export const authLabelClass =
-  "mb-1.5 block text-[13px] font-medium tracking-[-0.17px] text-muted-foreground";
+  "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700 font-mono";

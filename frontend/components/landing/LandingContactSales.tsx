@@ -112,17 +112,17 @@ export function ContactSalesForm({
   if (done) {
     return (
       <div className="flex flex-col items-center py-8 text-center">
-        <CheckCircle2 className="h-10 w-10 text-[#67b3ef]" aria-hidden />
-        <h3 className="mt-4 text-[24px] font-semibold leading-[1.33] tracking-[-0.5px] text-white">
+        <CheckCircle2 className="h-12 w-12 text-emerald-600" aria-hidden />
+        <h3 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">
           Thanks — we got your request
         </h3>
-        <p className="mt-3 max-w-sm text-[16px] leading-[1.5] tracking-[-0.19px] text-[#a7a7a7]">
-          A solutions engineer will email {values.workEmail.trim()} within one business day with
+        <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
+          A solutions engineer will email <span className="font-semibold text-slate-900">{values.workEmail.trim()}</span> within one business day with
           next steps and a tailored demo.
         </p>
         <button
           type="button"
-          className="lp-btn-secondary mt-6"
+          className="mt-6 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 shadow-xs transition hover:bg-slate-50 hover:border-slate-400"
           onClick={() => {
             setDone(false);
             setValues(EMPTY);
@@ -134,7 +134,9 @@ export function ContactSalesForm({
     );
   }
 
-  const label = "mb-1.5 block text-[14px] leading-[1.5] tracking-[-0.17px] text-[#a7a7a7]";
+  const label = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700 font-mono";
+  const fieldClass =
+    "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-2xs transition-colors";
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
@@ -145,7 +147,7 @@ export function ContactSalesForm({
           </label>
           <input
             id={`${idPrefix}-first`}
-            className="lp-modal-field"
+            className={fieldClass}
             autoComplete="given-name"
             value={values.firstName}
             onChange={set("firstName")}
@@ -158,7 +160,7 @@ export function ContactSalesForm({
           </label>
           <input
             id={`${idPrefix}-last`}
-            className="lp-modal-field"
+            className={fieldClass}
             autoComplete="family-name"
             value={values.lastName}
             onChange={set("lastName")}
@@ -174,7 +176,7 @@ export function ContactSalesForm({
         <input
           id={`${idPrefix}-email`}
           type="email"
-          className="lp-modal-field"
+          className={fieldClass}
           autoComplete="email"
           placeholder="you@company.com"
           value={values.workEmail}
@@ -190,7 +192,7 @@ export function ContactSalesForm({
           </label>
           <input
             id={`${idPrefix}-company`}
-            className="lp-modal-field"
+            className={fieldClass}
             autoComplete="organization"
             value={values.company}
             onChange={set("company")}
@@ -203,7 +205,7 @@ export function ContactSalesForm({
           </label>
           <input
             id={`${idPrefix}-title`}
-            className="lp-modal-field"
+            className={fieldClass}
             autoComplete="organization-title"
             value={values.jobTitle}
             onChange={set("jobTitle")}
@@ -218,7 +220,7 @@ export function ContactSalesForm({
           </label>
           <select
             id={`${idPrefix}-size`}
-            className="lp-modal-field"
+            className={fieldClass}
             value={values.companySize}
             onChange={set("companySize")}
             required
@@ -237,7 +239,7 @@ export function ContactSalesForm({
           </label>
           <select
             id={`${idPrefix}-interest`}
-            className="lp-modal-field"
+            className={fieldClass}
             value={values.interest}
             onChange={set("interest")}
           >
@@ -257,7 +259,7 @@ export function ContactSalesForm({
         </label>
         <textarea
           id={`${idPrefix}-message`}
-          className="lp-modal-field min-h-[96px] resize-y"
+          className={`${fieldClass} min-h-[96px] resize-y`}
           rows={4}
           placeholder="Agents in production, compliance needs, timeline…"
           value={values.message}
@@ -265,27 +267,31 @@ export function ContactSalesForm({
         />
       </div>
 
-      {error ? <p className="text-[14px] text-[#a7a7a7]">{error}</p> : null}
+      {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
 
-      <button type="submit" className="lp-btn-primary w-full" disabled={loading}>
+      <button
+        type="submit"
+        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 flex items-center justify-center gap-2"
+        disabled={loading}
+      >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
         {loading ? "Sending…" : "Request a demo"}
       </button>
 
       {onLogin || onLoginHref ? (
-        <p className="text-center text-[14px] text-[#a7a7a7]">
+        <p className="text-center text-xs text-slate-500">
           Already have an account?{" "}
           {onLoginHref ? (
             <a
               href={onLoginHref}
-              className="font-medium text-white underline-offset-4 hover:text-[#67b3ef] hover:underline"
+              className="font-semibold text-blue-600 underline-offset-4 hover:underline"
             >
               Sign in
             </a>
           ) : (
             <button
               type="button"
-              className="font-medium text-white underline-offset-4 hover:text-[#67b3ef] hover:underline"
+              className="font-semibold text-blue-600 underline-offset-4 hover:underline"
               onClick={onLogin}
             >
               Sign in
@@ -294,7 +300,7 @@ export function ContactSalesForm({
         </p>
       ) : null}
 
-      <p className="text-center text-[12px] text-[#7c7c7c]">
+      <p className="text-center text-[11px] text-slate-400">
         By submitting, you agree to be contacted about ARTSA. No spam — one business day response.
       </p>
     </form>
@@ -328,7 +334,7 @@ export function LandingContactSalesPanel({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="lp lp-modal-overlay"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -336,7 +342,7 @@ export function LandingContactSalesPanel({
         >
           <button
             type="button"
-            className="absolute inset-0 bg-[#070707]/95"
+            className="absolute inset-0"
             aria-label="Close contact sales"
             onClick={onClose}
           />
@@ -344,8 +350,7 @@ export function LandingContactSalesPanel({
             role="dialog"
             aria-modal="true"
             aria-labelledby="contact-sales-title"
-            className="lp-modal-panel"
-            style={{ backgroundColor: "#131313" }}
+            className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl"
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -354,7 +359,7 @@ export function LandingContactSalesPanel({
           >
             <button
               type="button"
-              className="absolute right-3 top-3 rounded-[8px] p-1.5 text-[#a7a7a7] hover:bg-[#141414] hover:text-white"
+              className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
               onClick={onClose}
               aria-label="Close"
             >
@@ -362,25 +367,22 @@ export function LandingContactSalesPanel({
             </button>
 
             <div className="mb-6 flex items-center gap-3 pr-8">
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-[#313131]"
-                style={{ backgroundColor: "#141414" }}
-              >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
                 <LogoIcon size={22} />
               </div>
               <div>
-                <p className="font-mono text-[12px] uppercase tracking-[0.85px] text-[#a7a7a7]">
+                <p className="font-mono text-[11px] uppercase tracking-wider font-semibold text-blue-700">
                   Enterprise
                 </p>
                 <h2
                   id="contact-sales-title"
-                  className="mt-1 text-[24px] font-semibold leading-[1.33] tracking-[-0.5px] text-white"
+                  className="mt-0.5 text-2xl font-bold tracking-tight text-slate-900"
                 >
                   Contact sales
                 </h2>
               </div>
             </div>
-            <p className="mb-6 text-[16px] leading-[1.5] tracking-[-0.19px] text-[#a7a7a7]">
+            <p className="mb-6 text-sm text-slate-600">
               Tell us about your agent fleet — we&apos;ll schedule a tailored containment demo.
             </p>
             <ContactSalesForm

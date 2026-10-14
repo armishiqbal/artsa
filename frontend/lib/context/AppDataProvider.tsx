@@ -59,7 +59,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const refreshCampaigns = useCallback(async () => {
     const data = await fetchFromBackend<{ campaigns?: CampaignListItem[] }>(
       "/api/v1/campaigns",
-      { silent: true }
+      { silent: true, timeoutMs: 2500 }
     );
     if (data && Array.isArray(data.campaigns)) {
       setCampaigns(data.campaigns);
@@ -71,11 +71,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const [policies, versions] = await Promise.all([
       fetchFromBackend<{ rules?: PolicyRuleRow[]; playbook_version?: number }>(
         "/api/v1/policies",
-        { silent: true }
+        { silent: true, timeoutMs: 2500 }
       ),
       fetchFromBackend<{ current_version?: number; versions?: PlaybookVersionEntry[] }>(
         "/api/v1/policies/versions",
-        { silent: true }
+        { silent: true, timeoutMs: 2500 }
       ),
     ]);
     if (policies?.rules) setPolicyRules(policies.rules);
