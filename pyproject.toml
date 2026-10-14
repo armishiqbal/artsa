@@ -57,7 +57,7 @@ artsa-mcp-stdio = "src.mcp.stdio_wrapper:main"
 
 [project.optional-dependencies]
 pinecone = [
-    "pinecone-client>=5.0.0",
+    "pinecone>=5.0.0",
 ]
 # Open-source, offline semantic embeddings (BAAI/bge-small-en-v1.5 ONNX).
 # `auto` uses these when installed; without them it falls back to hash-1024.

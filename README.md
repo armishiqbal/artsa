@@ -15,7 +15,7 @@
 
 **ARTSA** is a production-grade, fail-closed security platform built to protect enterprise systems against autonomous AI agent misbehavior, prompt injections, jailbreaks, data exfiltration, and tool abuse. 
 
-It inspects every LLM input and agent tool call in **under 50 milliseconds**, scoring threat levels and enforcing containment policies before unauthorized or malicious commands can execute.
+It inspects every LLM input and agent tool call in **under 50 ms** (`0.05s` latency SLO), scoring threat levels and enforcing containment policies before unauthorized or malicious commands can execute. Liveness and readiness probes are exposed at `/health` and `/ready`.
 
 ```mermaid
 flowchart LR
@@ -44,8 +44,7 @@ flowchart LR
 ## 🌟 Key Platform Capabilities
 
 ### 1. 🎯 Tactical Command Center & Mission Graph (`/command-center`)
-- **Tactical Agent Interaction Map**: Interactive SVG topology that distinguishes the wired,
-  signed Red Team → Target → Judge path from planned Research, Curator, and Defender roles.
+- **Tactical Agent Interaction Map**: Interactive SVG topology that tracks the signed six-agent chain (`Research → Curator → Red Team → Target → Judge`, with conditional `Judge → Defender` mitigation handoff).
 - **Three Tactical Security Zones**: Clearly delineates the *Adversary Zone*, *Target Sandbox*, and *Evaluation & Governance* layer.
 - **Threat & Event Inspector Drawer**: Deep-dive into token-level highlights, trace IDs, detector metadata, and forensic diffs.
 - **Emergency Operator Hotkeys**:
@@ -76,13 +75,13 @@ flowchart LR
 
 ## 🚦 Containment Scoring Matrix
 
-ARTSA enforces a strict risk-scoring hierarchy across all containment layers:
+ARTSA enforces a strict risk-scoring hierarchy across all containment layers (with the LLM reverse proxy enforcing a stricter default block threshold at `ARTSA_PROXY_BLOCK_THRESHOLD=60`):
 
 | Risk Score Band | Verdict | System Action | Description |
 | :---: | :---: | :---: | :--- |
-| **0 – 49 (Green)** | `SAFE` | **ALLOW** | Normal operation. Tool execution or LLM response proceeds unimpeded. |
-| **50 – 79 (Yellow)** | `SUSPICIOUS` | **ALERT / SANITIZE** | Potential anomaly or drift detected; proxy sanitizes prompt and alerts operator. |
-| **80 – 100 (Red)** | `BREACHED` | **KILL / QUARANTINE** | Critical containment breach! Session killed, tool permissions revoked instantly. |
+| **0 - 49 (Green)** | `SAFE` | **ALLOW** | Normal operation. Tool execution or LLM response proceeds unimpeded. |
+| **50 - 79 (`>= 50`, Yellow)** | `SUSPICIOUS` | **ALERT / QUARANTINE** | Potential anomaly or drift detected; proxy sanitizes or holds payload and alerts operator. |
+| **80 - 100 (`>= 80`, Red)** | `BREACHED` | **KILL / QUARANTINE** | Critical containment breach! Session killed, tool permissions revoked instantly. |
 
 ---
 

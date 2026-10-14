@@ -1,155 +1,65 @@
-# ARTSA Phase 2.4 — Live Backend Campaign Execution & End-to-End Telemetry Verification
+# Phase 2.4 Campaign and Telemetry Verification
 
-## Executive Summary
+## What the automated checks cover
 
-Phase 2.4 completes the end-to-end operational telemetry and containment verification of the **Adervisal Red Team Simulation Architecture (ARTSA)**. 
+The Phase 2.4 tests are deterministic, in-process checks. They exercise selected campaign, event-bus, projection, containment-store, freshness, and sanitization behavior. They do not constitute a deployed end-to-end test.
 
-The primary objective was to validate the complete live closed loop:
-```
-Backend Campaign → Live Event Bus → WebSocket / Ops Projection → Telemetry Adapter → Command Center UI
-```
-and to prove that operator containment actions initiated from the Command Center (`KILL_SESSION`, `QUARANTINE_AGENT`) and automated defense mechanisms (ASI08 circuit breaker) actually govern and halt running backend campaigns.
+The source code provides this intended flow:
 
-Every component in this chain has been verified through rigorous automated test suites, type checking, and production builds without altering the Phase 1 Tactical Glass Cockpit UI architecture or fabricating telemetry states.
-
----
-
-## 1. Event Flow Architecture
-
-The end-to-end data and containment lifecycle operates through the following canonical pipeline:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant CM as CampaignManager (Backend)
-    participant CLB as CampaignLiveBus
-    participant ST as SessionTracker & DB
-    participant TB as TelemetryBus (/websocket)
-    participant API as GET /api/v1/telemetry/ops
-    participant CC as Command Center UI (Frontend)
-
-    Note over CM,ST: Round Initialization & Containment Pre-check
-    CM->>ST: Check is_contained(campaign_session_id)
-    alt Session is Contained (BREACHED / QUARANTINED)
-        CM-->>CM: Halt Execution Immediately (Exit Loop)
-    else Session is Active
-        CM->>CM: Execute Red Team Attack → Target Response → Judge Score
-        CM->>CLB: emit_round_events(campaign_id, round_result)
-        CLB->>CLB: Record in Campaign Hop History
-        CLB->>TB: Bridge projected SecurityOpsEvent to TelemetryBus
-        TB-->>CC: Push live SecurityOpsEvent over WebSocket
-        CC->>CC: Refresh HUD, Threat Theater, Agent Roster, and Timeline
-    end
-
-    Note over CC,ST: Operator Containment Action
-    CC->>API: POST /api/v1/sessions/{id}/action (KILL or QUARANTINE)
-    API->>ST: apply_action(session_id, "KILL") → status="BREACHED"
-    API->>TB: Publish session_action event
-    TB-->>CC: WebSocket updates session status to BREACHED
-    Note over CM,ST: Next Round Boundary
-    CM->>ST: is_contained(campaign_session_id) == TRUE
-    CM-->>CM: Abort Remaining Rounds & Mark Job CONTAINED
+```text
+CampaignManager → campaign event bus → telemetry projection → telemetry bus
+                                                           ↓
+                                                REST snapshot / WebSocket
+                                                           ↓
+                                                    frontend views
 ```
 
----
+`test_phase2_4_e2e_verification.py` runs a campaign with deterministic test providers, then inspects in-process buses and the operations snapshot. This proves those components work together in the test process. It does not invoke the campaign REST route, cross a process boundary, connect a browser WebSocket, or contact a real model provider.
 
-## 2. Verification Results
+## Evidence boundaries
 
-### Verification A: Live Campaign Execution & Telemetry Hop Bridge
-- **Location**: `backend/tests/unit/test_phase2_4_e2e_verification.py::test_a_live_campaign_execution_and_telemetry_hop_bridge`
-- **Mechanism**: A live 2-round adversarial campaign ran through `CampaignManager` using deterministic test providers. Round results were emitted via `emit_round_events()`, captured in `campaign_live_bus.history()`, and bridged to `telemetry_bus`.
-- **Validation**:
-  - Emitted $\ge 6$ hops (3 hops per round: Red Team attack, Target response, Judge score).
-  - Calling `build_ops_snapshot(tenant_id)` projected the active campaign ID, active session ID, `current_round = 2`, `telemetry_mode = "LIVE"`, and non-empty `events`.
-  - Canonical roles for hops matched `["Red Team", "Target", "Judge"]`.
+| Test | What it exercises | What it does not establish |
+| --- | --- | --- |
+| `test_a_deterministic_campaign_execution_and_telemetry_projection` | A deterministic `CampaignManager` run, campaign hop events, in-process telemetry projection, and HMAC hop metadata | External provider behavior, API route execution, browser rendering, or deployed WebSocket delivery |
+| `test_b_round_progression_comes_from_campaign_callback` | Callback round progression and the in-process snapshot | A background worker, database-backed progress, or production scheduling |
+| `test_c_session_kill_halts_in_process_campaign` | Direct `SessionTracker` action and the manager's next-round containment check | The authenticated HTTP action route or a campaign running in another process |
+| `test_d_quarantine_agent_session_enforcement_and_not_wired_status` | Direct session quarantine and the documented agent-identity limitation | Durable agent identity revocation |
+| `test_e_telemetry_freshness_states` | Freshness-state calculation from supplied timestamps | A live heartbeat or provider connection |
+| `test_f_circuit_breaker_3_blocks_trips_and_denies_operations` | Threshold behavior with a mocked database session | Durable PostgreSQL/SQLite persistence or an HTTP 503 integration path |
+| `test_g_security_payload_redaction` | Redaction during in-process event projection | Browser, proxy, or external sink redaction behavior |
 
-### Verification B: Authoritative Round Progression (No Independent UI Guessing)
-- **Location**: `backend/tests/unit/test_phase2_4_e2e_verification.py::test_b_round_progression_authoritative`
-- **Mechanism**: A 3-round campaign executed with progress updates pushed directly to `campaign_job_store.update_progress()`.
-- **Validation**:
-  - `observed_rounds` completed in strict order: `[1, 2, 3]`.
-  - `build_ops_snapshot` accurately mirrored `current_round == 3`.
-  - Proved that the Command Center UI strictly observes authoritative backend round progression rather than running an uncoordinated timer.
+Password authentication tests exercise the backend's local test app and stores. They cover token validation, protected-route behavior, roles, bootstrap registration, and tenant isolation. They do not validate a deployed identity provider or a human login against a configured production account.
 
-### Verification C: Operator Containment (`KILL_SESSION` Halts Active Campaign)
-- **Location**: `backend/tests/unit/test_phase2_4_e2e_verification.py::test_c_kill_session_halts_running_campaign`
-- **Mechanism**: A 5-round campaign was launched. At the conclusion of Round 1, an operator containment command `KILL` was issued to `session_tracker.apply_action(sess_uuid, "KILL")` and published as a `session_action` event.
-- **Validation**:
-  - The `CampaignManager` pre-round check detected `session_tracker.is_contained(sess_uuid) == True`.
-  - The campaign immediately ceased execution: `summary.completed_rounds == 1` out of 5 configured rounds.
-  - Session status in `SessionTracker` was updated to `BREACHED`.
+## Authentication configuration
 
-### Verification D: Operator Containment (`QUARANTINE_AGENT` & NOT_WIRED Agent Route)
-- **Location**: `backend/tests/unit/test_phase2_4_e2e_verification.py::test_d_quarantine_agent_session_enforcement_and_not_wired_status`
-- **Mechanism**: Evaluated the backend operator action specification and session enforcement for `QUARANTINE_AGENT`.
-- **Validation**:
-  - Applying `QUARANTINE` updates session status to `QUARANTINED` and flags `is_contained == True`.
-  - The backend `OPERATOR_ACTIONS` specification confirms `quarantine_spec.implemented = True` with the exact limitation documented: `"Quarantines the session, not a durable agent identity"`.
-  - Any agent action specifying an independent identity quarantine is documented honestly as `NOT_WIRED`.
+Protected API routes require authentication by default. Production always requires it. Set `ARTSA_REQUIRE_AUTH=false` only for an explicitly unauthenticated local development environment. Public health, readiness, auth bootstrap/login/status, documentation, metrics scrape, and webhook paths are individually allow-listed by the middleware.
 
-### Verification E: Telemetry Freshness Lifecycle (`LIVE`, `STALE`, `DISCONNECTED`)
-- **Location**: `backend/tests/unit/test_phase2_4_e2e_verification.py::test_e_telemetry_freshness_states`
-- **Mechanism**: Evaluated `telemetry_mode()` against timestamps relative to wall-clock time:
-  - `last_ts == None` $\rightarrow$ `DISCONNECTED`
-  - $t - \text{last\_ts} < 30\text{s}$ $\rightarrow$ `LIVE`
-  - $t - \text{last\_ts} \ge 30\text{s}$ $\rightarrow$ `STALE`
-- **Validation**: Passed without fabricating mock data or faking real-time states.
+Supported credentials include configured API keys and password-session bearer tokens. Password login also requires `ARTSA_PASSWORD_AUTH_ENABLED=true` and a non-placeholder `SECRET_KEY`; production validates a strong key. OIDC is optional and is not enabled by default. The first password account is bootstrapped into `ARTSA_TENANT_ID`; later registrations require the configured administrator credential.
 
-### Verification F: ASI08 Cascading Failure Circuit Breaker
-- **Location**: `backend/tests/unit/test_phase2_4_e2e_verification.py::test_f_circuit_breaker_3_blocks_trips_and_denies_operations`
-- **Mechanism**: Evaluated the durable SQLite/PostgreSQL-backed `CircuitBreaker` against consecutive attack block verdicts.
-- **Validation**:
-  - 1st BLOCK $\rightarrow$ Breaker remains closed (`tripped == False`).
-  - 2nd BLOCK $\rightarrow$ Breaker remains closed (`tripped == False`).
-  - 3rd BLOCK $\rightarrow$ Breaker trips open (`tripped == True`, `opened_at` timestamp recorded).
-  - Subsequent requests for the tenant/session are denied with HTTP 503 / `BREACHED` status.
+## Sample and walkthrough data
 
-### Verification G: Security Payload Sanitization & Redaction
-- **Location**: `backend/tests/unit/test_phase2_4_e2e_verification.py::test_g_security_payload_redaction`
-- **Mechanism**: An adversarial payload containing simulated credentials (`bearer eyJhbGciOi...` and `api_key=secret_1234567890123456`) was processed through `project_campaign_hop()` and `project_ingest_event()`.
-- **Validation**:
-  - Output payload sanitized all secrets using regex token masking (`bearer [REDACTED]` and `api_key=[REDACTED]`).
-  - Secret string `secret_1234567890123456` was absent from projected telemetry.
+The public `/demo` experience and explicitly marked landing/Command Center walkthroughs use seeded examples. They are not operational telemetry or experiment results. Operational views should show API-backed records and keep missing classifications, timings, HMAC status, and metrics unknown or unavailable. A disconnected backend must not be presented as a successful live run.
 
----
+## Isolated localhost run (2026-10-10)
 
-## 3. Automated Test Suites & Build Validation
+A temporary local backend and frontend were exercised over HTTP and in a browser. Both runs used temporary SQLite runtime directories and had the MongoDB sink disabled. The first run connected to the configured localhost Redis service. A fresh follow-up run pointed Redis at an unused local port and used the in-memory fallback instead.
 
-| Test Target | Command | Result | Duration |
-| :--- | :--- | :--- | :--- |
-| **Phase 2.4 E2E Suite** | `pytest backend/tests/unit/test_phase2_4_e2e_verification.py -v` | **7/7 PASSED** | 8.68s |
-| **Backend Telemetry & Buses** | `pytest backend/tests/unit/test_ops_telemetry.py backend/tests/unit/test_campaign_live_bus.py backend/tests/unit/test_session_circuit_breaker.py -v` | **20/20 PASSED** | 0.55s |
-| **Frontend TypeScript** | `npm run typecheck` (in `frontend/`) | **0 ERRORS** | 3.12s |
-| **Frontend Live Integration** | `npx vitest run __tests__/components/commandCenterLiveIntegration.test.tsx` | **7/7 PASSED** | 2.57s |
-| **Full Frontend Vitest Suite** | `npm test` (in `frontend/`) | **58/58 FILES, 341/341 TESTS PASSED** | 15.12s |
-| **Production Route Build** | `npm run build` (in `frontend/`) | **68/68 ROUTES COMPILED** | 19.85s |
+- The first run confirmed browser password login and bearer-authenticated BFF reads: `/auth/me` and `/telemetry/ops` returned 200; anonymous telemetry returned 401. A spoofed `X-Tenant-ID` did not override the `codex-e2e-tenant` bearer scope.
+- That run used an `analyst` account. Its WebSocket ticket request returned 403 under current RBAC, so this role cannot use the current socket-ticket route.
+- In the fresh follow-up, the browser loaded `/signup`, created the bootstrap administrator, logged in, and reached the protected Command Center. The BFF issued a WebSocket ticket with 200; the backend accepted the ticketed socket and the browser showed `WS CONNECTED`.
+- An authenticated deterministic one-round campaign started through the BFF and completed. The authenticated telemetry snapshot reported `LIVE`, one completed round, three `attack`, `response`, and `verdict` events, and HMAC state `ok`. The connected browser displayed those three backend records.
 
----
+The temporary SQLite runtimes and local web processes were removed/stopped after the runs. The campaign used the deterministic test provider, so this check did not exercise an external model provider, OIDC identity provider, deployed database/worker topology, or production Redis configuration.
 
-## 4. Architectural Boundaries & Explicit Limitations
+## Checks needed for a deployed end-to-end claim
 
-To maintain uncompromising engineering integrity, the following limitations are explicitly codified:
+Before describing the full runtime as verified, run a controlled deployment check that confirms each boundary separately:
 
-1. **QUARANTINE_AGENT Boundary**:
-   - `QUARANTINE_AGENT` isolates and halts the active **session** associated with the agent.
-   - Long-lived, persistent agent identity revocation across independent campaigns is **NOT_WIRED** in the current runtime and is documented as such.
-2. **Deterministic 3-Agent Campaign Loop**:
-   - The active execution chain is `Red Team → Target → Judge`.
-   - `Research`, `Curator`, and `Defender` are rendered in the Tactical Glass Cockpit with explicit `NOT_WIRED` / `idle` states and `N/A` latencies; no synthetic activity or simulated latencies are injected.
-3. **Circuit Breaker Threshold**:
-   - The circuit breaker trips strictly on **3 consecutive BLOCK** events within the sliding window, triggering fail-closed isolation.
-4. **WebSocket Heartbeats & Mode**:
-   - Telemetry mode defaults to `DISCONNECTED` on zero events, turns `LIVE` upon receiving telemetry within 30 seconds, and falls back to `STALE` if no heartbeat or event arrives within 30 seconds.
+1. Authenticate with the intended production credential and verify tenant-scoped reads and writes.
+2. Start a campaign through the authenticated API using a configured target provider, and capture the provider response and persisted campaign state.
+3. Confirm each emitted round is persisted and appears in the authenticated REST telemetry snapshot.
+4. Connect a browser client to the authenticated WebSocket, confirm those same event IDs arrive, and check reconnect/replay behavior.
+5. Submit a containment action through the API and confirm its returned state, persisted session state, and next-round enforcement.
+6. Repeat with the configured database, Redis, worker topology, and provider credentials used by the target deployment.
 
----
-
-## 5. Phase 2 Closure Decision
-
-All objectives of Phase 2 (Discovery, Telemetry Adapter, Command Center Live Data Integration, and Live Backend Execution Verification) are **100% complete, verified, and locked**:
-
-- **Phase 2.1**: Discovery & Architecture Mapping — COMPLETE.
-- **Phase 2.2**: Telemetry Adapter & Contract Validation (`useCommandCenterLiveOps`) — COMPLETE.
-- **Phase 2.3**: Command Center Live Data Integration (Tactical Glass Cockpit) — COMPLETE.
-- **Phase 2.4**: Live Campaign Execution & Containment Verification — COMPLETE.
-
-**Phase 2 is officially CLOSED & LOCKED.**
+Until those deployment checks pass, report the evidence as isolated localhost behavior plus deterministic in-process and backend unit/integration coverage, not complete deployed end-to-end operation.

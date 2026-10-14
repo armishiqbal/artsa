@@ -46,7 +46,7 @@ _Avoid_: improvement, delta (unless you mean a single round vs the previous roun
 ## Security mechanism
 
 **HMAC handoff**:
-A cryptographically signed inter-agent state payload across the complete Six-agent chain (Research → Curator → Red Team → Target → Judge → Defender). Each receiving agent independently verifies the sender's HMAC-SHA256 signature (with Redis replay protection) **before processing**, then signs its output envelope for the next downstream peer. Replay is SET NX on `sha256(nonce)`. Audit rows are digest-only (`body_sha256` + `nonce_sha256` — no prompt body, no plaintext nonce). WebSocket tickets and password hashes are a different HMAC — they are not agent handoffs.
+The Campaign Manager signs the initial Research kickoff; agent-to-agent state is then signed and receiver-verified across Research → Curator → Red Team → Target → Judge, with Judge → Defender only when the scored result meets the mitigation threshold. Replay is Redis `SET NX` on `sha256(nonce)`; local development may use an in-memory fallback, which does not provide cross-process replay protection. Audit rows are digest-only (`body_sha256` + `nonce_sha256` — no prompt body, no plaintext nonce). WebSocket tickets and password hashes are a different HMAC — they are not agent handoffs.
 
 **Walkthrough**:
 A labeled seeded demonstration, not live traffic and not experiment output.

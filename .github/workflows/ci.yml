@@ -65,12 +65,23 @@ jobs:
       - name: Ruff check (extended scope — hard gate)
         run: |
           ruff check \
+            backend/src/api/middleware/ \
+            backend/src/api/routes/auth.py \
+            backend/src/api/routes/approvals.py \
             backend/src/api/routes/campaigns.py \
             backend/src/api/routes/attack_library.py \
             backend/src/api/routes/forensics.py \
             backend/src/api/routes/ingest.py \
             backend/src/api/routes/health.py \
+            backend/src/api/routes/metrics.py \
+            backend/src/api/routes/targets.py \
+            backend/src/api/routes/websocket.py \
             backend/src/agents/guardrails/ \
+            backend/src/agents/target_agent.py \
+            backend/src/core/hmac_handoff.py \
+            backend/src/core/rbac.py \
+            backend/src/services/campaign_live_bus.py \
+            backend/src/services/ops_telemetry.py \
             backend/src/api/main.py \
             backend/src/api/dependencies.py
 

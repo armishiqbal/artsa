@@ -1,4 +1,92 @@
-# ARTSA — Senior Product Manager Plan (v0.4 → v1.0)
+# ARTSA — Product Execution Plan
+
+**Current planning date:** 2026-10-08
+**Planning rule:** this document controls forward work. A benchmark, unit test, or
+local build is evidence only for the exact command, commit, configuration, and
+dataset recorded with it; it is not production proof.
+
+## Current execution plan
+
+### Why this plan changed
+
+The prior v0.4 → v1.0 roadmap below is useful historical context, but it is no
+longer an executable backlog: it mixes August completion notes with unfinished
+work, and its milestone dates and release assumptions predate the current
+checkout. For example, identity-to-tenant credential binding and rate-limit
+tests are recorded as complete in `docs/TASK_LIST.md`, while the Phase 7
+release evidence is tied to commit `1bb0e9b` and records an incomplete backend
+suite. The working tree must therefore be treated as a new release candidate,
+not as verified by that prior record.
+
+### Operating model
+
+ARTSA has three separate proof levels. Do not promote an item to a higher level
+without its required evidence:
+
+| Level | Meaning | Acceptable evidence | Does not prove |
+|---|---|---|---|
+| Local | Code behaves in the checked-out repository. | Named test/build command and result for the current commit. | Provider, deployment, or customer-environment behavior. |
+| Release candidate | The complete, versioned artifact passes all required CI and regression gates. | Clean diff review, complete CI-equivalent results, migration and configuration record. | Live external writes, uptime, or real-traffic effectiveness. |
+| Production | An authorized real environment has demonstrated the exact capability under monitored controls. | Timestamped deployment, owner, rollback path, telemetry, and controlled live-gate artifact. | General security or profitability guarantees. |
+
+### Active backlog
+
+Work is ordered by dependency. A row may close only when its acceptance evidence
+is linked from the release record; a passing related test alone is not enough.
+
+| Priority | Outcome | Role owner | Smallest deliverable | Acceptance evidence | Status |
+|---|---|---|---|---|---|
+| P0 | Establish a trustworthy release baseline. | Release engineer | Pin the candidate SHA; review the four current modified files; run the complete CI-equivalent suite on that SHA. | Recorded command, duration, environment, SHA, and pass/fail result for backend, frontend, SDK, benchmark, Postgres, and Playwright gates. | Open — prior Phase 7 suite record is incomplete. |
+| P0 | Keep product claims aligned with evidence. | Security/product | Audit `README.md`, marketing UI, and status labels against `CONTEXT.md`, `ACCURACY.md`, and evaluation artifacts. | Claim inventory with source, proof level, date, and correction PR for every unsupported claim. | Open. |
+| P1 | Complete the managed GitHub MCP external-write proof. | Security operator + platform engineer | Run the existing disposable-repository live gate only after explicit authorization and named approval/rollback owners. | Redacted live-gate artifact with SHA, timestamp, tenant/repository scope, approval binding, webhook reconciliation, and rollback result. | Blocked on authorized non-production GitHub App environment; do not claim live external-write verification beforehand. |
+| P1 | Demonstrate operational readiness. | Platform/on-call | Connect `/health` and `/ready` to an external monitor; define alert routing, response SLO, and rollback exercise. | Monitor history, alert test, named on-call/rollback owners, and a dated restore or rollback drill. | Open. |
+| P1 | Make effectiveness evidence decision-useful. | Detection/evaluation | Re-run independent, golden, canary, and red-team gates using the configured real embedding model; publish versioned artifacts and per-class gaps. | Dataset version, model identifier, detector/policy version, commands, latency, recall, FPR, unavailable rate, and failure analysis. | Open — the current accuracy card explicitly records `hash-1024`, not the real ONNX semantic layer. |
+| P2 | Close evidence-backed detection gaps. | Detection engineer | Select the weakest independently measured attack classes and add regressions before detector changes. | Independent holdout delta, false-positive review, and regression tests for each accepted change. | Open; do not tune against held-out labels. |
+| P2 | Remove UI ambiguity. | Frontend engineer | Sweep frozen, simulated, planned, and unavailable states; label them consistently and never present them as live telemetry. | Visual review plus component tests covering loading, unavailable, and measured-data states. | Open. |
+| P3 | Prepare controlled evaluation onboarding. | Solutions engineer | Maintain the existing evaluation kit and attack-class demos as a reproducible, non-production trial path. | Clean-room runbook, expected outputs, teardown, and scoped data-retention statement. | Open after P0/P1 gates. |
+
+### Release gate
+
+Before a release candidate is promoted, all of the following must be true:
+
+1. The candidate SHA is fixed and its diff is reviewed; unrelated working-tree
+   changes are either included intentionally or removed through an explicit,
+   file-level decision.
+2. Backend suite, Postgres integration, frontend lint/typecheck/unit/build,
+   Playwright smoke, SDK tests, and evaluation gates complete with their exact
+   environment and duration recorded.
+3. The release artifact records migrations, policy and detector versions,
+   configured embedding model, deployment-manifest digest, and claim inventory.
+4. Each production-only claim is either backed by a controlled live artifact or
+   explicitly labeled unverified/configured.
+5. Monitor, security-approval, on-call, and rollback owners are named before
+   monitor mode or enforcement is enabled.
+
+### Scope controls
+
+- Do not add dashboard pages, connector types, or synthetic benchmark classes
+  unless they close an active backlog item with acceptance evidence.
+- LLM outputs may recommend actions but must not bypass deterministic policy,
+  authorization, rate limits, tenant isolation, or approval controls.
+- Never use a small regression set, hash embeddings, mocked browser responses,
+  or a successful local socket as proof of production semantic safety.
+- Keep the managed GitHub live gate disposable, tenant-scoped, approval-bound,
+  and externally authorized; it is the only route to an external-write claim.
+
+### Evidence sources
+
+- `docs/PHASE_7_P0_RELEASE_EVIDENCE.md` — previous release-gate results and
+  unresolved verification requirements.
+- `docs/architecture/EVALUATION_AND_CLAIMS.md` — rules for evaluation claims
+  and the controlled managed-MCP live gate.
+- `docs/ACCURACY.md` and `docs/HUMAN_REVIEW_METRICS.md` — current benchmark
+  scope and the boundary between evaluation and production feedback.
+- `CONTEXT.md` — authoritative product terminology and implemented-versus-
+  unbuilt capability boundaries.
+
+---
+
+## Archived v0.4 → v1.0 roadmap (August 2026)
 
 **Date:** 2026-08-16 · **Version reviewed:** v0.3.0 (post Workpackages A+B) · **Basis:** live repo inspection, benchmark gate run, PM QA assessment (2026-08-13), workpackage docs.
 
