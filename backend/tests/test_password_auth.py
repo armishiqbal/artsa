@@ -7,6 +7,9 @@ accepted by the existing Bearer-auth path (/config/me and a protected route).
 
 from __future__ import annotations
 
+import asyncio
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -45,8 +48,6 @@ def password_api(monkeypatch, tmp_path):
 
 def _seed_user(db_path, email, password, role="admin"):
     """Insert a user directly via the store (bypasses the API)."""
-    import asyncio
-
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from src.data.user_store import create_user
 
@@ -151,6 +152,57 @@ def test_login_accepts_valid_credentials(password_api, tmp_path):
         "/api/v1/config/keys", headers={"Authorization": f"Bearer {body['access_token']}"}
     )
     assert keys.status_code == 200
+
+
+def test_password_only_auth_covers_bootstrap_and_protected_requests(password_api, monkeypatch):
+    monkeypatch.setattr("src.core.config.settings.ARTSA_REQUIRE_AUTH", True)
+    monkeypatch.setattr("src.core.config.settings.ARTSA_API_KEY", None)
+    monkeypatch.setattr("src.core.config.settings.ARTSA_ANALYST_API_KEY", None)
+    monkeypatch.setattr("src.core.config.settings.ARTSA_REDTEAM_API_KEY", None)
+    monkeypatch.setattr("src.core.config.settings.ARTSA_READONLY_API_KEY", None)
+    monkeypatch.setattr("src.core.config.settings.ARTSA_OIDC_ENABLED", False)
+    monkeypatch.setattr("src.core.config.settings.ARTSA_TENANT_ID", "tenant-bootstrap")
+
+    assert password_api.get("/api/v1/config/keys").status_code == 401
+
+    registered = password_api.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "first-admin@example.com",
+            "password": "long-enough-pass",
+            "display_name": "First Admin",
+        },
+    )
+    assert registered.status_code == 200
+    token = unwrap_response(registered)["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    assert password_api.get("/api/v1/config/keys", headers=headers).status_code == 200
+    # Tenant resolution for a password session must come from its account,
+    # even when the caller supplies a different tenant header.
+    from src.core.models.sessions import Session
+    from src.services.session_tracker import session_tracker
+
+    own_session = Session(
+        id=uuid.uuid4(), agent_id="tenant-bootstrap-agent", tenant_id="tenant-bootstrap", status="ACTIVE"
+    )
+    other_session = Session(
+        id=uuid.uuid4(), agent_id="other-tenant-agent", tenant_id="attacker-selected-tenant", status="ACTIVE"
+    )
+    session_tracker.active_sessions[str(own_session.id)] = own_session
+    session_tracker.active_sessions[str(other_session.id)] = other_session
+    try:
+        sessions = password_api.get(
+            "/api/v1/sessions?limit=50",
+            headers={**headers, "X-Tenant-ID": "attacker-selected-tenant"},
+        )
+        assert sessions.status_code == 200
+        returned_ids = {row["id"] for row in unwrap_response(sessions)}
+        assert str(own_session.id) in returned_ids
+        assert str(other_session.id) not in returned_ids
+    finally:
+        session_tracker.active_sessions.pop(str(own_session.id), None)
+        session_tracker.active_sessions.pop(str(other_session.id), None)
 
 
 def test_login_wrong_password_401(password_api, tmp_path):
@@ -421,11 +473,13 @@ def test_avatar_upload_sets_path_and_serves_file(password_api, tmp_path):
     filename = avatar.rsplit("/", 1)[-1]
     assert (tmp_path / "avatars" / filename).read_bytes() == _PNG_BYTES
 
-    # Served back with any valid credential — the BFF proxy injects the server
-    # API key for <img> loads (which can't send an Authorization header).
-    served = password_api.get(avatar, headers={"X-API-Key": "admin-api-key-12345"})
+    # Served back publicly without an Authorization or X-API-Key header so
+    # browser <img> tags work through the BFF proxy.
+    served = password_api.get(avatar)
     assert served.status_code == 200
     assert served.content == _PNG_BYTES
+    assert served.headers.get("x-content-type-options") == "nosniff"
+    assert "default-src 'none'" in (served.headers.get("content-security-policy") or "")
 
 
 def test_avatar_upload_replaces_previous_file(password_api, tmp_path):
@@ -461,6 +515,16 @@ def test_avatar_upload_rejects_non_image(password_api):
     assert res.status_code == 415
 
 
+def test_avatar_upload_rejects_spoofed_magic_bytes(password_api):
+    token = _profile_session(password_api)
+    res = password_api.post(
+        "/api/v1/auth/me/avatar",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("spoof.png", b"<script>alert(1)</script>", "image/png")},
+    )
+    assert res.status_code == 415
+
+
 def test_avatar_upload_rejects_oversize(password_api):
     token = _profile_session(password_api)
     big = b"\x89PNG\r\n\x1a\n" + b"0" * (2 * 1024 * 1024 + 1)
@@ -481,10 +545,13 @@ def test_avatar_upload_requires_session(password_api):
 
 
 def test_avatar_serve_rejects_traversal_and_missing(password_api):
-    key = {"X-API-Key": "admin-api-key-12345"}
-    assert password_api.get("/api/v1/auth/me/avatar/evil..txt", headers=key).status_code == 404
-    assert password_api.get("/api/v1/auth/me/avatar/no-such-file.png", headers=key).status_code == 404
+    assert password_api.get("/api/v1/auth/me/avatar/evil..txt").status_code == 404
+    assert password_api.get("/api/v1/auth/me/avatar/no-such-file.png").status_code == 404
 
 
-def test_avatar_serve_requires_a_valid_credential(password_api):
-    assert password_api.get("/api/v1/auth/me/avatar/anything.png").status_code == 401
+def test_avatar_serve_is_public_for_img_tags_while_upload_stays_protected(password_api):
+    assert password_api.get("/api/v1/auth/me/avatar/anything.png").status_code == 404
+    assert password_api.post(
+        "/api/v1/auth/me/avatar",
+        files={"file": ("avatar.png", _PNG_BYTES, "image/png")},
+    ).status_code == 401

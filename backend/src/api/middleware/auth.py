@@ -11,6 +11,7 @@ from src.core.auth_credentials import (
     resolve_credentials,
 )
 from src.core.config import settings
+from src.core.password_auth import password_auth_enabled
 
 _PUBLIC_PATHS = {
     "/",
@@ -44,9 +45,20 @@ def is_devtools_probe(path: str) -> bool:
     return path == "/json" or path.startswith("/json/")
 
 
+def is_public_avatar_path(path: str) -> bool:
+    """Uploaded avatar files served to browser ``<img>`` tags without headers."""
+    return path.startswith(
+        (
+            "/api/v1/auth/me/avatar/",
+            "/v1/auth/me/avatar/",
+            "/auth/me/avatar/",
+        )
+    )
+
+
 def is_public_path(path: str) -> bool:
     """Paths that skip API-key / OIDC checks."""
-    return path in _PUBLIC_PATHS or is_devtools_probe(path)
+    return path in _PUBLIC_PATHS or is_devtools_probe(path) or is_public_avatar_path(path)
 
 
 class APIKeyAuthMiddleware(BaseHTTPMiddleware):
@@ -66,10 +78,15 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         bearer = extract_bearer_token(request.headers.get("Authorization"))
 
         if settings.auth_required or any_static_api_key_configured() or settings.ARTSA_OIDC_ENABLED:
-            if settings.auth_required and not any_static_api_key_configured() and not settings.ARTSA_OIDC_ENABLED:
+            if (
+                settings.auth_required
+                and not any_static_api_key_configured()
+                and not settings.ARTSA_OIDC_ENABLED
+                and not password_auth_enabled()
+            ):
                 return JSONResponse(
                     status_code=503,
-                    content={"detail": "Server misconfigured: configure API keys or enable OIDC"},
+                    content={"detail": "Server misconfigured: enable password authentication, configure API keys, or enable OIDC"},
                 )
 
             role = resolve_credentials(api_key, bearer)

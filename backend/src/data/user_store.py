@@ -9,6 +9,7 @@ runtime based on settings.
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -21,6 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import settings
 from src.data.db import get_session_factory
 from src.data.orm import UserORM
+
+logger = logging.getLogger(__name__)
 
 
 async def count_users(session: AsyncSession) -> int:
@@ -281,7 +284,13 @@ class SqliteUserStore:
 
 def _mongo_enabled() -> bool:
     uri = (settings.ARTSA_MONGODB_URI or "").strip()
-    return bool(uri) and uri.lower() != "disabled"
+    if not bool(uri) or uri.lower() == "disabled":
+        return False
+    try:
+        import pymongo  # noqa: F401
+        return True
+    except (ImportError, ModuleNotFoundError):
+        return False
 
 
 class MongoUserStore:
@@ -443,7 +452,10 @@ def _select_user_store_class() -> type[UserStore]:
     if explicit == "sqlite":
         return SqliteUserStore
     if explicit == "mongo":
-        return MongoUserStore
+        if _mongo_enabled():
+            return MongoUserStore
+        logger.warning("ARTSA_USER_STORE=mongo requested but MongoDB/pymongo unavailable; falling back to SQLite")
+        return SqliteUserStore
     if settings.is_testing:
         return SqliteUserStore
     if settings.USE_SQLITE:
@@ -472,11 +484,14 @@ def ensure_user_indexes() -> None:
     """
     if not _mongo_enabled():
         return
-    import pymongo
-
-    client = pymongo.MongoClient(settings.ARTSA_MONGODB_URI, serverSelectionTimeoutMS=4000)
     try:
-        db = client[settings.ARTSA_MONGODB_DB]
-        db["users"].create_index("email", unique=True)
-    finally:
-        client.close()
+        import pymongo
+
+        client = pymongo.MongoClient(settings.ARTSA_MONGODB_URI, serverSelectionTimeoutMS=4000)
+        try:
+            db = client[settings.ARTSA_MONGODB_DB]
+            db["users"].create_index("email", unique=True)
+        finally:
+            client.close()
+    except Exception as exc:
+        logger.warning("ensure_user_indexes skipped: %s", exc)

@@ -74,6 +74,8 @@ def test_production_requires_api_key(monkeypatch):
     monkeypatch.setattr(settings, "ENVIRONMENT", "production")
     monkeypatch.setattr(settings, "ARTSA_API_KEY", None)
     monkeypatch.setattr(settings, "ARTSA_REQUIRE_AUTH", False)
+    monkeypatch.setattr(settings, "ARTSA_PASSWORD_AUTH_ENABLED", False)
+    monkeypatch.setattr(settings, "ARTSA_OIDC_ENABLED", False)
 
     client = TestClient(app)
     response = client.get("/api/v1/sessions")

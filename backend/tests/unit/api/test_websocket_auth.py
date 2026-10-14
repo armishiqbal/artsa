@@ -21,11 +21,10 @@ def test_websocket_client_close_is_not_an_unretrieved_task(caplog):
     """Browser tab close must not log asyncio 'Task exception was never retrieved'."""
     import logging
 
-    with caplog.at_level(logging.ERROR):
-        with client.websocket_connect("/api/v1/websocket") as ws:
-            assert ws.receive_json()["type"] == "hello"
-            assert ws.receive_json()["type"] == "history"
-            ws.close()
+    with caplog.at_level(logging.ERROR), client.websocket_connect("/api/v1/websocket") as ws:
+        assert ws.receive_json()["type"] == "hello"
+        assert ws.receive_json()["type"] == "history"
+        ws.close()
     text = caplog.text
     assert "Task exception was never retrieved" not in text
     assert "WebSocketDisconnect" not in text
@@ -128,3 +127,22 @@ def test_websocket_rejects_tampered_ticket(monkeypatch):
         "/api/v1/websocket?ticket=eyJyb2xlIjoiYWRtaW4ifQ.tampered"
     ):
         pass
+
+
+def test_analyst_api_key_can_mint_websocket_ticket_and_connect(monkeypatch):
+    monkeypatch.setattr(settings, "ARTSA_API_KEY", "admin-secret-key-12345")
+    monkeypatch.setattr(settings, "ARTSA_ANALYST_API_KEY", "analyst-secret-key-12345")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+
+    res = client.post(
+        "/api/v1/websocket/ticket",
+        headers={"X-API-Key": "analyst-secret-key-12345"},
+    )
+    assert res.status_code == 200
+    ticket = _ticket_from_post(res)
+
+    with client.websocket_connect(f"/api/v1/websocket?ticket={ticket}") as ws:
+        hello = ws.receive_json()
+        assert hello["type"] == "hello"
+        ws.receive_json()
+

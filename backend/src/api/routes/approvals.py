@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -13,8 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.dependencies import get_current_tenant, get_db, get_redis, get_session_tracker
 from src.data.orm import ApprovalRequestORM
 from src.data.repositories.sessions import SessionRepository
-from src.services.approval_service import approval_view, as_utc, expire_request, get_request, issue_retry_token
-import uuid
+from src.services.approval_service import (
+    approval_view,
+    as_utc,
+    expire_request,
+    get_request,
+    issue_retry_token,
+)
 
 router = APIRouter(tags=["Approvals"])
 
@@ -24,6 +30,7 @@ class DecisionBody(BaseModel):
 
 
 @router.get("/approvals")
+@router.get("/operator/approvals")
 async def list_approvals(
     db: AsyncSession = Depends(get_db), tracker=Depends(get_session_tracker), tenant_id: str = Depends(get_current_tenant),
 ):
@@ -43,6 +50,7 @@ async def list_approvals(
 
 
 @router.get("/approvals/{approval_id}")
+@router.get("/operator/approvals/{approval_id}")
 async def get_approval(approval_id: str, db: AsyncSession = Depends(get_db), tenant_id: str = Depends(get_current_tenant)):
     row = await get_request(db, approval_id, tenant_id)
     if not row:
@@ -56,6 +64,7 @@ async def get_approval(approval_id: str, db: AsyncSession = Depends(get_db), ten
 
 
 @router.post("/approvals/{approval_id}/decision")
+@router.post("/operator/approvals/{approval_id}/decision")
 async def decide_approval(
     approval_id: str, payload: DecisionBody, db: AsyncSession = Depends(get_db), redis=Depends(get_redis),
     tracker=Depends(get_session_tracker), tenant_id: str = Depends(get_current_tenant),

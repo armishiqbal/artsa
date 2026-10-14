@@ -4,13 +4,13 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from src.api.middleware.auth import is_public_path
 from src.core.auth_credentials import (
     any_static_api_key_configured,
     extract_bearer_token,
     resolve_credentials,
 )
 from src.core.config import settings
-from src.api.middleware.auth import is_public_path
 from src.core.rbac import is_allowed, normalize_path
 
 _PUBLIC_PATHS = {

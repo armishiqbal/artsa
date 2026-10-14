@@ -24,6 +24,10 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
             "POST:/situations",
             "POST:/forensics",
             "POST:/sessions",
+            "POST:/approvals",
+            "POST:/operator/approvals",
+            "POST:/reviews",
+            "POST:/websocket/ticket",
             "PATCH:/auth",
             "POST:/auth",
         }
@@ -40,11 +44,17 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
             "POST:/targets",
             "PATCH:/targets",
             "DELETE:/targets",
+            "POST:/websocket/ticket",
             "PATCH:/auth",
             "POST:/auth",
         }
     ),
-    Role.READONLY: frozenset({"GET:"}),
+    Role.READONLY: frozenset(
+        {
+            "GET:",
+            "POST:/websocket/ticket",
+        }
+    ),
 }
 
 

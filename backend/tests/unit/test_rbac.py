@@ -46,3 +46,16 @@ def test_role_capabilities_readonly():
     assert caps["read_only"] is True
     assert caps["can_run_campaigns"] is False
     assert caps["can_run_ablation"] is False
+
+
+def test_non_admin_roles_can_mint_websocket_ticket():
+    for role in (Role.ADMIN, Role.ANALYST, Role.REDTEAM, Role.READONLY):
+        assert is_allowed(role, "POST", "/api/v1/websocket/ticket") is True
+        assert is_allowed(role, "POST", "/v1/websocket/ticket") is True
+
+
+def test_analyst_can_submit_approval_decisions_and_reviews():
+    assert is_allowed(Role.ANALYST, "POST", "/api/v1/approvals/req-123/decision") is True
+    assert is_allowed(Role.ANALYST, "POST", "/api/v1/operator/approvals/req-123/decision") is True
+    assert is_allowed(Role.ANALYST, "POST", "/api/v1/reviews") is True
+

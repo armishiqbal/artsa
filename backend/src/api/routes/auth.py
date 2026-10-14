@@ -5,9 +5,8 @@ only be created by an admin API key. Successful login/register issues a short-
 lived HS256 session token (signed with SECRET_KEY) that the existing
 ``Authorization: Bearer`` path accepts.
 
-Note: the API-key middleware keeps its fail-closed guard — a production box
-still needs at least one role API key (or OIDC) configured alongside password
-auth, otherwise non-public routes 503 by design.
+Password session tokens, API keys, and OIDC are accepted by the configured
+authentication middleware for protected routes.
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ import re
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -48,6 +47,19 @@ _AVATAR_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
 def _avatars_dir() -> Path:
     """Directory holding uploaded avatars — under ARTSA_DATA_DIR (default ./data)."""
     return Path(settings.ARTSA_DATA_DIR) / "avatars"
+
+
+def _has_valid_image_signature(data: bytes, content_type: str) -> bool:
+    """Verify magic bytes match the declared image MIME type."""
+    if content_type == "image/png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/jpeg":
+        return data.startswith(b"\xff\xd8\xff")
+    if content_type == "image/gif":
+        return data.startswith((b"GIF87a", b"GIF89a"))
+    if content_type == "image/webp":
+        return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    return False
 
 
 class LoginPayload(BaseModel):
@@ -158,14 +170,15 @@ async def register(
     payload: RegisterPayload,
     request: Request,
     store: UserStore = Depends(get_user_store),
-    tenant_id: str = Depends(get_current_tenant),
+    x_tenant_id: str | None = Header(None, alias="X-Tenant-ID"),
     _: None = Depends(rate_limit_dependency),
 ) -> dict:
     """Create a local account.
 
     Bootstrap: when no users exist the first registration creates the admin.
     Afterwards registration requires an admin API key (X-API-Key).
-    The account is bound to the tenant from the X-Tenant-ID header.
+    The bootstrap account uses ARTSA_TENANT_ID. Later admin-created accounts
+    use the tenant resolved from the admin API key and optional tenant header.
     """
     _ensure_password_auth_enabled()
     if not _EMAIL_RE.match(payload.email.strip()):
@@ -180,6 +193,20 @@ async def register(
             status_code=403,
             detail="Registration is closed. Ask an admin to create your account, or sign in.",
         )
+
+    # The first account has no credential yet, so production's authenticated
+    # tenant resolver cannot run for bootstrap. Bind it to the configured
+    # tenant. Later registrations still require an admin key and use the
+    # authenticated key's normal tenant resolution.
+    tenant_id = (
+        settings.ARTSA_TENANT_ID or "default_org"
+        if bootstrap
+        else await get_current_tenant(
+            x_tenant_id=x_tenant_id,
+            x_api_key=api_key,
+            authorization=request.headers.get("Authorization"),
+        )
+    )
 
     role = "admin"
     if is_admin_key and payload.role in (r.value for r in Role):
@@ -277,7 +304,8 @@ async def upload_avatar(
     if user is None:
         raise HTTPException(status_code=401, detail="No password session.")
 
-    ext = _AVATAR_TYPES.get(file.content_type or "")
+    content_type = (file.content_type or "").lower()
+    ext = _AVATAR_TYPES.get(content_type)
     if not ext:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -296,6 +324,12 @@ async def upload_avatar(
     if size == 0:
         raise HTTPException(status_code=400, detail="Avatar image is empty.")
     data = b"".join(chunks)
+
+    if not _has_valid_image_signature(data, content_type):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="File content does not match declared image format.",
+        )
 
     avatars_dir = _avatars_dir()
     avatars_dir.mkdir(parents=True, exist_ok=True)
@@ -323,4 +357,11 @@ async def get_avatar(filename: str) -> FileResponse:
     path = (avatars_dir / filename).resolve()
     if not str(path).startswith(str(avatars_dir.resolve())) or not path.is_file():
         raise HTTPException(status_code=404, detail="Not found")
-    return FileResponse(path)
+    return FileResponse(
+        path,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "Cache-Control": "public, max-age=3600, immutable",
+        },
+    )
