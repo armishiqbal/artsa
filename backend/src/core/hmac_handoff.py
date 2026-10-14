@@ -1,7 +1,7 @@
-"""HMAC-SHA256 signed inter-agent handoffs with Redis replay protection.
+"""HMAC-SHA256 signed campaign handoffs with Redis replay protection.
 
-Wired chain today: Red Team → Target → Judge.
-Research / Curator / Defender remain unwired and must not receive fake signatures.
+Campaign Manager starts Research; receiver-verified agent handoffs continue
+Research → Curator → Red Team → Target → Judge and conditionally Judge → Defender.
 
 WebSocket tickets use a different key prefix — they are not agent handoffs.
 """

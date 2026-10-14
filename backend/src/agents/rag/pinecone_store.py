@@ -7,7 +7,7 @@ from typing import Any
 
 from src.agents.rag.knowledge_base import DEFAULT_KNOWLEDGE_CHUNKS
 from src.core.config import settings
-from src.data.embedding_manager import HighAccuracy1024EmbeddingFunction
+from src.data.embedding_manager import HighAccuracy1024EmbeddingFunction, _pad_or_truncate
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +34,26 @@ class PineconePolicyStore:
 
         pc = Pinecone(api_key=api_key)
         self._index = pc.Index(self._index_name)
+        try:
+            stats = self._index.describe_index_stats()
+            self._dimension = int(getattr(stats, "dimension", 0) or (stats.get("dimension") if hasattr(stats, "get") else 0) or self._embedder.dimensions)
+        except Exception:
+            self._dimension = self._embedder.dimensions
+
+    def _get_vector(self, text: str) -> list[float]:
+        vec = self._embedder.embed(text)
+        if len(vec) != self._dimension:
+            return _pad_or_truncate(vec, self._dimension)
+        return vec
 
     @property
     def count(self) -> int:
         stats = self._index.describe_index_stats()
         namespaces = stats.get("namespaces") or {}
         if self._namespace in namespaces:
-            return int(namespaces[self._namespace].get("vector_count", 0))
-        return int(stats.get("total_vector_count", 0))
+            ns = namespaces[self._namespace]
+            return int(getattr(ns, "vector_count", None) or (ns.get("vector_count") if hasattr(ns, "get") else 0) or 0)
+        return int(getattr(stats, "total_vector_count", None) or (stats.get("total_vector_count") if hasattr(stats, "get") else 0) or 0)
 
     def seed_defaults(self) -> int:
         if not DEFAULT_KNOWLEDGE_CHUNKS:
@@ -52,7 +64,7 @@ class PineconePolicyStore:
             vectors.append(
                 {
                     "id": chunk["id"],
-                    "values": self._embedder.embed(chunk["text"]),
+                    "values": self._get_vector(chunk["text"]),
                     "metadata": {
                         "text": chunk["text"],
                         "source": chunk["source"],
@@ -67,7 +79,7 @@ class PineconePolicyStore:
         if not query_text.strip():
             return []
 
-        query_vec = self._embedder.embed(query_text)
+        query_vec = self._get_vector(query_text)
         result = self._index.query(
             vector=query_vec,
             top_k=top_k,

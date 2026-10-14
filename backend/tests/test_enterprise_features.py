@@ -95,11 +95,11 @@ def test_compliance_report_exporter():
 
     exporter = ComplianceReportExporter(summary)
     cvss = exporter.calculate_cvss_v4()
-    assert cvss["score"] > 8.0
-    assert cvss["severity"] in ["HIGH", "CRITICAL"]
+    assert cvss["score"] is None
+    assert cvss["severity"] == "NOT_ASSESSED"
 
     eu_audit = exporter.generate_eu_ai_act_article_15_audit()
-    assert eu_audit["compliance_status"] == "NON_COMPLIANT_REMEDIATION_REQUIRED"
+    assert eu_audit["compliance_status"] == "NOT_ASSESSED"
 
     nist_audit = exporter.generate_nist_ai_rmf_audit()
     assert "MEASURE_2.6" in nist_audit["functions"]

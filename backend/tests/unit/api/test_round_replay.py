@@ -44,6 +44,15 @@ def test_replay_historical_round_mitigation_and_lift(tmp_path: Path, monkeypatch
     monkeypatch.setattr(campaigns_mod, "BACKEND_DIR", tmp_path)
 
     campaign_id = "test-camp-replay-001"
+    monkeypatch.setattr(
+        campaigns_mod.campaign_job_store,
+        "get",
+        lambda requested_id, tenant_id=None: (
+            {"id": campaign_id, "tenant_id": "replay-test-tenant"}
+            if requested_id == campaign_id and tenant_id == "replay-test-tenant"
+            else None
+        ),
+    )
 
     # Create a historical round where an attack breached the target
     attack = AttackPayload(

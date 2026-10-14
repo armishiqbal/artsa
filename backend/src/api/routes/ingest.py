@@ -17,6 +17,7 @@ from src.api.dependencies import (
     rate_limit_dependency,
 )
 from src.core.models.events import ToolCallEvent
+from src.services.approval_service import consume_retry_token
 from src.services.event_processor import EventProcessor
 from src.services.harness_ingest_adapter import (
     enforcement_view,
@@ -24,7 +25,6 @@ from src.services.harness_ingest_adapter import (
     normalize_to_tool_events,
 )
 from src.services.ingest_pipeline import ContainedSessionError, run_ingest_pipeline
-from src.services.approval_service import consume_retry_token
 from src.services.session_tracker import SessionTracker
 
 router = APIRouter(tags=["Ingestion"])
@@ -78,12 +78,18 @@ async def _handle_ingest_body(
     # A retry token is bound to this exact tenant/session/tool/arguments tuple.
     # Consume it before processing; a malformed or reused token fails closed.
     for event in events:
-        if event.approval_retry_token:
-            if not consume_retry_token(
-                redis, event.approval_retry_token, tenant_id=tenant_id,
-                session_id=event.session_id, tool_name=event.tool_name, arguments=event.arguments,
-            ):
-                raise HTTPException(status_code=403, detail="Invalid or already used approval retry token")
+        if event.approval_retry_token and not consume_retry_token(
+            redis,
+            event.approval_retry_token,
+            tenant_id=tenant_id,
+            session_id=event.session_id,
+            tool_name=event.tool_name,
+            arguments=event.arguments,
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Invalid or already used approval retry token",
+            )
 
     # Live chat checkpoints (prompt/output) stay in monitor mode so Harness keeps
     # posting every message until the user disables Custom Security Service.

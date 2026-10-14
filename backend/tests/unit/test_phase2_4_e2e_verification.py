@@ -1,8 +1,7 @@
-"""Phase 2.4 End-to-End Verification Test Suite.
+"""Deterministic in-process verification for campaign and telemetry contracts.
 
-Validates the live closed loop:
-Backend Campaign -> Live Event Bus -> WebSocket -> Telemetry Adapter -> Command Center UI
-and operator containment enforcement (KILL_SESSION, QUARANTINE_AGENT, ASI08 circuit breaker).
+These tests do not contact external providers, databases, Redis, a browser, or a
+deployed WebSocket service. They exercise selected Python components and stores.
 """
 
 from __future__ import annotations
@@ -39,14 +38,14 @@ def _build_test_app_config() -> dict:
     return cfg
 
 
-def test_a_live_campaign_execution_and_telemetry_hop_bridge():
-    """Test A: Live campaign executes through CampaignManager and bridges hops to telemetry_bus."""
+def test_a_deterministic_campaign_execution_and_telemetry_projection():
+    """A deterministic campaign emits hops that the in-process telemetry projection reads."""
     app_config = _build_test_app_config()
     cid = str(uuid.uuid4())
 
     target_cfg = TargetConfig(
         provider="deterministic",
-        model="fake-model",
+        model="deterministic-test-model",
         system_prompt="You are a secure system under test.",
     )
     profile_cfg = AttackProfile(
@@ -57,7 +56,7 @@ def test_a_live_campaign_execution_and_telemetry_hop_bridge():
     )
     camp_cfg = CampaignConfig(
         id=cid,
-        name="Live Campaign Alpha",
+        name="Deterministic Campaign A",
         target=target_cfg,
         attack_profile=profile_cfg,
         max_rounds=2,
@@ -67,7 +66,7 @@ def test_a_live_campaign_execution_and_telemetry_hop_bridge():
         cid,
         name="Live Campaign Alpha",
         provider="deterministic",
-        model="fake-model",
+        model="deterministic-test-model",
         attack_profile="test_profile",
         max_rounds=2,
         request_json={},
@@ -104,20 +103,27 @@ def test_a_live_campaign_execution_and_telemetry_hop_bridge():
     assert snap["telemetry_mode"] == "LIVE"
     assert snap["current_session_id"] == cid
     assert len(snap["events"]) > 0
+    final_chain_event = campaign_live_bus.history(cid)[-1]
+    final_chain = {row["agent"]: row for row in final_chain_event["chain"]}
+    for role in ("research", "curator", "red_team", "target", "judge"):
+        assert final_chain[role]["status"] == "executed"
+        assert final_chain[role]["hmac_verified"] is True
+    assert final_chain["defender"]["status"] in {"idle", "executed"}
+    if final_chain["defender"]["status"] == "executed":
+        assert final_chain["defender"]["hmac_verified"] is True
 
-    first_event = snap["events"][0]
-    assert first_event["campaign_id"] == cid
-    assert first_event["session_id"] == cid
-    assert first_event["source_agent"] in ["Red Team", "Target", "Judge"]
+    campaign_event = next(event for event in snap["events"] if event["campaign_id"] == cid)
+    assert campaign_event["session_id"] == cid
+    assert campaign_event["source_agent"] in ["Red Team", "Target", "Judge"]
     campaign_job_store.complete(cid, summary.model_dump(mode="json"))
 
 
-def test_b_round_progression_authoritative():
-    """Test B: Round progression strictly follows backend execution without independent UI guessing."""
+def test_b_round_progression_comes_from_campaign_callback():
+    """Round progression follows the in-process campaign callback."""
     app_config = _build_test_app_config()
     cid = str(uuid.uuid4())
 
-    target_cfg = TargetConfig(provider="deterministic", model="fake-model")
+    target_cfg = TargetConfig(provider="deterministic", model="deterministic-test-model")
     profile_cfg = AttackProfile(
         name="progression_profile",
         categories=[AttackCategory.PROMPT_INJECTION],
@@ -135,7 +141,7 @@ def test_b_round_progression_authoritative():
         cid,
         name="Progression Test",
         provider="deterministic",
-        model="fake-model",
+        model="deterministic-test-model",
         attack_profile="progression_profile",
         max_rounds=3,
         request_json={},
@@ -159,13 +165,13 @@ def test_b_round_progression_authoritative():
     campaign_job_store.complete(cid, summary.model_dump(mode="json"))
 
 
-def test_c_kill_session_halts_running_campaign():
-    """Test C: KILL_SESSION marks session BREACHED and halts CampaignManager execution immediately."""
+def test_c_session_kill_halts_in_process_campaign():
+    """A tracker KILL action marks the session contained before the next round."""
     app_config = _build_test_app_config()
     cid = str(uuid.uuid4())
     sess_uuid = uuid.UUID(cid)
 
-    target_cfg = TargetConfig(provider="deterministic", model="fake-model")
+    target_cfg = TargetConfig(provider="deterministic", model="deterministic-test-model")
     profile_cfg = AttackProfile(name="kill_test", categories=[AttackCategory.PROMPT_INJECTION])
     camp_cfg = CampaignConfig(
         id=cid,
@@ -183,7 +189,7 @@ def test_c_kill_session_halts_running_campaign():
         cid,
         name="Kill Test Campaign",
         provider="deterministic",
-        model="fake-model",
+        model="deterministic-test-model",
         attack_profile="kill_test",
         max_rounds=5,
         request_json={},

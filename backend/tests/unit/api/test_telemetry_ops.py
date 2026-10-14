@@ -24,13 +24,14 @@ def test_ops_snapshot_is_disconnected_without_events():
     assert data["telemetry_mode"] in {"DISCONNECTED", "STALE", "LIVE"}
     if not data["events"]:
         assert data["telemetry_mode"] == "DISCONNECTED"
-    assert data["hmac"]["hmac_state"] == "ok"
+    assert data["hmac"]["hmac_state"] == "unverified"
     assert data["circuit_breaker"]["status"] == "nominal"
     assert "enabled" in data["circuit_breaker"]["note"]
     assert data["metrics"]["precision"] is None
     agents = {a["agent_id"]: a for a in data["agents"]}
-    assert agents["research"]["state"] == "not_wired"
-    assert agents["defender"]["state"] == "not_wired"
+    assert agents["research"]["state"] == "idle"
+    assert agents["defender"]["state"] == "idle"
+    assert data["hmac"]["hmac_state"] == "unverified"
     implemented = {a["action_id"]: a["implemented"] for a in data["operator_actions"]}
     assert implemented["KILL_SESSION"] is True
     assert implemented["BLOCK_TOOL"] is True

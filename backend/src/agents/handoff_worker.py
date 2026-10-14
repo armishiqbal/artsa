@@ -1,11 +1,10 @@
-"""HMAC Target / Judge workers — verification happens at the agent boundary.
+"""HMAC handoff workers — verification happens at the agent boundary.
 
-Sequence:
-  Red Team signs an envelope and sends it to the Target worker.
-  Target verifies (Redis replay protection), processes, then signs a response
-  envelope for the Judge. Judge verifies that envelope before scoring.
+The campaign manager may dispatch Research, Curator, Red Team, Target, Judge,
+or conditional Defender hops to independent workers. Each receiver verifies its
+incoming envelope before processing; Research kickoff is signed by the manager.
 
-``python -m src.agents.handoff_worker execute --role target|judge`` is the
+``python -m src.agents.handoff_worker execute --role <agent>`` is the
 independent-process entrypoint. ``serve`` BRPOPs Redis inboxes when
 ``ARTSA_HMAC_RECEIVER_WORKERS`` is enabled.
 """
@@ -43,7 +42,7 @@ PEER_OF = {
     "target": "red_team",
     "judge": "target",
     "defender": "judge",
-    "research": "defender",
+    "research": "campaign_manager",
 }
 
 

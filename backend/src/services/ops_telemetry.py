@@ -433,6 +433,7 @@ def build_ops_snapshot(
     live_agents = None
     campaign_status = None
     hop_lats: dict[str, float | None] = {}
+    campaign_chain: list[dict[str, Any]] | None = None
     for job in jobs:
         if str(job.get("status", "")).upper() == "RUNNING":
             current_campaign = job
@@ -446,6 +447,9 @@ def build_ops_snapshot(
         campaign_status = str(current_campaign.get("status") or "")
         current_round = current_campaign.get("rounds_completed")
         for raw in hop_events:
+            raw_chain = raw.get("chain") if isinstance(raw, dict) else None
+            if isinstance(raw_chain, list):
+                campaign_chain = [row for row in raw_chain if isinstance(row, dict)]
             projected = project_campaign_hop(raw)
             if projected is None or projected.event_id in seen:
                 continue
@@ -462,6 +466,16 @@ def build_ops_snapshot(
     ops_events.sort(key=lambda e: e.timestamp, reverse=True)
     last_ts = ops_events[0].timestamp if ops_events else None
     mode = telemetry_mode(now=now, last_ts=last_ts)
+    current_campaign_id = str(current_campaign["id"]) if current_campaign else None
+    campaign_events = [
+        event for event in ops_events if current_campaign_id and event.campaign_id == current_campaign_id
+    ]
+    current_session_id = next(
+        (event.session_id for event in campaign_events if event.session_id),
+        None,
+    )
+    if current_campaign_id is None:
+        current_session_id = next((event.session_id for event in ops_events if event.session_id), None)
 
     metrics = metrics_from_campaigns(jobs)
     session_ids = {str(e.get("session_id")) for e in ingest if e.get("session_id")}
@@ -483,13 +497,35 @@ def build_ops_snapshot(
         hop_latencies=hop_lats,
     )
 
+    chain_hmac = {
+        str(row.get("agent") or ""): (str(row.get("hmac_state") or "unwired"), row.get("hmac_verified"))
+        for row in campaign_chain or []
+    }
+    executed_chain_roles = {
+        str(row.get("agent") or "")
+        for row in campaign_chain or []
+        if str(row.get("status") or "") == "executed"
+    }
+    required_hmac_roles = {"research", "curator", "red_team", "target", "judge"}
+    if "defender" in executed_chain_roles:
+        required_hmac_roles.add("defender")
+    required_hmac_values = [chain_hmac.get(role, ("unwired", None)) for role in required_hmac_roles]
+    if any(state == "fail" or verified is False for state, verified in required_hmac_values):
+        hmac_snapshot_state = "fail"
+    elif required_hmac_values and all(state == "ok" and verified is True for state, verified in required_hmac_values):
+        hmac_snapshot_state = "ok"
+    else:
+        hmac_snapshot_state = "unverified"
+
     hmac_family = {
         "threat_code": HMAC_THREAT_CODE,
         "status": HMAC_STATUS.value,
-        "hmac_state": "ok",
+        "hmac_state": hmac_snapshot_state,
         "note": (
-            "Red Team → Target → Judge payloads are HMAC-signed with Redis replay "
-            "protection. Research/Curator/Defender remain unwired. WS tickets are not handoffs."
+            "Campaign Manager starts Research; each agent-to-agent handoff is signed and "
+            "receiver-verified. Defender runs only when the scored result meets the mitigation "
+            "threshold. This status is unverified until campaign hop evidence is recorded. "
+            "WebSocket tickets are not agent handoffs."
         ),
     }
 
@@ -507,7 +543,7 @@ def build_ops_snapshot(
             if current_campaign
             else None
         ),
-        "current_session_id": ops_events[0].session_id if ops_events else None,
+        "current_session_id": current_session_id,
         "current_round": current_round,
         "agents": [a.model_dump(mode="json") for a in agents],
         "events": [e.model_dump(mode="json") for e in ops_events[:100]],
@@ -527,9 +563,9 @@ def build_ops_snapshot(
         "operator_actions": [a.model_dump(mode="json") for a in OPERATOR_ACTIONS],
         "last_event_at": last_ts.isoformat() if last_ts else None,
         "remaining": {
-            "hmac_handoff": "wired_rt_target_judge",
+            "hmac_handoff": "wired_campaign_chain",
             "asi08": "implemented_session_circuit_breaker",
-            "research_curator_defender": "not_wired",
+            "research_curator_defender": "wired_in_campaign_manager",
             "precision_fpr": "null_without_benign_labels",
             "new_websocket": "not_added — reuse GET /telemetry/ops plus existing ingest WS",
         },

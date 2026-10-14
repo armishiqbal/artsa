@@ -40,7 +40,7 @@ def test_operator_catalog_does_not_fake_unimplemented_actions():
     assert by_id["QUARANTINE_AGENT"].implemented is True
     assert by_id["BLOCK_TOOL"].implemented is True
     assert by_id["REPLAY_ROUND"].implemented is True
-    assert by_id["DEPLOY_MITIGATION"].implemented is False
+    assert by_id["DEPLOY_MITIGATION"].implemented is True
 
 
 def test_telemetry_mode_includes_honest_values():

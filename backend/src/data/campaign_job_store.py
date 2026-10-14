@@ -15,6 +15,22 @@ from src.data.orm import CampaignJobORM
 _memory_jobs: dict[str, dict[str, Any]] = {}
 
 
+def _created_at_order(record: dict[str, Any]) -> float:
+    raw = record.get("created_at")
+    if isinstance(raw, datetime):
+        parsed = raw
+    elif isinstance(raw, str):
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            return 0.0
+    else:
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.timestamp()
+
+
 def _sync_database_url() -> str:
     url = settings.SYNC_DATABASE_URL
     if settings.USE_SQLITE and "sqlite" not in url:
@@ -184,6 +200,7 @@ class CampaignJobStore:
                     if not any(j["id"] == row.id for j in jobs):
                         jobs.append(self._to_dict(row))
 
+        jobs.sort(key=_created_at_order, reverse=True)
         return jobs[:limit]
 
     @staticmethod

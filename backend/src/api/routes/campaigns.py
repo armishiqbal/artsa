@@ -304,13 +304,12 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest, tenan
     try:
         from src.models import AttackProfile, CampaignConfig, TargetConfig
         from src.orchestrator.campaign_manager import CampaignManager
-        from src.services.campaign_live_bus import default_agents, emit_campaign_status
+        from src.services.campaign_live_bus import emit_campaign_status
         from src.services.provider_resolver import provider_resolver
 
         emit_campaign_status(
             campaign_id,
             "RUNNING",
-            agents=default_agents("running"),
         )
 
         config_path = BACKEND_DIR / "configs" / "default_config.yaml"
@@ -321,7 +320,6 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest, tenan
             tenant_id=tenant_id, provider=req.provider, model=req.model, base_url=req.base_url
         )
 
-        worker_mode = settings.ARTSA_HMAC_RECEIVER_WORKERS
         target_cfg = TargetConfig(
             provider=req.provider,
             model=resolved.model,
@@ -354,19 +352,22 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest, tenan
         if req.use_llm_judge is not None:
             app_config["artsa"]["judge"]["use_llm"] = req.use_llm_judge
 
-        # Pass resolved credentials and active model to Red Team and Judge agents
-        if resolved_model:
-            app_config["artsa"]["red_team"]["model"] = resolved_model
-            app_config["artsa"]["judge"]["model"] = resolved_model
-        if api_key:
-            app_config["artsa"]["red_team"]["api_key"] = api_key
-            app_config["artsa"]["judge"]["api_key"] = api_key
-        if cred_base_url:
-            app_config["artsa"]["red_team"]["base_url"] = cred_base_url
-            app_config["artsa"]["judge"]["base_url"] = cred_base_url
+        # Pass resolved credentials and active model to Red Team and Judge agents.
+        app_config["artsa"]["red_team"]["provider"] = resolved.provider_type
+        app_config["artsa"]["judge"]["provider"] = resolved.provider_type
+        if resolved.model:
+            app_config["artsa"]["red_team"]["model"] = resolved.model
+            app_config["artsa"]["judge"]["model"] = resolved.model
+        if resolved.api_key:
+            app_config["artsa"]["red_team"]["api_key"] = resolved.api_key
+            app_config["artsa"]["judge"]["api_key"] = resolved.api_key
+        if resolved.base_url:
+            app_config["artsa"]["red_team"]["base_url"] = resolved.base_url
+            app_config["artsa"]["judge"]["base_url"] = resolved.base_url
 
         # Register campaign as an active session in session_tracker for containment management
         import uuid as _uuid
+
         from src.core.models.sessions import Session as _Session
         from src.services.session_tracker import session_tracker as _session_tracker
 
@@ -387,17 +388,17 @@ def execute_campaign_background(campaign_id: str, req: RunCampaignRequest, tenan
         summary = manager.run(on_round_complete=on_round_complete)
         if _session_id and _session_tracker.is_contained(_session_id):
             job_store.fail(campaign_id, "Campaign contained by operator action")
-            emit_campaign_status(campaign_id, "CONTAINED", agents=default_agents("idle"))
+            emit_campaign_status(campaign_id, "CONTAINED")
         else:
             job_store.complete(campaign_id, summary.model_dump(mode="json"))
-            emit_campaign_status(campaign_id, "COMPLETED", agents=default_agents("done"))
+            emit_campaign_status(campaign_id, "COMPLETED")
     except Exception as exc:
         logger.exception("Campaign %s failed", campaign_id)
         job_store.fail(campaign_id, str(exc))
         try:
-            from src.services.campaign_live_bus import default_agents, emit_campaign_status
+            from src.services.campaign_live_bus import emit_campaign_status
 
-            emit_campaign_status(campaign_id, "FAILED", agents=default_agents("idle"))
+            emit_campaign_status(campaign_id, "FAILED")
         except Exception:
             logger.exception("Failed to emit FAILED status for campaign %s", campaign_id)
 
@@ -479,10 +480,40 @@ async def _apply_registered_target(
             ),
         )
 
+    if not target.surface or not target.surface.reachable:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Target '{target.name}' has not passed discovery. "
+                "Run discovery successfully before starting an assessment."
+            ),
+        )
+
+    if not target.provider:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Target '{target.name}' has no campaign provider. Configure one in Settings → Integrations."),
+        )
+
+    from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
+
+    try:
+        resolved = await provider_resolver.resolve_async(
+            session,
+            tenant_id=tenant_id,
+            provider=target.provider,
+            model=target.model or None,
+            base_url=target.base_url,
+        )
+    except ProviderConfigurationError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": "Target campaign provider is not ready. Check Settings → Integrations."},
+        ) from exc
+
     if target.provider:
         req.provider = target.provider
-    if target.model:
-        req.model = target.model
+    req.model = resolved.model
     if target.base_url:
         req.base_url = target.base_url
     if target.system_prompt:
@@ -741,16 +772,20 @@ async def replay_campaign_round(
     payload: ReplayRoundRequest | None = None,
     tenant_id: str = Depends(get_current_tenant),
 ) -> dict[str, Any]:
-    """Replay a historical attack round against the current target configuration and active defenses.
+    """Replay a saved attack round through ARTSA's local target and current guardrails.
 
-    Validates whether previously successful breach attacks are now blocked by updated policies,
-    evaluating regression and calculating adaptive defense lift.
+    This is a local regression check; it does not call the campaign's original external target.
     """
     from src.agents.judge_agent import JudgeAgent
     from src.agents.target_agent import TargetAgent
     from src.data.results_store import ResultsStore
     from src.models import GuardrailConfig, TargetConfig
     from src.services.telemetry_bus import telemetry_bus
+
+    # Result files are stored outside the tenant-aware job table. Confirm the
+    # campaign belongs to the caller before reading or replaying any round.
+    if not campaign_job_store.get(campaign_id, tenant_id=tenant_id):
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
 
     results_dir = BACKEND_DIR / "data" / "results"
     store = ResultsStore(str(results_dir))

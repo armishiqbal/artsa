@@ -8,6 +8,7 @@ from src.core.config import Settings
 
 def _production_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("ARTSA_ALLOW_ENV_PROVIDER_FALLBACK", "false")
     monkeypatch.setenv("SECRET_KEY", "a" * 48)
     monkeypatch.setenv("ARTSA_API_KEY", "b" * 48)
     monkeypatch.setenv("ARTSA_CORS_ORIGINS", "https://console.example.com")
@@ -31,6 +32,14 @@ def test_production_rejects_unauthenticated_redis(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("REDIS_URL", "redis://redis:6379/0")
 
     with pytest.raises(ValidationError, match="REDIS_URL"):
+        Settings()
+
+
+def test_production_rejects_short_api_key(monkeypatch: pytest.MonkeyPatch):
+    _production_env(monkeypatch)
+    monkeypatch.setenv("ARTSA_API_KEY", "short-local-key")
+
+    with pytest.raises(ValidationError, match="ARTSA_API_KEY"):
         Settings()
 
 

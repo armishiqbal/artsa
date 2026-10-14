@@ -1,7 +1,7 @@
-"""Integration test: Full Six-agent chain end-to-end verification.
+"""Deterministic in-process test of the six-stage campaign handoff chain.
 
-Chain: Research → Curator → Red Team → Target → Judge → Defender
-Verifies the complete 6-agent loop with cryptographic HMAC handoffs between all peers.
+This test uses test providers and local functions. It does not exercise a
+deployed service or external LLM provider.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def mock_policy_file(tmp_path: Path) -> Path:
     return p
 
 
-def test_full_six_agent_chain_execution(tmp_path: Path, mock_policy_file: Path):
+def test_deterministic_six_agent_handoff_chain(tmp_path: Path, mock_policy_file: Path):
     campaign_id = "camp-six-agent-test"
     round_id = 1
 
@@ -85,7 +85,7 @@ def test_full_six_agent_chain_execution(tmp_path: Path, mock_policy_file: Path):
 
     # ─── Hop 1: Research Hop ──────────────────────────────────────────────────
     init_envelope = sign_handoff(
-        sender="defender",
+        sender="campaign_manager",
         receiver="research",
         body={"status": "START_CAMPAIGN", "round": round_id},
         campaign_id=campaign_id,

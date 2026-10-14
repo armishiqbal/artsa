@@ -58,7 +58,7 @@ def _default_custody(
 ) -> list[dict[str, Any]]:
     """Six-agent custody trail. Only campaign Red Team / Target / Judge ran.
 
-    Wired campaign hops report HMAC verify. Research / Curator / Defender stay unwired.
+    Executed campaign hops report receiver-verified HMAC state; Defender is conditional.
     """
     del blocked
     ran = from_campaign

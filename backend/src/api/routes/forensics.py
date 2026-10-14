@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
+
+from src.api.dependencies import get_current_tenant
 
 router = APIRouter(tags=["Forensics"])
 
@@ -101,49 +103,39 @@ async def export_compliance_report(
 async def get_compliance_report_export(
     campaign_id: str | None = None,
     format: str = Query("pdf", pattern="^(markdown|json|pdf)$"),
+    tenant_id: str = Depends(get_current_tenant),
 ) -> Any:
-    """Export compliance report by campaign ID as PDF, JSON, or Markdown."""
+    """Export a report for a campaign owned by the authenticated tenant."""
     from src.data.campaign_job_store import campaign_job_store
+    from src.data.hmac_audit_store import recent_handoff_audits
     from src.reporting.compliance_exporter import ComplianceReportExporter
 
-    summary: dict[str, Any] = {}
     if campaign_id:
-        job = campaign_job_store.get(campaign_id)
-        if job and job.summary:
-            summary = dict(job.summary)
-            summary["campaign_id"] = campaign_id
-            summary["model"] = job.model or summary.get("model", "gpt-5.6-terra")
-            summary["provider"] = job.provider or summary.get("provider", "openai")
-        else:
-            summary = {
-                "campaign_id": campaign_id,
-                "model": "gpt-5.6-terra",
-                "provider": "openai",
-                "total_rounds": 10,
-                "avg_attack_success": 3.5,
-                "avg_bypass_depth": 1.2,
-                "results_by_verdict": {"BLOCKED": 8, "BREACHED": 2},
-            }
+        job = campaign_job_store.get(campaign_id, tenant_id=tenant_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Campaign report not found")
     else:
-        # Pick most recent job if available
-        jobs = campaign_job_store.list_jobs(limit=1)
-        if jobs and jobs[0].summary:
-            summary = dict(jobs[0].summary)
-            summary["campaign_id"] = jobs[0].id
-            summary["model"] = jobs[0].model
-            summary["provider"] = jobs[0].provider
-        else:
-            summary = {
-                "campaign_id": "active-evaluation",
-                "model": "gpt-5.6-terra",
-                "provider": "openai",
-                "total_rounds": 10,
-                "avg_attack_success": 3.5,
-                "avg_bypass_depth": 1.2,
-                "results_by_verdict": {"BLOCKED": 8, "BREACHED": 2},
-            }
+        jobs = campaign_job_store.list_jobs(limit=1, tenant_id=tenant_id)
+        if not jobs:
+            raise HTTPException(status_code=404, detail="No campaign report is available")
+        job = jobs[0]
 
-    exporter = ComplianceReportExporter(summary)
+    summary = job.get("summary_json") or job.get("summary")
+    if not isinstance(summary, dict):
+        raise HTTPException(status_code=404, detail="Campaign has no completed report data")
+    summary = dict(summary)
+    summary["campaign_id"] = str(job.get("id") or campaign_id or "unknown")
+    summary["model"] = job.get("model") or summary.get("model")
+    summary["provider"] = job.get("provider") or summary.get("provider")
+    requested_campaign_id = str(summary["campaign_id"])
+    hmac_audit_records = [
+        row
+        for row in recent_handoff_audits(1000)
+        if str(row.get("campaign_id")) == requested_campaign_id
+        and str(row.get("tenant_id") or "default_org") == tenant_id
+    ]
+
+    exporter = ComplianceReportExporter(summary, hmac_audit_records=hmac_audit_records)
     if format == "json":
         return exporter.export_json()
     if format == "pdf":

@@ -3,7 +3,7 @@
 Do not emit a detection for a category whose detector does not exist.
 ASI08 is supported by the durable session circuit breaker.
 HMAC inter-agent handoff is a separate integrity family, not an ASI code.
-Red Team → Target → Judge is signed and verified on the receiver (ADR-007).
+Campaign hops are signed and verified at each receiver (current handoff ADR).
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ ASI_CATALOG: tuple[AsiEntry, ...] = (
         AsiStatus.PARTIAL,
         (),
         (),
-        "HMAC handoff verify is live on Red Team → Target → Judge. Research/Curator/Defender remain unwired.",
+        "Campaign Manager starts Research; agent handoffs are receiver-verified through the campaign chain. Defender is conditional on the scored mitigation threshold.",
     ),
     AsiEntry(
         "ASI08",

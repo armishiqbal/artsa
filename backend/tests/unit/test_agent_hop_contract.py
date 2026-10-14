@@ -36,15 +36,17 @@ def test_executed_hop_schema_validates():
     assert again.latency_ms == 12.5
 
 
-def test_executed_hop_rejects_unwired_agents():
-    for role in NOT_WIRED_ROLES:
-        with pytest.raises(ValueError, match="not wired"):
-            executed_hop(
-                campaign_id="c",
-                round_number=1,
-                agent=role,
-                event_type=HopEventType.STATUS,
-            )
+def test_all_six_campaign_roles_can_emit_executed_hops():
+    assert NOT_WIRED_ROLES == ()
+    assert set(WIRED_ROLES) == set(AgentRole)
+    for role in WIRED_ROLES:
+        hop = executed_hop(
+            campaign_id="c",
+            round_number=1,
+            agent=role,
+            event_type=HopEventType.STATUS,
+        )
+        assert hop.status == HopExecutionState.EXECUTED
 
 
 def test_latency_null_when_unmeasured():
@@ -60,15 +62,9 @@ def test_latency_null_when_unmeasured():
     assert hop.verdict == "BLOCKED"
 
 
-def test_chain_roster_marks_research_curator_defender_not_wired():
+def test_chain_roster_reports_each_campaign_role_as_wired_and_idle_or_executed():
     roster = chain_roster(executed=frozenset(WIRED_ROLES))
-    by_agent = {m.agent: m for m in roster}
-    assert by_agent[AgentRole.RESEARCH].status == HopExecutionState.NOT_WIRED
-    assert by_agent[AgentRole.CURATOR].status == HopExecutionState.NOT_WIRED
-    assert by_agent[AgentRole.DEFENDER].status == HopExecutionState.NOT_WIRED
-    assert by_agent[AgentRole.RED_TEAM].status == HopExecutionState.EXECUTED
-    assert by_agent[AgentRole.TARGET].status == HopExecutionState.EXECUTED
-    assert by_agent[AgentRole.JUDGE].status == HopExecutionState.EXECUTED
+    assert all(m.status == HopExecutionState.EXECUTED for m in roster)
     assert all(m.hmac_state == HmacState.UNWIRED for m in roster)
     assert all(m.hmac_verified is None for m in roster)
 
@@ -78,7 +74,21 @@ def test_chain_roster_idle_for_wired_agents_not_yet_run():
     by_agent = {m.agent: m for m in roster}
     assert by_agent[AgentRole.TARGET].status == HopExecutionState.IDLE
     assert by_agent[AgentRole.JUDGE].status == HopExecutionState.IDLE
-    assert by_agent[AgentRole.RESEARCH].status == HopExecutionState.NOT_WIRED
+    assert by_agent[AgentRole.RESEARCH].status == HopExecutionState.IDLE
+
+
+def test_chain_roster_uses_receiver_specific_hmac_status():
+    roster = chain_roster(
+        executed=frozenset({AgentRole.RESEARCH, AgentRole.CURATOR}),
+        handoff_statuses={
+            AgentRole.RESEARCH: (HmacState.OK, True),
+            AgentRole.CURATOR: (HmacState.FAIL, False),
+        },
+    )
+    by_agent = {m.agent: m for m in roster}
+    assert by_agent[AgentRole.RESEARCH].hmac_state == HmacState.OK
+    assert by_agent[AgentRole.CURATOR].hmac_state == HmacState.FAIL
+    assert by_agent[AgentRole.CURATOR].hmac_verified is False
 
 
 def test_hop_event_rejects_invalid_status():

@@ -49,7 +49,7 @@ async def get_health():
             "prometheus": "/api/v1/metrics/prometheus",
         },
         "api_gateway": {
-            "status": "fully_connected",
+            "status": "reachable",
             "mode": "unified",
             "standalone_required": False,
             "routes": [
@@ -80,7 +80,9 @@ async def get_ready(response: Response):
         ready = False
 
     if settings.auth_required:
-        if any_static_api_key_configured() or settings.ARTSA_OIDC_ENABLED:
+        from src.core.password_auth import password_auth_enabled
+
+        if any_static_api_key_configured() or settings.ARTSA_OIDC_ENABLED or password_auth_enabled():
             checks["auth"] = "ok"
         else:
             checks["auth"] = "missing_credentials"

@@ -33,6 +33,10 @@ AVAILABLE_EMBEDDING_MODELS = {
         "dimensions": 384,
         "description": "Open-source BAAI/bge-small-en-v1.5 via FastEmbed (ONNX, offline)",
     },
+    "local-bge-large": {
+        "dimensions": 1024,
+        "description": "Open-source BAAI/bge-large-en-v1.5 via FastEmbed (ONNX, offline, 1024-dim)",
+    },
     "local-bge-multilingual": {
         "dimensions": 384,
         "description": "Open-source sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 "
@@ -59,6 +63,7 @@ AVAILABLE_EMBEDDING_MODELS = {
 # actually measured by the eval gates.
 FASTEMBED_MODEL_NAMES = {
     "local-bge-small": "BAAI/bge-small-en-v1.5",
+    "local-bge-large": "BAAI/bge-large-en-v1.5",
     "local-bge-multilingual": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     "local-minilm": "sentence-transformers/all-MiniLM-L6-v2",
 }

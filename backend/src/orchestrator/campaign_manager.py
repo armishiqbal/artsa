@@ -288,9 +288,9 @@ class CampaignManager:
             raise
 
     def _research_hop(self, round_idx: int) -> dict[str, Any]:
-        """Research Agent ingests threat intelligence and signs envelope for Curator."""
+        """Campaign Manager starts Research; Research signs its output for Curator."""
         envelope = sign_handoff(
-            sender="defender",
+            sender="campaign_manager",
             receiver="research",
             body={"status": "RESEARCH_START", "round": round_idx},
             campaign_id=self.config.id,
@@ -308,7 +308,7 @@ class CampaignManager:
             )
         except HandoffIntegrityError as exc:
             self._log_hmac_abort(
-                sender="defender", receiver="research", round_idx=round_idx, reason=exc.reason
+                sender="campaign_manager", receiver="research", round_idx=round_idx, reason=exc.reason
             )
             raise
 

@@ -32,11 +32,13 @@ RELOAD = os.getenv("ARTSA_RELOAD", "false").lower() in ("1", "true", "yes")
 
 if __name__ == "__main__":
     print(f"🧠 Starting ARTSA Backend API on http://{HOST}:{PORT} ...")
-    uvicorn.run(
-        "src.api.main:app",
-        host=HOST,
-        port=PORT,
-        reload=RELOAD,
+    uvicorn_kwargs = {
+        "host": HOST,
+        "port": PORT,
+        "reload": RELOAD,
+    }
+    if RELOAD:
         # Test edits should not restart the API — avoids 503s on dashboard polls.
-        reload_excludes=["tests/*", "**/tests/**", "**/__pycache__/**"],
-    )
+        uvicorn_kwargs["reload_excludes"] = ["tests/*", "**/tests/**", "**/__pycache__/**"]
+
+    uvicorn.run("src.api.main:app", **uvicorn_kwargs)

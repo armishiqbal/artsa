@@ -16,7 +16,6 @@ import uuid
 
 from fastapi.testclient import TestClient
 from src.api.main import create_app
-from src.api.routes.metrics import _compute_defense_layers
 from src.containment.engine import ContainmentEngine
 from src.core.models.events import ToolCallEvent
 from src.services.mcp_proxy import MCPJsonRpcRequest, MCPProxyInterceptor
@@ -97,27 +96,7 @@ def test_no_all_zero_subscores_with_high_overall():
 
 
 # ── B4: defense-layer metrics honesty ────────────────────────────────────────
-def test_defense_layers_empty_is_zero_not_100():
-    layers = _compute_defense_layers([])
-    assert layers, "expected all layers reported"
-    assert all(value == 0.0 for value in layers.values()), "empty history must not fabricate 100.0"
-    assert all(value != 100.0 for value in layers.values())
-
-
-def test_defense_layers_measured_not_constant_100():
-    layers = _compute_defense_layers(
-        [
-            {"verdict": "BREACHED", "detectors": ["RuleBasedDetector", "StatisticalDetector"]},
-            {"verdict": "SAFE", "detectors": ["RuleBasedDetector"]},
-        ]
-    )
-    # rule_inspector fired on both; only 1 was actually contained -> measured 50.0
-    assert layers["rule_inspector"] == 50.0
-    assert layers["statistical_inspector"] == 100.0  # 1/1 contained (measured)
-    assert any(v != 100.0 for v in layers.values()), "layers must not all be 100.0"
-
-
-def test_defense_layers_metric_endpoint_not_constant_100():
+def test_defense_effectiveness_is_unavailable_without_judged_denominator():
     telemetry_bus.clear()
     telemetry_bus.publish(
         {
@@ -135,10 +114,23 @@ def test_defense_layers_metric_endpoint_not_constant_100():
     with TestClient(create_app()) as client:
         resp = client.get("/api/v1/metrics/dashboard")
         assert resp.status_code == 200
-        body = resp.json()
-        layers = body.get("data", body).get("defense_layers", {})
-    assert layers, "defense_layers should be populated"
-    assert all(value != 100.0 for value in layers.values())
+        body = resp.json().get("data", resp.json())
+        layers = body.get("defense_layers", {})
+    assert layers == {}, "detector hits alone do not establish layer effectiveness"
+    assert body.get("defense_score") is None
+
+
+def test_metrics_endpoint_reports_unknown_defense_without_layer_evidence():
+    telemetry_bus.clear()
+    with TestClient(create_app()) as client:
+        response = client.get("/api/v1/metrics/dashboard")
+
+    assert response.status_code == 200
+    body = response.json().get("data", response.json())
+    assert body["defense_layers"] == {}
+    assert body["defense_score"] is None
+    assert body["avg_risk_score"] is None
+    assert body["max_risk_score"] is None
 
 
 # ── B5: reasoning names the deciding detector ────────────────────────────────

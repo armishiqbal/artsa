@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+import logging
 from collections import defaultdict, deque
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -31,9 +32,9 @@ LIVE_AGENTS: tuple[AgentName, ...] = (
     "defender",
 )
 
-# Only these agents exist in CampaignManager. Live Monitor ``agents`` map uses
-# idle|running|done; Research / Curator / Defender stay idle (not "done").
-_WIRED_LIVE: tuple[AgentName, ...] = ("red_team", "target", "judge")
+# Live Monitor ``agents`` map uses idle|running|done. Defender is conditional
+# and is marked done only when its verified handoff appears in round evidence.
+_WIRED_LIVE: tuple[AgentName, ...] = LIVE_AGENTS
 
 
 def _now() -> str:
@@ -56,12 +57,18 @@ def _hop_latency(round_result: Any, agent: AgentRole) -> float | None:
     timings = getattr(round_result, "hop_latency_ms", None)
     if timings is None:
         return None
-    if agent == AgentRole.RED_TEAM:
+    if agent == AgentRole.RESEARCH:
+        value = getattr(timings, "research", None)
+    elif agent == AgentRole.CURATOR:
+        value = getattr(timings, "curator", None)
+    elif agent == AgentRole.RED_TEAM:
         value = getattr(timings, "red_team", None)
     elif agent == AgentRole.TARGET:
         value = getattr(timings, "target", None)
     elif agent == AgentRole.JUDGE:
         value = getattr(timings, "judge", None)
+    elif agent == AgentRole.DEFENDER:
+        value = getattr(timings, "defender", None)
     else:
         return None
     if value is None:
@@ -96,6 +103,20 @@ def _hmac_for_receiver(round_result: Any, receiver: str) -> tuple[HmacState, boo
             if verified is False or state_raw == HmacState.FAIL.value:
                 return HmacState.FAIL, False
     return HMAC_HANDOFF_UNWIRED, None
+
+
+def _round_handoff_statuses(
+    round_result: Any,
+) -> dict[AgentRole, tuple[HmacState, bool | None]]:
+    """Use each receiver's own verification result; never copy one hop's HMAC to all agents."""
+    return {
+        AgentRole.RESEARCH: _hmac_for_receiver(round_result, "research"),
+        AgentRole.CURATOR: _hmac_for_receiver(round_result, "curator"),
+        AgentRole.RED_TEAM: _hmac_for_receiver(round_result, "red_team"),
+        AgentRole.TARGET: _hmac_for_receiver(round_result, "target"),
+        AgentRole.JUDGE: _hmac_for_receiver(round_result, "judge"),
+        AgentRole.DEFENDER: _hmac_for_receiver(round_result, "defender"),
+    }
 
 
 def _parse_ts(round_result: Any) -> datetime:
@@ -140,7 +161,7 @@ class CampaignLiveBus:
                 if projected is not None:
                     telemetry_bus.publish(projected.model_dump(mode="json"))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Campaign hop projection failed", exc_info=True)
 
         return payload
 
@@ -186,8 +207,9 @@ def emit_round_events(campaign_id: str, round_result: Any) -> list[dict[str, Any
     """Emit the three canonical live-feed lines for one finished round.
 
     Existing Live Monitor fields (kind/actor/summary/agents) are preserved.
-    Each line also carries a truthful ``hop`` (executed agent only) and a
-    ``chain`` roster that marks Research / Curator / Defender as not_wired.
+    Each line carries the three existing Live Monitor hops and a chain roster
+    reflecting the actual Research → Curator → Red Team → Target → Judge flow.
+    Defender is included only when its conditional mitigation hop ran.
     """
     attack = getattr(round_result, "attack", None)
     response = getattr(round_result, "response", None)
@@ -209,21 +231,25 @@ def emit_round_events(campaign_id: str, round_result: Any) -> list[dict[str, Any
     )
     outcome = verdict_to_outcome(str(verdict))
 
-    # Live Monitor stage lights: only wired agents move. Unwired stay idle.
+    handoff_statuses = _round_handoff_statuses(round_result)
+    handoffs = getattr(round_result, "hmac_handoffs", None) or []
+    defender_executed = any(
+        isinstance(row, dict) and str(row.get("receiver") or "") == "defender"
+        for row in handoffs
+    )
+
+    # Live Monitor stage lights follow the real round order.
     agents_attack = default_agents("idle")
-    agents_attack.update({"red_team": "running", "target": "idle", "judge": "idle"})
+    agents_attack.update({"research": "done", "curator": "done", "red_team": "running"})
     agents_resp = default_agents("idle")
-    agents_resp.update({"red_team": "done", "target": "running", "judge": "idle"})
-    agents_done = default_agents("done")
+    agents_resp.update({"research": "done", "curator": "done", "red_team": "done", "target": "running"})
+    agents_done = default_agents("idle")
+    agents_done.update({"research": "done", "curator": "done", "red_team": "done", "target": "done", "judge": "done"})
+    if defender_executed:
+        agents_done["defender"] = "done"
 
     rt_state, rt_ok = _hmac_for_receiver(round_result, "target")
     judge_state, judge_ok = _hmac_for_receiver(round_result, "judge")
-    wired_state = HmacState.OK if rt_ok is True and judge_ok is True else (
-        HmacState.FAIL if rt_ok is False or judge_ok is False else HMAC_HANDOFF_UNWIRED
-    )
-    wired_verified = True if wired_state == HmacState.OK else (
-        False if wired_state == HmacState.FAIL else None
-    )
 
     red_hop = executed_hop(
         campaign_id=campaign_id,
@@ -233,8 +259,8 @@ def emit_round_events(campaign_id: str, round_result: Any) -> list[dict[str, Any
         timestamp=hop_ts,
         latency_ms=_hop_latency(round_result, AgentRole.RED_TEAM),
         evidence_id=_evidence_id(round_result, AgentRole.RED_TEAM),
-        hmac_state=rt_state,
-        hmac_verified=rt_ok,
+        hmac_state=handoff_statuses[AgentRole.RED_TEAM][0],
+        hmac_verified=handoff_statuses[AgentRole.RED_TEAM][1],
     )
     target_hop = executed_hop(
         campaign_id=campaign_id,
@@ -276,9 +302,8 @@ def emit_round_events(campaign_id: str, round_result: Any) -> list[dict[str, Any
                 "chain": [
                     m.model_dump(mode="json")
                     for m in chain_roster(
-                        executed=frozenset({AgentRole.RED_TEAM}),
-                        wired_hmac=rt_state,
-                        wired_verified=rt_ok,
+                        executed=frozenset({AgentRole.RESEARCH, AgentRole.CURATOR, AgentRole.RED_TEAM}),
+                        handoff_statuses=handoff_statuses,
                     )
                 ],
             },
@@ -299,9 +324,8 @@ def emit_round_events(campaign_id: str, round_result: Any) -> list[dict[str, Any
                 "chain": [
                     m.model_dump(mode="json")
                     for m in chain_roster(
-                        executed=frozenset({AgentRole.RED_TEAM, AgentRole.TARGET}),
-                        wired_hmac=rt_state,
-                        wired_verified=rt_ok,
+                        executed=frozenset({AgentRole.RESEARCH, AgentRole.CURATOR, AgentRole.RED_TEAM, AgentRole.TARGET}),
+                        handoff_statuses=handoff_statuses,
                     )
                 ],
             },
@@ -322,9 +346,10 @@ def emit_round_events(campaign_id: str, round_result: Any) -> list[dict[str, Any
                 "chain": [
                     m.model_dump(mode="json")
                     for m in chain_roster(
-                        executed=frozenset(WIRED_ROLES),
-                        wired_hmac=wired_state,
-                        wired_verified=wired_verified,
+                        executed=frozenset(
+                            {*WIRED_ROLES} if defender_executed else {*WIRED_ROLES} - {AgentRole.DEFENDER}
+                        ),
+                        handoff_statuses=handoff_statuses,
                     )
                 ],
             },
@@ -339,7 +364,10 @@ def emit_campaign_status(
     *,
     agents: dict[str, AgentState] | None = None,
 ) -> dict[str, Any]:
-    stage = agents or default_agents("idle" if status == "PENDING" else "running")
+    previous = campaign_live_bus.history(campaign_id, limit=1)
+    previous_event = previous[-1] if previous else {}
+    stage = agents or previous_event.get("agents") or default_agents("idle")
+    chain = previous_event.get("chain") or [m.model_dump(mode="json") for m in chain_roster()]
     return campaign_live_bus.publish(
         campaign_id,
         {
@@ -351,7 +379,7 @@ def emit_campaign_status(
             "summary": f"Campaign {status}",
             "agents": stage,
             "campaign_status": status,
-            "chain": [m.model_dump(mode="json") for m in chain_roster()],
+            "chain": chain,
             "hmac_state": HMAC_HANDOFF_UNWIRED.value,
             "hmac_verified": None,
         },

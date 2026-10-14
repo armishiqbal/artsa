@@ -23,6 +23,7 @@ from src.core.models.targets import (
 from src.data import target_store
 from src.data.db import get_async_session
 from src.discovery import TargetNotAuthorizedError, discover_target
+from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Targets"])
@@ -62,6 +63,53 @@ async def get_target(
     if target is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target not found")
     return target
+
+
+@router.get("/targets/{target_id}/preflight")
+async def target_campaign_preflight(
+    target_id: str,
+    session: AsyncSession = Depends(get_async_session),
+    tenant_id: str = Depends(get_current_tenant),
+) -> dict[str, object]:
+    """Check whether a target can be assessed without sending it traffic."""
+    target = await target_store.get_target(session, target_id, tenant_id=tenant_id)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target not found")
+
+    provider_ready = False
+    provider_code: str | None = None
+    provider_model = target.model or None
+    if target.provider:
+        try:
+            resolved = await provider_resolver.resolve_async(
+                session,
+                tenant_id=tenant_id,
+                provider=target.provider,
+                model=target.model or None,
+                base_url=target.base_url,
+            )
+            provider_ready = True
+            provider_model = resolved.model
+        except ProviderConfigurationError as exc:
+            provider_code = exc.code
+    else:
+        provider_code = "provider_not_configured"
+
+    authorized = target.authorized
+    mapped = bool(target.surface and target.surface.reachable)
+    checks = [
+        {"id": "authorization", "ready": authorized, "message": "Target is authorized" if authorized else "Authorize this target before sending assessment traffic"},
+        {"id": "provider", "ready": provider_ready, "message": "Campaign provider is configured" if provider_ready else provider_code or "Campaign provider is not configured"},
+        {"id": "discovery", "ready": mapped, "message": "Target discovery is reachable" if mapped else "Run discovery successfully before starting a campaign"},
+    ]
+    return {
+        "target_id": target.id,
+        "target_name": target.name,
+        "ready": all(check["ready"] for check in checks),
+        "provider": target.provider or None,
+        "model": provider_model,
+        "checks": checks,
+    }
 
 
 @router.patch("/targets/{target_id}", response_model=Target)

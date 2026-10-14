@@ -196,13 +196,16 @@ async def lifespan(app: FastAPI):
         except Exception as exc:  # pragma: no cover
             logger.warning("MongoDB sink start skipped: %s", exc)
 
-        # Ensure the Mongo account store has its unique email index (no-op when
-        # Mongo is disabled). Fail soft so the app still boots without Mongo.
+        # Ensure the Mongo account store has its unique email index when
+        # configured. Fail soft so the app still boots without Mongo.
         try:
             from src.data.user_store import ensure_user_indexes
 
-            ensure_user_indexes()
-            logger.info("MongoDB users collection ready (unique email index ensured)")
+            if settings.ARTSA_MONGODB_URI and settings.ARTSA_MONGODB_URI.strip():
+                ensure_user_indexes()
+                logger.info("MongoDB users collection ready (unique email index ensured)")
+            else:
+                logger.info("MongoDB user store disabled (no ARTSA_MONGODB_URI)")
         except Exception as exc:
             logger.warning("MongoDB user-store index setup skipped: %s", exc)
 

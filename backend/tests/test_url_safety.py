@@ -194,6 +194,16 @@ def test_proxy_blocks_internal_forward_to(proxy_client, monkeypatch):
 def test_proxy_blocks_internal_env_target(proxy_client, monkeypatch):
     monkeypatch.setattr(settings, "ARTSA_PROXY_ALLOW_INTERNAL_TARGETS", False)
     monkeypatch.setattr(settings, "ARTSA_PROXY_TARGET_BASE_URL", "http://127.0.0.1:9")
+
+    async def no_registered_provider(*args, **kwargs):
+        raise RuntimeError("no provider record configured for this test")
+
+    # Keep this test on the environment-target path even when the developer's
+    # local database contains a provider record for the default tenant.
+    monkeypatch.setattr(
+        "src.services.provider_resolver.provider_resolver.resolve_async",
+        no_registered_provider,
+    )
     res = proxy_client.post(
         "/api/v1/proxy/v1/chat/completions",
         json=_safe_body(),

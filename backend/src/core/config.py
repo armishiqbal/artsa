@@ -56,9 +56,27 @@ class Settings(BaseSettings):
                 "ARTSA_READONLY_API_KEY",
             )
         )
-        if not has_api_key and not self.ARTSA_OIDC_ENABLED:
+        if not has_api_key and not self.ARTSA_OIDC_ENABLED and not self.ARTSA_PASSWORD_AUTH_ENABLED:
             raise ValueError(
-                "Production requires ARTSA_API_KEY (or role keys) or ARTSA_OIDC_ENABLED=true"
+                "Production requires ARTSA_API_KEY (or role keys), OIDC, or enabled password authentication"
+            )
+
+        configured_api_keys = (
+            "ARTSA_API_KEY",
+            "ARTSA_ANALYST_API_KEY",
+            "ARTSA_REDTEAM_API_KEY",
+            "ARTSA_READONLY_API_KEY",
+        )
+        short_api_keys = [
+            name
+            for name in configured_api_keys
+            if self.is_key_configured(name)
+            and len((getattr(self, name) or "").strip()) < 32
+        ]
+        if short_api_keys:
+            raise ValueError(
+                "Production API keys must be at least 32 characters: "
+                + ", ".join(short_api_keys)
             )
 
         if (self.ARTSA_CORS_ORIGINS or "*").strip() == "*":
@@ -122,7 +140,9 @@ class Settings(BaseSettings):
     # Failed integration payloads are encrypted and replayable only within this
     # bounded window. Successful payload ciphertext is erased immediately.
     ARTSA_CUSTOM_INTEGRATION_DEAD_LETTER_RETENTION_DAYS: int = 30
-    ARTSA_REQUIRE_AUTH: bool = False
+    # Protected routes require a credential by default. Local development can
+    # explicitly opt out with ARTSA_REQUIRE_AUTH=false when needed.
+    ARTSA_REQUIRE_AUTH: bool = True
     ARTSA_ANALYST_API_KEY: str | None = None
     ARTSA_REDTEAM_API_KEY: str | None = None
     ARTSA_READONLY_API_KEY: str | None = None
@@ -186,7 +206,7 @@ class Settings(BaseSettings):
     # signs the ticket; falls back to SECRET_KEY when unset.
     ARTSA_WS_TICKET_SECRET: str | None = None
     ARTSA_WS_TICKET_TTL_SEC: int = 30
-    # Inter-agent HMAC handoffs (Red Team → Target → Judge). Distinct from WS tickets.
+    # Campaign handoff HMAC (coordinator → Research plus receiver-verified agent hops). Distinct from WS tickets.
     ARTSA_HMAC_HANDOFF_SECRET: str | None = None
     ARTSA_HMAC_HANDOFF_TTL_SEC: int = 300
     ARTSA_HMAC_HANDOFF_MAX_SKEW_SEC: int = 60
@@ -409,7 +429,7 @@ class Settings(BaseSettings):
 
     @property
     def auth_required(self) -> bool:
-        """Require X-API-Key on all non-public routes."""
+        """Require a supported credential on all non-public routes."""
         if self.ARTSA_REQUIRE_AUTH:
             return True
         return self.ENVIRONMENT == "production"

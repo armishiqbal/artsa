@@ -155,7 +155,9 @@ async def test_unreachable_target_reports_unknown_not_empty(session, monkeypatch
     from src.discovery import discover_target
 
     target = await target_store.create_target(
-        session, _payload(authorized=True), tenant_id="acme"
+        session,
+        _payload(authorized=True, provider="deterministic", model="echo"),
+        tenant_id="acme",
     )
 
     def _boom(_config):
@@ -168,3 +170,131 @@ async def test_unreachable_target_reports_unknown_not_empty(session, monkeypatch
     assert "no credentials" in (surface.unreachable_reason or "")
     assert surface.capabilities == []
     assert surface.surface == []
+
+
+def test_discovery_config_resolves_tenant_provider_alias(monkeypatch):
+    from src.core.models.targets import Target
+    from src.discovery.engine import _build_target_config
+    from src.services.provider_resolver import ResolvedProvider
+    import src.services.provider_resolver as resolver_module
+
+    calls: dict[str, object] = {}
+
+    def resolve_sync(**kwargs):
+        calls.update(kwargs)
+        return ResolvedProvider(
+            tenant_id="acme",
+            provider_id="provider-row-123",
+            provider_name="acme-openai",
+            provider_type="openai",
+            api_key="must-not-enter-target-config",
+            base_url="https://api.openai.com/v1",
+            model="gpt-4o-mini",
+            source="database",
+        )
+
+    monkeypatch.setattr(resolver_module.provider_resolver, "resolve_sync", resolve_sync)
+    target = Target(
+        id="target-1",
+        tenant_id="acme",
+        name="Support bot",
+        provider="acme-openai",
+        model="gpt-4o-mini",
+        version="v2",
+        authorized=True,
+    )
+
+    config = _build_target_config(target)
+
+    assert calls["tenant_id"] == "acme"
+    assert calls["provider"] == "acme-openai"
+    assert config.provider == "openai"
+    assert config.provider_ref == "provider-row-123"
+    assert config.target_id == "target-1"
+    assert config.target_version == "v2"
+    assert "api_key" not in config.model_dump()
+
+
+@pytest.mark.asyncio
+async def test_target_preflight_checks_authorization_provider_and_discovery(monkeypatch):
+    from src.api.routes.targets import target_campaign_preflight
+    from src.core.models.targets import Target, TargetSurface
+    from src.services.provider_resolver import ResolvedProvider
+    import src.api.routes.targets as targets_route
+
+    target = Target(
+        id="target-1",
+        tenant_id="acme",
+        name="Support bot",
+        provider="acme-openai",
+        model="gpt-4o-mini",
+        authorized=True,
+        surface=TargetSurface(reachable=True),
+    )
+
+    async def get_target(_session, target_id, *, tenant_id):
+        assert target_id == target.id
+        assert tenant_id == "acme"
+        return target
+
+    async def resolve_async(_session, **kwargs):
+        assert kwargs["tenant_id"] == "acme"
+        assert kwargs["provider"] == "acme-openai"
+        return ResolvedProvider(
+            tenant_id="acme",
+            provider_id="provider-row-123",
+            provider_name="acme-openai",
+            provider_type="openai",
+            api_key="secret",
+            base_url="https://api.openai.com/v1",
+            model="gpt-4o-mini",
+            source="database",
+        )
+
+    monkeypatch.setattr(targets_route.target_store, "get_target", get_target)
+    monkeypatch.setattr(targets_route.provider_resolver, "resolve_async", resolve_async)
+
+    result = await target_campaign_preflight("target-1", object(), "acme")
+
+    assert result["ready"] is True
+    assert {check["id"]: check["ready"] for check in result["checks"]} == {
+        "authorization": True,
+        "provider": True,
+        "discovery": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_campaign_target_gate_requires_authorization_and_reachable_discovery(monkeypatch):
+    from fastapi import HTTPException
+    from src.api.routes.campaigns import RunCampaignRequest, _apply_registered_target
+    from src.core.models.targets import Target, TargetSurface
+    import src.data.target_store as target_store_module
+
+    target = Target(
+        id="target-1",
+        tenant_id="acme",
+        name="Support bot",
+        provider="acme-openai",
+        model="gpt-4o-mini",
+        authorized=True,
+        surface=TargetSurface(reachable=False),
+    )
+
+    async def get_target(_session, _target_id, *, tenant_id):
+        assert tenant_id == "acme"
+        return target
+
+    monkeypatch.setattr(target_store_module, "get_target", get_target)
+    request = RunCampaignRequest(target_id=target.id)
+
+    with pytest.raises(HTTPException) as error:
+        await _apply_registered_target(request, object(), "acme")
+
+    assert error.value.status_code == 409
+    assert "discovery" in str(error.value.detail).lower()
+
+    target.authorized = False
+    with pytest.raises(HTTPException) as error:
+        await _apply_registered_target(request, object(), "acme")
+    assert error.value.status_code == 403

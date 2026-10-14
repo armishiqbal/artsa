@@ -1,8 +1,10 @@
 """Truthful six-agent hop / event contract (ARTSA 2.0).
 
 The planned chain is Research → Curator → Red Team → Target → Judge → Defender.
-Only Red Team, Target, and Judge execute today. Wired hops are HMAC-signed.
-Research / Curator / Defender stay not_wired and must not receive fake signatures.
+The campaign manager executes Research, Curator, Red Team, Target, and Judge.
+Defender executes when a scored result meets the mitigation threshold. Every
+handoff is reported only after receiver verification; Research is coordinator-
+started and must not be represented as started by a fictitious Defender hop.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ class AgentRole(str, Enum):
 class HopExecutionState(str, Enum):
     """Whether this agent actually ran.
 
-    ``not_wired`` — planned agent with no implementation (Research / Curator / Defender).
+    ``not_wired`` — planned agent with no implementation.
     ``executed`` — this hop ran in the campaign loop.
     ``idle`` — wired agent that has not run in this snapshot (existing Live Monitor term).
     """
@@ -57,15 +59,14 @@ class HopEventType(str, Enum):
 
 
 WIRED_ROLES: tuple[AgentRole, ...] = (
+    AgentRole.RESEARCH,
+    AgentRole.CURATOR,
     AgentRole.RED_TEAM,
     AgentRole.TARGET,
     AgentRole.JUDGE,
-)
-NOT_WIRED_ROLES: tuple[AgentRole, ...] = (
-    AgentRole.RESEARCH,
-    AgentRole.CURATOR,
     AgentRole.DEFENDER,
 )
+NOT_WIRED_ROLES: tuple[AgentRole, ...] = ()
 CHAIN_ORDER: tuple[AgentRole, ...] = (
     AgentRole.RESEARCH,
     AgentRole.CURATOR,
@@ -115,19 +116,22 @@ def chain_roster(
     executed: frozenset[AgentRole] | None = None,
     wired_hmac: HmacState = HmacState.UNWIRED,
     wired_verified: bool | None = None,
+    handoff_statuses: dict[AgentRole, tuple[HmacState, bool | None]] | None = None,
 ) -> list[AgentChainMember]:
-    """All six planned agents. Research / Curator / Defender are always not_wired."""
+    """Return stage state and receiver-verified HMAC state for all six roles."""
     ran = executed or frozenset()
     members: list[AgentChainMember] = []
     for role in CHAIN_ORDER:
-        if role in NOT_WIRED_ROLES:
+        if role in ran:
+            status = HopExecutionState.EXECUTED
+            hmac_state, hmac_verified = (handoff_statuses or {}).get(
+                role,
+                (wired_hmac, wired_verified),
+            )
+        elif role in NOT_WIRED_ROLES:
             status = HopExecutionState.NOT_WIRED
             hmac_state = HMAC_HANDOFF_UNWIRED
             hmac_verified = None
-        elif role in ran:
-            status = HopExecutionState.EXECUTED
-            hmac_state = wired_hmac
-            hmac_verified = wired_verified
         else:
             status = HopExecutionState.IDLE
             hmac_state = HMAC_HANDOFF_UNWIRED
@@ -157,9 +161,7 @@ def executed_hop(
     hmac_state: HmacState = HmacState.UNWIRED,
     hmac_verified: bool | None = None,
 ) -> AgentHopEvent:
-    """Build a hop for an agent that actually ran. Unwired roles are rejected."""
-    if agent in NOT_WIRED_ROLES:
-        raise ValueError(f"{agent.value} is not wired and must not be emitted as executed")
+    """Build a hop for an agent that actually ran."""
     return AgentHopEvent(
         campaign_id=campaign_id,
         round=round_number,

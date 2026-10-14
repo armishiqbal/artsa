@@ -78,12 +78,12 @@ def test_metrics_from_campaigns_computes_lift_when_baseline_exists():
     assert metrics.adaptive_campaign_id == "adapt"
 
 
-def test_unwired_agents_stay_not_wired():
+def test_wired_agents_stay_idle_until_execution_evidence():
     snaps = agent_snapshots(campaign_status="RUNNING", live_agents={"red_team": "running"})
     by_id = {s.agent_id: s for s in snaps}
-    assert by_id["research"].state == AgentOpsState.NOT_WIRED
-    assert by_id["curator"].state == AgentOpsState.NOT_WIRED
-    assert by_id["defender"].state == AgentOpsState.NOT_WIRED
+    assert by_id["research"].state == AgentOpsState.IDLE
+    assert by_id["curator"].state == AgentOpsState.IDLE
+    assert by_id["defender"].state == AgentOpsState.IDLE
     assert by_id["red_team"].state == AgentOpsState.ACTIVE
     assert by_id["research"].current_round is None
 
@@ -146,7 +146,7 @@ def test_build_ops_snapshot_filters_tenant_and_dedupes():
     assert snap["telemetry_mode"] == "LIVE"
     assert snap["event_count"] == 1
     assert snap["events"][0]["threat_code"] == "ASI01"
-    assert snap["hmac"]["hmac_state"] == "ok"
+    assert snap["hmac"]["hmac_state"] == "unverified"
     assert all(e["hmac"]["signature_status"] == "unwired" for e in snap["events"])
 
 

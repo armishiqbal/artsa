@@ -135,8 +135,14 @@ async def get_key_status() -> dict[str, Any]:
 
 @router.get("/config/providers")
 async def get_provider_readiness() -> dict[str, Any]:
-    """Return LLM provider readiness based on configured keys."""
+    """Return provider configuration presence; this endpoint does not probe availability."""
     from src.services.provider_registry import get_available_providers
+
+    ollama_base_url = (settings.OLLAMA_BASE_URL or "").strip().rstrip("/")
+    ollama_configured = settings.is_key_configured("OLLAMA_API_KEY") or (
+        bool(ollama_base_url)
+        and ollama_base_url != "http://localhost:11434/v1"
+    )
 
     providers = [
         {"id": "openai", "name": "OpenAI", "type": "cloud_api", "model": settings.ARTSA_DEFAULT_MODEL, "configured": settings.is_key_configured("OPENAI_API_KEY")},
@@ -145,12 +151,17 @@ async def get_provider_readiness() -> dict[str, Any]:
         {"id": "deepseek", "name": "DeepSeek", "type": "cloud_api", "model": "deepseek-chat", "configured": settings.is_key_configured("DEEPSEEK_API_KEY")},
         {"id": "anthropic", "name": "Anthropic", "type": "cloud_api", "model": "claude-3-5-sonnet", "configured": settings.is_key_configured("ANTHROPIC_API_KEY")},
         {"id": "openrouter", "name": "OpenRouter", "type": "cloud_api", "model": "auto", "configured": settings.is_key_configured("OPENROUTER_API_KEY")},
-        {"id": "ollama", "name": "Ollama Local", "type": "local", "model": "llama3.2", "configured": True},
+        {"id": "ollama", "name": "Ollama Local", "type": "local", "model": "llama3.2", "configured": ollama_configured},
         {"id": "huggingface", "name": "Hugging Face", "type": "cloud_free", "model": "meta-llama/Meta-Llama-3-8B-Instruct", "configured": settings.is_key_configured("HUGGINGFACE_API_KEY") or settings.is_key_configured("HF_TOKEN")},
     ]
 
     return {
         "providers": providers,
+        "availability": "not_checked",
+        # Environment credentials are only a valid campaign source when the
+        # backend explicitly allows this fallback. Tenant provider records are
+        # surfaced separately by /providers.
+        "environment_fallback_enabled": settings.ARTSA_ALLOW_ENV_PROVIDER_FALLBACK,
         "registered": get_available_providers(),
         "guardrails": {
             "lakera": settings.is_key_configured("LAKERA_API_KEY"),
@@ -158,8 +169,8 @@ async def get_provider_readiness() -> dict[str, Any]:
             "heuristic": True,
         },
         "api_gateway": {
-            "status": "fully_connected",
+            "status": "reachable",
             "mode": "unified",
-            "message": "Wargame, attack library, and containment share the main API on port 8000.",
+            "message": "This status endpoint responded. Check each feature's readiness separately.",
         },
     }

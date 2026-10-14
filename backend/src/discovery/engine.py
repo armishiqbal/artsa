@@ -257,16 +257,32 @@ def _trust_boundaries(present: set[str]) -> list[str]:
 def _build_target_config(target: Target):
     """Build the runtime config used to reach the target."""
     from src.models import TargetConfig
+    from src.services.provider_resolver import ProviderConfigurationError, provider_resolver
+
+    provider = target.provider or "openai"
+    try:
+        # Target.provider is a tenant-facing alias (for example ``customer-llm``).
+        # TargetAgent expects provider_ref to be the immutable tenant provider row ID.
+        # Resolve that alias here and keep credentials transient; TargetConfig only
+        # receives the safe reference used by the agent at request time.
+        resolved = provider_resolver.resolve_sync(
+            tenant_id=target.tenant_id,
+            provider=provider,
+            model=target.model or None,
+            base_url=target.base_url,
+        )
+    except ProviderConfigurationError as exc:
+        raise RuntimeError(exc.code) from exc
 
     return TargetConfig(
-        provider=target.provider or "openai",
-        model=target.model or "gpt-4o-mini",
+        provider=resolved.provider_type,
+        model=resolved.model,
         system_prompt=target.system_prompt or "",
-        base_url=target.base_url,
+        base_url=resolved.base_url,
         tenant_id=target.tenant_id,
-        # Provider names are resolved within the target tenant immediately
-        # before client construction; credentials never enter TargetConfig.
-        provider_ref=target.provider or None,
+        provider_ref=resolved.provider_id,
+        target_id=target.id,
+        target_version=target.version,
     )
 
 

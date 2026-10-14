@@ -18,11 +18,28 @@ def test_config_keys_endpoint():
 
 
 def test_config_providers_endpoint():
+    from src.core.config import settings
+
     response = client.get("/api/v1/config/providers")
     assert response.status_code == 200
     data = unwrap_response(response)
     assert "providers" in data
     assert "guardrails" in data
+    assert data["environment_fallback_enabled"] is settings.ARTSA_ALLOW_ENV_PROVIDER_FALLBACK
+
+
+def test_config_provider_status_does_not_claim_default_ollama_is_available(monkeypatch):
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setattr(settings, "OLLAMA_API_KEY", None)
+
+    response = client.get("/api/v1/config/providers")
+    assert response.status_code == 200
+    data = unwrap_response(response)
+    ollama = next(provider for provider in data["providers"] if provider["id"] == "ollama")
+    assert ollama["configured"] is False
+    assert data["availability"] == "not_checked"
 
 
 def test_forensics_analyze():
