@@ -16,7 +16,7 @@ interface FindingCustodyTrailProps {
 
 export function FindingCustodyTrail({ chain }: FindingCustodyTrailProps) {
   return (
-    <DashboardCard title="Chain of custody" description="Wired Red Team → Target → Judge evidence; planned roles are marked not wired">
+    <DashboardCard title="Handoff Verification Status" description="Signature status supplied by the backend for included handoffs">
       <ol className="space-y-3">
         {chain.map((hop, idx) => {
           const agentId = hop.agent as PipelineAgentId;
@@ -40,7 +40,7 @@ export function FindingCustodyTrail({ chain }: FindingCustodyTrailProps) {
                 ) : (
                   <span className="inline-flex items-center gap-1 text-muted-foreground">
                     <Lock className="h-3 w-3" aria-hidden />
-                    N/A
+                    Not provided
                   </span>
                 )}
               </div>

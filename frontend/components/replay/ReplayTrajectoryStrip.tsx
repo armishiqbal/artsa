@@ -24,12 +24,12 @@ export function ReplayTrajectoryStrip({
   if (steps.length === 0) return null;
 
   return (
-    <div className="border-b border-border bg-muted/15 px-4 py-4 sm:px-5">
+    <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-3.5 sm:px-5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-foreground">Attack trajectory</p>
-        <p className="font-mono text-[10px] text-muted-foreground">{steps.length} turns</p>
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Execution path</p>
+        <p className="font-mono text-[10px] text-slate-500">{steps.length} turns recorded</p>
       </div>
-      <div className="mt-3 flex items-stretch gap-1 overflow-x-auto pb-1 scroll-smooth" role="list">
+      <div className="mt-2.5 flex items-stretch gap-1 overflow-x-auto pb-1 scroll-smooth" role="list">
         {steps.map((step, i) => {
           const actionType = categorizeTrajectoryAction(step.tool, step.verdict);
           const selected = selectedIndex === step.index;
@@ -40,9 +40,11 @@ export function ReplayTrajectoryStrip({
                 role="listitem"
                 onClick={() => onSelect(step.index)}
                 className={cn(
-                  "interactive-pill flex min-w-[108px] flex-col gap-1 rounded-lg border px-3 py-2 text-left transition-all duration-200",
+                  "interactive-pill flex min-w-[115px] flex-col gap-1 rounded-lg border px-3 py-2 text-left transition-all duration-200",
                   trajectoryActionTone(actionType),
-                  selected && "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-sm"
+                  selected
+                    ? "ring-2 ring-blue-600 ring-offset-2 ring-offset-white shadow-xs border-blue-500 font-semibold"
+                    : "border-slate-200/80 bg-white hover:border-slate-300"
                 )}
                 aria-current={selected ? "true" : undefined}
               >

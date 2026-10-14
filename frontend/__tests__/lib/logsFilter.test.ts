@@ -24,9 +24,12 @@ describe("logsTypes and filtering", () => {
     expect(record.threatsDetected).toContain("Prompt attack");
     expect(record.threatSource).toBe("User Prompt");
     expect(record.content).toContain("ignore previous rules");
-    expect(record.requestId).toBe("req_evt-test");
-    expect(record.processingRegion).toBe("us-east-1");
-    expect(record.project).toBe("No project");
+    expect(record.requestId).toBe("—");
+    expect(record.processingRegion).toBe("Unknown");
+    expect(record.project).toBe("Unknown");
+
+    const withRequestId = telemetryToLogRecord({ ...raw, request_id: "req-real-001" }, 0);
+    expect(withRequestId.requestId).toBe("req-real-001");
 
     const withProj = telemetryToLogRecord({ ...raw, project: "custom-app" }, 0);
     expect(withProj.project).toBe("custom-app");
@@ -43,7 +46,7 @@ describe("logsTypes and filtering", () => {
     };
 
     const record = telemetryToLogRecord(safeRaw, 1);
-    expect(record.projectMode).toBe("Monitor");
+    expect(record.projectMode).toBe("Unknown");
     expect(record.threatsDetected).toEqual(["No detections"]);
   });
 

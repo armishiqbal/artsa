@@ -82,20 +82,21 @@ export default function AutopsyReplayModal({ isOpen, onClose, sessionId }: Autop
     setForensics(null);
 
     const loadAutopsy = async () => {
-      const timeline = await fetchFromBackend<TimelineEntry[]>(
+      const rawTimeline = await fetchFromBackend<TimelineEntry[]>(
         `/api/v1/sessions/${sessionId}/timeline`,
         { silent: true }
       );
 
       if (cancelled) return;
 
-      if (timeline === null) {
-        setError("Could not reach ARTSA. Check your deployment and try again.");
+      if (!rawTimeline || rawTimeline.length === 0) {
+        setError("Could not retrieve timeline data for this session.");
         setTrajectorySteps([]);
         setLoading(false);
         return;
       }
 
+      const timeline = rawTimeline;
       const steps: TrajectoryStep[] = timeline.map((entry, index) => ({
         turn: index + 1,
         action: categorizeAction(entry.event.tool_name, entry.evaluation?.verdict),
@@ -112,21 +113,19 @@ export default function AutopsyReplayModal({ isOpen, onClose, sessionId }: Autop
         verdict: t.evaluation?.verdict,
       }));
 
-      const result = events.length
-        ? await fetchFromBackend<ForensicResult>("/api/v1/forensics/analyze", {
-            method: "POST",
-            body: JSON.stringify({ events, session_id: sessionId }),
-          })
-        : null;
+      let result: ForensicResult | null = null;
+      if (events.length) {
+        result = await fetchFromBackend<ForensicResult>("/api/v1/forensics/analyze", {
+          method: "POST",
+          body: JSON.stringify({ events, session_id: sessionId }),
+        });
+      }
 
       if (cancelled) return;
 
       setTrajectorySteps(steps);
       setForensics(result);
       setCurrentStep(0);
-      if (steps.length === 0) {
-        setError("No timeline events found for this session.");
-      }
       setLoading(false);
     };
 
@@ -160,68 +159,68 @@ export default function AutopsyReplayModal({ isOpen, onClose, sessionId }: Autop
   const hasContent = trajectorySteps.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md" role="presentation" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm" role="presentation" onClick={onClose}>
       <div
-        className="w-full max-w-3xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl"
+        className="w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-label="Autopsy replay"
         aria-busy={loading}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-destructive/15 p-2 text-destructive">
+            <div className="rounded-lg bg-rose-50 border border-rose-200 p-2 text-rose-600">
               <ShieldAlert className="h-5 w-5" aria-hidden />
             </div>
             <div>
-              <h2 className="font-mono text-base font-bold">Autopsy Mode — Trajectory Replay</h2>
-              <p className="text-xs text-muted-foreground">Step-by-step forensic analysis of agent escalation</p>
+              <h2 className="font-mono text-base font-bold text-slate-900">Autopsy Mode — Trajectory Replay</h2>
+              <p className="text-xs text-slate-500">Step-by-step forensic analysis of agent escalation</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close autopsy replay" ref={closeButtonRef}>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close autopsy replay" ref={closeButtonRef} className="text-slate-400 hover:text-slate-700">
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
             <p className="font-mono text-xs">Loading trajectory &amp; forensics…</p>
           </div>
         ) : error || !hasContent ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <ShieldAlert className="h-6 w-6 text-destructive" aria-hidden />
-            <p className="text-sm text-foreground">{error ?? "No trajectory data available for this session."}</p>
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <ShieldAlert className="h-6 w-6 text-rose-500" aria-hidden />
+            <p className="text-sm text-slate-700">{error ?? "No trajectory data available for this session."}</p>
+            <Button variant="outline" size="sm" onClick={onClose} className="border-slate-200">
               Close
             </Button>
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between font-mono text-xs text-muted-foreground">
-              <span>
-                Step {currentStep + 1} / {trajectorySteps.length}
+            <div className="flex items-center justify-between font-mono text-xs text-slate-500">
+              <span className="font-semibold text-slate-700">
+                Step {currentStep + 1} of {trajectorySteps.length}
               </span>
               <RiskScore score={step.risk} />
             </div>
 
-            <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
+            <div className="space-y-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
               <div className="flex items-center justify-between">
-                <Badge variant="info" className="font-mono text-[10px]">
+                <Badge variant="info" className="font-mono text-[10px] bg-blue-50 text-blue-700 border-blue-200">
                   Turn {step.turn}: {step.action}
                 </Badge>
-                <span className="font-mono text-xs font-semibold text-destructive">Tool: {step.tool}</span>
+                <span className="font-mono text-xs font-semibold text-rose-600">Tool: {step.tool}</span>
               </div>
-              <p className="rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">{step.detail}</p>
+              <pre className="rounded-lg border border-slate-800 bg-[#0a0f1d] p-3.5 font-mono text-xs leading-relaxed text-slate-200 overflow-x-auto select-text">{step.detail}</pre>
             </div>
 
             {forensics && (
-              <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+              <div className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
                 <div className="flex items-center gap-2">
-                  <Microscope className="h-4 w-4 text-muted-foreground" aria-hidden />
-                  <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Autopsy Analysis
+                  <Microscope className="h-4 w-4 text-slate-600" aria-hidden />
+                  <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Forensic Autopsy Diagnostics
                   </h3>
                   {forensics.privilege_escalation_detected && (
                     <Badge variant="critical" className="font-mono text-[10px]">
@@ -230,35 +229,35 @@ export default function AutopsyReplayModal({ isOpen, onClose, sessionId }: Autop
                   )}
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-border bg-card/50 p-3 text-center">
-                    <p className="text-[10px] uppercase text-muted-foreground">Recon turns</p>
-                    <p className="mt-1 font-mono text-xl font-semibold">{forensics.recon_duration_turns}</p>
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3 text-center shadow-2xs">
+                    <p className="text-[10px] uppercase font-bold text-slate-500">Recon turns</p>
+                    <p className="mt-1 font-mono text-xl font-bold text-slate-900">{forensics.recon_duration_turns}</p>
                   </div>
-                  <div className="rounded-lg border border-border bg-card/50 p-3 text-center">
-                    <p className="text-[10px] uppercase text-muted-foreground">Goal drift</p>
-                    <p className="mt-1 font-mono text-xl font-semibold">{forensics.goal_drift_distance.toFixed(2)}</p>
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3 text-center shadow-2xs">
+                    <p className="text-[10px] uppercase font-bold text-slate-500">Goal drift</p>
+                    <p className="mt-1 font-mono text-xl font-bold text-slate-900">{forensics.goal_drift_distance.toFixed(2)}</p>
                   </div>
-                  <div className="rounded-lg border border-border bg-card/50 p-3 text-center">
-                    <p className="text-[10px] uppercase text-muted-foreground">Events</p>
-                    <p className="mt-1 font-mono text-xl font-semibold">{forensics.total_events}</p>
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3 text-center shadow-2xs">
+                    <p className="text-[10px] uppercase font-bold text-slate-500">Events</p>
+                    <p className="mt-1 font-mono text-xl font-bold text-slate-900">{forensics.total_events}</p>
                   </div>
                 </div>
-                <p className="rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
+                <p className="rounded-lg border border-slate-200/80 bg-white p-3 font-mono text-xs leading-relaxed text-slate-700 shadow-2xs">
                   {forensics.forensic_summary}
                 </p>
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-border pt-2">
+            <div className="flex items-center justify-between border-t border-slate-100 pt-3">
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={currentStep === 0} onClick={() => setCurrentStep((s) => s - 1)}>
+                <Button variant="outline" size="sm" disabled={currentStep === 0} onClick={() => setCurrentStep((s) => s - 1)} className="border-slate-200 text-xs">
                   Previous
                 </Button>
-                <Button size="sm" disabled={currentStep === trajectorySteps.length - 1} onClick={() => setCurrentStep((s) => s + 1)}>
+                <Button size="sm" disabled={currentStep === trajectorySteps.length - 1} onClick={() => setCurrentStep((s) => s + 1)} className="text-xs">
                   Next
                 </Button>
               </div>
-              <Button variant="ghost" size="sm" className="gap-1.5 font-mono text-xs" onClick={() => setCurrentStep(0)}>
+              <Button variant="ghost" size="sm" className="gap-1.5 font-mono text-xs text-slate-600 hover:text-slate-900" onClick={() => setCurrentStep(0)}>
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />
                 Restart
               </Button>

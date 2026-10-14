@@ -43,6 +43,7 @@ const CATEGORIES: FilterCategory[] = [
 ];
 
 const DETECTION_OPTIONS = [
+  "Unclassified",
   "No detections",
   "Prompt attack",
   "Data leakage",

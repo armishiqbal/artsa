@@ -1,12 +1,6 @@
-/**
- * Enterprise analytics — derive SOC-grade series from live metrics + telemetry only.
- * Never fabricates demo time series when data is missing.
- */
+/** Analytics derived only from explicit metrics and recorded telemetry fields. */
 
-import {
-  normalizeContainmentAction,
-  type ContainmentAction,
-} from "@/lib/securityLog";
+import type { ContainmentAction } from "@/lib/securityLog";
 import { severityFromScore, type SeverityLabel } from "@/lib/severity";
 import { safeTimestamp } from "@/lib/dates";
 import { LAYER_LABELS } from "@/lib/layerLabels";
@@ -62,12 +56,13 @@ export interface RiskTrendPoint {
 
 export interface EnterpriseAnalytics {
   totalEvents: number;
-  containedCount: number;
-  containmentRate: number;
-  avgRisk: number;
-  maxRisk: number;
-  defenseScore: number;
+  containedCount: number | null;
+  containmentRate: number | null;
+  avgRisk: number | null;
+  maxRisk: number | null;
+  defenseScore: number | null;
   severitySlices: SeveritySlice[];
+  hasSeveritySignal: boolean;
   actionSlices: ActionSlice[];
   topTools: RankedItem[];
   topAgents: RankedItem[];
@@ -93,8 +88,39 @@ const ACTION_FILL: Partial<Record<ContainmentAction, string>> = {
   UNKNOWN: "#313131",
 };
 
+function optionalNumber(value: unknown, min = 0, max = 100): number | null {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max ? number : null;
+}
+
 function eventTime(evt: LiveEventLike): number {
-  return safeTimestamp(String(evt.triggered_at ?? evt.ts ?? ""));
+  return safeTimestamp(String(evt.triggered_at ?? evt.timestamp ?? evt.ts ?? ""));
+}
+
+function eventSeverity(evt: LiveEventLike): SeverityLabel | null {
+  const raw = String(evt.severity ?? "").toUpperCase();
+  if (raw === "CRITICAL" || raw === "HIGH" || raw === "MEDIUM" || raw === "LOW") return raw;
+  const risk = optionalNumber(evt.risk_score);
+  return risk === null ? null : severityFromScore(risk);
+}
+
+function recordedAction(evt: LiveEventLike): ContainmentAction {
+  const raw = String(
+    evt.enforced_action ?? evt.auto_enforced_action ?? evt.action ?? evt.recommended_action ?? ""
+  ).trim().toUpperCase();
+  if (["KILL", "TERMINATE"].includes(raw)) return "KILL";
+  if (["QUARANTINE", "BLOCK", "DENY"].includes(raw)) return "QUARANTINE";
+  if (["FLAG", "WARN"].includes(raw)) return "FLAG";
+  if (["ESCALATE", "ALERT"].includes(raw)) return "ESCALATE";
+  if (["ALLOW", "PERMIT"].includes(raw)) return "ALLOW";
+  return "UNKNOWN";
+}
+
+function enforcementStatus(evt: LiveEventLike): boolean | null {
+  if (evt.enforced_action != null || evt.auto_enforced_action != null) return true;
+  return typeof evt.enforced === "boolean" ? evt.enforced : null;
 }
 
 function rankByField(
@@ -104,22 +130,19 @@ function rankByField(
 ): RankedItem[] {
   const map = new Map<string, { count: number; sum: number; max: number }>();
   for (const evt of events) {
+    const risk = optionalNumber(evt.risk_score);
+    if (risk === null) continue;
     const name = String(evt[field] ?? "").trim() || "unknown";
     if (field === "tool_name" && (name === "session" || name === "unknown")) continue;
-    const risk = Number(evt.risk_score ?? 0);
     const prev = map.get(name) ?? { count: 0, sum: 0, max: 0 };
-    map.set(name, {
-      count: prev.count + 1,
-      sum: prev.sum + (Number.isFinite(risk) ? risk : 0),
-      max: Math.max(prev.max, Number.isFinite(risk) ? risk : 0),
-    });
+    map.set(name, { count: prev.count + 1, sum: prev.sum + risk, max: Math.max(prev.max, risk) });
   }
   return Array.from(map.entries())
-    .map(([name, v]) => ({
+    .map(([name, value]) => ({
       name,
-      count: v.count,
-      avgRisk: v.count ? Math.round(v.sum / v.count) : 0,
-      maxRisk: Math.round(v.max),
+      count: value.count,
+      avgRisk: Math.round(value.sum / value.count),
+      maxRisk: Math.round(value.max),
     }))
     .sort((a, b) => b.maxRisk - a.maxRisk || b.count - a.count)
     .slice(0, limit);
@@ -130,58 +153,47 @@ function buildVolume(events: LiveEventLike[]): VolumeBucket[] {
   const buckets = new Map<string, VolumeBucket>();
   for (const evt of events) {
     const ts = eventTime(evt);
-    const d = ts ? new Date(ts) : null;
-    const label = d
-      ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-      : "—";
-    const risk = Number(evt.risk_score ?? 0);
-    const sev = severityFromScore(Number.isFinite(risk) ? risk : 0);
-    const prev = buckets.get(label) ?? { label, count: 0, critical: 0, high: 0 };
-    prev.count += 1;
-    if (sev === "CRITICAL") prev.critical += 1;
-    if (sev === "HIGH") prev.high += 1;
-    buckets.set(label, prev);
+    const label = ts
+      ? new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+      : "Time unavailable";
+    const severity = eventSeverity(evt);
+    const previous = buckets.get(label) ?? { label, count: 0, critical: 0, high: 0 };
+    previous.count += 1;
+    if (severity === "CRITICAL") previous.critical += 1;
+    if (severity === "HIGH") previous.high += 1;
+    buckets.set(label, previous);
   }
   return Array.from(buckets.values()).slice(-16);
 }
 
-function buildRiskTrend(metrics: AnalyticsMetricsLike | null, events: LiveEventLike[]): RiskTrendPoint[] {
-  const trend = metrics?.risk_trend ?? [];
-  if (trend.length > 0) {
-    return trend.map((p, i) => ({
-      name: i + 1,
-      label: p.timestamp
-        ? new Date(p.timestamp).toLocaleTimeString(undefined, {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : `#${i + 1}`,
-      score: Number(p.risk_score ?? 0),
-      criticalLine: 80,
-      highLine: 50,
-    }));
-  }
-
-  // Derive from live events when API trend is empty
-  const scored = events
-    .map((e) => ({
-      t: eventTime(e),
-      score: Number(e.risk_score ?? 0),
-    }))
-    .filter((e) => e.t > 0 && Number.isFinite(e.score))
-    .sort((a, b) => a.t - b.t)
-    .slice(-24);
-
-  return scored.map((p, i) => ({
-    name: i + 1,
-    label: new Date(p.t).toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    score: p.score,
+function toRiskPoint(timestamp: string | undefined, score: number, index: number): RiskTrendPoint {
+  const ts = timestamp ? safeTimestamp(timestamp) : 0;
+  return {
+    name: index + 1,
+    label: ts
+      ? new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+      : `#${index + 1}`,
+    score,
     criticalLine: 80,
     highLine: 50,
-  }));
+  };
+}
+
+function buildRiskTrend(metrics: AnalyticsMetricsLike | null, events: LiveEventLike[]): RiskTrendPoint[] {
+  const trend = (metrics?.risk_trend ?? [])
+    .map((point) => ({ timestamp: point.timestamp, score: optionalNumber(point.risk_score) }))
+    .filter((point): point is { timestamp: string | undefined; score: number } => point.score !== null);
+  if (trend.length) return trend.map((point, index) => toRiskPoint(point.timestamp, point.score, index));
+
+  const scoredEvents = events
+    .map((event) => ({ timestamp: event.triggered_at ?? event.timestamp ?? event.ts, score: optionalNumber(event.risk_score) }))
+    .filter((point): point is { timestamp: unknown; score: number } => point.score !== null)
+    .map((point) => ({ timestamp: String(point.timestamp ?? ""), score: point.score, time: safeTimestamp(String(point.timestamp ?? "")) }))
+    .filter((point) => point.time > 0)
+    .sort((a, b) => a.time - b.time)
+    .slice(-24);
+
+  return scoredEvents.map((point, index) => toRiskPoint(point.timestamp, point.score, index));
 }
 
 export function deriveEnterpriseAnalytics(
@@ -190,32 +202,25 @@ export function deriveEnterpriseAnalytics(
 ): EnterpriseAnalytics {
   const counts = metrics?.severity_counts ?? {};
   const severityOrder: SeverityLabel[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+  let severityValues = severityOrder.map((key) => optionalNumber(counts[key], 0, Number.MAX_SAFE_INTEGER) ?? 0);
+  let hasSeveritySignal = severityValues.some((count) => count > 0);
 
-  let severitySlices: SeveritySlice[] = severityOrder.map((key) => ({
+  if (!hasSeveritySignal && liveEvents.length) {
+    const tallies: Record<SeverityLabel, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+    for (const event of liveEvents) {
+      const severity = eventSeverity(event);
+      if (severity) tallies[severity] += 1;
+    }
+    severityValues = severityOrder.map((key) => tallies[key]);
+    hasSeveritySignal = liveEvents.some((event) => eventSeverity(event) !== null);
+  }
+
+  const severitySlices = severityOrder.map((key, index) => ({
     key,
     label: key,
-    value: Number(counts[key] ?? 0),
+    value: severityValues[index] ?? 0,
     fill: SEVERITY_FILL[key],
   }));
-
-  // Fall back to live event severity if metrics empty
-  if (severitySlices.every((s) => s.value === 0) && liveEvents.length > 0) {
-    const tallies: Record<SeverityLabel, number> = {
-      CRITICAL: 0,
-      HIGH: 0,
-      MEDIUM: 0,
-      LOW: 0,
-    };
-    for (const evt of liveEvents) {
-      tallies[severityFromScore(Number(evt.risk_score ?? 0))] += 1;
-    }
-    severitySlices = severityOrder.map((key) => ({
-      key,
-      label: key,
-      value: tallies[key],
-      fill: SEVERITY_FILL[key],
-    }));
-  }
 
   const actionTallies: Record<ContainmentAction, number> = {
     KILL: 0,
@@ -225,52 +230,52 @@ export function deriveEnterpriseAnalytics(
     ALLOW: 0,
     UNKNOWN: 0,
   };
-  for (const evt of liveEvents) {
-    const action = normalizeContainmentAction(
-      String(evt.action ?? evt.recommended_action ?? ""),
-      String(evt.verdict ?? "")
-    );
-    actionTallies[action] += 1;
-  }
+  for (const event of liveEvents) actionTallies[recordedAction(event)] += 1;
   const actionSlices: ActionSlice[] = (
     ["KILL", "QUARANTINE", "FLAG", "ESCALATE", "ALLOW", "UNKNOWN"] as ContainmentAction[]
   )
-    .filter((k) => actionTallies[k] > 0)
-    .map((key) => ({
-      key,
-      label: key,
-      value: actionTallies[key],
-      fill: ACTION_FILL[key] ?? "#454545",
-    }));
+    .filter((key) => actionTallies[key] > 0)
+    .map((key) => ({ key, label: key, value: actionTallies[key], fill: ACTION_FILL[key] ?? "#454545" }));
 
-  const containedCount =
-    actionTallies.KILL + actionTallies.QUARANTINE + actionTallies.FLAG + actionTallies.ESCALATE;
+  let containedCount: number | null = null;
+  let containmentRate: number | null = null;
+  if (liveEvents.length) {
+    const knownOutcomes = liveEvents.filter((event) => enforcementStatus(event) !== null);
+    containedCount = knownOutcomes.filter((event) => {
+      const action = recordedAction(event);
+      return enforcementStatus(event) === true && (action === "KILL" || action === "QUARANTINE");
+    }).length;
+    if (knownOutcomes.length === liveEvents.length) {
+      containmentRate = Math.round((containedCount / liveEvents.length) * 100);
+    } else {
+      containedCount = null;
+    }
+  }
+
   const totalEvents = Math.max(
-    Number(metrics?.total_events ?? 0),
+    optionalNumber(metrics?.total_events, 0, Number.MAX_SAFE_INTEGER) ?? 0,
     liveEvents.length,
-    severitySlices.reduce((s, x) => s + x.value, 0)
+    severityValues.reduce((sum, count) => sum + count, 0)
   );
-  const containmentRate =
-    liveEvents.length > 0 ? Math.round((containedCount / liveEvents.length) * 100) : 0;
-
   const riskScores = liveEvents
-    .map((e) => Number(e.risk_score ?? 0))
-    .filter((n) => Number.isFinite(n));
-  const avgRisk =
-    riskScores.length > 0
-      ? Math.round(riskScores.reduce((a, b) => a + b, 0) / riskScores.length)
-      : Math.round(Number(metrics?.avg_risk_score ?? 0));
-  const maxRisk =
-    riskScores.length > 0
-      ? Math.round(Math.max(...riskScores))
-      : Math.round(Number(metrics?.max_risk_score ?? 0));
+    .map((event) => optionalNumber(event.risk_score))
+    .filter((score): score is number => score !== null);
+  const avgRisk = riskScores.length
+    ? Math.round(riskScores.reduce((sum, score) => sum + score, 0) / riskScores.length)
+    : optionalNumber(metrics?.avg_risk_score);
+  const maxRisk = riskScores.length
+    ? Math.round(Math.max(...riskScores))
+    : optionalNumber(metrics?.max_risk_score);
 
   const riskTrend = buildRiskTrend(metrics, liveEvents);
-  const defenseLayers = Object.entries(metrics?.defense_layers ?? {}).map(([key, value]) => ({
-    key,
-    label: LAYER_LABELS[key] ?? key.replace(/_/g, " "),
-    value: Number(value) || 0,
-  }));
+  const defenseLayers = Object.entries(metrics?.defense_layers ?? {})
+    .map(([key, value]) => ({
+      key,
+      label: LAYER_LABELS[key] ?? key.replace(/_/g, " "),
+      value: optionalNumber(value),
+    }))
+    .filter((layer): layer is { key: string; label: string; value: number } => layer.value !== null);
+  const defenseScore = optionalNumber(metrics?.defense_score);
 
   return {
     totalEvents,
@@ -278,34 +283,35 @@ export function deriveEnterpriseAnalytics(
     containmentRate,
     avgRisk,
     maxRisk,
-    defenseScore: Math.round(Number(metrics?.defense_score ?? 0)),
+    defenseScore,
     severitySlices,
+    hasSeveritySignal,
     actionSlices,
     topTools: rankByField(liveEvents, "tool_name"),
     topAgents: rankByField(liveEvents, "agent_id"),
     volume: buildVolume(liveEvents),
     riskTrend,
     defenseLayers,
-    hasLiveSignal:
-      totalEvents > 0 ||
-      riskTrend.length > 0 ||
-      liveEvents.length > 0 ||
-      defenseLayers.length > 0,
+    hasLiveSignal: totalEvents > 0 || riskTrend.length > 0 || liveEvents.length > 0 || defenseLayers.length > 0,
   };
+}
+
+function csvValue(value: number | null): string {
+  return value === null ? "" : String(value);
 }
 
 export function analyticsBundleToCsv(analytics: EnterpriseAnalytics): string {
   const lines = [
     "section,key,value",
     `kpi,total_events,${analytics.totalEvents}`,
-    `kpi,containment_rate,${analytics.containmentRate}`,
-    `kpi,avg_risk,${analytics.avgRisk}`,
-    `kpi,max_risk,${analytics.maxRisk}`,
-    `kpi,defense_score,${analytics.defenseScore}`,
-    ...analytics.severitySlices.map((s) => `severity,${s.key},${s.value}`),
-    ...analytics.actionSlices.map((s) => `action,${s.key},${s.value}`),
-    ...analytics.topTools.map((t) => `tool,${t.name},${t.count}`),
-    ...analytics.topAgents.map((a) => `agent,${a.name},${a.count}`),
+    `kpi,containment_rate,${csvValue(analytics.containmentRate)}`,
+    `kpi,avg_risk,${csvValue(analytics.avgRisk)}`,
+    `kpi,max_risk,${csvValue(analytics.maxRisk)}`,
+    `kpi,defense_score,${csvValue(analytics.defenseScore)}`,
+    ...analytics.severitySlices.map((slice) => `severity,${slice.key},${slice.value}`),
+    ...analytics.actionSlices.map((slice) => `action,${slice.key},${slice.value}`),
+    ...analytics.topTools.map((tool) => `tool,${tool.name},${tool.count}`),
+    ...analytics.topAgents.map((agent) => `agent,${agent.name},${agent.count}`),
   ];
   return lines.join("\n");
 }

@@ -43,11 +43,11 @@ export function ReplayRiskStrip({
   if (entries.length === 0) return null;
 
   return (
-    <div className="border-b border-border px-4 py-3 sm:px-5">
+    <div className="border-b border-slate-100 bg-white px-4 py-3 sm:px-5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-muted-foreground">Risk across session</p>
-        <p className="font-mono text-[10px] text-muted-foreground tabular-nums">
-          {entries.length} events
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Risk by event</p>
+        <p className="font-mono text-[10px] text-slate-500 tabular-nums">
+          {entries.length} turns recorded
         </p>
       </div>
       <div className="mt-2 flex items-end gap-0.5" role="list" aria-label="Session risk timeline">
@@ -62,9 +62,9 @@ export function ReplayRiskStrip({
               onClick={() => onSelect(e.index)}
               title={`${e.toolName} · ${e.risk.toFixed(0)} · ${e.verdict}`}
               className={cn(
-                "group flex-1 min-w-[4px] rounded-sm transition-all duration-200",
+                "group flex-1 min-w-[4px] rounded-xs transition-all duration-200",
                 barColor(e.risk),
-                selected ? "ring-2 ring-foreground ring-offset-1 ring-offset-background opacity-100" : "opacity-70 hover:opacity-100"
+                selected ? "ring-2 ring-blue-600 ring-offset-1 ring-offset-white opacity-100" : "opacity-75 hover:opacity-100"
               )}
               style={{ height }}
               aria-current={selected ? "true" : undefined}

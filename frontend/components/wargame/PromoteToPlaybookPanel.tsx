@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { BookMarked, CheckCircle2, Loader2, ShieldPlus } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,17 @@ interface PolicySuggestion {
   rationale: string;
 }
 
+interface FindingPolicySource {
+  content: string;
+  title: string;
+  severity: string;
+  category: string;
+  asiCode?: string | null;
+}
+
 interface PromoteToPlaybookPanelProps {
-  turn: TranscriptTurn | null;
+  turn?: TranscriptTurn | null;
+  findingSource?: FindingPolicySource | null;
   findingId?: string | null;
   onPromoted?: () => void;
   className?: string;
@@ -32,6 +41,7 @@ interface PromoteToPlaybookPanelProps {
 /** Closed-loop action: turn a finding into a playbook rule (server-backed). */
 export function PromoteToPlaybookPanel({
   turn,
+  findingSource,
   findingId,
   onPromoted,
   className,
@@ -40,29 +50,42 @@ export function PromoteToPlaybookPanel({
   const [suggestion, setSuggestion] = useState<PolicySuggestion | null>(null);
   const [enforced, setEnforced] = useState(false);
   const [deployedVersion, setDeployedVersion] = useState<number | null>(null);
+  const source = useMemo(
+    () =>
+      findingSource ??
+      (turn
+        ? {
+            content: turn.attackPrompt,
+            title: turn.attackName,
+            severity: turn.severity,
+            category: turn.category,
+            asiCode: turn.asiCode,
+          }
+        : null),
+    [findingSource, turn]
+  );
 
   const suggest = useCallback(async () => {
-    if (!turn) return;
+    if (!source?.content) return;
     setLoading(true);
     setEnforced(false);
     setDeployedVersion(null);
     const data = await fetchFromBackend<PolicySuggestion>("/api/v1/policies/suggest", {
       method: "POST",
       body: JSON.stringify({
-        content: turn.attackPrompt,
+        content: source.content,
         trigger_phrases: [],
         event_type: "PROMPT_INJECTION",
-        severity: turn.severity,
-        risk_score: Math.min(100, Math.max(turn.attackSuccessScore * 10, 50)),
-        source: `${turn.attackName} · ${turn.asiCode ?? turn.category}`,
+        severity: source.severity,
+        source: `${source.title} · ${source.asiCode ?? source.category}`,
       }),
     });
     setSuggestion(data);
     setLoading(false);
-  }, [turn]);
+  }, [source]);
 
   const enforce = useCallback(async () => {
-    if (!suggestion?.suggested_rule || !turn) return;
+    if (!suggestion?.suggested_rule || !source) return;
     setLoading(true);
     const rule = suggestion.suggested_rule;
 
@@ -91,7 +114,7 @@ export function PromoteToPlaybookPanel({
       setEnforced(true);
       onPromoted?.();
     }
-  }, [suggestion, turn, findingId, onPromoted]);
+  }, [suggestion, source, findingId, onPromoted]);
 
   return (
     <div className={className}>
@@ -101,14 +124,14 @@ export function PromoteToPlaybookPanel({
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground">Promote to playbook</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Close the Research → Defender loop — creates a versioned playbook snapshot on the server.
+              Draft a policy rule from this finding, then deploy it as a versioned playbook rule.
             </p>
           </div>
         </div>
 
-        {!turn ? (
+        {!source?.content ? (
           <p className="mt-3 text-xs text-muted-foreground">
-            Select a finding or transcript turn first.
+            A captured attack payload is required before a policy suggestion can be generated.
           </p>
         ) : (
           <div className="mt-4 space-y-3">

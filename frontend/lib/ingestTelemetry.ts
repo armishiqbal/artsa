@@ -13,13 +13,15 @@ export interface IngestApiPayload {
   tool_name?: string;
   risk_score?: { overall_score?: number };
   verdict?: { verdict?: string; recommended_action?: string; confidence?: number };
+  auto_enforced_action?: string | null;
+  session_status?: string | null;
 }
 
 export function ingestResponseToTelemetry(
   request: IngestRequestPayload,
   response: IngestApiPayload
 ): Record<string, unknown> {
-  const risk = response.risk_score?.overall_score ?? 0;
+  const risk = response.risk_score?.overall_score;
   const verdict = response.verdict?.verdict ?? "";
   const action = response.verdict?.recommended_action ?? "";
     return {
@@ -28,10 +30,14 @@ export function ingestResponseToTelemetry(
       session_id: response.session_id ?? request.session_id,
       agent_id: response.agent_id ?? request.agent_id,
       tool_name: response.tool_name ?? request.tool_name,
-      risk_score: risk,
+      ...(typeof risk === "number" && Number.isFinite(risk) ? { risk_score: risk } : {}),
       verdict,
       action,
       recommended_action: action,
+      ...(response.auto_enforced_action
+        ? { auto_enforced_action: response.auto_enforced_action }
+        : {}),
+      ...(response.session_status ? { session_status: response.session_status } : {}),
       triggered_at: new Date().toISOString(),
       source: "ingest",
     };
@@ -42,7 +48,12 @@ export function telemetryFingerprint(evt: Record<string, unknown>): string {
   const session = String(evt.session_id ?? "");
   const tool = String(evt.tool_name ?? "");
   const agent = String(evt.agent_id ?? "");
-  const risk = Math.round(Number(evt.risk_score ?? 0));
+  const rawRisk = evt.risk_score;
+  const parsedRisk =
+    typeof rawRisk === "number" || (typeof rawRisk === "string" && rawRisk.trim() !== "")
+      ? Number(rawRisk)
+      : Number.NaN;
+  const risk = Number.isFinite(parsedRisk) ? Math.round(parsedRisk) : "unknown";
   const verdict = String(evt.verdict ?? "").toUpperCase();
   const rawTs = String(evt.triggered_at ?? evt.timestamp ?? "");
   const t = Date.parse(rawTs);

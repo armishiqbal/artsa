@@ -46,7 +46,7 @@ export interface AttackSeed {
   description?: string;
   template: string;
   variables?: Record<string, string>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   source?: string;
   tenant_id?: string;
   version?: number;

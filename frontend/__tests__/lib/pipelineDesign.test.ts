@@ -34,45 +34,35 @@ describe("pipelineChain", () => {
   it("summarizes chain integrity from snapshot", () => {
     const snap = derivePipelineSnapshot({
       apiOnline: true,
-      wsConnected: true,
       activeSessions: 2,
-      defenseScore: 80,
-      criticalCount: 0,
-      highCount: 0,
       campaigns: [],
-      playbookRuleCount: 3,
     });
     const summary = summarizeChain(snap);
-    expect(summary.activeHop?.from).toBe("target");
+    expect(snap.activeAgentId).toBe("target");
+    expect(summary.activeCount).toBe(1);
     expect(summary.offlineCount).toBe(0);
+    expect(summary.unknownCount).toBe(5);
+    expect(snap.loopClosed).toBe(false);
+    expect(snap.loopVerified).toBe(false);
   });
 });
 
 describe("derivePipelineSnapshot", () => {
-  it("marks agents offline when API is down", () => {
+  it("leaves agent status unverified when the API is down", () => {
     const snap = derivePipelineSnapshot({
       apiOnline: false,
-      wsConnected: false,
       activeSessions: 0,
-      defenseScore: 0,
-      criticalCount: 0,
-      highCount: 0,
       campaigns: [],
-      playbookRuleCount: 0,
     });
-    expect(snap.agents.every((a) => a.status === "offline")).toBe(true);
+    expect(snap.agents.every((a) => a.status === "unknown")).toBe(true);
+    expect(snap.activeAgentId).toBeNull();
   });
 
   it("activates target when sessions are live", () => {
     const snap = derivePipelineSnapshot({
       apiOnline: true,
-      wsConnected: true,
       activeSessions: 2,
-      defenseScore: 80,
-      criticalCount: 0,
-      highCount: 0,
       campaigns: [],
-      playbookRuleCount: 3,
     });
     const target = snap.agents.find((a) => a.id === "target");
     expect(target?.status).toBe("active");
@@ -83,12 +73,23 @@ describe("derivePipelineSnapshot", () => {
 describe("deriveCommandCenterKpis", () => {
   it("builds playbook version label from server version", () => {
     const kpis = deriveCommandCenterKpis(
-      { severity_counts: { CRITICAL: 1, HIGH: 2, MEDIUM: 0, LOW: 0 }, defense_score: 75 },
+      { severity_counts: { CRITICAL: 1, HIGH: 2, MEDIUM: 0, LOW: 0 } },
       [],
       5,
       []
     );
     expect(kpis.playbookVersion).toBe("v5");
     expect(kpis.pendingTriage).toBe(3);
+    expect(kpis.detectionSparkline).toEqual([]);
+  });
+
+  it("uses only explicitly reported detection-rate history", () => {
+    const kpis = deriveCommandCenterKpis(
+      { detection_rate_trend: [72, 88], severity_counts: {} },
+      [],
+      0,
+      []
+    );
+    expect(kpis.detectionSparkline).toEqual([72, 88]);
   });
 });

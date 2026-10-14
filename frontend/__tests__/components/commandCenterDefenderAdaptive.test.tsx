@@ -6,7 +6,7 @@ import { CommandCenterDetectionChart } from "@/components/command-center/Command
 import { DEFAULT_DETECTION_SERIES } from "@/components/command-center/prototype/liveRounds";
 
 describe("Option 4: Frontend Command Center Visualization for Defender & Adaptive Lift", () => {
-  it("renders live Defender status pill on the Command Center HUD", () => {
+  it("labels the seeded Defender state as a walkthrough without claiming a live action", () => {
     render(
       <CommandCenterFloor
         events={[]}
@@ -18,10 +18,11 @@ describe("Option 4: Frontend Command Center Visualization for Defender & Adaptiv
 
     const pill = screen.getByTestId("defender-status-pill");
     expect(pill).toBeInTheDocument();
-    expect(screen.getByText(/DEFENDER: CLOSED-LOOP ACTIVE/i)).toBeInTheDocument();
+    expect(screen.getByText(/WALKTHROUGH · NO DEFENDER ACTION/i)).toBeInTheDocument();
+    expect(screen.queryByText(/CLOSED-LOOP ACTIVE/i)).not.toBeInTheDocument();
   });
 
-  it("renders Defender patch notification banner and supports dismissal", () => {
+  it("does not report a patch for an unconnected walkthrough round", () => {
     render(
       <CommandCenterFloor
         events={[]}
@@ -31,43 +32,24 @@ describe("Option 4: Frontend Command Center Visualization for Defender & Adaptiv
       />
     );
 
-    // Round 1 by default does not have a patch notification
-    expect(screen.queryByTestId("defender-patch-notification")).toBeNull();
-
-    // Advance to round 2 (Shift + ArrowRight or click Next)
-    const nextBtn = screen.getByRole("button", { name: /NEXT ROUND/i });
+    const nextBtn = screen.getByRole("button", { name: /NEXT SAMPLE/i });
     fireEvent.click(nextBtn);
 
-    // In Round 2, Autonomous Defender hot patch notification banner appears
-    const notification = screen.getByTestId("defender-patch-notification");
-    expect(notification).toBeInTheDocument();
-    expect(screen.getByText(/Autonomous Defender Hot-Patch Applied/i)).toBeInTheDocument();
-    expect(screen.getByText(/Playbook v5/i)).toBeInTheDocument();
-    expect(screen.getByText(/Inspect Policies →/i)).toBeInTheDocument();
-
-    // Dismissing the notification
-    const dismissBtn = screen.getByRole("button", { name: /Dismiss hot-patch notification/i });
-    fireEvent.click(dismissBtn);
-
     expect(screen.queryByTestId("defender-patch-notification")).toBeNull();
+    expect(screen.queryByText(/Autonomous Defender Hot-Patch Applied/i)).not.toBeInTheDocument();
   }, 15000);
 
-  it("Detection-rate-over-time chart displays climbing Adaptive Defense and flat Static Baseline", () => {
-    // Check series values: climbing vs flat
-    expect(DEFAULT_DETECTION_SERIES[0]!.artsa).toBe(44);
-    expect(DEFAULT_DETECTION_SERIES[DEFAULT_DETECTION_SERIES.length - 1]!.artsa).toBe(95);
-    expect(DEFAULT_DETECTION_SERIES.every((p) => p.baseline === 42)).toBe(true);
-
+  it("labels seeded detection points as a walkthrough sample", () => {
     render(
       <CommandCenterDetectionChart
         series={DEFAULT_DETECTION_SERIES}
         activeRound={1}
+        dataMode="WALKTHROUGH"
       />
     );
 
-    expect(screen.getByText(/DETECTION RATE OVER TIME · ARTSA vs STATIC BASELINE/i)).toBeInTheDocument();
-    expect(screen.getByText(/adaptive · climbing defense/i)).toBeInTheDocument();
-    expect(screen.getByText(/baseline · flat static/i)).toBeInTheDocument();
-    expect(screen.getByText(/lift \+53pp/i)).toBeInTheDocument();
+    expect(screen.getByText("DETECTION RATE HISTORY")).toBeInTheDocument();
+    expect(screen.getByText("Walkthrough sample")).toBeInTheDocument();
+    expect(screen.queryByText(/lift \+53pp/i)).not.toBeInTheDocument();
   });
 });

@@ -39,6 +39,10 @@ const MATRIX_ROWS = ["Injection", "Tool Abuse", "Exfiltration", "Goal Drift"] as
 const INTENSITIES = ["Low", "Med", "High"] as const;
 
 type PresetId = "quick" | "standard" | "thorough";
+type CampaignPreflight = {
+  ready: boolean;
+  checks: Array<{ id: string; ready: boolean; message: string }>;
+};
 
 const PRESETS: Array<{
   id: PresetId;
@@ -99,6 +103,8 @@ function CampaignBuilder() {
   const searchParams = useSearchParams();
   const targetId = searchParams.get("target");
   const [target, setTarget] = useState<Target | null>(null);
+  const [preflight, setPreflight] = useState<CampaignPreflight | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
   const [name, setName] = useState("Production Agent Assessment");
   const [preset, setPreset] = useState<PresetId>("standard");
   const [sets, setSets] = useState<string[]>([...PRESETS[1]!.sets]);
@@ -132,16 +138,47 @@ function CampaignBuilder() {
   const mut = useMemo(() => mutationsForIntensity(intensity), [intensity]);
 
   useEffect(() => {
-    if (!targetId) return;
+    if (!targetId) {
+      setTarget(null);
+      return;
+    }
+    let current = true;
+    setTarget(null);
     void fetchFromBackend<Target>(`/api/v1/targets/${encodeURIComponent(targetId)}`, {
       silent: true,
+      timeoutMs: 5_000,
     }).then((t) => {
-      if (!t) return;
+      if (!current || !t) return;
       setTarget(t);
       setName((prev) =>
         prev === "Production Agent Assessment" ? `${t.name} · ${t.version}` : prev
       );
     });
+    return () => {
+      current = false;
+    };
+  }, [targetId]);
+
+  useEffect(() => {
+    if (!targetId) {
+      setPreflight(null);
+      setPreflightLoading(false);
+      return;
+    }
+    let current = true;
+    setPreflight(null);
+    setPreflightLoading(true);
+    void fetchFromBackend<CampaignPreflight>(
+      `/api/v1/targets/${encodeURIComponent(targetId)}/preflight`,
+      { silent: true, timeoutMs: 5_000 }
+    ).then((result) => {
+      if (current) setPreflight(result);
+    }).finally(() => {
+      if (current) setPreflightLoading(false);
+    });
+    return () => {
+      current = false;
+    };
   }, [targetId]);
 
   const applyPreset = (id: PresetId) => {
@@ -162,6 +199,13 @@ function CampaignBuilder() {
     }));
 
   const launch = async () => {
+    if (!targetId || !target) {
+      toast("Choose a registered target", {
+        description: "Campaigns need a target with authorization, provider credentials, and successful discovery.",
+        variant: "error",
+      });
+      return;
+    }
     if (categories.length === 0) {
       toast("Pick at least one risk", {
         description: "Choose what you want to test before starting.",
@@ -169,9 +213,28 @@ function CampaignBuilder() {
       });
       return;
     }
-    if (target && !target.authorized) {
+    if (!target.authorized) {
       toast("Target is not authorized", {
         description: "Authorize it on Targets before ARTSA sends it any traffic.",
+        variant: "error",
+      });
+      return;
+    }
+    if (!target.surface?.reachable) {
+      toast("Run discovery first", {
+        description: "Campaigns can start after target discovery completes successfully.",
+        variant: "error",
+      });
+      return;
+    }
+    const currentPreflight = await fetchFromBackend<CampaignPreflight>(
+      `/api/v1/targets/${encodeURIComponent(targetId)}/preflight`,
+      { silent: true, timeoutMs: 5_000 }
+    );
+    if (!currentPreflight?.ready) {
+      const blockers = currentPreflight?.checks.filter((check) => !check.ready).map((check) => check.message);
+      toast("Campaign preflight is not ready", {
+        description: blockers?.join(" · ") || "Check target authorization, provider settings, and discovery.",
         variant: "error",
       });
       return;
@@ -196,7 +259,7 @@ function CampaignBuilder() {
     setLaunching(false);
     if (!res?.campaign_id) {
       toast("Campaign not started", {
-        description: "Add a target provider under Settings → Integrations, then try again.",
+        description: "The backend did not start this campaign. Review target and provider readiness, then try again.",
         variant: "error",
       });
       return;
@@ -227,7 +290,7 @@ function CampaignBuilder() {
           </p>
           {target.authorized ? (
             <p className="mt-1 text-[12px] text-muted-foreground">
-              This run uses the registered target. Results will be attributable to this system.
+              This assessment uses the registered target configuration and stores results against this version.
             </p>
           ) : (
             <p className="mt-1 text-[12px] text-[hsl(var(--severity-high))]">
@@ -239,6 +302,17 @@ function CampaignBuilder() {
               .
             </p>
           )}
+          <ul aria-label="Campaign preflight" className="mt-3 grid gap-1.5 text-[12px] sm:grid-cols-3">
+            {preflightLoading ? <li className="text-muted-foreground">Checking readiness…</li> : null}
+            {preflight?.checks.map((check) => (
+              <li key={check.id} className={check.ready ? "text-emerald-700" : "text-amber-700"}>
+                {check.ready ? "✓" : "•"} {check.message}
+              </li>
+            ))}
+            {!preflightLoading && !preflight ? (
+              <li className="text-amber-700 sm:col-span-3">Could not check campaign readiness. Refresh the target and try again.</li>
+            ) : null}
+          </ul>
         </div>
       ) : targetId ? (
         <p className="text-[13px] text-muted-foreground">Loading target…</p>
@@ -246,9 +320,9 @@ function CampaignBuilder() {
         <p className="text-[12px] text-muted-foreground">
           No target selected.{" "}
           <Link href="/targets" className="underline-offset-2 hover:underline">
-            Register one
+            Register, authorize, and discover one
           </Link>{" "}
-          so this campaign can be compared against later versions.
+          before launching a campaign.
         </p>
       )}
 
@@ -428,7 +502,7 @@ function CampaignBuilder() {
         <Button
           size="sm"
           onClick={() => void launch()}
-          disabled={launching || categories.length === 0 || (Boolean(target) && !target?.authorized)}
+          disabled={launching || preflightLoading || !preflight?.ready || categories.length === 0 || !targetId || !target}
         >
           {launching ? "Launching…" : "Launch campaign"}
         </Button>

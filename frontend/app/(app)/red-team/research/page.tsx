@@ -13,12 +13,9 @@ import { CapabilityFilterSimulator } from "@/components/research/CapabilityFilte
 import { AttackLibraryPromotionBar } from "@/components/research/AttackLibraryPromotionBar";
 import type { CuratePromoteResult, TargetSurfaceConfig } from "@/lib/types/research";
 import {
-  ShieldAlert,
   Compass,
   Layers,
   FlaskConical,
-  Sparkles,
-  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

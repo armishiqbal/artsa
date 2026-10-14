@@ -9,6 +9,7 @@ interface LogsTableProps {
   selectedId: string | null;
   onSelectRow: (row: LogRecord) => void;
   onClearFilters: () => void;
+  hasActiveFilters: boolean;
   sortField: "timestamp" | "latency";
   sortOrder: "asc" | "desc";
   onToggleSort: (field: "timestamp" | "latency") => void;
@@ -73,6 +74,7 @@ export function LogsTable({
   selectedId,
   onSelectRow,
   onClearFilters,
+  hasActiveFilters,
   sortField,
   sortOrder,
   onToggleSort,
@@ -187,16 +189,18 @@ export function LogsTable({
                 <td colSpan={11} className="py-36 text-center">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <p className="text-[13px] font-medium text-foreground">
-                      No results found
+                      {hasActiveFilters ? "No results found" : "No telemetry events to display"}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => onClearFilters()}
-                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
-                    >
-                      <X className="h-3 w-3" />
-                      Clear all filters
-                    </button>
+                    {hasActiveFilters ? (
+                      <button
+                        type="button"
+                        onClick={onClearFilters}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/70 shadow-2xs focus:outline-hidden"
+                      >
+                        <X className="h-3 w-3 text-muted-foreground" />
+                        Clear all filters
+                      </button>
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -279,7 +283,7 @@ export function LogsTable({
 
                     {/* 9. Latency */}
                     <td className="whitespace-nowrap px-3 py-3 font-mono text-[11px] tabular-nums text-muted-foreground">
-                      {row.latencyMs} ms
+                      {row.latencyMs == null ? "—" : `${row.latencyMs} ms`}
                     </td>
 
                     {/* 10. Processing Region */}

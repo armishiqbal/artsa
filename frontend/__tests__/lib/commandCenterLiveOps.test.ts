@@ -291,7 +291,7 @@ describe("Command Center Live Ops Adapter (Phase 2.2)", () => {
       expect(normalized?.threatCode).toBe("ASI02");
       expect(normalized?.severity).toBe("HIGH");
 
-      const timelineStep = eventToTimelineStep(normalized!, 0);
+      const timelineStep = eventToTimelineStep(normalized!);
       expect(timelineStep.status).toBe("contained");
       expect(timelineStep.agentFrom).toBe("Curator");
       expect(timelineStep.agentTo).toBe("Red Team");
@@ -603,7 +603,7 @@ describe("Command Center Live Ops Adapter (Phase 2.2)", () => {
       expect(result.current.state.events[0]?.eventId).toBe("evt_init_1");
     });
 
-    it("falls back to simulation when REST snapshot returns null", async () => {
+    it("keeps the operational view empty when REST snapshot returns null", async () => {
       const { fetchFromBackend } = await import("@/lib/api");
       vi.mocked(fetchFromBackend).mockResolvedValueOnce(null);
 
@@ -615,9 +615,29 @@ describe("Command Center Live Ops Adapter (Phase 2.2)", () => {
         expect(result.current.state.error).not.toBeNull();
       });
 
-      expect(result.current.state.telemetryMode).toBe("SIMULATION");
+      expect(result.current.state.telemetryMode).toBe("DISCONNECTED");
       expect(result.current.state.isLive).toBe(false);
-      expect(result.current.state.error).toContain("Telemetry endpoint returned null");
+      expect(result.current.state.currentCampaign).toBeNull();
+      expect(result.current.state.events).toEqual([]);
+      expect(result.current.state.metrics).toBeNull();
+      expect(result.current.state.error).toContain("No operational telemetry snapshot");
+    });
+
+    it("omits backend-reported simulation data from the operational view", async () => {
+      const { fetchFromBackend } = await import("@/lib/api");
+      vi.mocked(fetchFromBackend).mockResolvedValueOnce({
+        telemetry_mode: "SIMULATION",
+        tenant_id: "sample_tenant",
+        current_campaign: { id: "sample-campaign", name: "Sample", status: "RUNNING" },
+        events: [{ event_id: "sample-event", payload: "sample" }],
+      });
+
+      const { result } = renderHook(() => useCommandCenterLiveOps({ pollIntervalMs: 0 }));
+
+      await waitFor(() => expect(result.current.state.error).toContain("Simulated telemetry"));
+      expect(result.current.state.telemetryMode).toBe("DISCONNECTED");
+      expect(result.current.state.currentCampaign).toBeNull();
+      expect(result.current.state.events).toEqual([]);
     });
 
     it("processes live WebSocket event frame and updates state", async () => {

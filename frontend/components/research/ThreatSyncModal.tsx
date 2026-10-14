@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Radio, CheckCircle2, ShieldAlert } from "lucide-react";
+import { RefreshCw, Radio, CheckCircle2 } from "lucide-react";
 import type { SyncThreatsResult } from "@/lib/types/research";
 
 interface ThreatSyncModalProps {

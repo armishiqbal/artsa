@@ -21,6 +21,7 @@ describe("enterpriseAnalytics", () => {
           risk_score: 88,
           verdict: "BREACHED",
           action: "KILL",
+          enforced: true,
           triggered_at: "2026-01-01T01:00:00Z",
         },
         {
@@ -29,6 +30,7 @@ describe("enterpriseAnalytics", () => {
           risk_score: 40,
           verdict: "SAFE",
           action: "ALLOW",
+          enforced: false,
           triggered_at: "2026-01-01T01:05:00Z",
         },
         {
@@ -37,6 +39,7 @@ describe("enterpriseAnalytics", () => {
           risk_score: 55,
           verdict: "SUSPICIOUS",
           action: "QUARANTINE",
+          enforced: true,
           triggered_at: "2026-01-01T01:10:00Z",
         },
       ]
@@ -46,7 +49,8 @@ describe("enterpriseAnalytics", () => {
     expect(analytics.riskTrend).toHaveLength(2);
     expect(analytics.topTools[0]?.name).toBe("query_db");
     expect(analytics.actionSlices.some((a) => a.key === "KILL")).toBe(true);
-    expect(analytics.containmentRate).toBeGreaterThan(0);
+    expect(analytics.containedCount).toBe(2);
+    expect(analytics.containmentRate).toBe(67);
     expect(analyticsBundleToCsv(analytics)).toContain("kpi,containment_rate");
   });
 
@@ -55,13 +59,31 @@ describe("enterpriseAnalytics", () => {
     expect(analytics.hasLiveSignal).toBe(false);
     expect(analytics.riskTrend).toHaveLength(0);
     expect(analytics.topTools).toHaveLength(0);
+    expect(analytics.avgRisk).toBeNull();
+    expect(analytics.maxRisk).toBeNull();
+    expect(analytics.defenseScore).toBeNull();
+    expect(analytics.containmentRate).toBeNull();
+  });
+
+  it("does not infer enforcement or severity from verdict text alone", () => {
+    const analytics = deriveEnterpriseAnalytics(null, [
+      { verdict: "BREACHED", tool_name: "dangerous_tool" },
+      { verdict: "SUSPICIOUS", agent_id: "agent-a" },
+    ]);
+    expect(analytics.containmentRate).toBeNull();
+    expect(analytics.containedCount).toBeNull();
+    expect(analytics.hasSeveritySignal).toBe(false);
+    expect(analytics.riskTrend).toHaveLength(0);
+    expect(analytics.topTools).toHaveLength(0);
   });
 });
 
 describe("detectionAnalytics live-only", () => {
-  it("does not invent multi-point series from defense score alone", () => {
-    const series = buildDetectionSeries(undefined, 80);
-    expect(series).toHaveLength(1);
-    expect(series[0]?.label).toBe("Live");
+  it("requires a judged campaign detection-rate metric", () => {
+    expect(buildDetectionSeries(undefined)).toHaveLength(0);
+    expect(buildDetectionSeries({ detection_rate: 80, judged: 0 })).toHaveLength(0);
+    expect(buildDetectionSeries({ detection_rate: 80, judged: 4 })).toEqual([
+      { index: 1, label: "Completed campaign outcomes", detectionRate: 80, judged: 4 },
+    ]);
   });
 });

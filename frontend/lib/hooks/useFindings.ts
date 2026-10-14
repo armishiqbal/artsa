@@ -31,6 +31,7 @@ export function useFindings() {
   const [findings, setFindings] = useState<ServerFinding[]>([]);
   const [playbookVersion, setPlaybookVersion] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   const refresh = useCallback(async () => {
     const data = await fetchFromBackend<{
@@ -39,6 +40,7 @@ export function useFindings() {
     }>("/api/v1/findings", { silent: true });
     if (data?.findings) setFindings(data.findings);
     setPlaybookVersion(data?.playbook_version ?? 0);
+    setUnavailable(!data);
     setLoading(false);
   }, []);
 
@@ -57,5 +59,5 @@ export function useFindings() {
     [findings]
   );
 
-  return { findings, playbookVersion, loading, refresh, getFinding };
+  return { findings, playbookVersion, loading, unavailable, refresh, getFinding };
 }

@@ -72,6 +72,14 @@ interface Channel {
 // ---------------------------------------------------------------------------
 
 type WizardStep = "select" | "provider" | "alert" | "done";
+const EMPTY_PROVIDER_FORM = {
+  name: "",
+  provider_type: "deepseek",
+  api_key: "",
+  base_url: "",
+  default_model: "",
+  enabled: true,
+};
 
 function IntegrationWizard({
   catalog,
@@ -88,14 +96,7 @@ function IntegrationWizard({
   const [wizardType, setWizardType] = useState<"provider" | "alert" | null>(null);
 
   // Provider form
-  const [provForm, setProvForm] = useState({
-    name: "",
-    provider_type: "deepseek",
-    api_key: "",
-    base_url: "",
-    default_model: "",
-    enabled: true,
-  });
+  const [provForm, setProvForm] = useState(EMPTY_PROVIDER_FORM);
   const [provSaving, setProvSaving] = useState(false);
 
   // Alert form
@@ -126,7 +127,7 @@ function IntegrationWizard({
     setProvSaving(false);
     if (res?.status === "ok") {
       toast("Provider added", { description: `${provForm.name} is ready.` });
-      setProvForm({ name: "", provider_type: "deepseek", api_key: "", base_url: "", default_model: "", enabled: true });
+      setProvForm(EMPTY_PROVIDER_FORM);
       onProviderAdded();
       setStep("done");
     }
@@ -165,6 +166,8 @@ function IntegrationWizard({
   const reset = () => {
     setStep("select");
     setWizardType(null);
+    setProvForm(EMPTY_PROVIDER_FORM);
+    setAlertUrl("");
   };
 
   if (step === "select") {
@@ -172,7 +175,7 @@ function IntegrationWizard({
       <DashboardCard title="Add Integration" description="Choose what you want to connect." badge={<Cable className="h-4 w-4 text-muted-foreground" />}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <button
-            onClick={() => { setWizardType("provider"); setStep("provider"); }}
+            onClick={() => { setProvForm(EMPTY_PROVIDER_FORM); setWizardType("provider"); setStep("provider"); }}
             className="flex flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-all hover:border-border hover:bg-muted/40"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
@@ -230,7 +233,7 @@ function IntegrationWizard({
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Provider name (slug)</label>
-            <Input placeholder="e.g. my-openai" value={provForm.name} onChange={(e) => setProvForm({ ...provForm, name: e.target.value })} />
+            <Input name="provider-name" autoComplete="off" placeholder="e.g. my-openai" value={provForm.name} onChange={(e) => setProvForm({ ...provForm, name: e.target.value })} />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Provider type</label>
@@ -250,7 +253,7 @@ function IntegrationWizard({
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">API key</label>
-            <Input type="password" placeholder="sk-..." value={provForm.api_key} onChange={(e) => setProvForm({ ...provForm, api_key: e.target.value })} />
+            <Input name="provider-api-key" type="password" autoComplete="new-password" placeholder="sk-..." value={provForm.api_key} onChange={(e) => setProvForm({ ...provForm, api_key: e.target.value })} />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Default model</label>

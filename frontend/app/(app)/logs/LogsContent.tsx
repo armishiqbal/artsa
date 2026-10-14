@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogsHeader } from "@/components/logs/LogsHeader";
 import { LogsFilterBar } from "@/components/logs/LogsFilterBar";
 import { LogsTable } from "@/components/logs/LogsTable";
@@ -18,6 +18,8 @@ import {
 import { toast } from "@/lib/stores/toast";
 
 export default function LogsContent() {
+  const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionParam = searchParams.get("session")?.trim() ?? "";
   const threatParam = searchParams.get("threats")?.trim() ?? "";
@@ -47,9 +49,12 @@ export default function LogsContent() {
     void pullTelemetryRecent(true);
   }, [apiOnline, pullTelemetryRecent]);
 
-  // Real live telemetry events only (no fake hardcoded sample records)
+  // Only records returned by the telemetry API are shown here.
   const allRecords = useMemo(() => {
-    return (liveEvents ?? []).map((evt, idx) => telemetryToLogRecord(evt, idx));
+    if (Array.isArray(liveEvents) && liveEvents.length > 0) {
+      return liveEvents.map((evt, idx) => telemetryToLogRecord(evt, idx));
+    }
+    return [];
   }, [liveEvents]);
 
   // Filter & sort rows
@@ -65,7 +70,7 @@ export default function LogsContent() {
 
         // Toggle: Threats vs All
         if (filters.toggle === "threats") {
-          const hasThreat = row.threatsDetected.some((t) => t !== "No detections");
+          const hasThreat = row.threatsDetected.some((t) => t !== "No detections" && t !== "Unclassified");
           if (!hasThreat) return false;
         }
 
@@ -106,7 +111,7 @@ export default function LogsContent() {
         // Request metadata filter
         if (filters.requestMetadata.length > 0) {
           const matchMeta = filters.requestMetadata.some((rm) => {
-            if (rm.includes("high-latency")) return row.latencyMs > 100;
+            if (rm.includes("high-latency")) return row.latencyMs != null && row.latencyMs > 100;
             return false;
           });
           if (!matchMeta) return false;
@@ -158,14 +163,27 @@ export default function LogsContent() {
       .sort((a, b) => {
         if (filters.sortField === "latency") {
           return filters.sortOrder === "asc"
-            ? a.latencyMs - b.latencyMs
-            : b.latencyMs - a.latencyMs;
+            ? (a.latencyMs ?? Number.POSITIVE_INFINITY) - (b.latencyMs ?? Number.POSITIVE_INFINITY)
+            : (b.latencyMs ?? Number.POSITIVE_INFINITY) - (a.latencyMs ?? Number.POSITIVE_INFINITY);
         }
         const timeA = new Date(a.timestamp).getTime() || 0;
         const timeB = new Date(b.timestamp).getTime() || 0;
         return filters.sortOrder === "asc" ? timeA - timeB : timeB - timeA;
       });
   }, [allRecords, filters, sessionParam]);
+
+  const hasActiveFilters =
+    filters.project !== "all" ||
+    filters.toggle !== "all" ||
+    filters.dateRange !== "all" ||
+    filters.detectionResults.length > 0 ||
+    filters.regions.length > 0 ||
+    filters.models.length > 0 ||
+    filters.applications.length > 0 ||
+    filters.projectMetadata.length > 0 ||
+    filters.requestMetadata.length > 0 ||
+    Boolean(filters.requestIds.trim()) ||
+    Boolean(sessionParam);
 
   const handleUpdateData = useCallback(async () => {
     setIsUpdating(true);
@@ -211,7 +229,7 @@ export default function LogsContent() {
               JSON.stringify(r.content),
               JSON.stringify(r.policy),
               JSON.stringify(r.requestId),
-              r.latencyMs,
+              r.latencyMs ?? "",
               JSON.stringify(r.processingRegion),
             ].join(",")
           ),
@@ -266,7 +284,17 @@ export default function LogsContent() {
 
   const handleClearFilters = () => {
     setFilters({ ...INITIAL_LOGS_FILTERS });
-    toast("Filters reset", { variant: "default" });
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("project");
+    params.delete("threats");
+    params.delete("session");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+
+    if (hasActiveFilters) {
+      toast("Filters reset", { variant: "default" });
+    }
   };
 
   return (
@@ -293,6 +321,7 @@ export default function LogsContent() {
         selectedId={selectedRow?.id ?? null}
         onSelectRow={setSelectedRow}
         onClearFilters={handleClearFilters}
+        hasActiveFilters={hasActiveFilters}
         sortField={filters.sortField}
         sortOrder={filters.sortOrder}
         onToggleSort={handleToggleSort}

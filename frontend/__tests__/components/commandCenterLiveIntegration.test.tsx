@@ -323,7 +323,7 @@ describe("Phase 2.3 — Command Center Live Data Integration", () => {
     fireEvent.click(killButton);
 
     // Confirmation modal should open
-    expect(screen.getByText(/KILL SESSION Target Agent\?/i)).toBeDefined();
+    expect(screen.getByText(/KILL SESSION SESS-PROD-9988\?/i)).toBeDefined();
 
     // Confirm the action
     const confirmButton = screen.getByRole("button", { name: /CONFIRM KILL SESSION/i });
@@ -336,7 +336,7 @@ describe("Phase 2.3 — Command Center Live Data Integration", () => {
     // Verification feedback displayed in operator status
     await waitFor(() => {
       expect(
-        screen.getByText(/Session SESS-PROD-9988 terminated by operator/i)
+        screen.getByText(/Backend confirmed KILL for session SESS-PROD-9988 \(status: terminated\)/i)
       ).toBeDefined();
     });
   });
@@ -370,7 +370,7 @@ describe("Phase 2.3 — Command Center Live Data Integration", () => {
     fireEvent.click(quarantineButton);
 
     // Confirmation modal should open
-    expect(screen.getByText(/QUARANTINE TARGET AGENT\?/i)).toBeDefined();
+    expect(screen.getByText(/QUARANTINE SESSION SESS-PROD-9988\?/i)).toBeDefined();
 
     // Confirm the action
     const confirmButton = screen.getByRole("button", { name: /CONFIRM QUARANTINE/i });
@@ -383,7 +383,7 @@ describe("Phase 2.3 — Command Center Live Data Integration", () => {
     // Verification feedback displayed in operator status
     await waitFor(() => {
       expect(
-        screen.getByText(/Target Agent quarantined on session SESS-PROD-9988/i)
+        screen.getByText(/Backend confirmed QUARANTINE for session SESS-PROD-9988 \(status: isolated\)/i)
       ).toBeDefined();
     });
   });
@@ -405,6 +405,6 @@ describe("Phase 2.3 — Command Center Live Data Integration", () => {
       />
     );
 
-    expect(screen.getByText(/Circuit breaker open — cascading failures contained/i)).toBeDefined();
+    expect(screen.getByTestId("circuit-breaker-alert")).toHaveTextContent("Session circuit breaker telemetry reports a trip.");
   });
 });

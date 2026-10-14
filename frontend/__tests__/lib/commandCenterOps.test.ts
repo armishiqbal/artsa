@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   computeDetectionRate,
   deriveDetectionSeries,
+  deriveAgentStatuses,
   deriveGraphModel,
   deriveMissionPosture,
   deriveVitals,
   filterEventsByWindow,
-  mergeAgentStreams,
   recentActiveHops,
   telemetryToAgentEvents,
   type AgentEvent,
@@ -57,11 +57,11 @@ describe("commandCenterOps", () => {
 
   it("derives vitals from the same stream", () => {
     const v = deriveVitals(sample);
-    expect(v.findingsToday).toBeGreaterThan(0);
-    expect(v.detectionRate).toBeGreaterThan(0);
+    expect(v.findingsInWindow).toBeGreaterThan(0);
+    expect(v.detectionRate).toBeNull();
   });
 
-  it("maps ingest telemetry into AgentEvent contract", () => {
+  it("preserves telemetry evidence and does not infer missing classifications", () => {
     const mapped = telemetryToAgentEvents([
       {
         timestamp: new Date().toISOString(),
@@ -71,16 +71,16 @@ describe("commandCenterOps", () => {
         verdict: "BREACHED",
       },
     ]);
-    expect(mapped[0]?.severity).toBe("critical");
-    expect(mapped[0]?.sourceAgent).toBe("Red Team");
+    expect(mapped[0]?.severity).toBeUndefined();
+    expect(mapped[0]?.sourceAgent).toBe("red-team-1");
+    expect(mapped[0]?.targetAgent).toBeUndefined();
+    expect(mapped[0]?.status).toBeUndefined();
+    expect(mapped[0]?.asiTag).toBeUndefined();
     expect(mapped[0]?.hmacValid).toBeUndefined();
   });
 
-  it("merges live ahead of mock without dupes", () => {
-    const live = sample.slice(0, 1);
-    const merged = mergeAgentStreams(live, sample, 10);
-    expect(merged[0]?.message).toBe(live[0]!.message);
-    expect(merged.length).toBeLessThanOrEqual(sample.length);
+  it("drops records without a valid source timestamp instead of inventing one", () => {
+    expect(telemetryToAgentEvents([{ agent_id: "red_team", risk_score: 88 }])).toEqual([]);
   });
 
   it("derives elevated/critical mission posture from pressure", () => {
@@ -98,15 +98,22 @@ describe("commandCenterOps", () => {
         message: "quiet hop",
       },
     ]);
-    expect(quiet.posture).toBe("nominal");
+    expect(quiet.posture).toBe("unknown");
   });
 
-  it("keeps Detection Rate vital and chart tip in lockstep", () => {
+  it("keeps missing agent state unknown when no events have been recorded", () => {
+    const status = deriveAgentStatuses([]);
+    expect(Object.values(status).every((value) => value === "unknown")).toBe(true);
+    expect(deriveMissionPosture([]).posture).toBe("unknown");
+  });
+
+  it("does not derive a detection rate or history from unqualified event rows", () => {
     const rate = computeDetectionRate(sample);
     const vitals = deriveVitals(sample);
     const series = deriveDetectionSeries(sample);
-    expect(vitals.detectionRate).toBe(rate);
-    expect(series[series.length - 1]?.artsa).toBe(rate);
+    expect(rate).toBeNull();
+    expect(vitals.detectionRate).toBeNull();
+    expect(series).toEqual([]);
   });
 
   it("flags recent hops for edge pulse", () => {

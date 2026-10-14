@@ -31,23 +31,17 @@ describe("findings", () => {
 });
 
 describe("detectionAnalytics", () => {
-  it("builds ARTSA vs baseline series from risk trend", () => {
-    const series = buildDetectionSeries(
-      [
-        { timestamp: "2026-01-01T00:00:00Z", risk_score: 20 },
-        { timestamp: "2026-01-01T01:00:00Z", risk_score: 40 },
-      ],
-      80
-    );
-    expect(series[0].artsaRate).toBe(80);
-    expect(series[0].baselineRate).toBe(62);
+  it("uses judged campaign outcomes instead of converting risk scores", () => {
+    const series = buildDetectionSeries({ detection_rate: 75, judged: 4 });
+    expect(series[0]?.detectionRate).toBe(75);
+    expect(series[0]?.judged).toBe(4);
   });
 
   it("exports CSV rows", () => {
     const csv = detectionSeriesToCsv([
-      { index: 1, label: "a", artsaRate: 75.5, baselineRate: 62 },
+      { index: 1, label: "a", detectionRate: 75.5, judged: 4 },
     ]);
-    expect(csv).toContain("artsa_detection_rate");
+    expect(csv).toContain("detection_rate_percent");
     expect(csv).toContain("75.5");
   });
 });

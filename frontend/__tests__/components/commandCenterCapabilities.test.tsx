@@ -56,20 +56,23 @@ describe("Capability 1: Campaign Context (Section 10)", () => {
 });
 
 describe("Capability 2: Security Posture (Section 11)", () => {
-  it("renders overall risk, active threats, critical threats, and latency", () => {
+  it("labels sample posture as walkthrough and reports only supported counts", () => {
     render(<CommandCenterSecurityPosture round={LIVE_ROUNDS[2]!} />);
 
     expect(screen.getByText("OVERALL RISK")).toBeInTheDocument();
-    expect(screen.getByText("ACTIVE THREATS")).toBeInTheDocument();
-    expect(screen.getByText("CRITICAL THREATS")).toBeInTheDocument();
-    expect(screen.getByText("CONTAINED")).toBeInTheDocument();
-    expect(screen.getByText("AGENTS ENGAGED")).toBeInTheDocument();
-    expect(screen.getByText("MEAN LATENCY")).toBeInTheDocument();
+    expect(screen.getByText("WALKTHROUGH SAMPLE")).toBeInTheDocument();
+    expect(screen.getByText("TAGGED EVENTS · LATEST 4")).toBeInTheDocument();
+    expect(screen.getByText("HIGH/CRITICAL SEVERITY ROWS")).toBeInTheDocument();
+    expect(screen.getByText("CONTAINMENT")).toBeInTheDocument();
+    expect(screen.getByText("AGENTS REPORTING STATE")).toBeInTheDocument();
+    expect(screen.getByText("SAMPLE MEAN LATENCY")).toBeInTheDocument();
+    expect(screen.queryByText("ACTIVE THREATS")).not.toBeInTheDocument();
+    expect(screen.queryByText("CONTAINED")).not.toBeInTheDocument();
   });
 });
 
 describe("Capability 3: Tactical Agent Interaction Map (Section 12)", () => {
-  it("renders the six agents and active communication transmission", () => {
+  it("renders the six agent roles without claiming live transmission", () => {
     const onSelectAgent = vi.fn();
     render(
       <CommandCenterInteractionMap
@@ -78,7 +81,8 @@ describe("Capability 3: Tactical Agent Interaction Map (Section 12)", () => {
       />
     );
 
-    expect(screen.getByText("TACTICAL AGENT INTERACTION MAP")).toBeInTheDocument();
+    expect(screen.getByLabelText("Agent Interaction Map")).toBeInTheDocument();
+    expect(screen.getByText("PIPELINE ROLE MAP · EVENT HIGHLIGHT")).toBeInTheDocument();
     expect(screen.getByText("Research Agent")).toBeInTheDocument();
     expect(screen.getByText("Curator Agent")).toBeInTheDocument();
     expect(screen.getByText("Red Team Agent")).toBeInTheDocument();
@@ -93,7 +97,7 @@ describe("Capability 3: Tactical Agent Interaction Map (Section 12)", () => {
 });
 
 describe("Capability 4: Attack Timeline (Section 13)", () => {
-  it("renders what happened, when, detector, and action taken", () => {
+  it("renders an explicit empty state when no backend timeline is supplied", () => {
     const onSelectStep = vi.fn();
     render(
       <CommandCenterAttackTimeline
@@ -103,9 +107,8 @@ describe("Capability 4: Attack Timeline (Section 13)", () => {
     );
 
     expect(screen.getByText("ATTACK & CONTAINMENT TIMELINE")).toBeInTheDocument();
-    expect(screen.getAllByText(/Direct maintenance mode injection attempt/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/Prompt Injection Classifier \(94%\)/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("BLOCKED").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("NO EVENT RECORDS")).toBeInTheDocument();
+    expect(screen.getByText("No backend timeline events are available for this session.")).toBeInTheDocument();
   });
 });
 
@@ -157,19 +160,21 @@ describe("Capability 10: Operator Confirmation Modal (Section 18)", () => {
       <CommandCenterConfirmationModal
         isOpen={true}
         actionType="QUARANTINE_AGENT"
-        targetName="Target Agent"
+        targetName="sess-authenticated"
+        liveMode={true}
+        requestAvailable={true}
         onClose={onClose}
         onConfirm={onConfirm}
       />
     );
 
-    expect(screen.getByText("QUARANTINE TARGET AGENT?")).toBeInTheDocument();
-    expect(screen.getByText(/sever downstream agent-to-agent communication hops/i)).toBeInTheDocument();
-    expect(screen.getByText(/UI-READY · BACKEND INTEGRATION REQUIRED/i)).toBeInTheDocument();
+    expect(screen.getByText("QUARANTINE SESSION SESS-AUTHENTICATED?")).toBeInTheDocument();
+    expect(screen.getByText(/send a quarantine request for session sess-authenticated/i)).toBeInTheDocument();
+    expect(screen.getByText(/AUTHENTICATED REQUEST · RESPONSE REQUIRED/i)).toBeInTheDocument();
 
     const confirmBtn = screen.getByRole("button", { name: "CONFIRM QUARANTINE" });
     fireEvent.click(confirmBtn);
-    expect(onConfirm).toHaveBeenCalledWith("QUARANTINE_AGENT", "Target Agent");
+    expect(onConfirm).toHaveBeenCalledWith("QUARANTINE_AGENT", "sess-authenticated");
   });
 });
 
@@ -220,15 +225,11 @@ describe("Full Integration in CommandCenterFloor", () => {
     const closeBtn = screen.getByRole("button", { name: /Close inspector/i });
     await user.click(closeBtn);
 
-    // 2. Click operator action Quarantine Agent
-    const quarantineBtn = screen.getByRole("button", { name: /QUARANTINE AGENT/i });
-    await user.click(quarantineBtn);
-
-    expect(screen.getByText(/QUARANTINE TARGET AGENT\?/i)).toBeInTheDocument();
-    const confirmBtn = screen.getByRole("button", { name: /CONFIRM QUARANTINE/i });
-    await user.click(confirmBtn);
-
-    expect(screen.getByText(/Target Agent quarantined. Tool permissions revoked./i)).toBeInTheDocument();
+    // Walkthrough content cannot trigger an operator action without a live session.
+    const quarantineBtn = screen.getByRole("button", { name: /QUARANTINE SESSION/i });
+    expect(quarantineBtn).toBeDisabled();
+    expect(screen.queryByText(/quarantined\. Tool permissions revoked/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Autonomous Defender Hot-Patch Applied/i)).not.toBeInTheDocument();
   }, 20000);
 
   it("responds to keyboard shortcuts (Space, ArrowRight, Escape) in CommandCenterFloor", async () => {
@@ -266,8 +267,7 @@ describe("Full Integration in CommandCenterFloor", () => {
     expect(screen.queryByRole("dialog", { name: /Threat and Event Inspector/i })).not.toBeInTheDocument();
   }, 20000);
 
-  it("triggers emergency action shortcuts (Shift + K, Shift + Q) and renders tactical security zones", async () => {
-    const user = userEvent.setup();
+  it("keeps emergency action shortcuts inert without a live session", () => {
     render(
       <CommandCenterFloor
         events={[]}
@@ -285,24 +285,13 @@ describe("Full Integration in CommandCenterFloor", () => {
     // Verify Breach Risk Status anchor in Sticky HUD
     expect(screen.getByText(/BREACH RISK STATUS/i)).toBeInTheDocument();
 
-    // Press Shift + K -> Opens KILL SESSION modal
+    // Sample mode has no backend session, so shortcuts do not open a request modal.
     fireEvent.keyDown(window, { key: "K", code: "KeyK", shiftKey: true });
-    expect(screen.getByRole("heading", { name: /KILL SESSION Target Agent\?/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /CONFIRM KILL SESSION/i })).toBeInTheDocument();
-    const cancelBtn = screen.getByRole("button", { name: /^CANCEL$/i });
-    await user.click(cancelBtn);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 
-    // Press Shift + Q -> Opens QUARANTINE TARGET AGENT modal
+    // Quarantine also requires an actual session.
     fireEvent.keyDown(window, { key: "Q", code: "KeyQ", shiftKey: true });
-    expect(screen.getByText(/QUARANTINE TARGET AGENT\?/i)).toBeInTheDocument();
-    const confirmQuarantine = screen.getByRole("button", { name: /CONFIRM QUARANTINE/i });
-    await user.click(confirmQuarantine);
-    expect(screen.getByText(/Target Agent quarantined. Tool permissions revoked./i)).toBeInTheDocument();
-
-    // In-situ QUARANTINE TARGET in Live Prompt Analysis
-    const inSituQuarantineBtn = screen.getByRole("button", { name: /QUARANTINE TARGET/i });
-    await user.click(inSituQuarantineBtn);
-    expect(screen.getByRole("button", { name: /CONFIRM QUARANTINE/i })).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   }, 20000);
 
   it("renders runtime verdicts and allows horizontal timeline scrolling in CommandCenterFloor", async () => {
@@ -348,14 +337,14 @@ describe("Full Integration in CommandCenterFloor", () => {
       />
     );
 
-    // Initial state: Step 1
-    expect(screen.getByText("STEP 1 OF 9")).toBeInTheDocument();
+    // No backend timeline means no sample steps are presented as recorded events.
+    expect(screen.getByText("NO EVENT RECORDS")).toBeInTheDocument();
 
     // Advance round using ArrowRight hotkey
     fireEvent.keyDown(window, { key: "ArrowRight", code: "ArrowRight" });
 
-    // Step 2 is now active
-    expect(screen.getByText("STEP 2 OF 9")).toBeInTheDocument();
+    // Navigation does not invent a second recorded event.
+    expect(screen.getByText("NO EVENT RECORDS")).toBeInTheDocument();
 
     // Verify window.scrollTo was NOT invoked as a side effect
     expect(windowScrollSpy).not.toHaveBeenCalled();
@@ -365,5 +354,3 @@ describe("Full Integration in CommandCenterFloor", () => {
     windowScrollSpy.mockRestore();
   });
 });
-
-

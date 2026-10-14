@@ -1,17 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowUpDown } from "lucide-react";
+import {
+  ArrowUpDown,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  ChevronRight,
+} from "lucide-react";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
-import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { ServerFinding } from "@/lib/hooks/useFindings";
+import type { ExtendedFinding } from "@/lib/types/findings";
 import { cn } from "@/lib/utils";
 
-type SortKey = "timestamp" | "severity" | "status" | "title";
+type SortKey = "timestamp" | "severity" | "status" | "title" | "impact";
 
 const SEVERITY_RANK: Record<string, number> = {
   CRITICAL: 4,
@@ -21,52 +25,75 @@ const SEVERITY_RANK: Record<string, number> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New",
+  new: "New Triage",
   validated: "Validated",
   sandboxed: "Sandboxed",
-  promoted: "Promoted",
-  deployed: "Deployed",
+  promoted: "Promoted to Playbook",
+  deployed: "Enforced",
 };
 
-const STATUS_OPTIONS = [
-  { value: "ALL", label: "All" },
-  { value: "new", label: "New" },
-  { value: "validated", label: "Validated" },
-  { value: "promoted", label: "Promoted" },
-];
-
 interface FindingsTableProps {
-  rows: ServerFinding[];
+  rows: ExtendedFinding[];
   loading?: boolean;
   selectedId?: string | null;
-  onSelect?: (row: ServerFinding) => void;
+  onSelect?: (row: ExtendedFinding) => void;
 }
 
-export function FindingsTable({ rows, loading, selectedId, onSelect }: FindingsTableProps) {
+export function FindingsTable({
+  rows,
+  loading,
+  selectedId,
+  onSelect,
+}: FindingsTableProps) {
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [sortKey, setSortKey] = useState<SortKey>("timestamp");
+  const [severityFilter, setSeverityFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [agentFilter, setAgentFilter] = useState<string>("ALL");
+  const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortAsc, setSortAsc] = useState(false);
+
+  // Distinct agent list for dropdown
+  const agents = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.target_agent) set.add(r.target_agent);
+    });
+    return Array.from(set);
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = rows;
+
+    if (severityFilter !== "ALL") {
+      list = list.filter((r) => r.severity.toUpperCase() === severityFilter);
+    }
     if (statusFilter !== "ALL") {
-      list = list.filter((r) => r.status === statusFilter);
+      list = list.filter((r) => r.status.toLowerCase() === statusFilter.toLowerCase());
+    }
+    if (agentFilter !== "ALL") {
+      list = list.filter((r) => r.target_agent === agentFilter);
     }
     if (q) {
       list = list.filter(
         (r) =>
           r.title.toLowerCase().includes(q) ||
           r.category.toLowerCase().includes(q) ||
-          (r.asi_code ?? "").toLowerCase().includes(q)
+          (r.asi_code ?? "").toLowerCase().includes(q) ||
+          (r.mitre_atlas ?? "").toLowerCase().includes(q) ||
+          (r.target_agent ?? "").toLowerCase().includes(q) ||
+          (r.attack_prompt ?? "").toLowerCase().includes(q)
       );
     }
+
     return [...list].sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
         case "severity":
           cmp = (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0);
+          break;
+        case "impact":
+          cmp = (b.impact_score ?? 0) - (a.impact_score ?? 0);
           break;
         case "status":
           cmp = a.status.localeCompare(b.status);
@@ -75,12 +102,11 @@ export function FindingsTable({ rows, loading, selectedId, onSelect }: FindingsT
           cmp = a.title.localeCompare(b.title);
           break;
         default:
-          cmp =
-            (Date.parse(b.timestamp ?? "") || 0) - (Date.parse(a.timestamp ?? "") || 0);
+          cmp = (Date.parse(b.timestamp ?? "") || 0) - (Date.parse(a.timestamp ?? "") || 0);
       }
       return sortAsc ? -cmp : cmp;
     });
-  }, [rows, query, statusFilter, sortKey, sortAsc]);
+  }, [rows, query, severityFilter, statusFilter, agentFilter, sortKey, sortAsc]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc((v) => !v);
@@ -91,77 +117,283 @@ export function FindingsTable({ rows, loading, selectedId, onSelect }: FindingsT
   };
 
   if (loading) {
-    return <div className="h-64 animate-pulse rounded-xl border border-border bg-muted/20" />;
+    return (
+      <div className="space-y-3 p-6">
+        <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100" />
+        <div className="h-64 w-full animate-pulse rounded-lg bg-slate-50" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Filter by title, category, ASI…"
-          className="max-w-sm"
-          aria-label="Filter findings"
-        />
-        <SegmentedControl value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
+    <div className="space-y-3.5">
+      {/* Search and Multi-Faceted Filter Ribbon */}
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          {/* Live Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by threat, vector payload, ASI code, or MITRE ATLAS..."
+              className="h-9 pl-9 text-xs border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white"
+            />
+          </div>
+
+          {/* Agent Fleet Selector */}
+          {agents.length > 0 && (
+            <div className="flex items-center gap-1.5 font-mono text-xs text-slate-600">
+              <span className="text-[11px] text-slate-500">Agent:</span>
+              <select
+                value={agentFilter}
+                onChange={(e) => setAgentFilter(e.target.value)}
+                className="h-8 rounded border border-slate-200 bg-white px-2 font-mono text-xs font-semibold text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-hidden"
+              >
+                <option value="ALL">All Fleet Agents ({rows.length})</option>
+                {agents.map((ag) => (
+                  <option key={ag} value={ag}>
+                    {ag}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Filter Pills (Severity + Status) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          {/* Severity Pills */}
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">
+              Severity:
+            </span>
+            {(["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((sev) => (
+              <button
+                key={sev}
+                type="button"
+                onClick={() => setSeverityFilter(sev)}
+                className={cn(
+                  "rounded px-2.5 py-0.5 font-mono text-[11px] font-semibold transition-all",
+                  severityFilter === sev
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "bg-slate-100/80 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                )}
+              >
+                {sev === "ALL" ? "All" : sev}
+              </button>
+            ))}
+          </div>
+
+          {/* Status Pills */}
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">
+              Status:
+            </span>
+            {(["ALL", "new", "validated", "promoted", "sandboxed"] as const).map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => setStatusFilter(st)}
+                className={cn(
+                  "rounded px-2.5 py-0.5 font-mono text-[11px] font-semibold capitalize transition-all",
+                  statusFilter === st
+                    ? "bg-blue-600 text-white shadow-2xs"
+                    : "bg-slate-100/80 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                )}
+              >
+                {st === "ALL" ? "All" : st === "promoted" ? "Hotpatched" : st}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-border bg-muted/20 text-[11px] uppercase tracking-wide text-muted-foreground">
+      {/* Main High-Density Table */}
+      <div className="overflow-x-auto rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+        <table className="w-full min-w-[980px] text-left text-xs">
+          <thead className="border-b border-slate-200/90 bg-slate-50/80 font-mono text-[11px] uppercase tracking-wider text-slate-600">
             <tr>
-              {(
-                [
-                  ["title", "Finding"],
-                  ["severity", "Severity"],
-                  ["timestamp", "When"],
-                  ["status", "Status"],
-                ] as const
-              ).map(([key, label]) => (
-                <th key={key} className="px-3 py-2.5 font-medium">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 hover:text-foreground"
-                    onClick={() => toggleSort(key)}
-                  >
-                    {label}
-                    <ArrowUpDown className="h-3 w-3 opacity-60" aria-hidden />
-                  </button>
-                </th>
-              ))}
-              <th className="px-3 py-2.5 font-medium">ASI</th>
-              <th className="px-3 py-2.5 font-medium">Detail</th>
+              <th className="px-4 py-3 font-semibold">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900"
+                  onClick={() => toggleSort("title")}
+                >
+                  Vulnerability &amp; Exploit Vector
+                  <ArrowUpDown className="h-3 w-3 opacity-60" />
+                </button>
+              </th>
+              <th className="px-3 py-3 font-semibold w-28">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900"
+                  onClick={() => toggleSort("severity")}
+                >
+                  Severity
+                  <ArrowUpDown className="h-3 w-3 opacity-60" />
+                </button>
+              </th>
+              <th className="px-3 py-3 font-semibold w-36">Framework &amp; ATLAS</th>
+              <th className="px-3 py-3 font-semibold w-32">Target Agent</th>
+              <th className="px-3 py-3 font-semibold w-28">Status</th>
+              <th className="px-3 py-3 font-semibold w-28">Verdict</th>
+              <th className="px-3 py-3 font-semibold w-28">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900"
+                  onClick={() => toggleSort("timestamp")}
+                >
+                  Discovered
+                  <ArrowUpDown className="h-3 w-3 opacity-60" />
+                </button>
+              </th>
+              <th className="px-4 py-3 font-semibold text-right w-24">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-slate-100">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-12 text-center text-muted-foreground">
-                  No findings match this filter.
+                <td colSpan={9} className="px-4 py-12 text-center text-slate-500 font-mono text-xs">
+                  No vulnerability findings match this filter query.
+                  <div className="mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-slate-200"
+                      onClick={() => {
+                        setQuery("");
+                        setSeverityFilter("ALL");
+                        setStatusFilter("ALL");
+                        setAgentFilter("ALL");
+                      }}
+                    >
+                      Reset Filters
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ) : (
               filtered.map((row) => {
-                const selected = selectedId === row.id;
+                const isSelected = selectedId === row.id;
+                const isContained = row.verdict?.toUpperCase() === "CONTAINED";
+                const isBreached = row.verdict?.toUpperCase() === "BREACHED";
+
                 return (
                   <tr
                     key={row.id}
-                    className={cn(
-                      "hover:bg-muted/10",
-                      selected && "bg-muted/20",
-                      onSelect && "cursor-pointer"
-                    )}
                     onClick={() => onSelect?.(row)}
+                    className={cn(
+                      "group cursor-pointer transition-colors hover:bg-slate-50/80",
+                      isSelected && "bg-blue-50/50",
+                    )}
                   >
-                    <td className="px-3 py-3">
-                      <p className="font-medium text-foreground">{row.title}</p>
-                      <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{row.category}</p>
+                    {/* Column 1: Title & Exploit Summary */}
+                    <td className="px-4 py-3.5 max-w-[340px]">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-mono text-[10px] font-bold text-slate-500">
+                          {row.id}
+                        </span>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-mono text-[10px] text-slate-600 truncate">
+                          {row.category}
+                        </span>
+                      </div>
+                      <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                        {row.title}
+                      </p>
+                      {row.remediation_hint && (
+                        <p className="mt-0.5 text-[11px] text-slate-500 line-clamp-1">
+                          Fix: {row.remediation_hint}
+                        </p>
+                      )}
                     </td>
-                    <td className="px-3 py-3">
+
+                    {/* Column 2: Severity */}
+                    <td className="px-3 py-3.5">
                       <SeverityBadge severity={row.severity} />
+                      {row.impact_score && (
+                        <span className="block mt-0.5 font-mono text-[10px] text-slate-400">
+                          Score: {row.impact_score}/100
+                        </span>
+                      )}
                     </td>
-                    <td className="px-3 py-3 font-mono text-[11px] text-muted-foreground">
+
+                    {/* Column 3: Framework Taxonomy (ASI / OWASP + ATLAS) */}
+                    <td className="px-3 py-3.5">
+                      <div className="flex flex-col gap-0.5">
+                        {row.asi_code && (
+                          <Badge
+                            variant="outline"
+                            className="border-slate-200 bg-slate-50 font-mono text-[10px] font-bold text-slate-700 w-fit"
+                          >
+                            {row.asi_code}
+                          </Badge>
+                        )}
+                        {row.mitre_atlas && (
+                          <span className="font-mono text-[10px] text-slate-500">
+                            {row.mitre_atlas}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Column 4: Target Agent */}
+                    <td className="px-3 py-3.5">
+                      <span className="font-mono text-[11px] font-bold text-slate-700 block truncate max-w-[130px]" title={row.target_agent}>
+                        {row.target_agent ?? "autonomous-copilot"}
+                      </span>
+                      {row.namespace && (
+                        <span className="font-mono text-[9px] text-slate-400 block truncate max-w-[130px]">
+                          {row.namespace}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Column 5: Status */}
+                    <td className="px-3 py-3.5">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold",
+                          row.status === "promoted"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : row.status === "new"
+                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                        )}
+                      >
+                        {STATUS_LABELS[row.status] ?? row.status}
+                      </span>
+                      {row.playbook_version && (
+                        <span className="block mt-0.5 font-mono text-[9px] text-slate-500">
+                          Playbook v{row.playbook_version}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Column 6: Verdict */}
+                    <td className="px-3 py-3.5">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 font-mono text-[11px] font-bold uppercase",
+                          isContained
+                            ? "text-emerald-700"
+                            : isBreached
+                            ? "text-rose-700"
+                            : "text-amber-700"
+                        )}
+                      >
+                        {isContained ? (
+                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                        ) : (
+                          <ShieldAlert className="h-3 w-3 text-rose-600" />
+                        )}
+                        {row.verdict ?? "UNKNOWN"}
+                      </span>
+                    </td>
+
+                    {/* Column 7: Timestamp */}
+                    <td className="px-3 py-3.5 font-mono text-[11px] text-slate-500">
                       {row.timestamp
                         ? new Date(row.timestamp).toLocaleString(undefined, {
                             month: "short",
@@ -171,34 +403,20 @@ export function FindingsTable({ rows, loading, selectedId, onSelect }: FindingsT
                           })
                         : "—"}
                     </td>
-                    <td className="px-3 py-3">
-                      <Badge variant="secondary" className="meta-badge">
-                        {STATUS_LABELS[row.status] ?? row.status}
-                      </Badge>
-                      {row.playbook_version ? (
-                        <span className="ml-1 font-mono text-[10px] text-muted-foreground">
-                          v{row.playbook_version}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-3">
-                      {row.asi_code ? (
-                        <Badge variant="outline" className="meta-badge font-mono text-[10px]">
-                          {row.asi_code}
-                        </Badge>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
+
+                    {/* Column 8: Action Trigger */}
+                    <td className="px-4 py-3.5 text-right">
                       <Button
-                        asChild
-                        variant="outline"
                         size="sm"
-                        className="interactive-pill h-7 text-xs"
-                        onClick={(e) => e.stopPropagation()}
+                        variant="outline"
+                        className="h-7 border-slate-200 font-mono text-[11px] font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700 shadow-2xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect?.(row);
+                        }}
                       >
-                        <Link href={row.source === "campaign" ? "/campaigns" : "/logs"}>Open</Link>
+                        Inspect
+                        <ChevronRight className="h-3 w-3" />
                       </Button>
                     </td>
                   </tr>
@@ -209,9 +427,14 @@ export function FindingsTable({ rows, loading, selectedId, onSelect }: FindingsT
         </table>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {rows.length} finding{rows.length === 1 ? "" : "s"}
-      </p>
+      <div className="flex items-center justify-between font-mono text-xs text-slate-500 px-1">
+        <span>
+          Showing {filtered.length} of {rows.length} security finding{rows.length === 1 ? "" : "s"}
+        </span>
+        <span className="text-[11px] text-slate-400">
+          Click any row to open forensic triage &amp; policy synthesis drawer
+        </span>
+      </div>
     </div>
   );
 }

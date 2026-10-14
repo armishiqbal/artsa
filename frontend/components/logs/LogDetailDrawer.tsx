@@ -170,7 +170,7 @@ export function LogDetailDrawer({ row, onClose }: LogDetailDrawerProps) {
                     <span className="text-[11px]">Latency</span>
                   </div>
                   <p className="mt-1 font-mono text-base font-semibold text-foreground">
-                    {row.latencyMs} ms
+                    {row.latencyMs == null ? "—" : `${row.latencyMs} ms`}
                   </p>
                 </div>
 

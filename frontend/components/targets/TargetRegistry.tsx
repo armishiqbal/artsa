@@ -46,13 +46,17 @@ export function TargetRegistry() {
   const { providers } = useProviders();
   const { capabilities } = useAuthRole();
   const canManage = capabilities.can_manage_targets;
+  const hasReadyProvider = providers.some((provider) => provider.configured);
 
   const [draft, setDraft] = useState<TargetDraft>(EMPTY_DRAFT);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const canSave = draft.name.trim().length > 0 && draft.model.trim().length > 0;
+  const selectedProvider = providers.find((provider) => provider.id === draft.provider);
+  const canSave = Boolean(
+    draft.name.trim() && draft.provider && draft.model.trim() && selectedProvider?.configured
+  );
 
   const submit = async () => {
     if (!canSave) return;
@@ -109,24 +113,33 @@ export function TargetRegistry() {
               <span className="text-[12px] font-medium">Provider</span>
               <select
                 value={draft.provider}
-                onChange={(e) => setDraft({ ...draft, provider: e.target.value })}
+                onChange={(e) => {
+                  const provider = providers.find((item) => item.id === e.target.value);
+                  setDraft({ ...draft, provider: e.target.value, model: provider?.model ?? "" });
+                }}
                 className="h-9 w-full rounded-md border border-border bg-background px-3 text-[13px]"
               >
                 <option value="">Select a provider</option>
                 {providers.map((p) => (
-                  <option key={p.id} value={p.name}>
+                  <option key={p.id} value={p.id} disabled={!p.configured}>
                     {p.name}
-                    {p.configured ? "" : " (no key)"}
+                    {p.configured ? "" : " (not ready)"}
                   </option>
                 ))}
               </select>
+              {!hasReadyProvider ? (
+                <span className="block text-[11px] text-muted-foreground">
+                  No campaign provider is ready. Add or enable one in{" "}
+                  <Link href="/settings/integrations" className="underline underline-offset-2">Settings → Integrations</Link>.
+                </span>
+              ) : null}
             </label>
             <label className="space-y-1.5">
               <span className="text-[12px] font-medium">Model</span>
               <Input
                 value={draft.model}
                 onChange={(e) => setDraft({ ...draft, model: e.target.value })}
-                placeholder="gpt-4o-mini"
+                placeholder={selectedProvider?.model || "Select a provider first"}
               />
             </label>
             <label className="space-y-1.5">

@@ -20,6 +20,7 @@ function sessionStatusVariant(status: Session["status"]): "success" | "critical"
 export function ReplaySessionList({
   sessions,
   loading,
+  source,
   selectedId,
   query,
   onQueryChange,
@@ -27,6 +28,7 @@ export function ReplaySessionList({
 }: {
   sessions: Session[];
   loading: boolean;
+  source: "live" | "walkthrough";
   selectedId: string | null;
   query: string;
   onQueryChange: (q: string) => void;
@@ -39,24 +41,30 @@ export function ReplaySessionList({
   });
 
   return (
-    <div className="flex min-h-[480px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-card lg:min-h-[640px]">
-      <div className="space-y-3 border-b border-border p-3">
-        <div>
-          <p className="text-sm font-medium">Sessions</p>
-          <p className="text-[11px] text-muted-foreground">{sessions.length} available</p>
+    <section aria-label="Session navigator" className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-10rem)]">
+      <div className="border-b border-slate-200 px-4 py-4">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Evidence library</p>
+            <h2 className="mt-1 text-sm font-semibold text-slate-950">Recorded sessions</h2>
+          </div>
+          <span className={cn("rounded-full border px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-wide", source === "live" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800")}>
+            {source === "live" ? "API" : "Sample"}
+          </span>
         </div>
+        <p className="mt-1 text-xs text-slate-500">{sessions.length} {sessions.length === 1 ? "session" : "sessions"}</p>
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden />
           <Input
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search agent or ID…"
-            className="h-8 pl-8 text-xs"
+            placeholder="Find agent or session…"
+            className="mt-3 h-9 border-slate-200 bg-slate-50 pl-8 text-xs placeholder:text-slate-400"
             aria-label="Search sessions"
           />
         </div>
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         {loading ? (
           <div className="space-y-2 p-3">
             {[1, 2, 4, 5].map((i) => (
@@ -64,11 +72,11 @@ export function ReplaySessionList({
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="p-6 text-center text-xs text-muted-foreground">
+          <p className="p-6 text-center text-xs text-slate-500">
             {sessions.length === 0 ? "No sessions yet." : "No matches."}
           </p>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-slate-100">
             {filtered.map((s) => {
               const selected = selectedId === s.id;
               const maxSeverity = severityFromScore(s.max_risk_score);
@@ -78,28 +86,29 @@ export function ReplaySessionList({
                     type="button"
                     onClick={() => onSelect(s.id)}
                     className={cn(
-                      "interactive-row flex w-full flex-col gap-1.5 px-3 py-3 text-left",
-                      selected && "border-l-2 border-l-foreground bg-muted/75 pl-[10px]"
+                      "flex w-full flex-col gap-2 border-l-2 border-transparent px-4 py-3.5 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-600",
+                      selected && "border-l-[#b1e84f] bg-slate-950 pl-3.5 text-white hover:bg-slate-900"
                     )}
+                    aria-pressed={selected}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-mono text-xs font-medium">{s.agent_id}</span>
-                      <Badge variant={sessionStatusVariant(s.status)} className="shrink-0 text-[10px]">
+                      <span className={cn("truncate font-mono text-xs font-semibold", selected ? "text-white" : "text-slate-900")}>{s.agent_id}</span>
+                      <Badge variant={sessionStatusVariant(s.status)} className="shrink-0 text-[9px]">
                         {s.status}
                       </Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <SeverityBadge severity={maxSeverity} />
-                      <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                      <span className={cn("font-mono text-[10px] tabular-nums", selected ? "text-slate-300" : "text-slate-500")}>
                         {s.tool_call_count} events
                       </span>
                       {s.containment_breaches > 0 && (
-                        <span className="font-mono text-[10px] text-severity-critical tabular-nums">
+                          <span className={cn("font-mono text-[10px] tabular-nums", selected ? "text-rose-300" : "text-severity-critical")}>
                           {s.containment_breaches} breaches
                         </span>
                       )}
                     </div>
-                    <p className="truncate font-mono text-[10px] text-muted-foreground">{s.id}</p>
+                    <p className={cn("truncate font-mono text-[10px]", selected ? "text-slate-400" : "text-slate-400")}>{s.id}</p>
                   </button>
                 </li>
               );
@@ -107,6 +116,6 @@ export function ReplaySessionList({
           </ul>
         )}
       </ScrollArea>
-    </div>
+    </section>
   );
 }

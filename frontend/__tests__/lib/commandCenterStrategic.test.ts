@@ -5,21 +5,14 @@ import userEvent from "@testing-library/user-event";
 import { CommandCenterFloor } from "@/components/command-center/CommandCenterFloor";
 import {
   DEFAULT_FILTERS,
-  SIX_AGENTS,
   buildStrategicModel,
   deriveContainment,
   featuredAsi,
   hmacLabel,
-  hopLatencyMs,
   inspectorFor,
   techniquesFrom,
   yAxisScale,
 } from "@/components/command-center/prototype/model";
-
-function isPlusFiveSequence(values: number[]): boolean {
-  if (values.length < 3) return false;
-  return values.every((v, i) => i === 0 || v === values[0]! + i * 5);
-}
 
 describe("yAxisScale", () => {
   it("returns strictly ascending ticks inside the domain", () => {
@@ -33,7 +26,7 @@ describe("yAxisScale", () => {
 });
 
 describe("buildStrategicModel honesty", () => {
-  it("labels an empty floor as walkthrough and draws a time-series climb", () => {
+  it("labels the seeded empty-floor sample as walkthrough", () => {
     const model = buildStrategicModel({
       events: [],
       campaigns: [],
@@ -45,14 +38,15 @@ describe("buildStrategicModel honesty", () => {
     expect(model.series.length).toBeGreaterThan(8);
     expect(model.series.every((p) => p.label.startsWith("R"))).toBe(false);
     expect(model.lift.last).toBe(model.series[model.series.length - 1]?.artsa);
-    expect(model.openAlerts).toBeGreaterThanOrEqual(0);
-    expect(model.monitors.find((m) => m.id === "checkpoint")?.value).toBe("NOT WIRED");
+    expect(model.recordedAlerts).toBeGreaterThanOrEqual(0);
+    expect(model.curveProvenance).toBe("walkthrough");
+    expect(model.monitors.find((m) => m.id === "checkpoint")?.value).toBe("UNAVAILABLE");
     expect(model.monitors.find((m) => m.id === "asi08")).toBeUndefined();
     expect(model.monitors.find((m) => m.id === "disagree")?.name).toBe("Judge/Defender disagreement");
     expect(model.campaignList).toHaveLength(2);
     const asi08 = featuredAsi(model.asi).find((a) => a.code === "ASI08");
-    expect(asi08?.built).toBe(true);
-    expect(asi08?.coverage).toBe(0);
+    expect(asi08?.built).toBeNull();
+    expect(asi08?.coverage).toBeNull();
   });
 
   it("does not treat ingest rows as signed HMAC handoffs", () => {
@@ -83,21 +77,14 @@ describe("buildStrategicModel honesty", () => {
     expect(model.walkthrough).toBe(false);
     expect(model.hmacSigned).toBe(false);
     expect(model.hmacRate).toBeNull();
-    expect(model.hops.every((h) => h.hmacState === "unwired")).toBe(true);
-    expect(model.hops.every((h) => hmacLabel(h.hmacState) === "not wired")).toBe(true);
-    expect(isPlusFiveSequence(model.hops.map((h) => h.latencyMs))).toBe(false);
-    expect(model.series.length).toBeGreaterThan(8);
+    expect(model.hops.every((h) => h.hmacState === "unknown")).toBe(true);
+    expect(model.hops.every((h) => hmacLabel(h.hmacState) === "unknown")).toBe(true);
+    expect(model.hops.every((h) => h.latencyMs === null)).toBe(true);
+    expect(model.series).toHaveLength(0);
+    expect(model.curveProvenance).toBe("unavailable");
     const hmac = inspectorFor(model, "monitor", "hmac");
-    expect(hmac?.fields.some((f) => f.value === "NOT WIRED")).toBe(true);
+    expect(hmac?.fields.some((f) => f.value === "UNAVAILABLE")).toBe(true);
     expect(hmac?.fields.some((f) => f.label === "Source")).toBe(false);
-  });
-});
-
-describe("hopLatencyMs", () => {
-  it("is stable and not an exact +5ms staircase across the six agents", () => {
-    const values = SIX_AGENTS.map((agent) => hopLatencyMs(agent, 0));
-    expect(values).toEqual(SIX_AGENTS.map((agent) => hopLatencyMs(agent, 0)));
-    expect(isPlusFiveSequence(values)).toBe(false);
   });
 });
 
@@ -160,15 +147,15 @@ describe("Executive Mission Posture and Active Containment (R2 & R3)", () => {
       now,
     });
 
-    // R2: Mission posture
-    expect(["nominal", "elevated", "critical"]).toContain(model.mission.posture);
+    // A few event rows do not establish the posture of all six agents.
+    expect(model.mission.posture).toBe("unknown");
     expect(model.mission.headline.length).toBeGreaterThan(10);
 
     // R3: Active containment
     expect(model.containment.total).toBe(3);
     expect(model.containment.terminated).toBe(1);
     expect(model.containment.quarantined).toBe(2);
-    expect(model.containment.sparkline.length).toBeGreaterThan(0);
+    expect(model.containment.sparkline).toHaveLength(0);
   });
 });
 
@@ -186,7 +173,8 @@ describe("Threat Vectors & Dominant Techniques (R4)", () => {
     expect(model.techniques.some((t) => t.name === "Tool Exfiltration" || t.name.includes("Tool"))).toBe(true);
 
     const totalPct = model.techniques.reduce((sum, t) => sum + t.pct, 0);
-    expect(totalPct).toBeGreaterThanOrEqual(90);
+    expect(totalPct).toBeGreaterThan(0);
+    expect(totalPct).toBeLessThanOrEqual(100);
   });
 });
 
@@ -278,12 +266,12 @@ describe("Containment Accuracy & Edge Cases", () => {
     expect(containment.terminated).toBe(1);
     expect(containment.quarantined).toBe(2);
     expect(containment.total).toBe(3);
-    expect(containment.sparkline).toHaveLength(5);
+    expect(containment.sparkline).toHaveLength(0);
   });
 });
 
 describe("Taxonomy Fallback & Filter Resilience (Open Issues 3 & 4)", () => {
-  it("classifies custom tool invocations and maps them with asiCode when matched", () => {
+  it("uses structured ASI tags and does not infer a technique from message text", () => {
     const agentEvents = [
       {
         type: "finding" as const,
@@ -308,6 +296,10 @@ describe("Taxonomy Fallback & Filter Resilience (Open Issues 3 & 4)", () => {
     expect(techniques.length).toBeGreaterThan(0);
     expect(techniques.some((t) => t.asiCode === "ASI02")).toBe(true);
     expect(techniques.some((t) => t.asiCode === "ASI03")).toBe(true);
+    const unstructuredOnly = techniquesFrom([{ ...agentEvents[0]!, asiTag: undefined }]);
+    expect(unstructuredOnly).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Unclassified Vector", asiCode: undefined }),
+    ]));
   });
 
   it("gracefully falls back when custom filter yields zero events in walkthrough mode", () => {
@@ -318,10 +310,10 @@ describe("Taxonomy Fallback & Filter Resilience (Open Issues 3 & 4)", () => {
       now: Date.parse("2026-09-06T12:00:00.000Z"),
     });
 
-    // Floor remains robust and populated
-    expect(model.techniques.length).toBeGreaterThan(0);
+    // The ASI08 filter has no matching seeded sample event, so derived values stay empty.
+    expect(model.techniques).toHaveLength(0);
     expect(model.hops).toHaveLength(6);
-    expect(model.mission.posture).toBeDefined();
+    expect(model.mission.posture).toBe("unknown");
     expect(model.containment.total).toBeGreaterThan(0);
   });
 });
@@ -336,7 +328,7 @@ describe("Adaptive Lift Sign Formatting", () => {
 });
 
 describe("CommandCenterFloor DOM & Layout Architecture", () => {
-  it("renders 4 executive stats: TRUST CHAIN, DETECTION RATE, DISAGREEMENT RATE, OPEN ALERTS", () => {
+  it("labels seeded walkthrough metrics as simulation content", () => {
     render(
       React.createElement(CommandCenterFloor, {
         events: [],
@@ -350,7 +342,8 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
     expect(screen.getByText("DETECTION RATE")).toBeInTheDocument();
     expect(screen.getByText("DISAGREEMENT RATE")).toBeInTheDocument();
     expect(screen.getByText("Judge vs Defender · lower is better")).toBeInTheDocument();
-    expect(screen.getByText("OPEN ALERTS")).toBeInTheDocument();
+    expect(screen.getByText("RECORDED ALERTS")).toBeInTheDocument();
+    expect(screen.getByText("SIMULATION", { exact: true })).toBeInTheDocument();
 
     expect(screen.getByText("91.2%")).toBeInTheDocument();
     expect(screen.getByText("86%")).toBeInTheDocument();
@@ -358,7 +351,7 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
     expect(screen.getByText("70")).toBeInTheDocument();
   });
 
-  it("renders permanent stable DETECTION RATE OVER TIME chart with legend stats", () => {
+  it("labels the seeded detection chart as a walkthrough sample", () => {
     const { container } = render(
       React.createElement(CommandCenterFloor, {
         events: [],
@@ -368,15 +361,14 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
       })
     );
 
-    expect(screen.getByText(/DETECTION RATE OVER TIME · ARTSA vs STATIC BASELINE/i)).toBeInTheDocument();
-    expect(screen.getByText(/adaptive ·/i)).toBeInTheDocument();
-    expect(screen.getByText(/baseline ·/i)).toBeInTheDocument();
+    expect(screen.getByText("DETECTION RATE HISTORY")).toBeInTheDocument();
+    expect(screen.getByText("Walkthrough sample")).toBeInTheDocument();
 
     const chartContainer = container.querySelector('[data-testid="detection-chart-container"]');
     expect(chartContainer).toBeInTheDocument();
   });
 
-  it("renders Live Prompt Analysis card with highlighted spans and gauges", () => {
+  it("marks seeded prompt content and confidence bars as walkthrough samples", () => {
     render(
       React.createElement(CommandCenterFloor, {
         events: [],
@@ -386,8 +378,9 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
       })
     );
 
-    expect(screen.getByText(/LIVE PROMPT ANALYSIS/i)).toBeInTheDocument();
-    expect(screen.getByText(/round 1 · live/i)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Walkthrough prompt sample" })).toBeInTheDocument();
+    expect(screen.getByText(/round 1 · status unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText("Walkthrough sample text")).toBeInTheDocument();
     expect(screen.getByText("customer_db")).toBeInTheDocument();
     expect(screen.getByText(/ASI01 hijack/i)).toBeInTheDocument();
     expect(screen.getByText(/ASI04 exfil/i)).toBeInTheDocument();
@@ -426,10 +419,10 @@ describe("CommandCenterFloor DOM & Layout Architecture", () => {
       })
     );
 
-    const nextBtn = screen.getByRole("button", { name: /NEXT ROUND →/i });
+    const nextBtn = screen.getByRole("button", { name: /NEXT SAMPLE →/i });
     expect(nextBtn).toBeInTheDocument();
 
     await user.click(nextBtn);
-    expect(screen.getByText(/round 2 · live/i)).toBeInTheDocument();
+    expect(screen.getByText("Example round 2")).toBeInTheDocument();
   }, 15000);
 });

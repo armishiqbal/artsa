@@ -34,42 +34,40 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn().mockImplementation((url: string) => {
-      if (url.includes("/api/backend/api/v1/compliance/export?format=json")) {
+      if (url.includes("/api/backend/api/v1/compliance/report/export?format=json")) {
         return Promise.resolve({
           ok: true,
           json: () =>
             Promise.resolve({
               artifact_type: "ARTSA_EXECUTIVE_COMPLIANCE_AUDIT",
               nist_ai_rmf_scorecard: {
-                composite_score: 91.0,
+                composite_score: null,
                 functions: [],
               },
               owasp_agentic_top10: {
-                compliance_score: 95.0,
-                rows: [
-                  { id: "ASI01", name: "Agent Goal Hijack", status: "COMPLIANT", control: "PromptInjectionDetector", finding: "Bypass depth 1.5" },
-                  { id: "ASI02", name: "Tool Misuse & Exploitation", status: "COMPLIANT", control: "Tool Quarantine", finding: "Active" },
-                  { id: "ASI07", name: "Insecure Inter-Agent Communication", status: "COMPLIANT", control: "HMAC", finding: "HMAC-SHA256 verified" },
-                ],
+                compliance_score: null,
+                summary: { not_assessed: 10 },
+                rows: [{ id: "ASI01", name: "Agent Goal Hijack", status: "NOT_ASSESSED", control: "", finding: "" }],
               },
               hmac_cryptographic_proofs: {
                 algorithm: "HMAC-SHA256",
-                non_repudiation_status: "CRYPTOGRAPHICALLY_VERIFIED",
-                total_signed_hops: 3,
-                verified_hops: 3,
-                merkle_root_hash: "a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0",
+                non_repudiation_status: "UNVERIFIED",
+                total_signed_hops: 0,
+                verified_hops: 0,
+                merkle_root_hash: null,
               },
               adaptive_defense_lift: {
-                static_baseline_detection_rate: 61.5,
-                adaptive_defense_detection_rate: 90.0,
-                adaptive_lift_percent: 28.5,
-                hot_patches_applied: 4,
-                tools_quarantined: 1,
+                static_baseline_detection_rate: null,
+                adaptive_defense_detection_rate: null,
+                adaptive_lift_percent: null,
+                judged_outcomes: null,
+                hot_patches_applied: null,
+                tools_quarantined: null,
               },
             }),
         });
       }
-      if (url.includes("/api/backend/api/v1/compliance/export?format=pdf")) {
+      if (url.includes("/api/backend/api/v1/compliance/report/export?format=pdf")) {
         return Promise.resolve({
           ok: true,
           blob: () => Promise.resolve(new Blob(["%PDF-1.4 mock pdf"], { type: "application/pdf" })),
@@ -93,7 +91,7 @@ describe("ReportsPage - Executive Compliance & Audit Export", () => {
     expect(screen.getByText(/Export Audit JSON/i)).toBeInTheDocument();
   });
 
-  it("displays compliance scorecard and cryptographic proofs", async () => {
+  it("shows unavailable compliance and proof values without evidence", async () => {
     render(<ReportsPage />);
 
     expect(screen.getByText(/Governance & Cryptographic Proofs/i)).toBeInTheDocument();
@@ -101,10 +99,10 @@ describe("ReportsPage - Executive Compliance & Audit Export", () => {
     expect(screen.getAllByText(/OWASP Agentic Top 10/i).length).toBeGreaterThanOrEqual(1);
 
     await waitFor(() => {
-      expect(screen.getByText(/HMAC-SHA256 VERIFIED/i)).toBeInTheDocument();
-      expect(screen.getByText(/91%/i)).toBeInTheDocument();
-      expect(screen.getByText(/95%/i)).toBeInTheDocument();
-      expect(screen.getByText(/\+28.5%/i)).toBeInTheDocument();
+      expect(screen.getByText(/UNVERIFIED/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Not assessed/i).length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText(/Unavailable — no audit rows/i)).toBeInTheDocument();
+      expect(screen.getByText(/No judged outcomes recorded/i)).toBeInTheDocument();
     });
   });
 
@@ -118,7 +116,7 @@ describe("ReportsPage - Executive Compliance & Audit Export", () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/backend/api/v1/compliance/export?format=pdf"),
+        expect.stringContaining("/api/backend/api/v1/compliance/report/export?format=pdf"),
         expect.anything()
       );
     });

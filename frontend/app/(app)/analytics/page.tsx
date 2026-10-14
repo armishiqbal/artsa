@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
+import { fetchFromBackend } from "@/lib/api";
 import { LiveIndicator } from "@/components/shared/LiveIndicator";
 import { useConnection } from "@/lib/context/ConnectionProvider";
 import { severityFromScore } from "@/lib/severity";
@@ -36,6 +37,7 @@ import { EMPTY_STATE_UI } from "@/lib/getStartedLabels";
 import dynamic from "next/dynamic";
 import { DetectionRateChart } from "@/components/charts/DetectionRateChart";
 import {
+  type CampaignDetectionMetrics,
   buildDetectionSeries,
   detectionSeriesToCsv,
   downloadTextFile,
@@ -46,11 +48,34 @@ import {
 } from "@/lib/enterpriseAnalytics";
 
 const ObservatoryPanel = dynamic(() => import("@/components/ObservatoryPanel"), { ssr: false });
-const XRayPanel = dynamic(() => import("@/components/XRayPanel"), { ssr: false });
 
 export default function AnalyticsPage() {
   const { metrics, liveEvents, loading } = useDashboardMetrics();
   const { apiOnline, wsConnected } = useConnection();
+  const [campaignDetectionMetrics, setCampaignDetectionMetrics] =
+    useState<CampaignDetectionMetrics | null>(null);
+  const [detectionLoading, setDetectionLoading] = useState(true);
+
+  useEffect(() => {
+    let current = true;
+    if (!apiOnline) {
+      setCampaignDetectionMetrics(null);
+      setDetectionLoading(false);
+      return () => { current = false; };
+    }
+
+    setDetectionLoading(true);
+    void fetchFromBackend<{ metrics?: CampaignDetectionMetrics }>("/api/v1/telemetry/ops", {
+      silent: true,
+      timeoutMs: 5000,
+    }).then((snapshot) => {
+      if (current) setCampaignDetectionMetrics(snapshot?.metrics ?? null);
+    }).finally(() => {
+      if (current) setDetectionLoading(false);
+    });
+
+    return () => { current = false; };
+  }, [apiOnline]);
 
   const analytics = useMemo(
     () => deriveEnterpriseAnalytics(metrics, liveEvents),
@@ -58,8 +83,8 @@ export default function AnalyticsPage() {
   );
 
   const detectionSeries = useMemo(
-    () => buildDetectionSeries(metrics?.risk_trend, metrics?.defense_score),
-    [metrics?.risk_trend, metrics?.defense_score]
+    () => buildDetectionSeries(campaignDetectionMetrics),
+    [campaignDetectionMetrics]
   );
 
   const exportAll = () => {
@@ -81,7 +106,7 @@ export default function AnalyticsPage() {
     <PageStack>
       <PageHeader
         title="Security analytics"
-        description="Risk over time, how serious events were, and what ARTSA did — from live activity only."
+        description="Risk and recorded actions from live telemetry; detection rate uses judged campaign outcomes."
         icon={<BarChart3 className="h-5 w-5" />}
         badge={<LiveIndicator connected={apiOnline && wsConnected} className="meta-badge" />}
         actions={
@@ -110,29 +135,33 @@ export default function AnalyticsPage() {
           <StatCard label="Events" value={analytics.totalEvents} icon={Activity} />
           <StatCard
             label="Containment rate"
-            value={`${analytics.containmentRate}%`}
+            value={analytics.containmentRate === null ? "—" : `${analytics.containmentRate}%`}
             icon={Shield}
-            subtitle={`${analytics.containedCount} enforced`}
+            subtitle={analytics.containedCount === null
+              ? "Enforcement evidence unavailable"
+              : `${analytics.containedCount} explicit actions applied`}
           />
           <StatCard
             label="Avg risk"
-            value={analytics.avgRisk}
-            severity={severityFromScore(analytics.avgRisk)}
+            value={analytics.avgRisk ?? "—"}
+            severity={analytics.avgRisk === null ? undefined : severityFromScore(analytics.avgRisk)}
           />
           <StatCard
             label="Max risk"
-            value={analytics.maxRisk}
-            severity={severityFromScore(analytics.maxRisk)}
+            value={analytics.maxRisk ?? "—"}
+            severity={analytics.maxRisk === null ? undefined : severityFromScore(analytics.maxRisk)}
           />
           <StatCard
             label="Defense score"
-            value={`${analytics.defenseScore}%`}
+            value={analytics.defenseScore === null ? "—" : `${analytics.defenseScore}%`}
             icon={Gauge}
           />
           <StatCard
             label="Critical"
-            value={analytics.severitySlices.find((s) => s.key === "CRITICAL")?.value ?? 0}
-            severity="CRITICAL"
+            value={analytics.hasSeveritySignal
+              ? analytics.severitySlices.find((s) => s.key === "CRITICAL")?.value ?? 0
+              : "—"}
+            severity={analytics.hasSeveritySignal ? "CRITICAL" : undefined}
           />
         </div>
       )}
@@ -151,10 +180,10 @@ export default function AnalyticsPage() {
               <RiskTrendChart data={analytics.riskTrend} />
               <div className="flex flex-wrap gap-4 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
                 <span>
-                  Avg <span className="text-foreground">{analytics.avgRisk}</span>
+                  Avg <span className="text-foreground">{analytics.avgRisk ?? "—"}</span>
                 </span>
                 <span>
-                  Max <span className="text-foreground">{analytics.maxRisk}</span>
+                  Max <span className="text-foreground">{analytics.maxRisk ?? "—"}</span>
                 </span>
                 <span>
                   Points <span className="text-foreground">{analytics.riskTrend.length}</span>
@@ -182,7 +211,7 @@ export default function AnalyticsPage() {
         >
           {loading ? (
             <ChartSkeleton />
-          ) : analytics.severitySlices.some((s) => s.value > 0) ? (
+          ) : analytics.hasSeveritySignal ? (
             <>
               <SeverityDonutChart data={analytics.severitySlices} />
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -214,8 +243,8 @@ export default function AnalyticsPage() {
       {/* Secondary row */}
       <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard
-          title="Detection rate vs static baseline"
-          description="ARTSA live detection vs fixed 62% baseline"
+          title="Campaign detection rate"
+          description="Share of judged outcomes marked BLOCKED across completed campaign records."
           actions={
             <Button
               type="button"
@@ -229,15 +258,15 @@ export default function AnalyticsPage() {
             </Button>
           }
         >
-          {loading ? (
+          {loading || detectionLoading ? (
             <ChartSkeleton />
           ) : detectionSeries.length > 0 ? (
             <DetectionRateChart data={detectionSeries} />
           ) : (
             <EmptyState
               icon={BarChart3}
-              title="No detection trend yet"
-              description="Ingest agent traffic to plot live detection against the static baseline."
+              title="No judged campaign outcomes yet"
+              description="Run and complete a campaign with scored rounds to calculate detection rate. No static baseline or risk-score conversion is applied."
               className="py-12"
             />
           )}
@@ -245,7 +274,7 @@ export default function AnalyticsPage() {
 
         <DashboardCard
           title="Containment action mix"
-          description="Kill · quarantine · flag · allow decisions from live stream"
+          description="Actions and recommendations recorded on live events; verdict text is not used to infer an action."
         >
           {loading ? (
             <ChartSkeleton />
@@ -308,13 +337,13 @@ export default function AnalyticsPage() {
         </DashboardCard>
       </div>
 
-      <DashboardCard title="Defense depth" description="Multi-layer containment effectiveness">
+      <DashboardCard title="Defense evidence" description="Layer effectiveness requires judged outcomes and enforcement evidence.">
         <div className="mb-4 flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-            Overall defense score
+            Measured defense score
           </span>
           <Badge variant="outline" className="meta-badge font-mono">
-            {analytics.defenseScore}%
+            {analytics.defenseScore === null ? "Unavailable" : `${analytics.defenseScore}%`}
           </Badge>
         </div>
         <div className="space-y-3">
@@ -329,7 +358,7 @@ export default function AnalyticsPage() {
           ))}
           {analytics.defenseLayers.length === 0 && (
             <p className="text-[13px] text-muted-foreground">
-              Send agent activity to see layer-by-layer scores.
+              Layer effectiveness is unavailable until the backend records a judged campaign denominator and enforcement outcomes.
             </p>
           )}
         </div>
@@ -339,13 +368,12 @@ export default function AnalyticsPage() {
 
       <DashboardCard
         title="Continuous observatory"
-        description="Regression gates, co-evolution metrics, and detector ablation"
+        description="Campaign history and configured benchmark results; benchmark gates do not represent live customer traffic."
         badge={<ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />}
       >
         <ObservatoryPanel />
       </DashboardCard>
 
-      <XRayPanel />
     </PageStack>
   );
 }
