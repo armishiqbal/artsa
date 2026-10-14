@@ -1,17 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
 import { Clock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  getSecurityEventForRound,
-  type LiveRound,
-  type VerdictItem,
-} from "../prototype/liveRounds";
+import type { LiveRound, VerdictItem } from "../prototype/liveRounds";
 
 export function CommandCenterVerdictsDeck({
   round,
-  roundIdx,
   onSelectVerdict,
   className,
 }: {
@@ -20,11 +14,6 @@ export function CommandCenterVerdictsDeck({
   onSelectVerdict?: (verdict: VerdictItem) => void;
   className?: string;
 }) {
-  const securityEvent = useMemo(
-    () => getSecurityEventForRound(round, roundIdx),
-    [round, roundIdx]
-  );
-
   const verdicts = round.verdicts ?? [];
 
   function getVerdictToneStyle(tone: VerdictItem["tone"]) {
@@ -108,14 +97,14 @@ export function CommandCenterVerdictsDeck({
             EVENT
           </span>
           <span className="font-semibold text-foreground">
-            {securityEvent.eventId}
+            {round.event?.eventId ?? "No event ID"}
           </span>
           <span className="text-border">·</span>
           <span className="text-muted-foreground uppercase text-[9px] tracking-wider">
             TRACE
           </span>
           <span className="text-sky-400">
-            {securityEvent.traceId}
+            {round.event?.traceId || "Not recorded"}
           </span>
         </div>
 
@@ -123,8 +112,8 @@ export function CommandCenterVerdictsDeck({
           <span className="text-muted-foreground uppercase text-[9px] tracking-wider">
             SIGNAL:
           </span>
-          <span className="text-foreground/90 truncate max-w-[200px]" title={securityEvent.detectionSignal}>
-            {securityEvent.detectionSignal}
+          <span className="text-foreground/90 truncate max-w-[200px]" title={round.event?.detectionSignal ?? "Not recorded"}>
+            {round.event?.detectionSignal || "Not recorded"}
           </span>
         </div>
       </div>

@@ -41,7 +41,7 @@ export function CommandCenterFeed({
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            Live blotter
+            Recorded event blotter
           </p>
           <p className="font-mono text-[9px] text-zinc-600">{events.length} events in window</p>
         </div>
@@ -76,7 +76,7 @@ export function CommandCenterFeed({
               minute: "2-digit",
               second: "2-digit",
             });
-            const sev = e.severity ?? "info";
+            const sev = e.severity ?? "unclassified";
             const agent = e.targetAgent ?? e.sourceAgent;
             const hop = hopLine(e);
             return (
@@ -117,8 +117,8 @@ export function CommandCenterFeed({
                     className={cn(
                       "mt-0.5 truncate",
                       sev === "critical" && "text-red-300",
-                      sev === "warning" && "text-amber-300",
-                      sev === "info" && "text-foreground/80"
+                      (sev === "warning" || sev === "medium") && "text-amber-300",
+                      (sev === "info" || sev === "low") && "text-foreground/80"
                     )}
                   >
                     {e.message}

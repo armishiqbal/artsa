@@ -37,6 +37,7 @@ const STATUS_DOT: Record<AgentOperationalStatus, string> = {
   active: "bg-status-success animate-pulse",
   degraded: "bg-status-warning",
   offline: "bg-muted-foreground/40",
+  unknown: "bg-muted-foreground/30",
 };
 
 interface AgentStatusStripProps {

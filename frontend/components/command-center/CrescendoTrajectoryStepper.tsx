@@ -3,10 +3,8 @@
 import React, { useState } from "react";
 import {
   ShieldAlert,
-  ArrowRight,
   RotateCcw,
   CheckCircle2,
-  AlertTriangle,
   Flame,
   KeyRound,
   FileSearch,

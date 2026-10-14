@@ -3,7 +3,6 @@
 import { SIX_AGENTS, type SixAgentName } from "@/lib/commandCenterOps";
 import { cn } from "@/lib/utils";
 import {
-  DEFAULT_LATENCIES,
   type AgentLiveState,
   type LiveRound,
 } from "./prototype/liveRounds";
@@ -36,7 +35,7 @@ export function CommandCenterOpsSplit({
   onSelectAgent?: (agent: SixAgentName) => void;
   onSelectLogLine?: (line: string) => void;
 }) {
-  const latencies = round.latencies !== undefined ? round.latencies : DEFAULT_LATENCIES;
+  const latencies = round.latencies ?? {};
 
   return (
     <div
@@ -54,7 +53,7 @@ export function CommandCenterOpsSplit({
         </h3>
         <ul className="space-y-2.5">
           {SIX_AGENTS.map((agent) => {
-            const state = round.agents[agent] ?? "idle";
+            const state = round.agents[agent] ?? "unknown";
             const latency = latencies[agent];
             const displayName = agent === "Red Team" ? "Red team" : agent;
 

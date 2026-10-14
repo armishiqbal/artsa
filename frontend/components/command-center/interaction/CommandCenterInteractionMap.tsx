@@ -6,16 +6,17 @@ import { cn } from "@/lib/utils";
 import type { SixAgentName } from "@/lib/commandCenterOps";
 import type { AgentLiveState, LiveRound } from "../prototype/liveRounds";
 
-export type EdgeState = "normal" | "suspicious" | "blocked" | "contained";
+export type EdgeState = "normal" | "suspicious" | "blocked" | "contained" | "unknown";
 
-function normalizeAgentName(raw: string): SixAgentName {
+function normalizeAgentName(raw: string): SixAgentName | null {
   const s = raw.toLowerCase().replace(/[\s_-]+/g, "");
   if (s.includes("research")) return "Research";
   if (s.includes("curator")) return "Curator";
   if (s.includes("red")) return "Red Team";
   if (s.includes("judge")) return "Judge";
   if (s.includes("defend")) return "Defender";
-  return "Target";
+  if (s.includes("target")) return "Target";
+  return null;
 }
 
 export function CommandCenterInteractionMap({
@@ -32,23 +33,26 @@ export function CommandCenterInteractionMap({
   const activeFrom = useMemo(() => normalizeAgentName(round.from), [round.from]);
   const activeTo = useMemo(() => normalizeAgentName(round.to), [round.to]);
 
-  const isFailed =
-    round.badgeTone === "error" ||
-    round.bars.some((b) => b.code === "HMAC" || b.label.includes("fail"));
+  const recordedVerdict = round.event?.verdict.trim().toUpperCase();
+  const isBlocked = recordedVerdict != null && ["BLOCKED", "QUARANTINED", "DENIED"].includes(recordedVerdict);
+  const isSuspicious = round.event?.severity === "critical" || round.event?.severity === "warning";
+  const isContained = activeTo != null && round.agents[activeTo] === "contained";
+  const isExplicitlyAllowed = recordedVerdict != null && ["ALLOW", "SAFE", "PASS"].includes(recordedVerdict);
 
-  const isSuspicious = round.bars.some((b) => b.pct >= 60);
-  const isContained = round.verdicts.some((v) => v.tone === "ok" && v.detail.toLowerCase().includes("contain"));
-
-  const activeEdgeState: EdgeState = isFailed
-    ? "blocked"
-    : isContained
-      ? "contained"
-      : isSuspicious
-        ? "suspicious"
-        : "normal";
+  const activeEdgeState: EdgeState = activeFrom === null || activeTo === null
+    ? "unknown"
+    : isBlocked
+      ? "blocked"
+      : isContained
+        ? "contained"
+        : isSuspicious
+          ? "suspicious"
+          : isExplicitlyAllowed
+            ? "normal"
+            : "unknown";
 
   function getAgentNode(name: SixAgentName) {
-    const state: AgentLiveState = round.agents[name] ?? "idle";
+    const state: AgentLiveState = round.agents[name] ?? "unknown";
     const isActive = activeFrom === name || activeTo === name;
     const latency = round.latencies?.[name];
 
@@ -89,7 +93,7 @@ export function CommandCenterInteractionMap({
           <span className="font-sans text-[11px] font-semibold text-foreground tracking-tight truncate">
             {name} Agent
           </span>
-          {latency ? (
+          {latency != null ? (
             <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
               {latency}ms
             </span>
@@ -124,7 +128,9 @@ export function CommandCenterInteractionMap({
           ? "text-emerald-500 border-emerald-500/80"
           : activeEdgeState === "suspicious"
             ? "text-amber-500 border-amber-500/80"
-            : "text-sky-400 border-sky-400/80";
+            : activeEdgeState === "normal"
+              ? "text-sky-400 border-sky-400/80"
+              : "text-muted-foreground/40 border-muted-foreground/20";
 
     return (
       <button
@@ -175,20 +181,20 @@ export function CommandCenterInteractionMap({
     <div
       aria-label="Agent Interaction Map"
       className={cn(
-        "flex flex-col rounded-xl border border-border bg-card/50 p-3 sm:p-3.5 transition-colors",
+        "flex flex-col rounded-xl border border-slate-200/80 bg-white p-3 sm:p-3.5 transition-colors shadow-2xs",
         className
       )}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <span className="font-sans text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          TACTICAL AGENT INTERACTION MAP
+          PIPELINE ROLE MAP · EVENT HIGHLIGHT
         </span>
         <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-400" /> Active Hop:
             <span className="text-foreground font-semibold">
-              {round.from} → {round.to}
+              {activeFrom && activeTo ? `${round.from} → ${round.to}` : "No hop recorded"}
             </span>
           </span>
           <span className="text-border">·</span>
@@ -201,7 +207,9 @@ export function CommandCenterInteractionMap({
                   ? "border-emerald-500/40 text-emerald-500 bg-emerald-500/10"
                   : activeEdgeState === "suspicious"
                     ? "border-amber-500/40 text-amber-500 bg-amber-500/10"
-                    : "border-sky-500/40 text-sky-400 bg-sky-500/10"
+                    : activeEdgeState === "normal"
+                      ? "border-sky-500/40 text-sky-400 bg-sky-500/10"
+                      : "border-border/60 text-muted-foreground bg-muted/20"
             )}
           >
             {activeEdgeState}

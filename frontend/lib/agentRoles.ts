@@ -11,7 +11,7 @@ export type PipelineAgentId =
   | "judge"
   | "defender";
 
-export type AgentOperationalStatus = "online" | "active" | "degraded" | "offline";
+export type AgentOperationalStatus = "online" | "active" | "degraded" | "offline" | "unknown";
 
 export interface PipelineAgentDefinition {
   id: PipelineAgentId;
@@ -102,5 +102,7 @@ export function statusLabel(status: AgentOperationalStatus): string {
       return "Degraded";
     case "offline":
       return "Offline";
+    case "unknown":
+      return "Unverified";
   }
 }

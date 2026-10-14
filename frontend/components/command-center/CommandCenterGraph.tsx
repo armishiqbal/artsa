@@ -155,7 +155,7 @@ export function CommandCenterGraph({
       ctx.save();
       ctx.globalAlpha = dim ? 0.32 : 1;
 
-      if (node.status !== "nominal") {
+      if (node.status === "under_attack" || node.status === "compromised") {
         ctx.beginPath();
         ctx.arc(x, y, r + 5 / globalScale, 0, Math.PI * 2);
         ctx.strokeStyle = color;
@@ -176,7 +176,7 @@ export function CommandCenterGraph({
       ctx.beginPath();
       ctx.arc(x, y, Math.max(4, r - 5), 0, Math.PI * 2);
       ctx.fillStyle = color;
-      ctx.globalAlpha = dim ? 0.15 : node.status === "nominal" ? 0.2 : 0.42;
+      ctx.globalAlpha = dim ? 0.15 : node.status === "unknown" ? 0.08 : node.status === "nominal" ? 0.2 : 0.42;
       ctx.fill();
       ctx.globalAlpha = dim ? 0.32 : 1;
 

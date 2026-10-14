@@ -59,7 +59,7 @@ export function CommandCenterAgentPanel({
           Current task
         </p>
         <p className="mt-1.5 font-mono text-[12px] leading-relaxed text-foreground">
-          {msgs[0]?.message ?? "Idle — awaiting next hop in the kill chain"}
+          {msgs[0]?.message ?? "No current task was recorded in the loaded telemetry."}
         </p>
       </div>
 

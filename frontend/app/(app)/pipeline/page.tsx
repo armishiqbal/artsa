@@ -34,7 +34,7 @@ export default function PipelinePage() {
     <PageStack>
       <PageHeader
         title="AI Assets"
-        description="The agents ARTSA watches, and how they pass work to each other."
+        description="The six-role campaign design and what current campaign or session telemetry verifies."
         icon={<GitBranch className="h-5 w-5" />}
         badge={<LiveIndicator connected={apiOnline && wsConnected} className="meta-badge" />}
         actions={
@@ -65,29 +65,29 @@ export default function PipelinePage() {
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
-            label="Active hop"
+            label="Reported activity role"
             value={
-              chain.activeHop
-                ? `${chain.activeHop.index}. ${PIPELINE_AGENT_BY_ID[chain.activeHop.from].label}`
+              pipeline.activeAgentId
+                ? PIPELINE_AGENT_BY_ID[pipeline.activeAgentId].label
                 : "—"
             }
             icon={GitBranch}
-            subtitle={chain.activeHop?.edgeTag ?? "No live handoff"}
+            subtitle="Campaign or session record; handoff edge unverified"
           />
           <StatCard
-            label="Online / active"
-            value={`${chain.onlineCount + chain.activeCount}/6`}
-            subtitle={`${chain.activeCount} executing`}
+            label="Confirmed activity"
+            value={`${chain.activeCount}/6`}
+            subtitle="Campaign or active-session evidence"
           />
           <StatCard
-            label="Degraded"
-            value={chain.degradedCount}
-            severity={chain.degradedCount > 0 ? "HIGH" : "LOW"}
+            label="Unverified roles"
+            value={`${chain.unknownCount}/6`}
+            subtitle="No per-agent execution evidence"
           />
           <StatCard
-            label="Loop"
-            value={pipeline.loopClosed ? "Closed" : "Open"}
-            subtitle={chain.loopHealthy ? "Chain healthy" : "Needs attention"}
+            label="Loop verification"
+            value={pipeline.loopClosed ? "Closed" : pipeline.loopVerified ? "Open" : "Unverified"}
+            subtitle={chain.loopHealthy ? "Complete chain verified" : "No complete signed handoff recorded"}
           />
         </div>
       )}
@@ -96,7 +96,7 @@ export default function PipelinePage() {
         <div className="space-y-4">
           <DashboardCard
             title="Chain graph"
-            description="Numbered handoffs with feedback loop — select a hop to inspect chaining"
+            description="Static role order; colored stage indicators appear only when runtime evidence is available."
             badge={
               pipeline.loopClosed ? (
                 <Badge variant="outline" className="meta-badge">
@@ -104,7 +104,7 @@ export default function PipelinePage() {
                 </Badge>
               ) : (
                 <Badge variant="outline" className="meta-badge">
-                  Awaiting traffic
+                  Handoff not verified
                 </Badge>
               )
             }
@@ -129,7 +129,6 @@ export default function PipelinePage() {
                 snapshot={pipeline}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                animatePacket={wsConnected && Boolean(pipeline.activeAgentId)}
                 className="border-0 rounded-none"
               />
             )}
@@ -137,7 +136,7 @@ export default function PipelinePage() {
 
           <DashboardCard
             title="Handoff table"
-            description="Explicit chain contracts between agents"
+            description="Documented chain contracts; row selection describes a role and does not confirm execution."
             contentClassName="!p-0"
           >
             <div className="overflow-x-auto">
@@ -153,14 +152,10 @@ export default function PipelinePage() {
                 </thead>
                 <tbody>
                   {CHAIN_HOPS.map((hop) => {
-                    const hot = pipeline.activeAgentId === hop.from;
                     return (
                       <tr
                         key={hop.index}
-                        className={cnRow(
-                          hot,
-                          selectedId === hop.from
-                        )}
+                        className={cnRow(selectedId === hop.from)}
                         onClick={() => setSelectedId(hop.from)}
                       >
                         <td className="px-3 py-2 font-mono text-muted-foreground">{hop.index}</td>
@@ -192,7 +187,7 @@ export default function PipelinePage() {
 
       <div className="callout-bar flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span>
-          Promote validated findings into playbook rules to close the Defender → Research feedback hop.
+          Promote a validated finding into a playbook rule. Measure its effect in a later campaign.
         </span>
         <Button asChild variant="outline" size="sm">
           <Link href="/playground">Test in AI Security Playground → Promote</Link>
@@ -202,11 +197,10 @@ export default function PipelinePage() {
   );
 }
 
-function cnRow(hot: boolean, selected: boolean): string {
+function cnRow(selected: boolean): string {
   return [
     "cursor-pointer border-b border-border/70 transition-colors",
     selected ? "bg-card" : "hover:bg-muted",
-    hot && !selected ? "bg-primary/10" : "",
   ]
     .filter(Boolean)
     .join(" ");

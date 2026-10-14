@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   PIPELINE_AGENTS,
@@ -9,7 +9,7 @@ import {
   type PipelineAgentId,
 } from "@/lib/agentRoles";
 import type { PipelineSnapshot } from "@/lib/pipelineState";
-import { CHAIN_HOPS, hopFromAgent } from "@/lib/pipelineChain";
+import { CHAIN_HOPS } from "@/lib/pipelineChain";
 
 /** Horizontal chain layout — reads left→right like an enterprise orchestration DAG. */
 const VIEW_W = 1000;
@@ -32,13 +32,13 @@ const STATUS_STROKE: Record<AgentOperationalStatus, string> = {
   active: "#67b3ef",
   degraded: "hsl(var(--severity-high))",
   offline: "#454545",
+  unknown: "#737373",
 };
 
 interface AgentPipelineDAGProps {
   snapshot: PipelineSnapshot;
   selectedId: PipelineAgentId | null;
   onSelect: (id: PipelineAgentId) => void;
-  animatePacket?: boolean;
   className?: string;
 }
 
@@ -65,11 +65,8 @@ export function AgentPipelineDAG({
   snapshot,
   selectedId,
   onSelect,
-  animatePacket = true,
   className,
 }: AgentPipelineDAGProps) {
-  const [packetStep, setPacketStep] = useState(0);
-
   const agentStatusById = useMemo(
     () =>
       Object.fromEntries(snapshot.agents.map((a) => [a.id, a.status])) as Record<
@@ -78,27 +75,6 @@ export function AgentPipelineDAG({
       >,
     [snapshot.agents]
   );
-
-  const activeEdgeIndex = useMemo(() => {
-    if (!snapshot.activeAgentId) return -1;
-    return PIPELINE_AGENTS.findIndex((a) => a.id === snapshot.activeAgentId);
-  }, [snapshot.activeAgentId]);
-
-  useEffect(() => {
-    if (!animatePacket || !snapshot.activeAgentId) return;
-    setPacketStep(Math.max(0, activeEdgeIndex));
-    const id = window.setInterval(() => {
-      setPacketStep((s) => (s + 1) % PIPELINE_AGENTS.length);
-    }, 2600);
-    return () => window.clearInterval(id);
-  }, [animatePacket, snapshot.activeAgentId, activeEdgeIndex]);
-
-  const livePacket = animatePacket && Boolean(snapshot.activeAgentId);
-  const packetHop = CHAIN_HOPS[packetStep] ?? CHAIN_HOPS[0]!;
-  const packetPath =
-    packetHop.from === "defender"
-      ? curvedHandoff("defender", "research", true)
-      : curvedHandoff(packetHop.from, packetHop.to);
 
   return (
     <div
@@ -127,17 +103,17 @@ export function AgentPipelineDAG({
             hops <span className="text-foreground">6</span>
           </span>
           <span>
-            active{" "}
+            reported role{" "}
             <span className="text-foreground">
               {snapshot.activeAgentId
-                ? hopFromAgent(snapshot.activeAgentId).edgeTag
+                ? PIPELINE_AGENTS.find((agent) => agent.id === snapshot.activeAgentId)?.label
                 : "—"}
             </span>
           </span>
           <span>
             loop{" "}
-            <span className={snapshot.loopClosed ? "text-[#4ade80]" : "text-muted-foreground"}>
-              {snapshot.loopClosed ? "closed" : "open"}
+            <span className={snapshot.loopVerified ? "text-[#4ade80]" : "text-muted-foreground"}>
+              {snapshot.loopVerified ? (snapshot.loopClosed ? "closed" : "open") : "unverified"}
             </span>
           </span>
         </div>
@@ -148,7 +124,7 @@ export function AgentPipelineDAG({
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         className="relative z-10 h-auto w-full min-h-[280px]"
         role="img"
-        aria-label="Multi-agent closed-loop chain"
+        aria-label="Six-role agent chain design"
         onClick={() => onSelect(selectedId ?? "research")}
       >
         <defs>
@@ -163,17 +139,6 @@ export function AgentPipelineDAG({
           >
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#454545" />
           </marker>
-          <marker
-            id="chain-arrow-hot"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="5"
-            markerHeight="5"
-            orient="auto-start-reverse"
-          >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#67b3ef" />
-          </marker>
         </defs>
 
         {/* Stage lane */}
@@ -187,32 +152,31 @@ export function AgentPipelineDAG({
           strokeLinecap="round"
         />
 
-        {CHAIN_HOPS.map((hop, i) => {
+        {CHAIN_HOPS.map((hop) => {
           const isLoop = hop.from === "defender";
           const d = isLoop
             ? curvedHandoff("defender", "research", true)
             : curvedHandoff(hop.from, hop.to);
-          const hot = livePacket && packetStep === i;
           const midX = isLoop
             ? VIEW_W / 2
             : (NODE_X[hop.from] + NODE_W + NODE_X[hop.to]) / 2;
           const midY = isLoop ? VIEW_H - 48 : NODE_Y + NODE_H / 2 - 36;
 
           return (
-            <g key={hop.index} opacity={hot ? 1 : 0.75}>
+            <g key={hop.index} opacity={0.75}>
               <path
                 d={d}
                 fill="none"
-                stroke={hot ? "#67b3ef" : "#313131"}
-                strokeWidth={hot ? 2.25 : 1.5}
+                stroke="#313131"
+                strokeWidth={1.5}
                 strokeDasharray={isLoop ? "6 4" : undefined}
-                markerEnd={hot ? "url(#chain-arrow-hot)" : "url(#chain-arrow)"}
+                markerEnd="url(#chain-arrow)"
               />
               <text
                 x={midX}
                 y={midY}
                 textAnchor="middle"
-                fill={hot ? "#67b3ef" : "#7c7c7c"}
+                fill="#7c7c7c"
                 fontSize={9}
                 className="font-mono uppercase"
               >
@@ -222,18 +186,12 @@ export function AgentPipelineDAG({
           );
         })}
 
-        {livePacket ? (
-          <circle r={4.5} fill="#67b3ef">
-            <animateMotion dur="2.4s" repeatCount="indefinite" path={packetPath} key={packetStep} />
-          </circle>
-        ) : null}
-
         {PIPELINE_AGENTS.map((agent, idx) => {
           const x = NODE_X[agent.id];
           const y = NODE_Y;
           const selected = selectedId === agent.id;
           const active = snapshot.activeAgentId === agent.id;
-          const status = agentStatusById[agent.id] ?? "offline";
+          const status = agentStatusById[agent.id] ?? "unknown";
           const stroke = selected ? "#ffffff" : active ? "#67b3ef" : STATUS_STROKE[status];
 
           return (
@@ -323,20 +281,16 @@ export function AgentPipelineDAG({
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 border-t border-border/80 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
         <span className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#4ade80]" /> Online
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" /> Unverified
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#67b3ef]" /> Active hop
+            <span className="h-1.5 w-1.5 rounded-full bg-[#67b3ef]" /> Reported activity role
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--severity-high))]" /> Degraded
           </span>
         </span>
-        <span className="text-muted-foreground">
-          {livePacket
-            ? `Packet on ${packetHop.edgeTag} · ${packetHop.label}`
-            : "Awaiting campaign or ingest to animate chain"}
-        </span>
+        <span className="text-muted-foreground">Arrows show the documented contract, not live handoffs</span>
       </div>
     </div>
   );

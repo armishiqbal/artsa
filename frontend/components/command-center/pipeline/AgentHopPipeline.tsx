@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleHelp, ShieldAlert } from "lucide-react";
 import { CockpitCard } from "../cockpit/CockpitCard";
 import { cn } from "@/lib/utils";
 import type { AgentHop } from "../prototype/model";
@@ -43,7 +43,8 @@ export function AgentHopPipeline({
           const isSelected = activeAgent === hop.agent;
           const stageLabel = STAGE_LABELS[hop.agent] ?? `STAGE 0${idx + 1}`;
           const isBreach = hop.hmacState === "fail";
-          const isSlow = hop.latencyMs > 50;
+          const isSlow = hop.latencyMs != null && hop.latencyMs > 50;
+          const isUnknown = hop.status === "unknown" && hop.hmacState === "unknown" && hop.latencyMs == null;
 
           return (
             <li key={hop.agent} className="relative">
@@ -69,6 +70,8 @@ export function AgentHopPipeline({
                       <ShieldAlert className="h-3.5 w-3.5 text-red-500 shrink-0" />
                     ) : isSlow ? (
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    ) : isUnknown ? (
+                      <CircleHelp className="h-3.5 w-3.5 text-[var(--cc-text-dim)] shrink-0" />
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                     )}
@@ -89,8 +92,8 @@ export function AgentHopPipeline({
                       isSlow ? "text-amber-500 font-semibold" : "text-[var(--cc-text-muted)]"
                     )}
                   >
-                    {hop.latencyMs}ms{" "}
-                    <span className="text-[var(--cc-text-dim)] text-[9px]">/ 50ms</span>
+                    {hop.latencyMs == null ? "—" : `${hop.latencyMs}ms`}{" "}
+                    {hop.latencyMs == null ? null : <span className="text-[var(--cc-text-dim)] text-[9px]">/ 50ms</span>}
                   </span>
                   <span
                     className={cn(
@@ -132,8 +135,8 @@ export function AgentHopPipeline({
               ASI-08 CIRCUIT BREAKER
             </span>
           </div>
-          <span className="font-mono text-[9px] font-bold text-red-500 rounded border border-red-500/50 bg-red-500/20 px-1.5 py-0.5">
-            ARMED
+          <span className="font-mono text-[9px] font-bold text-[var(--cc-text-dim)] rounded border border-[var(--cc-border-default)] bg-[var(--cc-bg-surface-3)] px-1.5 py-0.5">
+            NOT ASSESSED
           </span>
         </button>
       </div>

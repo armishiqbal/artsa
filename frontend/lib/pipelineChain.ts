@@ -85,7 +85,7 @@ export interface ChainIntegritySummary {
   activeCount: number;
   degradedCount: number;
   offlineCount: number;
-  activeHop: ChainHop | null;
+  unknownCount: number;
   loopHealthy: boolean;
 }
 
@@ -94,22 +94,26 @@ export function summarizeChain(snapshot: PipelineSnapshot): ChainIntegritySummar
   let activeCount = 0;
   let degradedCount = 0;
   let offlineCount = 0;
+  let unknownCount = 0;
   for (const a of snapshot.agents) {
     if (a.status === "online") onlineCount += 1;
     else if (a.status === "active") activeCount += 1;
     else if (a.status === "degraded") degradedCount += 1;
-    else offlineCount += 1;
+    else if (a.status === "offline") offlineCount += 1;
+    else unknownCount += 1;
   }
-  const activeHop = snapshot.activeAgentId
-    ? hopFromAgent(snapshot.activeAgentId)
-    : null;
   return {
     onlineCount,
     activeCount,
     degradedCount,
     offlineCount,
-    activeHop,
-    loopHealthy: snapshot.loopClosed && offlineCount === 0 && degradedCount < 3,
+    unknownCount,
+    loopHealthy:
+      snapshot.loopVerified &&
+      snapshot.loopClosed &&
+      unknownCount === 0 &&
+      offlineCount === 0 &&
+      degradedCount === 0,
   };
 }
 

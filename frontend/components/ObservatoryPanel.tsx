@@ -115,7 +115,7 @@ export default function ObservatoryPanel() {
       <div className="space-y-1">
         <h2 className="text-lg font-semibold tracking-tight">Continuous Observatory</h2>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Security regression tracking, Red Queen co-evolution metrics, and CI benchmark gates — live data only.
+          Persisted campaign history and configured benchmark-harness results. Benchmark gates describe the test set, not live customer traffic.
         </p>
       </div>
 
@@ -225,8 +225,8 @@ export default function ObservatoryPanel() {
         </DashboardCard>
 
         <DashboardCard
-          title="CI Regression Gates"
-          description="Benchmark-driven release quality checks"
+          title="Benchmark Gates"
+          description="Thresholds applied to the configured benchmark harness output; this is not CI status."
           badge={
             <Badge variant={gates.every((g) => g.status === "PASSING") ? "success" : "warning"}>
               {data?.regression_suite?.passing ?? 0}/{data?.regression_suite?.total ?? 0} passing

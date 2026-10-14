@@ -25,22 +25,16 @@ export function CommandCenterDetectionChart({
   className,
   activeRound,
   onSelectRound,
+  dataMode = "DATA_VIEW",
 }: {
   series: GenericDetectionPoint[];
   className?: string;
   liveRate?: number | boolean;
   activeRound?: number;
   onSelectRound?: (roundIdx: number) => void;
+  dataMode?: "WALKTHROUGH" | "NO_LIVE_HISTORY" | "DATA_VIEW";
 }) {
   const { isLight } = useThemeSafe();
-  const artsaVals = useMemo(() => series.map((p) => p.artsa), [series]);
-  const baseVals = useMemo(() => series.map((p) => p.baseline), [series]);
-
-  const artsaMin = artsaVals.length ? Math.min(...artsaVals) : 41;
-  const artsaMax = artsaVals.length ? Math.max(...artsaVals) : 92;
-  const artsaLast = artsaVals.length ? artsaVals[artsaVals.length - 1]! : 86;
-
-  const baseLast = baseVals.length ? baseVals[baseVals.length - 1]! : 44;
 
   const artsStroke = isLight ? "#0284c7" : "#38bdf8";
   const baseStroke = isLight ? "#94a3b8" : "#64748b";
@@ -63,31 +57,39 @@ export function CommandCenterDetectionChart({
   }, [activeRound, chartData]);
 
   return (
-    <div className={`flex flex-col w-full ${className ?? ""}`}>
-      {/* Top Legend Bar matching screenshot */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 text-[11px] tracking-wider uppercase">
-        <span className="font-sans font-medium text-muted-foreground/90">
-          DETECTION RATE OVER TIME · ARTSA vs STATIC BASELINE
-        </span>
-        <div className="flex items-center gap-4 font-mono text-[11px] tabular-nums lowercase">
-          <span className="flex items-center gap-1.5 text-foreground">
-            <span className="text-sky-400 font-bold">—</span>
-            <span className="text-muted-foreground">adaptive · climbing defense</span>
-            <span>min {artsaMin}% max {artsaMax}% last {artsaLast}%</span>
-          </span>
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="text-slate-500 font-bold">—</span>
-            <span>baseline · flat static</span>
-            <span>flat {baseLast}%</span>
-          </span>
-          <span className="flex items-center gap-1 text-emerald-500 font-bold uppercase">
-            <span>lift +{Math.max(0, artsaLast - baseLast)}pp</span>
-          </span>
+    <section className={`w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xs ${className ?? ""}`} aria-label="Detection rate trend">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            DETECTION RATE HISTORY
+          </p>
+          {chartData.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] tabular-nums lowercase mt-1">
+            <span className="flex items-center gap-1.5 text-foreground">
+              <span className="text-sky-500 font-bold">●</span>
+              <span className="text-muted-foreground">ARTSA</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="text-slate-400 font-bold">●</span>
+              <span>Baseline</span>
+            </span>
+          </div>
+          )}
         </div>
+        <span className="rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {dataMode === "WALKTHROUGH" ? "Walkthrough sample" : dataMode === "NO_LIVE_HISTORY" ? "History unavailable" : "Data view"}
+        </span>
       </div>
 
-      {/* Chart container */}
-      <div className="h-[220px] w-full min-w-0" data-testid="detection-chart-container">
+      {dataMode === "NO_LIVE_HISTORY" ? (
+        <div className="flex min-h-[260px] items-center justify-center px-6 py-8 text-center">
+          <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+            The live feed does not provide round-by-round detection history yet. Historical trend data will appear here when available.
+          </p>
+        </div>
+      ) : (
+      <>
+      <div className="h-[260px] w-full min-w-0 px-3 pt-4" data-testid="detection-chart-container">
         <ResponsiveContainer width="100%" height="100%" minHeight={220} minWidth={100}>
           <LineChart
             data={chartData}
@@ -131,7 +133,7 @@ export function CommandCenterDetectionChart({
               }}
               formatter={(value, name) => [
                 `${value}%`,
-                name === "artsa" ? "Adaptive Defense (Climbing)" : "Static Baseline (Flat)",
+                name === "artsa" ? "ARTSA adaptive defense" : "Static baseline",
               ]}
             />
             {activeRoundKey ? (
@@ -171,45 +173,12 @@ export function CommandCenterDetectionChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Detection Quality Context & Adaptive Lift Secondary Drawer/Shelf (Section 17) */}
-      <div className="mt-2.5 flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 font-mono text-[11px]">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-sans text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            DETECTION QUALITY & ADAPTIVE LIFT CONTEXT
-          </span>
-          <span className="text-[10px] text-sky-400 font-semibold">
-            ADAPTIVE LIFT: +{artsaLast - baseLast}pp vs Static Baseline
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1 border-t border-border/40 text-[10px]">
-          <div>
-            <span className="text-muted-foreground uppercase text-[9px]">PRECISION</span>
-            <p className="font-semibold text-foreground">93.4%</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground uppercase text-[9px]">RECALL</span>
-            <p className="font-semibold text-foreground">88.1%</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground uppercase text-[9px]">FALSE POSITIVES</span>
-            <p className="font-semibold text-foreground">1.8%</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground uppercase text-[9px]">FALSE NEGATIVES</span>
-            <p className="font-semibold text-foreground">3.2%</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground uppercase text-[9px]">MEAN LATENCY</span>
-            <p className="font-semibold text-foreground">27ms</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground uppercase text-[9px]">BENCHMARK LIFT</span>
-            <p className="font-semibold text-emerald-500">+{artsaLast - baseLast}pp</p>
-          </div>
-        </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:px-5">
+        <span className="inline-flex items-center gap-2"><span className="h-0.5 w-4 bg-sky-500" />ARTSA adaptive defense</span>
+        <span className="inline-flex items-center gap-2"><span className="h-0.5 w-4 bg-slate-400" />Static baseline</span>
       </div>
-    </div>
+      </>
+      )}
+    </section>
   );
 }

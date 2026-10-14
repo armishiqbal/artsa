@@ -16,7 +16,7 @@ export type InspectorSelection = {
   kind: "threat" | "agent" | "highlight" | "log" | "asi" | "step";
   title: string;
   threatCode?: string;
-  severity?: "critical" | "warning" | "info";
+  severity?: "critical" | "warning" | "info" | "unclassified";
   sourceAgent?: string;
   targetAgent?: string;
   evidence?: string;
@@ -66,7 +66,9 @@ export function CommandCenterInspectorDrawer({
       ? "border-rose-500/40 bg-rose-500/10 text-rose-500"
       : severity === "warning"
         ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
-        : "border-sky-500/40 bg-sky-500/10 text-sky-400";
+        : severity === "info"
+          ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+          : "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
 
   return (
     <div
@@ -130,7 +132,7 @@ export function CommandCenterInspectorDrawer({
               ) : (
                 <Shield className="h-3 w-3" />
               )}
-              <span>{severity.toUpperCase()} SEVERITY</span>
+              <span>{severity === "unclassified" ? "UNCLASSIFIED" : `${severity.toUpperCase()} SEVERITY`}</span>
             </span>
 
             {selection.action ? (
@@ -194,7 +196,7 @@ export function CommandCenterInspectorDrawer({
               {selection.round ? (
                 <div className="flex items-center justify-between">
                   <dt className="text-muted-foreground text-[10px] uppercase">
-                    SIMULATION ROUND
+                    ROUND
                   </dt>
                   <dd className="font-medium text-foreground">
                     {typeof selection.round === "number"
@@ -262,7 +264,7 @@ export function CommandCenterInspectorDrawer({
                   RAW STREAM
                 </span>
               </div>
-              <div className="rounded-lg border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground dark:border-white/[0.08] dark:bg-[#05070a] dark:text-slate-200 break-words whitespace-pre-wrap">
+              <div className="rounded-xl border border-border bg-slate-50/70 p-3 font-mono text-[11px] leading-relaxed text-foreground dark:border-white/[0.08] dark:bg-[#05070a] dark:text-slate-200 break-words whitespace-pre-wrap">
                 <code>{selection.evidence}</code>
               </div>
             </div>

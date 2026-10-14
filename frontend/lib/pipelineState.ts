@@ -1,9 +1,5 @@
 import type { CampaignListItem } from "@/lib/hooks/useCampaigns";
-import type {
-  AgentOperationalStatus,
-  PipelineAgentDefinition,
-  PipelineAgentId,
-} from "@/lib/agentRoles";
+import type { AgentOperationalStatus, PipelineAgentId } from "@/lib/agentRoles";
 import { PIPELINE_AGENTS } from "@/lib/agentRoles";
 
 export interface AgentRuntimeState {
@@ -18,149 +14,90 @@ export interface PipelineSnapshot {
   agents: AgentRuntimeState[];
   activeAgentId: PipelineAgentId | null;
   loopClosed: boolean;
+  loopVerified: boolean;
 }
 
 interface DerivePipelineInput {
   apiOnline: boolean;
-  wsConnected: boolean;
   activeSessions: number;
-  defenseScore: number;
-  criticalCount: number;
-  highCount: number;
   campaigns: CampaignListItem[];
-  playbookRuleCount: number;
-}
-
-function latestCampaign(campaigns: CampaignListItem[]): CampaignListItem | null {
-  if (!campaigns.length) return null;
-  return campaigns[0];
 }
 
 function runningCampaign(campaigns: CampaignListItem[]): CampaignListItem | null {
-  return campaigns.find((c) => c.status === "running" || c.status === "pending") ?? null;
+  return campaigns.find((campaign) => campaign.status === "running") ?? null;
 }
 
-function formatRelative(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return null;
-  const diffMs = Date.now() - t;
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+function pendingCampaign(campaigns: CampaignListItem[]): CampaignListItem | null {
+  return campaigns.find((campaign) => campaign.status === "pending") ?? null;
 }
 
-function agentState(
-  agent: PipelineAgentDefinition,
-  input: DerivePipelineInput,
-  running: CampaignListItem | null,
-  latest: CampaignListItem | null
-): AgentRuntimeState {
-  const { apiOnline, wsConnected, activeSessions, defenseScore, criticalCount, playbookRuleCount } =
-    input;
-
-  let status: AgentOperationalStatus = "offline";
-  let currentTask = "Waiting for platform connection";
-  let lastRun: string | null = null;
-  let hmacVerified: boolean | null = null;
-
-  if (!apiOnline) {
-    return { id: agent.id, status, currentTask, lastRun, hmacVerified };
-  }
-
-  switch (agent.id) {
-    case "research":
-      status = wsConnected ? "online" : "degraded";
-      currentTask =
-        criticalCount > 0
-          ? "Prioritizing new ASI patterns from live telemetry"
-          : "Monitoring threat feeds and benchmark regressions";
-      lastRun = formatRelative(latest?.summary?.completed_at as string | undefined);
-      hmacVerified = null;
-      break;
-    case "curator":
-      status = "online";
-      currentTask = "Serving attack templates from the library";
-      lastRun = formatRelative(latest?.summary?.started_at as string | undefined);
-      hmacVerified = null;
-      break;
-    case "redteam":
-      if (running) {
-        status = "active";
-        currentTask = `Campaign · ${running.name} (${running.rounds_completed}/${running.total_rounds})`;
-        lastRun = "In progress";
-      } else {
-        status = "online";
-        currentTask = "Idle — launch a scan from Red Team";
-        lastRun = formatRelative(latest?.summary?.completed_at as string | undefined);
-      }
-      hmacVerified = running ? true : null;
-      break;
-    case "target":
-      status = activeSessions > 0 ? "active" : wsConnected ? "online" : "degraded";
-      currentTask =
-        activeSessions > 0
-          ? `Screening ${activeSessions} live agent session${activeSessions === 1 ? "" : "s"}`
-          : "Standing by for ingest or campaign traffic";
-      lastRun = activeSessions > 0 ? "Live" : formatRelative(latest?.summary?.completed_at as string | undefined);
-      hmacVerified = activeSessions > 0 ? true : null;
-      break;
-    case "judge":
-      if (running) {
-        status = "active";
-        currentTask = "Scoring multi-turn bypass depth";
-        lastRun = "In progress";
-        hmacVerified = true;
-      } else {
-        status = latest ? "online" : "degraded";
-        currentTask = latest ? "Awaiting next campaign verdict" : "No scored runs yet";
-        lastRun = formatRelative(latest?.summary?.completed_at as string | undefined);
-        hmacVerified = latest ? true : null;
-      }
-      break;
-    case "defender":
-      if (criticalCount > 0) {
-        status = "degraded";
-        currentTask = `${criticalCount} critical finding${criticalCount === 1 ? "" : "s"} need triage`;
-      } else if (defenseScore >= 70) {
-        status = "online";
-        currentTask = `Playbook v1.${playbookRuleCount} · containment score ${defenseScore}`;
-      } else {
-        status = "degraded";
-        currentTask = `Hardening playbook (${defenseScore}/100 defense score)`;
-      }
-      lastRun = playbookRuleCount > 0 ? `${playbookRuleCount} rules active` : "Default policy";
-      hmacVerified = wsConnected;
-      break;
-  }
-
-  if (input.highCount > 0 && agent.id === "defender" && status === "online") {
-    status = "degraded";
-  }
-
-  return { id: agent.id, status, currentTask, lastRun, hmacVerified };
-}
-
-/** Derive per-agent runtime state from live platform signals — honest, no fabricated runs. */
+/** Only campaign/session records can establish activity; API and WS health do not establish agent health. */
 export function derivePipelineSnapshot(input: DerivePipelineInput): PipelineSnapshot {
-  const running = runningCampaign(input.campaigns);
-  const latest = latestCampaign(input.campaigns);
+  const running = input.apiOnline ? runningCampaign(input.campaigns) : null;
+  const pending = input.apiOnline ? pendingCampaign(input.campaigns) : null;
+  const agents: AgentRuntimeState[] = PIPELINE_AGENTS.map((agent) => {
+    if (!input.apiOnline) {
+      return {
+        id: agent.id,
+        status: "unknown",
+        currentTask: "API unavailable; role status cannot be verified.",
+        lastRun: null,
+        hmacVerified: null,
+      };
+    }
 
-  const agents = PIPELINE_AGENTS.map((agent) =>
-    agentState(agent, input, running, latest)
-  );
+    if (agent.id === "redteam" && running) {
+      return {
+        id: agent.id,
+        status: "active",
+        currentTask: `Campaign · ${running.name} (${running.rounds_completed}/${running.total_rounds})`,
+        lastRun: "Campaign running",
+        hmacVerified: null,
+      };
+    }
+    if (agent.id === "redteam" && pending) {
+      return {
+        id: agent.id,
+        status: "unknown",
+        currentTask: `Campaign queued · ${pending.name}; execution not reported`,
+        lastRun: null,
+        hmacVerified: null,
+      };
+    }
+    if (agent.id === "target" && input.activeSessions > 0) {
+      return {
+        id: agent.id,
+        status: "active",
+        currentTask: `Screening ${input.activeSessions} active session${input.activeSessions === 1 ? "" : "s"}`,
+        lastRun: "Active session reported",
+        hmacVerified: null,
+      };
+    }
 
-  const activeAgentId =
-    agents.find((a) => a.status === "active")?.id ??
-    (running ? "redteam" : input.activeSessions > 0 ? "target" : null);
+    const taskByAgent: Record<PipelineAgentId, string> = {
+      research: "Research hop activity is not reported in this view.",
+      curator: "Curator hop activity is not reported in this view.",
+      redteam: "No running campaign is reported.",
+      target: "No active session is reported.",
+      judge: "Judge hop activity is not reported in this view.",
+      defender: "No verified Defender handoff or patch result is reported.",
+    };
+    return {
+      id: agent.id,
+      status: "unknown",
+      currentTask: taskByAgent[agent.id],
+      lastRun: null,
+      hmacVerified: null,
+    };
+  });
 
-  const loopClosed =
-    input.apiOnline &&
-    input.playbookRuleCount > 0 &&
-    (running != null || input.activeSessions > 0 || input.defenseScore > 0);
+  const activeAgentId = running
+    ? "redteam"
+    : input.apiOnline && input.activeSessions > 0
+      ? "target"
+      : null;
 
-  return { agents, activeAgentId, loopClosed };
+  // This view has no complete, receiver-verified Defender → Research proof.
+  // Keep loop status unverified until that source is connected.
+  return { agents, activeAgentId, loopClosed: false, loopVerified: false };
 }

@@ -1,4 +1,4 @@
-/** Obsidian-style agent inventory + chain derivation from live screening events. */
+/** Enterprise SecOps agent inventory + chain derivation from live screening events. */
 
 import { eventTimestamp } from "@/lib/commandCenterLive";
 import { verdictStatus, type VerdictStatus } from "@/lib/commandCenterUi";
@@ -35,7 +35,7 @@ function isThreatRow(e: EventRow): boolean {
   return risk >= 50 || THREAT_RE.test(String(e.verdict ?? ""));
 }
 
-/** Roll live events up into a per-agent inventory (Obsidian "find every agent"). */
+/** Roll live events up into a per-agent inventory (discover every active agent). */
 export function buildAgentInventory(events: EventRow[]): AgentSummary[] {
   const map = new Map<
     string,
@@ -101,7 +101,7 @@ export function buildAgentInventory(events: EventRow[]): AgentSummary[] {
     .sort((a, b) => b.maxRisk - a.maxRisk || b.events - a.events);
 }
 
-/** Ordered chain of steps for a session (Obsidian "action chaining" view). */
+/** Ordered chain of steps for a session (action chaining view). */
 export function buildSessionChain(events: EventRow[], sessionId: string): ChainStep[] {
   if (!sessionId) return [];
   return events

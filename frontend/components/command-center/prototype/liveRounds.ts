@@ -2,7 +2,7 @@ import type { SixAgentName } from "@/lib/commandCenterOps";
 
 export const LIVE_ROUND_MS = 4000;
 
-export type AgentLiveState = "idle" | "active" | "responding" | "waiting" | "contained" | "not wired" | "not_wired";
+export type AgentLiveState = "idle" | "active" | "responding" | "waiting" | "contained" | "not wired" | "not_wired" | "unknown";
 export type HighlightTone = "inject" | "tool";
 
 export type PromptHighlight = {
@@ -29,7 +29,7 @@ export type LiveRoundKpis = {
   trustChain: number;
   detectionRate: number;
   disagreementRate: number;
-  openAlerts: number;
+  recordedAlerts: number;
 };
 
 export type StructuredSecurityEvent = {
@@ -41,23 +41,23 @@ export type StructuredSecurityEvent = {
   sourceAgent: string;
   targetAgent: string;
   threatCode: string;
-  severity: "critical" | "warning" | "info";
+  severity: "critical" | "warning" | "info" | "unclassified";
   payload: string;
   detectionSignal: string;
   verdict: string;
   mitigation: string;
   traceId: string;
-  confidence: number;
+  confidence?: number;
 };
 
 export type AttackTimelineStep = {
-  round: number;
+  round: number | null;
   label: string;
   whatHappened: string;
   when: string;
   whatDetectedIt: string;
   actionTaken: string;
-  status: "nominal" | "suspicious" | "blocked" | "contained" | "breach";
+  status: "nominal" | "suspicious" | "blocked" | "contained" | "breach" | "unknown";
   agentFrom: string;
   agentTo: string;
   threatCode: string;
@@ -95,7 +95,7 @@ export const DEFAULT_KPIS: LiveRoundKpis = {
   trustChain: 91.2,
   detectionRate: 86,
   disagreementRate: 9,
-  openAlerts: 70,
+  recordedAlerts: 70,
 };
 
 export type PromptSpan = {
@@ -344,14 +344,14 @@ export const LIVE_ROUNDS: LiveRound[] = [
       { agent: "Judge", detail: "waiting", tone: "pending" },
       { agent: "Defender", detail: "not yet staged", tone: "pending" },
     ],
-    statusBadge: "round 8 · live",
-    badgeTone: "live",
+    statusBadge: "WALKTHROUGH SAMPLE · ROUND 8",
+    badgeTone: "warning",
     log: "curator> seeded round 8 attack set from research",
     kpis: {
       trustChain: 91.2,
       detectionRate: 86,
       disagreementRate: 9,
-      openAlerts: 70,
+      recordedAlerts: 70,
     },
   },
   {
@@ -383,14 +383,14 @@ export const LIVE_ROUNDS: LiveRound[] = [
       { agent: "Judge", detail: "HMAC failure confirmed", tone: "warn" },
       { agent: "Defender", detail: "quarantined", tone: "ok" },
     ],
-    statusBadge: "round 9 · VERIFICATION FAILED",
+    statusBadge: "WALKTHROUGH SAMPLE · VERIFICATION FAILED",
     badgeTone: "error",
     log: "target> HMAC verify fail: replayed handoff detected from red_team",
     kpis: {
       trustChain: 91.2,
       detectionRate: 86,
       disagreementRate: 9,
-      openAlerts: 70,
+      recordedAlerts: 70,
     },
   },
 ];
@@ -729,6 +729,24 @@ const CANONICAL_SECURITY_EVENTS: StructuredSecurityEvent[] = [
 
 export function getSecurityEventForRound(round: LiveRound, roundIndex: number): StructuredSecurityEvent {
   if (round.event) return round.event;
+  if (["LIVE TELEMETRY", "STALE TELEMETRY", "DISCONNECTED"].includes(round.statusBadge ?? "")) {
+    return {
+      eventId: "",
+      campaignId: "",
+      sessionId: "",
+      roundId: round.round > 0 ? String(round.round) : "",
+      timestamp: "",
+      sourceAgent: round.from || "",
+      targetAgent: round.to || "",
+      threatCode: "",
+      severity: "unclassified",
+      payload: round.prompt || "No prompt payload was recorded for this event.",
+      detectionSignal: "No detection signal was recorded.",
+      verdict: "Not recorded",
+      mitigation: "Not recorded",
+      traceId: "",
+    };
+  }
   const canonical = CANONICAL_SECURITY_EVENTS[roundIndex] ?? CANONICAL_SECURITY_EVENTS[0]!;
   const highestBar = round.bars[0];
   const isFailed = round.badgeTone === "error" || round.bars.some((b) => b.code === "HMAC");

@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type TelemetryHealth = "LIVE" | "DEGRADED" | "STALE" | "DISCONNECTED" | "SIMULATION";
 
 export function CommandCenterCampaignContext({
-  campaignName = "ARTSA-REDTEAM-042",
-  sessionId = "RUN-00182",
-  targetName = "Enterprise Agent Stack",
+  campaignName = "No campaign selected",
+  sessionId = "No active session",
+  targetName = "No target selected",
   roundNumber = 1,
   apiOnline = true,
   wsConnected = true,
   isPaused = false,
   telemetryState: telemetryOverride,
+  lastEventAt = null,
   className,
 }: {
   campaignName?: string;
@@ -24,11 +24,9 @@ export function CommandCenterCampaignContext({
   wsConnected?: boolean;
   isPaused?: boolean;
   telemetryState?: TelemetryHealth;
+  lastEventAt?: string | null;
   className?: string;
 }) {
-  const [elapsedMs, setElapsedMs] = useState(420);
-
-  // Derive telemetry health state
   const currentHealth: TelemetryHealth =
     telemetryOverride ??
     (apiOnline && wsConnected
@@ -39,17 +37,10 @@ export function CommandCenterCampaignContext({
           ? "DISCONNECTED"
           : "SIMULATION");
 
-  // Update dynamic elapsed timer relative to the current round
-  useEffect(() => {
-    setElapsedMs(Math.floor(Math.random() * 300) + 120);
-    const interval = window.setInterval(() => {
-      setElapsedMs((prev) => (isPaused ? prev : prev + 250));
-    }, 250);
-    return () => window.clearInterval(interval);
-  }, [roundNumber, isPaused]);
-
-  const lastEventLabel =
-    elapsedMs < 1000 ? `${elapsedMs}ms ago` : `${(elapsedMs / 1000).toFixed(1)}s ago`;
+  const parsedEventTime = lastEventAt ? new Date(lastEventAt) : null;
+  const lastEventLabel = parsedEventTime && Number.isFinite(parsedEventTime.getTime())
+    ? parsedEventTime.toLocaleTimeString(undefined, { hour12: false })
+    : currentHealth === "SIMULATION" ? "sample timeline" : "Unavailable";
 
   const healthStyle =
     currentHealth === "LIVE"
@@ -70,21 +61,20 @@ export function CommandCenterCampaignContext({
           : "bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]";
 
   return (
-    <header
+    <section
       aria-label="Campaign and Operational Identity"
       className={cn(
-        "flex flex-wrap items-center justify-between gap-y-2.5 gap-x-6 border-b border-border/70 pb-4 text-[11px]",
+        "flex flex-wrap items-center justify-between gap-y-3 gap-x-6 rounded-xl border border-border/80 bg-background px-4 py-3 sm:px-5 sm:py-4 text-[11px] shadow-2xs",
         className
       )}
     >
-      {/* Identity key-values */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 font-mono">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono">
         {/* Campaign */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             CAMPAIGN
           </span>
-          <span className="font-semibold text-foreground tracking-wide">
+          <span className="font-semibold text-foreground tracking-tight">
             {campaignName}
           </span>
         </div>
@@ -93,7 +83,7 @@ export function CommandCenterCampaignContext({
 
         {/* Session */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             SESSION
           </span>
           <span className="text-foreground/90 font-medium">
@@ -105,7 +95,7 @@ export function CommandCenterCampaignContext({
 
         {/* Target */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             TARGET
           </span>
           <span className="text-foreground/90 font-medium">
@@ -117,7 +107,7 @@ export function CommandCenterCampaignContext({
 
         {/* Round */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             ROUND
           </span>
           <span className="font-semibold text-foreground">
@@ -126,74 +116,36 @@ export function CommandCenterCampaignContext({
         </div>
       </div>
 
-      {/* Telemetry status and mode badge */}
-      <div className="flex flex-wrap items-center gap-3 sm:gap-4 font-mono text-[10px]">
-        {/* Backend API Connection Status */}
-        <div
-          className="flex items-center gap-1.5"
-          title={apiOnline ? "Backend API connected" : "Backend API offline — operating in standalone simulation"}
-        >
-          <span className="uppercase text-muted-foreground">API</span>
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 rounded px-1.5 py-0.2 text-[9px] font-semibold uppercase border",
-              apiOnline
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "border-slate-500/30 bg-slate-500/10 text-muted-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "h-1 w-1 rounded-full",
-                apiOnline ? "bg-emerald-400" : "bg-slate-400"
-              )}
-            />
-            {apiOnline ? "ONLINE" : "OFFLINE"}
-          </span>
-        </div>
-
-        {/* Mode */}
-        <div className="flex items-center gap-1.5">
-          <span className="uppercase text-muted-foreground">MODE</span>
-          <span className="rounded px-1.5 py-0.5 font-semibold uppercase bg-muted/60 text-foreground border border-border">
-            {currentHealth === "LIVE" ? "LIVE" : "SIMULATION"}
-          </span>
-          {currentHealth !== "LIVE" ? (
-            <span
-              className={cn(
-                "rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase border tracking-wider",
-                isPaused
-                  ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
-                  : "border-sky-500/40 bg-sky-500/10 text-sky-400"
-              )}
-            >
-              {isPaused ? "PAUSED" : "PLAYING"}
-            </span>
-          ) : null}
-        </div>
-
+      <div className="flex flex-wrap items-center gap-3 font-mono text-[10px]">
         {/* Telemetry Status Indicator */}
-        <div className="flex items-center gap-2">
-          <span className="uppercase text-muted-foreground">TELEMETRY</span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold uppercase tracking-wider",
+            healthStyle
+          )}
+        >
+          <span className={cn("h-1.5 w-1.5 rounded-full", dotColor)} />
+          {currentHealth}
+        </span>
+
+        {currentHealth === "SIMULATION" ? (
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-              healthStyle
+              "rounded-full border px-2.5 py-1 uppercase tracking-wider font-semibold",
+              isPaused
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                : "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300"
             )}
           >
-            <span className={cn("h-1.5 w-1.5 rounded-full", dotColor)} />
-            {currentHealth}
+            {isPaused ? "PAUSED" : "PLAYING"}
           </span>
-        </div>
+        ) : null}
 
-        {/* Last Event */}
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <span>LAST EVENT</span>
-          <span className="text-foreground font-medium tabular-nums lowercase">
-            {lastEventLabel}
-          </span>
+        <div className="hidden sm:flex items-center gap-1.5 text-muted-foreground pl-1 border-l border-border">
+          <span className="text-[9px] uppercase">EVENT:</span>
+          <span className="text-foreground font-medium tabular-nums">{lastEventLabel}</span>
         </div>
       </div>
-    </header>
+    </section>
   );
 }

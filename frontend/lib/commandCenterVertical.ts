@@ -9,7 +9,7 @@ export const VERTICAL_COMPARE = {
   artsa: [
     { label: "Agent tool-call screening", sub: "Every LLM action ingested" },
     { label: "Session-scoped blast radius", sub: "Session → agent → tool graph" },
-    { label: "Sub-50ms containment pipeline", sub: "Ingest → score → verdict → action" },
+    { label: "Policy decision pipeline", sub: "Ingest → evaluation → recorded action" },
   ],
 } as const;
 

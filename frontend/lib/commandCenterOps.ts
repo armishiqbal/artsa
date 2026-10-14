@@ -1,13 +1,14 @@
-/** Command Center ops screen — live agent event contract (mock → real WS swap). */
+/** Mission graph projections for timestamped backend telemetry records. */
 
-export type AgentStatus = "nominal" | "under_attack" | "compromised";
+export type AgentStatus = "unknown" | "nominal" | "under_attack" | "compromised";
 export type AgentEventType =
+  | "event"
   | "message"
   | "status_change"
   | "finding"
   | "attack_start"
   | "attack_end";
-export type AgentSeverity = "info" | "warning" | "critical";
+export type AgentSeverity = "info" | "low" | "warning" | "medium" | "high" | "critical" | "unclassified";
 export type CommandTimeWindow = "5m" | "15m" | "1h";
 
 export type AgentEvent = {
@@ -20,6 +21,9 @@ export type AgentEvent = {
   severity?: AgentSeverity;
   message: string;
   hmacValid?: boolean;
+  latencyMs?: number;
+  judgeVerdict?: string;
+  defenderVerdict?: string;
 };
 
 export const SIX_AGENTS = [
@@ -52,7 +56,7 @@ export const AGENT_SHORT: Record<string, string> = {
   Defender: "DEF",
 };
 
-export type MissionPosture = "nominal" | "elevated" | "critical";
+export type MissionPosture = "unknown" | "nominal" | "elevated" | "critical";
 
 export type CommandGraphNodeDatum = {
   id: string;
@@ -66,18 +70,18 @@ export type CommandGraphLinkDatum = {
   source: string;
   target: string;
   traffic: number;
-  hmacOk: boolean;
+  hmacOk: boolean | null;
   /** Highlighted attack / containment path */
   hot?: boolean;
 };
 
 export type CommandVitals = {
-  activeSimulations: number;
-  detectionRate: number;
-  findingsToday: number;
-  agentUptime: number;
-  activeAttackPaths: number;
-  avgResponseMs: number;
+  activeSimulations: number | null;
+  detectionRate: number | null;
+  findingsInWindow: number;
+  agentUptime: number | null;
+  activeAttackPaths: number | null;
+  avgResponseMs: number | null;
 };
 
 export type DetectionPoint = {
@@ -99,12 +103,15 @@ export function filterEventsByWindow(
   now = Date.now()
 ): AgentEvent[] {
   const cut = now - windowMs(window);
-  return events.filter((e) => Date.parse(e.timestamp) >= cut);
+  return events.filter((e) => {
+    const timestamp = Date.parse(e.timestamp);
+    return Number.isFinite(timestamp) && timestamp >= cut;
+  });
 }
 
 export function deriveAgentStatuses(events: AgentEvent[]): Record<string, AgentStatus> {
   const status: Record<string, AgentStatus> = Object.fromEntries(
-    SIX_AGENTS.map((a) => [a, "nominal" as AgentStatus])
+    SIX_AGENTS.map((a) => [a, "unknown" as AgentStatus])
   );
   for (const e of events) {
     if (e.status && e.sourceAgent) status[e.sourceAgent] = e.status;
@@ -112,10 +119,7 @@ export function deriveAgentStatuses(events: AgentEvent[]): Record<string, AgentS
       status[e.targetAgent] = status[e.targetAgent] === "compromised" ? "compromised" : "under_attack";
     }
     if (e.type === "attack_end" && e.targetAgent && status[e.targetAgent] === "under_attack") {
-      status[e.targetAgent] = "nominal";
-    }
-    if (e.severity === "critical" && e.targetAgent) {
-      status[e.targetAgent] = "compromised";
+      status[e.targetAgent] = "unknown";
     }
   }
   return status;
@@ -129,7 +133,7 @@ export function deriveMissionPosture(events: AgentEvent[]): {
   const compromised = Object.values(status).filter((s) => s === "compromised").length;
   const under = Object.values(status).filter((s) => s === "under_attack").length;
   const critFindings = events.filter((e) => e.severity === "critical").length;
-  if (compromised > 0 || critFindings >= 3) {
+  if (compromised > 0 || critFindings > 0) {
     return {
       posture: "critical",
       headline: `${compromised || critFindings} critical signal${
@@ -143,9 +147,16 @@ export function deriveMissionPosture(events: AgentEvent[]): {
       headline: `${under} agent${under === 1 ? "" : "s"} under attack — inspect the wired Target / Judge path.`,
     };
   }
+  const allAgentsNominal = SIX_AGENTS.every((agent) => status[agent] === "nominal");
+  if (!allAgentsNominal) {
+    return {
+      posture: "unknown",
+      headline: "Complete agent posture is unavailable in the loaded telemetry window.",
+    };
+  }
   return {
     posture: "nominal",
-    headline: "Wired Red Team → Target → Judge path nominal; Research, Curator, and Defender are not wired.",
+    headline: "All six agent statuses were reported nominal in the loaded telemetry window.",
   };
 }
 
@@ -156,14 +167,14 @@ export function deriveGraphModel(
 ): { nodes: CommandGraphNodeDatum[]; links: CommandGraphLinkDatum[] } {
   const status = deriveAgentStatuses(events);
   const activity = new Map<string, number>();
-  const traffic = new Map<string, { count: number; bad: number }>();
+  const traffic = new Map<string, { count: number; bad: number; verified: number }>();
   const targets = new Set<string>();
 
-  const sevRank = { info: 0, warning: 1, critical: 2 } as const;
+  const sevRank = { info: 0, low: 0, warning: 1, medium: 2, high: 3, critical: 4, unclassified: -1 } as const;
   const floor = severityFloor === "all" ? -1 : sevRank[severityFloor];
 
   for (const e of events) {
-    if (severityFloor !== "all" && sevRank[e.severity ?? "info"] < floor) continue;
+    if (severityFloor !== "all" && (e.severity == null || sevRank[e.severity] < floor)) continue;
     if (agentFilter !== "all" && e.sourceAgent !== agentFilter && e.targetAgent !== agentFilter) {
       continue;
     }
@@ -171,9 +182,10 @@ export function deriveGraphModel(
     if (e.targetAgent) {
       activity.set(e.targetAgent, (activity.get(e.targetAgent) ?? 0) + 1);
       const key = `${e.sourceAgent}→${e.targetAgent}`;
-      const row = traffic.get(key) ?? { count: 0, bad: 0 };
+      const row = traffic.get(key) ?? { count: 0, bad: 0, verified: 0 };
       row.count += 1;
       if (e.hmacValid === false) row.bad += 1;
+      if (e.hmacValid != null) row.verified += 1;
       traffic.set(key, row);
       if (!SIX_AGENTS.includes(e.targetAgent as SixAgentName) && e.targetAgent.startsWith("TGT-")) {
         targets.add(e.targetAgent);
@@ -185,17 +197,22 @@ export function deriveGraphModel(
     id: name,
     name,
     kind: "agent",
-    status: status[name] ?? "nominal",
+    status: status[name] ?? "unknown",
     activity: activity.get(name) ?? 0,
   }));
+
+  for (const [id, count] of activity) {
+    if (SIX_AGENTS.includes(id as SixAgentName) || targets.has(id)) continue;
+    nodes.push({ id, name: id, kind: "agent", status: status[id] ?? "unknown", activity: count });
+  }
 
   for (const id of targets) {
     nodes.push({
       id,
       name: id,
       kind: "target",
-      status: status[id] ?? "under_attack",
-      activity: activity.get(id) ?? 1,
+      status: status[id] ?? "unknown",
+      activity: activity.get(id) ?? 0,
     });
   }
 
@@ -203,26 +220,20 @@ export function deriveGraphModel(
   const hotAgents = new Set(
     Object.entries(status)
       .filter(([, s]) => s !== "nominal")
+      .filter(([, s]) => s === "under_attack" || s === "compromised")
       .map(([id]) => id)
   );
-  // The currently wired pressure path ends at Judge. Planned roles must not be
-  // promoted into an operational edge by a simulated event stream.
-  const hotPairs = new Set<string>([
-    "Red Team→Target",
-    "Target→Judge",
-  ]);
-
   for (const [key, row] of traffic) {
     const [source, target] = key.split("→");
     if (!source || !target) continue;
     const onHotPath =
       hotAgents.size > 0 &&
-      (hotPairs.has(key) || hotAgents.has(source) || hotAgents.has(target));
+      (hotAgents.has(source) || hotAgents.has(target));
     links.push({
       source,
       target,
       traffic: row.count,
-      hmacOk: row.bad === 0,
+      hmacOk: row.verified > 0 ? row.bad === 0 : null,
       hot: onHotPath,
     });
   }
@@ -230,73 +241,41 @@ export function deriveGraphModel(
   return { nodes, links };
 }
 
-/** Single formula for Detection Rate — used by vitals strip and chart tip. */
-export function computeDetectionRate(events: AgentEvent[]): number {
-  const findings = events.filter(
-    (e) => e.type === "finding" || e.severity === "critical" || e.severity === "warning"
-  );
-  if (findings.length === 0) return 92;
-  const contained = findings.filter((e) =>
-    /block|contain|defend|quarantine|nominal/i.test(e.message)
-  );
-  return Math.min(99, Math.round((contained.length / Math.max(1, findings.length)) * 100));
+/** The event stream lacks the denominator and detector outcome needed for this rate. */
+export function computeDetectionRate(events: AgentEvent[]): null {
+  void events;
+  return null;
 }
 
 export function deriveVitals(events: AgentEvent[], now = Date.now()): CommandVitals {
-  const dayAgo = now - 24 * 60 * 60_000;
-  const today = events.filter((e) => Date.parse(e.timestamp) >= dayAgo);
-  const findings = today.filter((e) => e.type === "finding" || e.severity === "critical" || e.severity === "warning");
-  const attacks = today.filter((e) => e.type === "attack_start");
-  const messages = today.filter((e) => e.type === "message");
-  const status = deriveAgentStatuses(events);
-  const nominal = Object.values(status).filter((s) => s === "nominal").length;
-  const agentUptime = Math.round((nominal / Math.max(1, Object.keys(status).length)) * 1000) / 10;
-  const activePaths = Object.values(status).filter((s) => s !== "nominal").length;
-  const avgResponseMs = 28 + (messages.length % 17);
+  const windowStart = now - windowMs("15m");
+  const inWindow = events.filter((e) => Date.parse(e.timestamp) >= windowStart);
+  const findings = inWindow.filter((e) => e.type === "finding");
+  const status = deriveAgentStatuses(inWindow);
+  const activePaths = Object.values(status).filter((s) => s === "under_attack").length;
+  const latencies = inWindow
+    .map((event) => event.latencyMs)
+    .filter((value): value is number => value != null && Number.isFinite(value) && value >= 0);
 
   return {
-    activeSimulations: Math.max(1, attacks.filter((a) => {
-      const end = today.find(
-        (e) => e.type === "attack_end" && e.targetAgent === a.targetAgent && e.timestamp >= a.timestamp
-      );
-      return !end;
-    }).length) + (activePaths > 0 ? 1 : 0),
-    detectionRate: computeDetectionRate(today),
-    findingsToday: findings.length,
-    agentUptime,
-    activeAttackPaths: activePaths,
-    avgResponseMs,
+    activeSimulations: null,
+    detectionRate: null,
+    findingsInWindow: findings.length,
+    agentUptime: null,
+    activeAttackPaths: inWindow.length > 0 ? activePaths : null,
+    avgResponseMs:
+      latencies.length > 0
+        ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length)
+        : null,
   };
 }
 
 export function deriveDetectionSeries(events: AgentEvent[], now = Date.now()): DetectionPoint[] {
-  const buckets = 24;
-  const span = 15 * 60_000;
-  const step = span / buckets;
-  const liveRate = computeDetectionRate(events);
-  const points: DetectionPoint[] = [];
-  for (let i = 0; i < buckets; i++) {
-    const t0 = now - span + i * step;
-    const t1 = t0 + step;
-    const slice = events.filter((e) => {
-      const t = Date.parse(e.timestamp);
-      return t >= t0 && t < t1;
-    });
-    const isLiveBucket = i === buckets - 1;
-    // Last bucket always equals the vital so the two surfaces cannot drift.
-    const artsa = isLiveBucket
-      ? liveRate
-      : slice.length === 0
-        ? Math.max(55, liveRate - (buckets - 1 - i) * 0.4)
-        : computeDetectionRate(slice);
-    points.push({
-      t: t0,
-      label: new Date(t0).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-      artsa: Math.round(artsa),
-      baseline: 62,
-    });
-  }
-  return points;
+  void events;
+  void now;
+  // No backend history endpoint is wired into this view, and event rows alone
+  // cannot supply an adaptive rate or a static comparison baseline.
+  return [];
 }
 
 /** Hop keys that should pulse right now (recent message / finding traffic). */
@@ -319,14 +298,16 @@ export function agentMessages(events: AgentEvent[], agentId: string, limit = 12)
 }
 
 export function statusColor(status: AgentStatus): string {
+  if (status === "unknown") return "#71717a";
   if (status === "compromised") return "#ef4444";
   if (status === "under_attack") return "#f59e0b";
   return "#22c55e";
 }
 
 export function severityColor(sev: AgentSeverity | undefined): string {
-  if (sev === "critical") return "#ef4444";
-  if (sev === "warning") return "#f59e0b";
+  if (sev == null || sev === "unclassified") return "#71717a";
+  if (sev === "critical" || sev === "high") return "#ef4444";
+  if (sev === "warning" || sev === "medium") return "#f59e0b";
   return "#22c55e";
 }
 
@@ -334,65 +315,87 @@ export function severityColor(sev: AgentSeverity | undefined): string {
 export function telemetryToAgentEvents(
   rows: Array<Record<string, unknown>>
 ): AgentEvent[] {
-  return rows.map((evt) => {
-    const risk = Number(evt.risk_score ?? 0);
-    const verdict = String(evt.verdict ?? evt.action ?? "").toUpperCase();
-    const tool = String(evt.tool_name ?? "tool");
-    const agent = String(evt.agent_id ?? "agent");
-    const ts = String(evt.timestamp ?? evt.triggered_at ?? new Date().toISOString());
-    const severity: AgentSeverity =
-      risk >= 80 || verdict.includes("BREACH") || verdict.includes("KILL")
-        ? "critical"
-        : risk >= 50 || verdict.includes("SUSPICIOUS")
-          ? "warning"
-          : "info";
-    const asiIdx = Math.min(10, Math.max(1, Math.ceil(risk / 10) || 1));
-    const targetAgent =
-      severity === "critical" || severity === "warning" ? "Target" : "Judge";
-    return {
-      type: severity === "info" ? "message" : "finding",
-      timestamp: ts,
-      sourceAgent: mapIngestAgent(agent, tool),
-      targetAgent,
-      status:
-        severity === "critical"
-          ? "compromised"
-          : severity === "warning"
-            ? "under_attack"
-            : "nominal",
-      asiTag: `ASI${String(asiIdx).padStart(2, "0")}`,
-      severity,
-      message: `${agent} · ${tool} · ${verdict || "SCAN"} · R${Math.round(risk)}`,
-    };
+  return rows.flatMap((evt) => {
+    const timestamp = firstString(evt, ["timestamp", "triggered_at"]);
+    if (!timestamp || !Number.isFinite(Date.parse(timestamp))) return [];
+
+    const sourceAgent = normalizeAgentName(
+      firstString(evt, ["source_agent", "sourceAgent", "agent_id", "agentId", "actor"])
+    );
+    const rawTarget = firstString(evt, ["target_agent", "targetAgent", "to_agent", "toAgent"]);
+    const targetAgent = rawTarget ? normalizeAgentName(rawTarget) : undefined;
+    const type = normalizeEventType(firstString(evt, ["type", "event_type", "eventType", "kind"]));
+    const severity = normalizeSeverity(firstString(evt, ["severity"]));
+    const status = normalizeStatus(firstString(evt, ["status", "agent_status"]));
+    const message = firstString(evt, ["message", "summary", "payload", "reason"]);
+    const asiTag = firstString(evt, ["asi_tag", "asiTag"]);
+    const rawLatency = Number(evt.latency_ms ?? evt.latencyMs);
+    const latencyMs = Number.isFinite(rawLatency) && rawLatency >= 0 ? rawLatency : undefined;
+    const hmacValue = evt.hmac_valid ?? evt.hmac_verified ?? evt.hmacValid;
+    const judgeVerdict = firstString(evt, ["judge_verdict", "judgeVerdict"]);
+    const defenderVerdict = firstString(evt, ["defender_verdict", "defenderVerdict"]);
+
+    return [{
+      type,
+      timestamp,
+      sourceAgent,
+      ...(targetAgent ? { targetAgent } : {}),
+      ...(status ? { status } : {}),
+      ...(asiTag ? { asiTag } : {}),
+      ...(severity ? { severity } : {}),
+      message: message ?? "Event recorded without a summary.",
+      ...(typeof hmacValue === "boolean" ? { hmacValid: hmacValue } : {}),
+      ...(latencyMs != null ? { latencyMs } : {}),
+      ...(judgeVerdict ? { judgeVerdict } : {}),
+      ...(defenderVerdict ? { defenderVerdict } : {}),
+    }];
   });
 }
 
-function mapIngestAgent(agentId: string, tool: string): string {
-  const a = agentId.toLowerCase();
-  const t = tool.toLowerCase();
-  if (a.includes("red") || t.includes("prompt")) return "Red Team";
-  if (a.includes("defend") || t.includes("guard")) return "Defender";
-  if (a.includes("judge") || t.includes("verdict")) return "Judge";
-  if (a.includes("curat")) return "Curator";
-  if (a.includes("research")) return "Research";
-  if (a.includes("target") || t.includes("model") || t.includes("shell")) return "Target";
-  return "Target";
+function firstString(record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
 }
 
-/** Merge live ingest (preferred) with mock stream; newest-first, de-duped by ts+message. */
-export function mergeAgentStreams(
-  live: AgentEvent[],
-  mock: AgentEvent[],
-  max = 240
-): AgentEvent[] {
-  const seen = new Set<string>();
-  const out: AgentEvent[] = [];
-  for (const e of [...live, ...mock]) {
-    const key = `${e.timestamp}|${e.message}|${e.sourceAgent}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(e);
-    if (out.length >= max) break;
+function normalizeAgentName(value: string | undefined): string {
+  if (!value) return "Unattributed";
+  const token = value.toLowerCase().replace(/[\s-]+/g, "_");
+  const canonical: Record<string, SixAgentName> = {
+    research: "Research",
+    curator: "Curator",
+    red_team: "Red Team",
+    target: "Target",
+    judge: "Judge",
+    defender: "Defender",
+  };
+  return canonical[token] ?? value;
+}
+
+function normalizeEventType(value: string | undefined): AgentEventType {
+  const type = value?.toLowerCase().replace(/[\s-]+/g, "_");
+  if (
+    type === "message" || type === "status_change" || type === "finding" ||
+    type === "attack_start" || type === "attack_end"
+  ) return type;
+  return "event";
+}
+
+function normalizeSeverity(value: string | undefined): AgentSeverity | undefined {
+  const severity = value?.toLowerCase();
+  if (
+    severity === "info" || severity === "low" || severity === "warning" ||
+    severity === "medium" || severity === "high" || severity === "critical"
+  ) return severity;
+  return severity ? "unclassified" : undefined;
+}
+
+function normalizeStatus(value: string | undefined): AgentStatus | undefined {
+  const status = value?.toLowerCase().replace(/[\s-]+/g, "_");
+  if (status === "nominal" || status === "under_attack" || status === "compromised") {
+    return status;
   }
-  return out;
+  return undefined;
 }

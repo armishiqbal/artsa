@@ -32,16 +32,17 @@ import {
   CommandCenterInspectorDrawer,
   type InspectorSelection,
 } from "./inspector/CommandCenterInspectorDrawer";
-import {
-  CommandCenterConfirmationModal,
-  type OperatorActionType,
-} from "./controls/CommandCenterConfirmationModal";
-import { AlertOctagon, Ban, ShieldCheck } from "lucide-react";
-import Link from "next/link";
+import { CommandCenterConfirmationModal, type OperatorActionType } from "./controls/CommandCenterConfirmationModal";
 import { CommandCenterOperatorToolbar } from "./controls/CommandCenterOperatorToolbar";
+import { cn } from "@/lib/utils";
+import { AlertOctagon, Ban, ChevronLeft, ChevronRight, Pause, Play, ShieldCheck } from "lucide-react";
 import { CommandCenterAsiModal } from "./taxonomy/CommandCenterAsiModal";
 import { CommandCenterVerdictsDeck } from "./verdicts/CommandCenterVerdictsDeck";
-import type { LiveOpsState, OperatorActionResult } from "@/lib/hooks/useCommandCenterLiveOps";
+import type {
+  CampaignRoundReplayResult,
+  LiveOpsState,
+  OperatorActionResult,
+} from "@/lib/hooks/useCommandCenterLiveOps";
 
 export interface CommandCenterFloorProps {
   events: Array<Record<string, unknown>>;
@@ -50,34 +51,59 @@ export interface CommandCenterFloorProps {
   wsConnected: boolean;
   liveOps?: LiveOpsState;
   disableAutoTicker?: boolean;
+  hideTitle?: boolean;
   onKillSession?: (sessionId: string) => Promise<OperatorActionResult>;
   onQuarantineAgent?: (sessionId: string) => Promise<OperatorActionResult>;
   onBlockTool?: (sessionId: string, toolName: string) => Promise<OperatorActionResult>;
-  onDeployMitigation?: (sessionId: string, options?: any) => Promise<OperatorActionResult>;
+  onDeployMitigation?: (
+    sessionId: string,
+    options?: {
+      ruleName?: string;
+      content?: string;
+      triggerPhrases?: string[];
+      pattern?: string;
+      eventType?: string;
+      severity?: string;
+      riskScore?: number;
+      hotPatchSemantic?: boolean;
+    }
+  ) => Promise<OperatorActionResult>;
+  onReplayCampaignRound?: (campaignId: string, roundNumber: number) => Promise<CampaignRoundReplayResult>;
   onRefreshLiveOps?: () => void;
 }
 
 export function CommandCenterFloor({
   events,
-  campaigns,
   apiOnline,
   wsConnected,
   liveOps,
   disableAutoTicker = false,
+  hideTitle = false,
   onKillSession,
   onQuarantineAgent,
   onBlockTool,
   onDeployMitigation,
+  onReplayCampaignRound,
   onRefreshLiveOps,
 }: CommandCenterFloorProps) {
+  void events;
   const [roundIdx, setRoundIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const isLiveMode = Boolean(
     liveOps &&
-    liveOps.telemetryMode !== "SIMULATION" &&
-    liveOps.telemetryMode !== "DISCONNECTED" &&
+    liveOps.telemetryMode === "LIVE" &&
     (liveOps.events.length > 0 || (liveOps.currentCampaign && liveOps.currentCampaign.status === "RUNNING"))
   );
+  const selectedSessionId = liveOps?.currentSession ?? liveOps?.events.find((event) => event.sessionId)?.sessionId ?? null;
+  const selectedCampaignId = liveOps?.currentCampaign?.id ?? liveOps?.events.find((event) => event.campaignId)?.campaignId ?? null;
+  const eventRoundText = liveOps?.events.find((event) => event.roundId)?.roundId;
+  const parsedEventRound = eventRoundText ? Number(eventRoundText.match(/\d+/)?.[0]) : null;
+  const selectedRoundNumber = liveOps?.currentRound && liveOps.currentRound > 0
+    ? liveOps.currentRound
+    : parsedEventRound != null && Number.isInteger(parsedEventRound) && parsedEventRound > 0
+      ? parsedEventRound
+      : null;
+  const selectedToolName = liveOps?.events.find((event) => event.toolName)?.toolName ?? null;
 
   // Inspector & Modal dialog states
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -86,10 +112,10 @@ export function CommandCenterFloor({
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmActionType, setConfirmActionType] = useState<OperatorActionType>(null);
   const [confirmTargetName, setConfirmTargetName] = useState<string>("Target Agent");
+  const [pendingMitigationContent, setPendingMitigationContent] = useState<string | null>(null);
 
   const [asiModalOpen, setAsiModalOpen] = useState(false);
   const [lastOperatorAction, setLastOperatorAction] = useState<string | null>(null);
-  const [dismissedPatchId, setDismissedPatchId] = useState<string | null>(null);
 
   // Automatic round progression for simulation mode ("the whole page moves together each round")
   useEffect(() => {
@@ -102,27 +128,32 @@ export function CommandCenterFloor({
 
   // Operator Action Handlers
   const handleRequestOperatorAction = useCallback(
-    (actionType: OperatorActionType, targetName?: string) => {
+    (actionType: OperatorActionType, targetName?: string, options?: { content?: string }) => {
       setConfirmActionType(actionType);
-      setConfirmTargetName(targetName || "Target Agent");
+      setPendingMitigationContent(actionType === "DEPLOY_MITIGATION" ? options?.content ?? null : null);
+      setConfirmTargetName(
+        actionType === "BLOCK_TOOL"
+          ? targetName || "No recorded tool"
+          : selectedSessionId || "No active session"
+      );
       setConfirmModalOpen(true);
     },
-    []
+    [selectedSessionId]
   );
 
   const handleConfirmAction = useCallback(
     async (actionType: string, targetName: string) => {
-      const targetSessionId = liveOps?.currentSession || "RUN-00182";
+      const targetSessionId = selectedSessionId;
 
       if (actionType === "KILL_SESSION") {
-        setIsPaused(true);
-        if (onKillSession) {
+        if (isLiveMode && targetSessionId && onKillSession) {
           try {
             const result = await onKillSession(targetSessionId);
             if (result.success) {
               setLastOperatorAction(
-                `Session ${targetSessionId} terminated by operator (HTTP ${result.statusCode ?? 200}: ${result.data?.status || "severed"}).`
+                `Backend confirmed KILL for session ${targetSessionId} (status: ${result.data?.status || "unavailable"}).`
               );
+              onRefreshLiveOps?.();
             } else {
               setLastOperatorAction(`KILL action failed on session ${targetSessionId}: ${result.error || "Server rejected request"}`);
             }
@@ -131,16 +162,17 @@ export function CommandCenterFloor({
             setLastOperatorAction(`KILL action error: ${msg}`);
           }
         } else {
-          setLastOperatorAction(`Session terminated by operator. Live channels severed.`);
+          setLastOperatorAction("KILL_SESSION was not sent because no backend session action is available.");
         }
       } else if (actionType === "QUARANTINE_AGENT") {
-        if (onQuarantineAgent) {
+        if (isLiveMode && targetSessionId && onQuarantineAgent) {
           try {
             const result = await onQuarantineAgent(targetSessionId);
             if (result.success) {
               setLastOperatorAction(
-                `${targetName} quarantined on session ${targetSessionId} (HTTP ${result.statusCode ?? 200}: ${result.data?.status || "contained"}).`
+                `Backend confirmed QUARANTINE for session ${targetSessionId} (status: ${result.data?.status || "unavailable"}).`
               );
+              onRefreshLiveOps?.();
             } else {
               setLastOperatorAction(`QUARANTINE action failed on ${targetName}: ${result.error || "Server rejected request"}`);
             }
@@ -149,14 +181,15 @@ export function CommandCenterFloor({
             setLastOperatorAction(`QUARANTINE action error: ${msg}`);
           }
         } else {
-          setLastOperatorAction(`${targetName} quarantined. Tool permissions revoked.`);
+          setLastOperatorAction("QUARANTINE was not sent because no backend session action is available.");
         }
       } else if (actionType === "BLOCK_TOOL") {
-        if (onBlockTool) {
+        if (isLiveMode && targetSessionId && onBlockTool) {
           try {
             const result = await onBlockTool(targetSessionId, targetName);
             if (result.success) {
-              setLastOperatorAction(`Tool "${targetName}" quarantined on session ${targetSessionId}.`);
+              setLastOperatorAction(`Backend confirmed the tool action for session ${targetSessionId} (status: ${result.data?.status || "unavailable"}).`);
+              onRefreshLiveOps?.();
             } else {
               setLastOperatorAction(`BLOCK_TOOL failed on "${targetName}": ${result.error || "Server rejected request"}`);
             }
@@ -165,18 +198,22 @@ export function CommandCenterFloor({
             setLastOperatorAction(`BLOCK_TOOL error: ${msg}`);
           }
         } else {
-          setLastOperatorAction(`Tool "${targetName}" blocked across active agents.`);
+          setLastOperatorAction("BLOCK_TOOL was not sent because no backend tool action is available.");
         }
       } else if (actionType === "DEPLOY_MITIGATION") {
-        if (onDeployMitigation) {
+        if (isLiveMode && targetSessionId && onDeployMitigation) {
           try {
-            const result = await onDeployMitigation(targetSessionId, { ruleName: `Mitigate: ${targetName}` });
+            const result = await onDeployMitigation(targetSessionId, {
+              ruleName: `Mitigate session ${targetSessionId}`,
+              ...(pendingMitigationContent ? { content: pendingMitigationContent } : {}),
+            });
             if (result.success) {
-              const ruleName = result.data?.rule_name || result.data?.ruleName || targetName;
-              const version = result.data?.playbook_version || result.data?.playbookVersion || 1;
-              setLastOperatorAction(
-                `Mitigation rule "${ruleName}" (v${version}) deployed to policy playbook on session ${targetSessionId}.`
-              );
+              const ruleName = result.data?.rule_name || result.data?.ruleName;
+              const version = result.data?.playbook_version ?? result.data?.playbookVersion;
+              const recordedRule = ruleName ? ` ${ruleName}` : "";
+              const recordedVersion = version != null ? ` v${version}` : "";
+              setLastOperatorAction(`Backend confirmed mitigation${recordedRule}${recordedVersion} for session ${targetSessionId}.`);
+              onRefreshLiveOps?.();
             } else {
               setLastOperatorAction(`DEPLOY_MITIGATION failed: ${result.error || "Server rejected request"}`);
             }
@@ -185,12 +222,33 @@ export function CommandCenterFloor({
             setLastOperatorAction(`DEPLOY_MITIGATION error: ${msg}`);
           }
         } else {
-          setLastOperatorAction(`Mitigation patch deployed to runtime enforcement layer.`);
+          setLastOperatorAction("DEPLOY_MITIGATION was not sent because no backend policy action is available.");
         }
       }
     },
-    [liveOps, onKillSession, onQuarantineAgent, onBlockTool, onDeployMitigation]
+    [isLiveMode, selectedSessionId, pendingMitigationContent, onKillSession, onQuarantineAgent, onBlockTool, onDeployMitigation, onRefreshLiveOps]
   );
+
+  const handleReplayCampaignRound = useCallback(async (requestedRound?: number) => {
+    if (!isLiveMode || !selectedCampaignId || !onReplayCampaignRound) {
+      setLastOperatorAction("Replay was not sent because no live campaign replay endpoint is available.");
+      return;
+    }
+    const roundNumber = requestedRound ?? selectedRoundNumber;
+    if (!roundNumber || !Number.isInteger(roundNumber) || roundNumber < 1) {
+      setLastOperatorAction("Replay was not sent because no saved round number is available.");
+      return;
+    }
+    const result = await onReplayCampaignRound(selectedCampaignId, roundNumber);
+    if (!result.success) {
+      setLastOperatorAction(`Round ${roundNumber} replay failed: ${result.error || "Backend did not confirm the replay."}`);
+      return;
+    }
+    const verdict = result.data?.replayedVerdict ? ` · verdict ${result.data.replayedVerdict}` : "";
+    const mitigated = result.data?.mitigated == null ? "" : result.data.mitigated ? " · mitigation confirmed" : " · still breached";
+    setLastOperatorAction(`Backend confirmed replay of ${selectedCampaignId} round ${roundNumber}${verdict}${mitigated}.`);
+    onRefreshLiveOps?.();
+  }, [isLiveMode, selectedCampaignId, selectedRoundNumber, onReplayCampaignRound, onRefreshLiveOps]);
 
   // Keyboard shortcuts (Capability 12: Space to pause/resume, ArrowRight to step, Escape to close drawer/modal)
   useEffect(() => {
@@ -209,6 +267,7 @@ export function CommandCenterFloor({
       if (e.key === "Escape") {
         if (confirmModalOpen) {
           setConfirmModalOpen(false);
+          setPendingMitigationContent(null);
           e.preventDefault();
         } else if (asiModalOpen) {
           setAsiModalOpen(false);
@@ -217,16 +276,16 @@ export function CommandCenterFloor({
           setInspectorOpen(false);
           e.preventDefault();
         }
-      } else if (e.key === " " || e.code === "Space") {
+      } else if (!isLiveMode && (e.key === " " || e.code === "Space")) {
         e.preventDefault();
         setIsPaused((prev) => !prev);
-      } else if (e.key === "ArrowRight") {
+      } else if (!isLiveMode && e.key === "ArrowRight") {
         e.preventDefault();
         setRoundIdx((prev) => nextRoundIndex(prev, LIVE_ROUNDS.length));
-      } else if ((e.key === "K" || e.key === "k") && e.shiftKey) {
+      } else if (isLiveMode && selectedSessionId && (e.key === "K" || e.key === "k") && e.shiftKey) {
         e.preventDefault();
         handleRequestOperatorAction("KILL_SESSION");
-      } else if ((e.key === "Q" || e.key === "q") && e.shiftKey) {
+      } else if (isLiveMode && selectedSessionId && (e.key === "Q" || e.key === "q") && e.shiftKey) {
         e.preventDefault();
         handleRequestOperatorAction("QUARANTINE_AGENT", "Target Agent");
       }
@@ -234,7 +293,7 @@ export function CommandCenterFloor({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [confirmModalOpen, asiModalOpen, inspectorOpen, handleRequestOperatorAction]);
+  }, [confirmModalOpen, asiModalOpen, inspectorOpen, isLiveMode, selectedSessionId, handleRequestOperatorAction]);
 
   const simulationRound = LIVE_ROUNDS[roundIdx] ?? LIVE_ROUNDS[0]!;
 
@@ -244,17 +303,16 @@ export function CommandCenterFloor({
     }
 
     const latestEvent = liveOps.events[0];
-    const liveRoundNumber =
-      liveOps.currentRound ??
-      (latestEvent?.roundId ? parseInt(latestEvent.roundId.replace(/\D/g, ""), 10) || 1 : 1);
+    const parsedRound = latestEvent?.roundId ? parseInt(latestEvent.roundId.replace(/\D/g, ""), 10) : null;
+    const liveRoundNumber = liveOps.currentRound ?? (parsedRound != null && Number.isFinite(parsedRound) ? parsedRound : 0);
 
     const agentMap: Record<SixAgentName, AgentLiveState> = {
-      Research: "idle",
-      Curator: "idle",
-      "Red Team": "idle",
-      Target: "idle",
-      Judge: "idle",
-      Defender: "idle",
+      Research: "unknown",
+      Curator: "unknown",
+      "Red Team": "unknown",
+      Target: "unknown",
+      Judge: "unknown",
+      Defender: "unknown",
     };
     const latencies: Partial<Record<SixAgentName, number | null>> = {};
 
@@ -277,38 +335,34 @@ export function CommandCenterFloor({
     // Convert live events to ASI bars
     const bars: AsiBar[] = [];
     for (const ev of liveOps.events.slice(0, 4)) {
-      if (ev.threatCode) {
+      if (ev.threatCode && ev.confidence != null) {
         bars.push({
           code: ev.threatCode,
-          label: ev.threatCode === "ASI01" ? "Goal Hijack" : ev.threatCode === "ASI02" ? "Tool Misuse" : ev.eventType,
-          pct: ev.confidence != null ? Math.round(ev.confidence * 100) : (ev.severity === "CRITICAL" ? 92 : ev.severity === "HIGH" ? 75 : 40),
+          label: ev.eventType,
+          pct: Math.round(ev.confidence * 100),
           tone: ev.severity === "CRITICAL" || ev.severity === "HIGH" ? "alert" : "warn",
         });
       }
-    }
-    if (bars.length === 0) {
-      bars.push(...simulationRound.bars);
     }
 
     // Convert live events to verdicts
     const verdicts: VerdictItem[] = [];
     for (const ev of liveOps.events.slice(0, 3)) {
       const targetLower = ev.targetAgent.toLowerCase();
-      const agentRole: VerdictItem["agent"] =
+      const agentRole: VerdictItem["agent"] | null =
         targetLower.includes("judge") ? "Judge" :
-        targetLower.includes("defend") ? "Defender" : "Target";
-      const vLower = ev.verdict.toLowerCase();
+        targetLower.includes("defend") ? "Defender" :
+        targetLower.includes("target") ? "Target" : null;
+      if (!agentRole || (!ev.verdict && !ev.mitigation)) continue;
+      const verdict = ev.verdict.trim().toUpperCase();
       const tone: VerdictTone =
-        vLower.includes("quarantin") || vLower.includes("contain") || vLower.includes("pass") ? "ok" :
-        vLower.includes("block") || ev.severity === "CRITICAL" ? "warn" : "pending";
+        ["ALLOW", "SAFE", "PASS"].includes(verdict) ? "ok" :
+        ev.severity === "CRITICAL" || ev.severity === "HIGH" ? "warn" : "pending";
       verdicts.push({
         agent: agentRole,
-        detail: ev.verdict || ev.mitigation || "Audited",
+        detail: ev.verdict || ev.mitigation,
         tone,
       });
-    }
-    if (verdicts.length === 0) {
-      verdicts.push(...simulationRound.verdicts);
     }
 
     const highlights: PromptHighlight[] = [];
@@ -324,34 +378,43 @@ export function CommandCenterFloor({
 
     return {
       round: liveRoundNumber,
-      from: latestEvent?.sourceAgent || simulationRound.from,
-      to: latestEvent?.targetAgent || simulationRound.to,
-      prompt: latestEvent?.payload || "Live operational monitoring active. Awaiting adversarial traffic...",
-      highlights: highlights.length > 0 ? highlights : simulationRound.highlights,
+      from: latestEvent?.sourceAgent || "—",
+      to: latestEvent?.targetAgent || "—",
+      prompt: latestEvent?.payload || "No prompt payload was recorded for this event.",
+      highlights,
       bars,
       agents: agentMap,
       latencies,
       verdicts,
-      log: latestEvent ? `[${latestEvent.sourceAgent} -> ${latestEvent.targetAgent}] ${latestEvent.threatCode || latestEvent.eventType}: ${latestEvent.verdict || latestEvent.mitigation}` : simulationRound.log,
+      log: latestEvent ? `[${latestEvent.sourceAgent || "—"} -> ${latestEvent.targetAgent || "—"}] ${latestEvent.threatCode || latestEvent.eventType || "event"}: ${latestEvent.verdict || latestEvent.mitigation || "No verdict recorded"}` : "No event record is available.",
       statusBadge: liveOps.telemetryMode === "LIVE" ? "LIVE TELEMETRY" : liveOps.telemetryMode === "STALE" ? "STALE TELEMETRY" : "DISCONNECTED",
       badgeTone: liveOps.telemetryMode === "LIVE" ? "live" : liveOps.telemetryMode === "STALE" ? "warning" : "error",
       event: latestEvent
         ? {
             eventId: latestEvent.eventId,
-            campaignId: latestEvent.campaignId || liveOps.currentCampaign?.id || "live_campaign",
-            sessionId: latestEvent.sessionId || liveOps.currentSession || "live_session",
-            roundId: latestEvent.roundId || `R${liveRoundNumber}`,
+            campaignId: latestEvent.campaignId || liveOps.currentCampaign?.id || "—",
+            sessionId: latestEvent.sessionId || liveOps.currentSession || "—",
+            roundId: latestEvent.roundId || (liveRoundNumber > 0 ? `R${liveRoundNumber}` : "—"),
             timestamp: latestEvent.timestamp,
             sourceAgent: latestEvent.sourceAgent,
             targetAgent: latestEvent.targetAgent,
-            threatCode: latestEvent.threatCode || "ASI01",
-            severity: latestEvent.severity === "CRITICAL" ? "critical" : latestEvent.severity === "HIGH" ? "warning" : "info",
+            threatCode: latestEvent.threatCode || "—",
+            severity:
+              latestEvent.severity === "CRITICAL"
+                ? "critical"
+                : latestEvent.severity === "HIGH" || latestEvent.severity === "MEDIUM"
+                ? "warning"
+                : latestEvent.severity === "LOW" || latestEvent.severity === "INFO"
+                ? "info"
+                : "unclassified",
             payload: latestEvent.payload,
             detectionSignal: latestEvent.detectionSignal,
             verdict: latestEvent.verdict,
             mitigation: latestEvent.mitigation,
             traceId: latestEvent.traceId,
-            confidence: latestEvent.confidence != null ? Math.round(latestEvent.confidence * 100) : 90,
+            ...(latestEvent.confidence != null
+              ? { confidence: Math.round(latestEvent.confidence * 100) }
+              : {}),
           }
         : undefined,
     };
@@ -371,136 +434,81 @@ export function CommandCenterFloor({
   }, [isLiveMode, liveOps, roundIdx]);
 
   const circuitBreakerOpen = useMemo(() => {
-    if (liveOps?.circuitBreaker?.status === "tripped") {
-      return true;
-    }
-    return events.some((event) => {
-      const categories = event.categories;
-      return Array.isArray(categories) && categories.some((category) => String(category).startsWith("ASI08"));
-    });
-  }, [liveOps, events]);
+    return liveOps?.circuitBreaker?.status === "tripped";
+  }, [liveOps?.circuitBreaker?.status]);
 
-  // Derived or default KPIs matching screenshots & live metrics
+  // Walkthrough values are explicitly labeled; live mode only shows API-backed metrics.
   const kpiData = useMemo(() => {
     if (!isLiveMode || !liveOps) {
       if (activeRound.kpis) return activeRound.kpis;
-      const liveAlerts = events.filter((e) => {
-        const risk = Number(e.risk_score ?? 0);
-        return risk >= 50 || /QUARANTINE|BREACH|BLOCK|KILL|DENY/i.test(String(e.verdict ?? ""));
-      }).length;
-
       return {
         trustChain: DEFAULT_KPIS.trustChain,
         detectionRate: DEFAULT_KPIS.detectionRate,
         disagreementRate: DEFAULT_KPIS.disagreementRate,
-        openAlerts: liveAlerts > 0 ? liveAlerts : DEFAULT_KPIS.openAlerts,
+        recordedAlerts: DEFAULT_KPIS.recordedAlerts,
       };
     }
 
     const m = liveOps.metrics;
-    const criticalEventsCount = liveOps.events.filter(
-      (e) => e.severity === "CRITICAL" || e.verdict.toLowerCase().includes("quarantin") || e.verdict.toLowerCase().includes("block")
+    const flaggedEvents = liveOps.events.filter(
+      (event) => event.severity === "CRITICAL" || event.severity === "HIGH"
     ).length;
 
     return {
-      trustChain: m?.containmentRate != null ? Math.round(m.containmentRate * 100) : DEFAULT_KPIS.trustChain,
-      detectionRate: m?.detectionRate != null ? Math.round(m.detectionRate * 100) : (m?.recall != null ? Math.round(m.recall * 100) : DEFAULT_KPIS.detectionRate),
-      disagreementRate: m?.falsePositiveRate != null ? Math.round(m.falsePositiveRate * 100) : DEFAULT_KPIS.disagreementRate,
-      openAlerts: criticalEventsCount > 0 ? criticalEventsCount : (m?.falsePositive ?? DEFAULT_KPIS.openAlerts),
+      trustChain: null,
+      detectionRate: m?.detectionRate != null ? Math.round(m.detectionRate * 100) : null,
+      disagreementRate: null,
+      recordedAlerts: flaggedEvents,
     };
-  }, [isLiveMode, liveOps, activeRound, events]);
+  }, [isLiveMode, liveOps, activeRound]);
 
-  const overallRiskOverride: "CRITICAL" | "ELEVATED" | "NOMINAL" | undefined = useMemo(() => {
+  const overallRiskOverride: "CRITICAL" | "ELEVATED" | undefined = useMemo(() => {
     if (!isLiveMode || !liveOps) return undefined;
     if (liveOps.events.some((e) => e.severity === "CRITICAL")) return "CRITICAL";
     if (liveOps.events.some((e) => e.severity === "HIGH")) return "ELEVATED";
-    return "NOMINAL";
+    return undefined;
   }, [isLiveMode, liveOps]);
 
-  // Chart series: static baseline + adaptive curve with points matching screenshot
+  // The API exposes current metrics, not historical points; never splice one live point into a sample chart.
   const chartSeries: DetectionHistoryPoint[] = useMemo(() => {
-    if (isLiveMode && liveOps?.metrics?.adaptiveDetection != null && liveOps?.metrics?.baselineDetection != null) {
-      const baseSeries = [...DEFAULT_DETECTION_SERIES];
-      const roundKey = `R${activeRound.round}`;
-      const existingIdx = baseSeries.findIndex((p) => p.round === roundKey);
-      const livePoint: DetectionHistoryPoint = {
-        round: roundKey,
-        artsa: Math.round(liveOps.metrics.adaptiveDetection * 100),
-        baseline: Math.round(liveOps.metrics.baselineDetection * 100),
-      };
-      if (existingIdx >= 0) {
-        baseSeries[existingIdx] = livePoint;
-      } else {
-        baseSeries.push(livePoint);
-      }
-      return baseSeries;
-    }
-    return DEFAULT_DETECTION_SERIES;
-  }, [isLiveMode, liveOps, activeRound.round]);
+    return isLiveMode ? [] : DEFAULT_DETECTION_SERIES;
+  }, [isLiveMode]);
 
   // Live Defender Status & Patch Notifications
-  const defenderAgentState = activeRound.agents?.Defender || "idle";
+  const defenderAgentState = activeRound.agents?.Defender ?? "unknown";
   const defenderIntervening = defenderAgentState === "active" || defenderAgentState === "responding";
+  const defenderStatusLabel = !isLiveMode
+    ? "WALKTHROUGH · NO DEFENDER ACTION"
+    : defenderIntervening
+      ? "DEFENDER · RESPONDING"
+      : defenderAgentState === "unknown" || defenderAgentState === "not wired" || defenderAgentState === "not_wired"
+        ? "DEFENDER · STATUS UNKNOWN"
+        : defenderAgentState === "contained"
+          ? "DEFENDER · CONTAINED"
+          : "DEFENDER · IDLE";
 
   const defenderPatchedCount = useMemo(() => {
-    let count = 0;
-    if (liveOps?.events) {
-      count += liveOps.events.filter(
-        (e) =>
-          (e.mitigation && e.mitigation.toLowerCase().includes("patch")) ||
-          (e.verdict && e.verdict.toLowerCase().includes("patch")) ||
-          e.targetAgent?.toLowerCase().includes("defend")
-      ).length;
-    }
-    if (activeRound.round >= 2) {
-      count = Math.max(count, Math.min(3, activeRound.round - 1));
-    }
-    return count;
-  }, [liveOps?.events, activeRound.round]);
-
-  const latestPatchNotification = useMemo(() => {
-    if (defenderPatchedCount === 0 && !defenderIntervening && activeRound.round < 2) {
-      return null;
-    }
-    const version = 3 + Math.max(1, activeRound.round);
-    const id = `patch_v${version}_r${activeRound.round}`;
-    if (dismissedPatchId === id) return null;
-
-    const ruleName = activeRound.round % 2 === 0
-      ? "auto_defender_DPI_a8f3b12"
-      : "auto_defender_TPA_e7c9041";
-    const pattern = activeRound.round % 2 === 0
-      ? "/(?i)\\b(?:override|bypass|extract)\\b/"
-      : "/(?i)\\b(?:rm\\s+-rf|curl.*bash)\\b/";
-
-    return {
-      id,
-      version,
-      ruleName,
-      pattern,
-      timestamp: "Just now · Autonomous Defender Closed-Loop",
-      description: activeRound.round % 2 === 0
-        ? "Direct prompt injection bypass mitigated via regex boundary guard"
-        : "Destructive tool execution vector contained",
-    };
-  }, [defenderPatchedCount, defenderIntervening, activeRound.round, dismissedPatchId]);
+    if (!isLiveMode || !liveOps?.events) return 0;
+    return liveOps.events.filter((event) => event.mitigation.toLowerCase().includes("patch")).length;
+  }, [isLiveMode, liveOps?.events]);
 
   // Inspector opener helpers
   const inspectAgent = useCallback((agent: SixAgentName) => {
     const sec = getSecurityEventForRound(activeRound, roundIdx);
-    const state = activeRound.agents[agent] ?? "idle";
+    const state = activeRound.agents[agent] ?? "unknown";
     const isUnderAttack = state === "active" || state === "responding";
+    const stateUnavailable = state === "unknown" || state === "not wired" || state === "not_wired";
 
     setInspectorSelection({
       kind: "agent",
       title: `${agent === "Red Team" ? "Red Team" : agent} Telemetry`,
       threatCode: sec.threatCode,
-      severity: isUnderAttack ? "critical" : state === "contained" ? "warning" : "info",
+      severity: stateUnavailable ? "unclassified" : isUnderAttack ? "warning" : state === "contained" ? "warning" : "info",
       sourceAgent: agent,
       targetAgent: activeRound.to,
       evidence: activeRound.prompt,
       detectionSignal: sec.detectionSignal,
-      action: state === "contained" ? "CONTAINED" : isUnderAttack ? "PROBING" : "NOMINAL",
+      action: stateUnavailable ? "UNAVAILABLE" : state.toUpperCase(),
       confidence: sec.confidence,
       round: activeRound.round,
       timestamp: sec.timestamp,
@@ -529,13 +537,13 @@ export function CommandCenterFloor({
 
   const inspectThreat = useCallback((bar: AsiBar) => {
     const sec = getSecurityEventForRound(activeRound, roundIdx);
-    const isAlert = bar.tone === "alert" || bar.pct >= 75;
+    const isAlert = bar.tone === "alert";
 
     setInspectorSelection({
       kind: "threat",
       title: `${bar.code} · ${bar.label.toUpperCase()}`,
       threatCode: bar.code,
-      severity: isAlert ? "critical" : "warning",
+      severity: isAlert ? "warning" : "info",
       sourceAgent: activeRound.from,
       targetAgent: activeRound.to,
       evidence: activeRound.prompt,
@@ -547,7 +555,7 @@ export function CommandCenterFloor({
       eventId: sec.eventId,
       traceId: sec.traceId,
       fields: [
-        { label: "Severity Score", value: `${bar.pct}%` },
+        { label: "Confidence", value: `${bar.pct}%` },
         { label: "Threat Tag", value: bar.code },
         { label: "Trigger State", value: bar.tone },
       ],
@@ -562,16 +570,13 @@ export function CommandCenterFloor({
     setInspectorSelection({
       kind: "highlight",
       title: `Payload Token: "${span.text}"`,
-      threatCode: isInject ? "ASI01" : "ASI02",
-      severity: isInject ? "critical" : "warning",
+      threatCode: isInject ? "Lexical injection cue" : "Tool mention",
+      severity: "unclassified",
       sourceAgent: activeRound.from,
       targetAgent: activeRound.to,
       evidence: activeRound.prompt,
-      detectionSignal: isInject
-        ? "Direct Prompt Injection Pattern (Jailbreak Signature)"
-        : "Tool Schema Parameter Inspection",
+      detectionSignal: "Lexical highlight only; no backend detector result is recorded for this token.",
       action: sec.verdict,
-      confidence: sec.confidence,
       round: activeRound.round,
       timestamp: sec.timestamp,
       eventId: sec.eventId,
@@ -585,8 +590,8 @@ export function CommandCenterFloor({
     setInspectorSelection({
       kind: "threat",
       title: activeRound.statusBadge ?? `Round ${activeRound.round} Telemetry Status`,
-      threatCode: activeRound.bars[0]?.code ?? "HMAC",
-      severity: activeRound.badgeTone === "error" ? "critical" : "info",
+      threatCode: activeRound.bars[0]?.code ?? "—",
+      severity: activeRound.badgeTone === "error" ? "critical" : activeRound.statusBadge?.includes("TELEMETRY") ? "info" : "unclassified",
       sourceAgent: activeRound.from,
       targetAgent: activeRound.to,
       evidence: activeRound.prompt,
@@ -613,7 +618,7 @@ export function CommandCenterFloor({
       traceId: sec.traceId,
       action: "AUDITED",
       detectionSignal: "Event Stream Ingest",
-      severity: line.includes("FAIL") || line.includes("breach") ? "critical" : "info",
+      severity: /fail|breach/i.test(line) ? "warning" : "info",
     });
     setInspectorOpen(true);
   }, [activeRound, roundIdx]);
@@ -634,7 +639,7 @@ export function CommandCenterFloor({
       evidence: activeRound.prompt,
       detectionSignal: step.whatDetectedIt,
       action: step.actionTaken,
-      round: step.round,
+      round: step.round ?? undefined,
       timestamp: step.when,
       eventId: step.eventId,
       traceId: step.traceId,
@@ -664,153 +669,191 @@ export function CommandCenterFloor({
 
   return (
     <div
-      className="min-h-screen w-full bg-background text-foreground flex flex-col items-center select-none transition-colors"
+      className="cc-floor min-h-screen w-full bg-slate-50/40 text-slate-900 flex flex-col select-none transition-colors"
     >
-      {/* Sticky Tactical HUD Container (P1 & P3) */}
-      <header className="sticky top-0 z-30 w-full bg-background/95 backdrop-blur-md border-b border-border/80 shadow-xs">
-        <div className="w-full max-w-[1520px] mx-auto px-4 sm:px-6 py-3 space-y-3">
-          <h1 className="text-sm font-semibold tracking-tight text-foreground">Command Center</h1>
-          {circuitBreakerOpen ? (
-            <p className="text-xs font-medium text-rose-600 dark:text-rose-400">
-              Circuit breaker open — cascading failures contained.
+      <header className={cn("w-full", !hideTitle ? "border-b border-slate-200/80 bg-white" : "border-b border-slate-200/60 bg-white/60")}>
+        <div className={cn("w-full max-w-[1680px] mx-auto px-4 sm:px-6", !hideTitle ? "py-5 sm:py-7 space-y-5" : "py-3 space-y-3")}>
+          {!hideTitle && (
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-600 dark:text-sky-400">
+                  ARTSA · Strategic operations
+                </p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                  Command Center
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Six-agent health, trust signals, detection trends, and campaign activity.
+                </p>
+              </div>
+              {circuitBreakerOpen ? (
+                <p data-testid="circuit-breaker-alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">
+                  Session circuit breaker telemetry reports a trip.
+                </p>
+              ) : null}
+            </div>
+          )}
+          {hideTitle && circuitBreakerOpen ? (
+            <p data-testid="circuit-breaker-alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">
+              Session circuit breaker telemetry reports a trip.
             </p>
           ) : null}
-          {/* Top Operational Identity + Global Emergency Containment Rail (P4) */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Campaign context stays separate from controls to keep the header readable. */}
+          <div>
             <CommandCenterCampaignContext
               campaignName={
                 isLiveMode
                   ? (liveOps?.currentCampaign?.name || "NO ACTIVE CAMPAIGN")
-                  : (liveOps?.currentCampaign?.name || campaigns[0]?.name || "ARTSA-REDTEAM-042")
+                  : "Seeded walkthrough"
               }
               sessionId={
                 isLiveMode
                   ? (liveOps?.currentSession || "NO ACTIVE SESSION")
-                  : (liveOps?.currentSession || "RUN-00182")
+                  : `Example round ${activeRound.round}`
               }
-              targetName="Enterprise Agent Stack"
+              targetName={isLiveMode ? "Connected agent target" : "Sample agent chain"}
               roundNumber={isLiveMode ? (liveOps?.currentRound ?? activeRound.round) : activeRound.round}
               apiOnline={apiOnline}
               wsConnected={wsConnected}
               isPaused={isPaused}
-              telemetryState={liveOps ? liveOps.telemetryMode : undefined}
-              className="border-b-0 pb-0 flex-1 min-w-[280px]"
+              telemetryState={liveOps?.telemetryMode ?? "SIMULATION"}
+              lastEventAt={isLiveMode ? liveOps?.connection.lastEventAt : null}
+              className="rounded-xl border border-border/80 bg-background px-4 py-3 sm:px-5 sm:py-4"
             />
+          </div>
 
-            {/* Global Emergency Containment Rail & Defender Status */}
+          {/* Walkthrough navigation is always visible; live actions appear only for a live session. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
             <div className="flex flex-wrap items-center gap-2">
               <div
                 data-testid="defender-status-pill"
                 className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[11px] tracking-wider transition-colors ${
-                  defenderIntervening
+                  !isLiveMode
+                    ? "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                    : defenderIntervening
                     ? "border-amber-500/60 bg-amber-500/10 text-amber-600 dark:text-amber-400 animate-pulse"
-                    : "border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-border bg-background text-muted-foreground"
                 }`}
-                title="Autonomous Defender closed-loop hot-patching status"
+                title={isLiveMode ? "Defender state from live telemetry" : "Walkthrough state; no live Defender action is running"}
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
                 <span className="font-bold uppercase">
-                  {defenderIntervening ? "DEFENDER: PATCHING BREACH" : "DEFENDER: CLOSED-LOOP ACTIVE"}
+                  {defenderStatusLabel}
                 </span>
-                {defenderPatchedCount > 0 && (
+                {isLiveMode && defenderPatchedCount > 0 && (
                   <span className="rounded-full bg-emerald-500/20 dark:bg-emerald-500/30 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                    {defenderPatchedCount} {defenderPatchedCount === 1 ? "patch" : "patches"}
+                    {defenderPatchedCount} patch events
                   </span>
                 )}
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => handleRequestOperatorAction("QUARANTINE_AGENT", "Target Agent")}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/60 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 transition-colors shadow-xs cursor-pointer"
-                title="Quarantine Target Agent (Shift + Q)"
-              >
-                <Ban className="h-3.5 w-3.5" />
-                <span>QUARANTINE</span>
-                <kbd className="hidden sm:inline rounded bg-rose-500/20 px-1 py-0.2 text-[9px] font-mono">⇧Q</kbd>
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {!isLiveMode ? (
+                <div className="inline-flex min-h-9 flex-wrap items-center gap-1 rounded-lg border border-slate-200/90 bg-white p-1 shadow-2xs">
+                  {/* Visual Round Jumper Buttons */}
+                  <div className="hidden md:flex items-center gap-0.5 pr-1 border-r border-slate-200/70">
+                    {LIVE_ROUNDS.map((r, i) => (
+                      <button
+                        key={r.round}
+                        type="button"
+                        onClick={() => setRoundIdx(i)}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all",
+                          roundIdx === i
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        )}
+                        title={`Jump to Round ${r.round}: ${r.from} -> ${r.to}`}
+                      >
+                        R{r.round}
+                      </button>
+                    ))}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => handleRequestOperatorAction("KILL_SESSION")}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-600/80 bg-red-600/20 hover:bg-red-600/30 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-red-500 dark:text-red-400 transition-colors shadow-xs cursor-pointer"
-                title="Emergency Kill Session (Shift + K)"
-              >
-                <AlertOctagon className="h-3.5 w-3.5" />
-                <span>KILL SESSION</span>
-                <kbd className="hidden sm:inline rounded bg-red-600/20 px-1 py-0.2 text-[9px] font-mono">⇧K</kbd>
-              </button>
+                  <span className="px-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Walkthrough · {isPaused ? "Paused" : "Playing"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRoundIdx((prev) => (prev - 1 + LIVE_ROUNDS.length) % LIVE_ROUNDS.length)}
+                    aria-label="Previous walkthrough round"
+                    title="Previous example"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden />
+                  </button>
+                  <span className="min-w-[3.5rem] text-center font-mono text-[11px] font-semibold tabular-nums text-slate-900">
+                    {roundIdx + 1} / {LIVE_ROUNDS.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRoundIdx((prev) => nextRoundIndex(prev, LIVE_ROUNDS.length))}
+                    aria-label="Next walkthrough round"
+                    title="Next example"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </button>
+                  <span className="mx-0.5 h-4 w-px bg-slate-200" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => setIsPaused((paused) => !paused)}
+                    aria-label={isPaused ? "Play walkthrough" : "Freeze walkthrough"}
+                    title={isPaused ? "Play walkthrough" : "Freeze walkthrough"}
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 font-mono text-[11px] font-medium text-slate-800 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    {isPaused ? <Play className="h-3 w-3 text-blue-600" aria-hidden /> : <Pause className="h-3 w-3" aria-hidden />}
+                    {isPaused ? "Play" : "Hold"}
+                  </button>
+                </div>
+              ) : liveOps?.currentSession ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleRequestOperatorAction("QUARANTINE_AGENT", "Target Agent")}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-500/50 bg-rose-500/10 px-3 font-mono text-[11px] font-bold uppercase tracking-wider text-rose-700 transition-colors hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:text-rose-300"
+                    title="Quarantine Target Agent (Shift + Q)"
+                  >
+                    <Ban className="h-3.5 w-3.5" aria-hidden />
+                    QUARANTINE
+                    <kbd className="hidden rounded bg-rose-500/20 px-1 text-[9px] font-mono sm:inline">⇧Q</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRequestOperatorAction("KILL_SESSION")}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-600/70 bg-red-600/10 px-3 font-mono text-[11px] font-bold uppercase tracking-wider text-red-700 transition-colors hover:bg-red-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-red-300"
+                    title="Emergency Kill Session (Shift + K)"
+                  >
+                    <AlertOctagon className="h-3.5 w-3.5" aria-hidden />
+                    KILL SESSION
+                    <kbd className="hidden rounded bg-red-600/20 px-1 text-[9px] font-mono sm:inline">⇧K</kbd>
+                  </button>
+                </>
+              ) : (
+                <span className="inline-flex min-h-9 items-center rounded-lg border border-border bg-background px-3 text-xs text-muted-foreground">
+                  Operator actions unlock when a live session is selected.
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Unified Threat Posture & Readiness HUD (P2 & P3) */}
-          <section aria-label="Security Posture and Executive Defense HUD">
-            <CommandCenterSecurityPosture
-              round={activeRound}
-              kpiData={kpiData}
-              liveLatencyMs={isLiveMode ? liveOps?.metrics?.detectionLatencyMs : undefined}
-              overallRiskOverride={overallRiskOverride}
-              onOpenAsiTaxonomy={() => setAsiModalOpen(true)}
-            />
-          </section>
         </div>
       </header>
 
-      {/* Autonomous Defender Live Patch Notification Banner */}
-      {latestPatchNotification && (
-        <aside
-          aria-label="Autonomous Defender Patch Notification"
-          data-testid="defender-patch-notification"
-          className="w-full max-w-[1520px] px-4 sm:px-6 pt-4"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/40 px-4 py-3 text-xs text-foreground shadow-xs">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="rounded-full bg-emerald-500/20 p-1.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 sm:mt-0">
-                <ShieldCheck className="h-4 w-4" />
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono tracking-wide uppercase text-[11px]">
-                    Autonomous Defender Hot-Patch Applied
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    Playbook v{latestPatchNotification.version}
-                  </span>
-                </div>
-                <div className="text-muted-foreground flex flex-wrap items-center gap-2">
-                  <span>{latestPatchNotification.description}</span>
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">
-                    {latestPatchNotification.ruleName}
-                  </code>
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">
-                    {latestPatchNotification.pattern}
-                  </code>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0 ml-auto">
-              <Link
-                href="/admin/policies"
-                className="font-mono text-[11px] font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 underline underline-offset-4"
-              >
-                Inspect Policies →
-              </Link>
-              <button
-                type="button"
-                onClick={() => setDismissedPatchId(latestPatchNotification.id)}
-                className="rounded p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                title="Dismiss hot-patch notification"
-                aria-label="Dismiss hot-patch notification"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </aside>
-      )}
+      <section className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 pt-4" aria-label="Security posture">
+        <CommandCenterSecurityPosture
+          round={activeRound}
+          kpiData={kpiData}
+          dataMode={isLiveMode ? "LIVE" : "WALKTHROUGH"}
+          liveLatencyMs={isLiveMode ? liveOps?.metrics?.detectionLatencyMs : undefined}
+          overallRiskOverride={overallRiskOverride}
+          onOpenAsiTaxonomy={() => setAsiModalOpen(true)}
+        />
+      </section>
 
-      {/* Main Two-Column Tactical Cockpit Layout */}
-      <div className="w-full max-w-[1520px] px-4 sm:px-6 py-6 flex-1">
+      {/* Strategic operations floor: chain health and detection trends lead the page. */}
+      <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 py-4 sm:py-5 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left / Primary Threat Theater (~60% width -> lg:col-span-7) */}
           <div className="lg:col-span-7 space-y-6">
@@ -841,14 +884,16 @@ export function CommandCenterFloor({
             </section>
 
             {/* Live Prompt Analysis Card with in-situ containment trigger (P4) */}
-            <section aria-label="Live Prompt Analysis">
+            <section aria-label={isLiveMode ? "Live prompt evidence" : "Walkthrough prompt sample"}>
               <CommandCenterPromptAnalysis
                 round={activeRound}
+                liveMode={isLiveMode}
+                sessionId={selectedSessionId}
                 onSelectThreat={inspectThreat}
                 onSelectHighlight={inspectHighlight}
                 onSelectBadge={inspectStatusBadge}
                 onQuarantineTarget={(target) => handleRequestOperatorAction("QUARANTINE_AGENT", target)}
-                onDeployMitigation={(prompt) => handleRequestOperatorAction("DEPLOY_MITIGATION", prompt.slice(0, 30))}
+                onDeployMitigation={(prompt) => handleRequestOperatorAction("DEPLOY_MITIGATION", selectedSessionId ?? undefined, { content: prompt })}
               />
             </section>
 
@@ -872,6 +917,7 @@ export function CommandCenterFloor({
               <CommandCenterDetectionChart
                 series={chartSeries}
                 activeRound={activeRound.round}
+                dataMode={isLiveMode ? "NO_LIVE_HISTORY" : "WALKTHROUGH"}
                 onSelectRound={(idx) => setRoundIdx(Math.max(0, Math.min(LIVE_ROUNDS.length - 1, idx)))}
               />
             </section>
@@ -919,17 +965,20 @@ export function CommandCenterFloor({
               />
             </section>
 
-            {/* Secondary Operator Interventions Deck */}
+            {/* Operator Interventions Deck */}
             <section aria-label="Operator Interventions">
               <CommandCenterOperatorToolbar
                 onRequestAction={handleRequestOperatorAction}
-                onReplayCurrentRound={() => {
-                  setRoundIdx(0);
-                  setLastOperatorAction("Simulation reset to round 1 for replay.");
-                }}
+                onReplayCurrentRound={() => void handleReplayCampaignRound()}
+                liveMode={isLiveMode}
+                sessionId={selectedSessionId}
+                toolName={selectedToolName}
+                campaignId={selectedCampaignId}
+                roundNumber={selectedRoundNumber}
                 lastOperatorAction={lastOperatorAction}
               />
             </section>
+
           </div>
         </div>
 
@@ -944,17 +993,11 @@ export function CommandCenterFloor({
                   ? "bg-amber-400"
                   : liveOps?.telemetryMode === "DISCONNECTED"
                   ? "bg-rose-400"
-                  : apiOnline && wsConnected
-                  ? "bg-emerald-400"
                   : "bg-sky-400"
               }`}
             />
             <span>
-              {liveOps
-                ? `TELEMETRY: ${liveOps.telemetryMode}`
-                : apiOnline && wsConnected
-                ? "TELEMETRY CONNECTED"
-                : "LIVE SIMULATION RUNNING"}
+              TELEMETRY: {liveOps?.telemetryMode ?? "SIMULATION"}
             </span>
             <span className="text-slate-600">·</span>
             <span>
@@ -979,22 +1022,26 @@ export function CommandCenterFloor({
                 ⟳ REFRESH
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setIsPaused((p) => !p)}
-              className="hover:text-foreground transition-colors cursor-pointer"
-              title={isPaused ? "Resume simulation" : "Pause simulation"}
-            >
-              {isPaused ? "▶ RESUME" : "⏸ PAUSE"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRoundIdx((prev) => nextRoundIndex(prev, LIVE_ROUNDS.length))}
-              className="hover:text-foreground transition-colors cursor-pointer"
-              title="Advance to next round immediately"
-            >
-              NEXT ROUND →
-            </button>
+            {!isLiveMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsPaused((p) => !p)}
+                  className="hover:text-foreground transition-colors cursor-pointer"
+                  title={isPaused ? "Resume walkthrough" : "Pause walkthrough"}
+                >
+                  {isPaused ? "▶ RESUME" : "⏸ PAUSE"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoundIdx((prev) => nextRoundIndex(prev, LIVE_ROUNDS.length))}
+                  className="hover:text-foreground transition-colors cursor-pointer"
+                  title="Advance walkthrough to next sample round"
+                >
+                  NEXT SAMPLE →
+                </button>
+              </>
+            )}
           </div>
         </footer>
       </div>
@@ -1014,8 +1061,12 @@ export function CommandCenterFloor({
         }}
         onReplayRound={(r) => {
           setInspectorOpen(false);
-          setRoundIdx(Math.max(0, Math.min(LIVE_ROUNDS.length - 1, r - 1)));
-          setLastOperatorAction(`Replaying Round ${r} in isolation.`);
+          if (isLiveMode) {
+            void handleReplayCampaignRound(r);
+          } else {
+            setRoundIdx(Math.max(0, Math.min(LIVE_ROUNDS.length - 1, r - 1)));
+            setLastOperatorAction(`Selected walkthrough sample round ${r}; no backend replay was run.`);
+          }
         }}
       />
 
@@ -1024,7 +1075,16 @@ export function CommandCenterFloor({
         isOpen={confirmModalOpen}
         actionType={confirmActionType}
         targetName={confirmTargetName}
-        onClose={() => setConfirmModalOpen(false)}
+        liveMode={isLiveMode}
+        requestAvailable={Boolean(
+          isLiveMode &&
+          selectedSessionId &&
+          (confirmActionType !== "BLOCK_TOOL" || confirmTargetName !== "No recorded tool")
+        )}
+        onClose={() => {
+          setConfirmModalOpen(false);
+          setPendingMitigationContent(null);
+        }}
         onConfirm={handleConfirmAction}
       />
 

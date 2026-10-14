@@ -11,8 +11,7 @@ export interface CommandCenterKpis {
 
 interface DashboardMetricsLike {
   severity_counts?: Record<string, number>;
-  defense_score?: number;
-  risk_trend?: Array<{ risk_score: number }>;
+  detection_rate_trend?: number[];
   total_events?: number;
 }
 
@@ -72,29 +71,15 @@ export function deriveCommandCenterKpis(
   const eventTime = latestEventTime(liveEvents);
   const lastScanLabel = formatScanLabel(campaignTime ?? eventTime);
 
-  const detectionSparkline = (metrics?.risk_trend ?? [])
-    .slice(-12)
-    .map((p) => Math.max(0, 100 - Number(p.risk_score ?? 0)));
-
-  if (detectionSparkline.length < 2 && (metrics?.defense_score ?? 0) > 0) {
-    const score = metrics!.defense_score!;
-    return {
-      threatsBlocked,
-      pendingTriage,
-      playbookVersion: playbookVersionLabel,
-      lastScanLabel,
-      detectionSparkline: Array(8).fill(score),
-    };
-  }
+  const detectionSparkline = (metrics?.detection_rate_trend ?? [])
+    .filter((value) => Number.isFinite(value) && value >= 0 && value <= 100)
+    .slice(-12);
 
   return {
     threatsBlocked,
     pendingTriage,
     playbookVersion: playbookVersionLabel,
     lastScanLabel,
-    detectionSparkline:
-      detectionSparkline.length >= 2
-        ? detectionSparkline
-        : [0, metrics?.defense_score ?? 0],
+    detectionSparkline,
   };
 }

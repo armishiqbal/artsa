@@ -15,12 +15,16 @@ export function CommandCenterConfirmationModal({
   isOpen,
   actionType,
   targetName = "Target Agent",
+  liveMode,
+  requestAvailable,
   onClose,
   onConfirm,
 }: {
   isOpen: boolean;
   actionType: OperatorActionType;
   targetName?: string;
+  liveMode: boolean;
+  requestAvailable: boolean;
   onClose: () => void;
   onConfirm: (actionType: string, targetName: string) => void;
 }) {
@@ -43,30 +47,32 @@ export function CommandCenterConfirmationModal({
   switch (actionType) {
     case "KILL_SESSION":
       title = `KILL SESSION ${targetName}?`;
-      description =
-        "This will immediately terminate the active multi-agent simulation run, drop all in-flight websocket telemetry channels, and revoke runtime worker tokens.";
+      description = `Send a KILL request for session ${targetName}. The backend response determines whether the action was accepted.`;
       confirmLabel = "CONFIRM KILL SESSION";
       break;
     case "QUARANTINE_AGENT":
-      title = `QUARANTINE ${targetName.toUpperCase()}?`;
-      description =
-        "This will sever downstream agent-to-agent communication hops, invalidate cryptographic HMAC handoff tokens, and drop pending tool calls.";
-      confirmLabel = `CONFIRM QUARANTINE`;
+      title = `QUARANTINE SESSION ${targetName.toUpperCase()}?`;
+      description = `Send a quarantine request for session ${targetName}. The backend response determines whether the action was accepted.`;
+      confirmLabel = "CONFIRM QUARANTINE";
       break;
     case "BLOCK_TOOL":
       title = `BLOCK TOOL "${targetName}"?`;
-      description =
-        "This will revoke schema execution rights for the selected tool across all agents in this session and trigger immediate defender policy recompilation.";
+      description = `Send a request to block tool ${targetName} for the selected session. The backend response determines whether the action was accepted.`;
       confirmLabel = "CONFIRM BLOCK TOOL";
       break;
     case "DEPLOY_MITIGATION":
-      title = `DEPLOY DEFENSIVE MITIGATION?`;
-      description =
-        "This will push compiled OWASP ASI containment patches to the live runtime policy enforcement layer.";
-      confirmLabel = "DEPLOY PATCH";
+      title = "REQUEST SESSION MITIGATION?";
+      description = `Send a mitigation request for session ${targetName}. The backend response determines whether the request was accepted.`;
+      confirmLabel = "SEND MITIGATION REQUEST";
       isDestructive = false;
       break;
   }
+
+  const effectiveDescription = !liveMode
+    ? "Walkthrough mode is active. Confirming will not send a request to the backend."
+    : requestAvailable
+      ? description
+      : "Live telemetry is present, but this action has no selected session or tool. No backend request can be sent.";
 
   return (
     <div
@@ -101,7 +107,7 @@ export function CommandCenterConfirmationModal({
             </div>
             <div>
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-rose-500">
-                CRITICAL OPERATIONAL INTERVENTION
+                {!liveMode ? "WALKTHROUGH ONLY" : requestAvailable ? "CONFIRM BACKEND REQUEST" : "REQUEST UNAVAILABLE"}
               </span>
               <h3
                 id="confirm-action-title"
@@ -124,15 +130,20 @@ export function CommandCenterConfirmationModal({
 
         {/* Content */}
         <p className="mt-4 font-mono text-[12px] leading-relaxed text-muted-foreground">
-          {description}
+          {effectiveDescription}
         </p>
 
-        {/* Realistic status banner (Section 18 & 30) */}
         <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 font-mono text-[10px] text-amber-600 dark:text-amber-400">
           <span className="font-semibold uppercase block mb-0.5">
-            UI-READY · BACKEND INTEGRATION REQUIRED
+            {!liveMode
+              ? "NO BACKEND REQUEST WILL BE SENT"
+              : requestAvailable ? "AUTHENTICATED REQUEST · RESPONSE REQUIRED" : "NO SESSION OR TOOL SELECTED"}
           </span>
-          Confirming will record this intervention in the local audit stream and stage containment headers. Server-side daemon dispatch is awaiting backend endpoint wiring.
+          {!liveMode
+            ? "This screen is showing seeded walkthrough content; this action is unavailable here."
+            : requestAvailable
+              ? "The action result is reported only after the backend responds."
+              : "Select a valid live session and required action target before sending."}
         </div>
 
         {/* Buttons */}
@@ -158,7 +169,7 @@ export function CommandCenterConfirmationModal({
                 : "bg-sky-600 hover:bg-sky-500"
             )}
           >
-            {confirmLabel}
+            {liveMode && requestAvailable ? confirmLabel : "ACKNOWLEDGE"}
           </button>
         </div>
       </div>

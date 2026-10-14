@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldAlert, ShieldCheck } from "lucide-react";
+import { CircleHelp, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AsiCell } from "../prototype/model";
 
@@ -40,8 +40,9 @@ export function OwaspAsiMatrix({
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-1.5 overflow-y-auto p-2.5 [scrollbar-width:thin]">
         {asiList.map((item) => {
           const title = ASI_TITLES[item.code] ?? item.label;
-          const isBreached = !item.built || item.coverage < 50;
-          const isElevated = item.coverage >= 50 && item.coverage < 80;
+          const assessed = item.built != null && item.coverage != null;
+          const isBreached = assessed && (!item.built || item.coverage! < 50);
+          const isElevated = assessed && item.coverage! >= 50 && item.coverage! < 80;
 
           return (
             <button
@@ -64,8 +65,10 @@ export function OwaspAsiMatrix({
                   </span>
                   {isBreached ? (
                     <ShieldAlert className="h-3 w-3 text-red-500" />
-                  ) : (
+                  ) : assessed ? (
                     <ShieldCheck className="h-3 w-3 text-emerald-500" />
+                  ) : (
+                    <CircleHelp className="h-3 w-3 text-[var(--cc-text-dim)]" />
                   )}
                 </div>
                 <p className="mt-1 truncate font-mono text-[11px] font-medium text-[var(--cc-text-secondary)]">
@@ -75,26 +78,28 @@ export function OwaspAsiMatrix({
 
               <div className="mt-2 space-y-1">
                 <div className="flex items-center justify-between font-mono text-[9px] text-[var(--cc-text-muted)]">
-                  <span>Coverage</span>
+                  <span>{assessed ? "Coverage" : "Assessment"}</span>
                   <span
                     className={cn(
                       "font-semibold tabular-nums",
-                      isBreached ? "text-red-500" : "text-emerald-500"
+                      isBreached ? "text-red-500" : assessed ? "text-emerald-500" : "text-[var(--cc-text-dim)]"
                     )}
                   >
-                    {item.coverage}%
+                    {assessed ? `${item.coverage}%` : "Not assessed"}
                   </span>
                 </div>
                 {/* Micro Bar Gauge */}
-                <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--cc-border-default)]">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-300",
-                      isBreached ? "bg-red-500" : isElevated ? "bg-amber-500" : "bg-emerald-500"
-                    )}
-                    style={{ width: `${Math.max(6, item.coverage)}%` }}
-                  />
-                </div>
+                {assessed ? (
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--cc-border-default)]">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        isBreached ? "bg-red-500" : isElevated ? "bg-amber-500" : "bg-emerald-500"
+                      )}
+                      style={{ width: `${Math.max(6, item.coverage!)}%` }}
+                    />
+                  </div>
+                ) : null}
               </div>
             </button>
           );

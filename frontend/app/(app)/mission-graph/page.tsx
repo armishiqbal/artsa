@@ -25,6 +25,16 @@ import {
 } from "@/lib/commandCenterOps";
 import { cn } from "@/lib/utils";
 
+const severityRank: Record<AgentSeverity, number> = {
+  info: 0,
+  low: 0,
+  warning: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+  unclassified: -1,
+};
+
 const CommandCenterGraph = dynamic(
   () =>
     import("@/components/command-center/CommandCenterGraph").then((m) => m.CommandCenterGraph),
@@ -62,17 +72,10 @@ export default function CommandCenterOpsPage() {
   const mission = useMemo(() => deriveMissionPosture(windowed), [windowed]);
   const activeHops = useMemo(() => recentActiveHops(windowed), [windowed]);
 
-  // Vital Detection Rate and chart tip share the same live series tip.
-  const detectionSynced = series[series.length - 1]?.artsa ?? vitals.detectionRate;
-  const vitalsLive = useMemo(
-    () => ({ ...vitals, detectionRate: detectionSynced }),
-    [vitals, detectionSynced]
-  );
   const blotterEvents = useMemo(() => {
-    const sevRank = { info: 0, warning: 1, critical: 2 } as const;
-    const floor = severityFloor === "all" ? -1 : sevRank[severityFloor];
+    const floor = severityFloor === "all" ? -1 : severityRank[severityFloor];
     return windowed.filter((e) => {
-      if (severityFloor !== "all" && sevRank[e.severity ?? "info"] < floor) return false;
+      if (severityFloor !== "all" && (e.severity == null || severityRank[e.severity] < floor)) return false;
       if (
         agentFilter !== "all" &&
         e.sourceAgent !== agentFilter &&
@@ -111,14 +114,14 @@ export default function CommandCenterOpsPage() {
       </div>
       <div className="h-[12%] min-h-[100px] shrink-0">
         <CommandCenterVitals
-          vitals={vitalsLive}
+          vitals={vitals}
           connected={wsLive}
           posture={mission.posture}
           headline={mission.headline}
           onPostureClick={(p) => {
             if (p === "critical") setSeverityFloor("critical");
             else if (p === "elevated") setSeverityFloor("warning");
-            else setSeverityFloor("all");
+            else if (p === "nominal") setSeverityFloor("info");
           }}
         />
       </div>
@@ -137,7 +140,7 @@ export default function CommandCenterOpsPage() {
                   : "border-border text-muted-foreground"
               )}
             >
-              {hasTraffic ? `LIVE INGEST · ${liveMapped.length}` : "NO TRAFFIC"}
+              {hasTraffic ? `RECORDED EVENTS · ${liveMapped.length}` : "NO RECORDED EVENTS"}
             </span>
             <FilterGroup
               label="Window"
@@ -168,7 +171,7 @@ export default function CommandCenterOpsPage() {
             />
             <div className="ml-auto flex flex-wrap gap-1">
               {AGENT_RING_ORDER.map((id) => {
-                const st = statuses[id] ?? "nominal";
+                const st = statuses[id] ?? "unknown";
                 return (
                   <button
                     key={id}
@@ -204,7 +207,7 @@ export default function CommandCenterOpsPage() {
             {selectedId ? (
               <CommandCenterAgentPanel
                 agentId={selectedId}
-                status={statuses[selectedId] ?? "nominal"}
+                status={statuses[selectedId] ?? "unknown"}
                 events={windowed}
                 onClose={() => setSelectedId(null)}
               />
@@ -218,7 +221,10 @@ export default function CommandCenterOpsPage() {
       </div>
 
       <div className="h-[18%] min-h-[150px] shrink-0">
-        <CommandCenterDetectionChart series={series} liveRate={detectionSynced} />
+        <CommandCenterDetectionChart
+          series={series}
+          dataMode={series.length > 0 ? "DATA_VIEW" : "NO_LIVE_HISTORY"}
+        />
       </div>
     </div>
   );

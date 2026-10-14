@@ -7,43 +7,43 @@ import type { CommandVitals, MissionPosture } from "@/lib/commandCenterOps";
 const CELLS: Array<{
   key: keyof CommandVitals;
   label: string;
-  fmt: (v: number) => string;
+  fmt: (v: number | null) => string;
   tone?: (v: number) => "ok" | "warn" | "crit" | "neutral";
 }> = [
   {
     key: "activeSimulations",
-    label: "Active Sims",
-    fmt: (v) => String(v),
+    label: "Active Campaigns",
+    fmt: (v) => v == null ? "—" : String(v),
     tone: (v) => (v >= 3 ? "warn" : "neutral"),
   },
   {
     key: "detectionRate",
     label: "Detection",
-    fmt: (v) => `${v}%`,
+    fmt: (v) => v == null ? "—" : `${v}%`,
     tone: (v) => (v < 70 ? "crit" : v < 85 ? "warn" : "ok"),
   },
   {
-    key: "findingsToday",
-    label: "Findings",
-    fmt: (v) => String(v),
+    key: "findingsInWindow",
+    label: "Findings in window",
+    fmt: (v) => v == null ? "—" : String(v),
     tone: (v) => (v >= 12 ? "warn" : "neutral"),
   },
   {
     key: "agentUptime",
     label: "Agent Health",
-    fmt: (v) => `${v}%`,
+    fmt: (v) => v == null ? "—" : `${v}%`,
     tone: (v) => (v < 70 ? "crit" : v < 90 ? "warn" : "ok"),
   },
   {
     key: "activeAttackPaths",
-    label: "Attack Paths",
-    fmt: (v) => String(v),
+    label: "Active paths",
+    fmt: (v) => v == null ? "—" : String(v),
     tone: (v) => (v >= 2 ? "crit" : v === 1 ? "warn" : "ok"),
   },
   {
     key: "avgResponseMs",
     label: "Hop Latency",
-    fmt: (v) => `${v}ms`,
+    fmt: (v) => v == null ? "—" : `${v}ms`,
     tone: (v) => (v > 50 ? "warn" : "ok"),
   },
 ];
@@ -107,7 +107,7 @@ export function CommandCenterVitals({
                 connected ? "text-emerald-400" : "text-amber-400"
               )}
             >
-              {connected ? "LIVE FEED" : "DEGRADED"}
+              {connected ? "WEBSOCKET CONNECTED" : "WEBSOCKET DISCONNECTED"}
             </span>
           </div>
           <p className="mt-1.5 font-mono text-[10px] tabular-nums text-zinc-600">
@@ -118,7 +118,7 @@ export function CommandCenterVitals({
         <div className="grid min-w-0 flex-1 grid-cols-3 lg:grid-cols-6">
           {CELLS.map((c, i) => {
             const value = vitals[c.key];
-            const tone = c.tone?.(value) ?? "neutral";
+            const tone = value == null ? "neutral" : c.tone?.(value) ?? "neutral";
             return (
               <div
                 key={c.key}
@@ -152,6 +152,7 @@ export function CommandCenterVitals({
           posture === "critical" && "bg-red-500/10 hover:bg-red-500/15",
           posture === "elevated" && "bg-amber-500/10 hover:bg-amber-500/15",
           posture === "nominal" && "bg-emerald-500/[0.06] hover:bg-emerald-500/10",
+          posture === "unknown" && "bg-muted/40",
           onPostureClick && "cursor-pointer"
         )}
         title="Filter blotter / graph by posture severity"
@@ -161,7 +162,8 @@ export function CommandCenterVitals({
             "shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider",
             posture === "critical" && "border-red-500/50 text-red-400",
             posture === "elevated" && "border-amber-500/50 text-amber-400",
-            posture === "nominal" && "border-emerald-500/40 text-emerald-400"
+            posture === "nominal" && "border-emerald-500/40 text-emerald-400",
+            posture === "unknown" && "border-border text-muted-foreground"
           )}
         >
           {posture}

@@ -56,18 +56,24 @@ export function TacticalMetricShelf({
     {
       id: "lift",
       label: "Adaptive Lift",
-      value: `${model.lift.liftPp >= 0 ? "+" : ""}${model.lift.liftPp}pp`,
-      sub: `ARTSA ${model.lift.last}% vs ${model.lift.baseline}% static baseline`,
+      value: model.lift.liftPp == null ? "—" : `${model.lift.liftPp >= 0 ? "+" : ""}${model.lift.liftPp}pp`,
+      sub: model.lift.last == null || model.lift.baseline == null
+        ? "No backend detection history is available"
+        : `ARTSA ${model.lift.last}% vs ${model.lift.baseline}% static baseline`,
       spark: model.lift.sparkline,
-      hot: model.lift.liftPp >= 0,
-      accent: model.lift.liftPp >= 0 ? "text-[var(--cc-primary)]" : "text-red-500",
-      stroke: model.lift.liftPp >= 0 ? "var(--cc-primary)" : "#EF4444",
+      hot: model.lift.liftPp != null && model.lift.liftPp >= 0,
+      accent: model.lift.liftPp == null
+        ? "text-[var(--cc-text-muted)]"
+        : model.lift.liftPp >= 0 ? "text-[var(--cc-primary)]" : "text-red-500",
+      stroke: model.lift.liftPp == null
+        ? "var(--cc-text-muted)"
+        : model.lift.liftPp >= 0 ? "var(--cc-primary)" : "#EF4444",
     },
     {
       id: "containment",
-      label: "Active Containment",
-      value: `${model.containment.total} sessions`,
-      sub: `${model.containment.quarantined} quarantined · ${model.containment.terminated} terminated`,
+      label: "Recorded Containment",
+      value: `${model.containment.total} actions`,
+      sub: `${model.containment.quarantined} quarantine/block · ${model.containment.terminated} kill/terminate`,
       spark: model.containment.sparkline,
       hot: model.containment.total > 0,
       accent: "text-[var(--cc-text-primary)]",
@@ -76,22 +82,30 @@ export function TacticalMetricShelf({
     {
       id: "slo",
       label: "Hop Latency & SLO",
-      value: `${model.hopSloMs}ms`,
-      sub: `vs 50ms budget · ${model.hopSloBurn}% SLO burn`,
-      spark: model.hops.map((h) => h.latencyMs),
-      hot: model.hopSloMs <= 50,
-      accent: model.hopSloMs <= 50 ? "text-[var(--cc-text-primary)]" : "text-amber-500",
-      stroke: model.hopSloMs <= 50 ? "var(--cc-status-success)" : "#F59E0B",
+      value: model.hopSloMs == null ? "—" : `${model.hopSloMs}ms`,
+      sub: model.hopSloMs == null || model.hopSloBurn == null
+        ? "No measured latency in the loaded events"
+        : `vs 50ms budget · ${model.hopSloBurn}% SLO burn`,
+      spark: model.hops.flatMap((hop) => hop.latencyMs == null ? [] : [hop.latencyMs]),
+      hot: model.hopSloMs != null && model.hopSloMs <= 50,
+      accent: model.hopSloMs != null && model.hopSloMs <= 50 ? "text-[var(--cc-text-primary)]" : "text-amber-500",
+      stroke: model.hopSloMs != null && model.hopSloMs <= 50 ? "var(--cc-status-success)" : "#F59E0B",
     },
     {
       id: "disagree",
       label: "Judge ≠ Defender Disagreement",
-      value: `${model.disagreement.rate}%`,
-      sub: `${model.disagreement.rate}% divergence · ${model.disagreement.defenderMiss} Defender misses`,
+      value: model.disagreement.rate == null ? "—" : `${model.disagreement.rate}%`,
+      sub: model.disagreement.rate == null
+        ? "No paired Judge/Defender outcomes in loaded events"
+        : `${model.disagreement.rate}% divergence · ${model.disagreement.defenderMiss} Defender misses`,
       spark: model.disagreement.sparkline,
-      hot: model.disagreement.rate < 5,
-      accent: model.disagreement.rate < 5 ? "text-[var(--cc-text-primary)]" : "text-red-500",
-      stroke: model.disagreement.rate < 5 ? "var(--cc-status-success)" : "#EF4444",
+      hot: model.disagreement.rate != null && model.disagreement.rate < 5,
+      accent: model.disagreement.rate == null
+        ? "text-[var(--cc-text-muted)]"
+        : model.disagreement.rate < 5 ? "text-[var(--cc-text-primary)]" : "text-red-500",
+      stroke: model.disagreement.rate == null
+        ? "var(--cc-text-muted)"
+        : model.disagreement.rate < 5 ? "var(--cc-status-success)" : "#EF4444",
     },
   ];
 

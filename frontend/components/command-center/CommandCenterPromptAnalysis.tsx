@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   highlightPrompt,
@@ -8,10 +8,11 @@ import {
   type LiveRound,
   type PromptSpan,
 } from "./prototype/liveRounds";
-import { CrescendoTrajectoryStepper } from "./CrescendoTrajectoryStepper";
 
 export function CommandCenterPromptAnalysis({
   round,
+  liveMode,
+  sessionId,
   className,
   onSelectThreat,
   onSelectHighlight,
@@ -20,6 +21,8 @@ export function CommandCenterPromptAnalysis({
   onDeployMitigation,
 }: {
   round: LiveRound;
+  liveMode: boolean;
+  sessionId: string | null;
   className?: string;
   onSelectThreat?: (bar: AsiBar) => void;
   onSelectHighlight?: (span: PromptSpan) => void;
@@ -27,9 +30,8 @@ export function CommandCenterPromptAnalysis({
   onQuarantineTarget?: (target: string) => void;
   onDeployMitigation?: (content: string) => void;
 }) {
-  const [showCrescendoStepper, setShowCrescendoStepper] = useState(false);
   const spans = useMemo(
-    () => highlightPrompt(round.prompt, round.highlights),
+    () => round.prompt ? highlightPrompt(round.prompt, round.highlights) : [],
     [round.prompt, round.highlights]
   );
 
@@ -39,15 +41,16 @@ export function CommandCenterPromptAnalysis({
     round.bars.some((b) => b.code === "HMAC" || b.label.includes("fail"));
 
   const badgeText =
-    round.statusBadge ?? `round ${round.round} · ${isFailed ? "VERIFICATION FAILED" : "live"}`;
+    round.statusBadge ?? `round ${round.round} · ${isFailed ? "VERIFICATION FAILED" : "status unavailable"}`;
+  const eventSessionId = round.event?.sessionId;
 
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border p-5 shadow-lg transition-colors",
+        "flex flex-col rounded-xl border bg-white p-5 shadow-2xs transition-colors",
         isFailed
-          ? "border-red-300/80 bg-red-50/40 dark:border-red-900/40 dark:bg-[#090b10]"
-          : "border-border bg-card dark:border-red-950/40 dark:bg-[#090b10]",
+          ? "border-rose-300/90 bg-rose-50/30"
+          : "border-slate-200/80 bg-white",
         className
       )}
     >
@@ -55,46 +58,33 @@ export function CommandCenterPromptAnalysis({
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            LIVE PROMPT ANALYSIS · {round.from} → {round.to}
+            {liveMode ? "RECORDED EVENT CONTENT" : "WALKTHROUGH SAMPLE CONTENT"} · {round.from} → {round.to}
           </span>
-          <button
-            type="button"
-            onClick={() => setShowCrescendoStepper((prev) => !prev)}
-            className={cn(
-              "rounded px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider border transition-colors cursor-pointer",
-              showCrescendoStepper
-                ? "border-rose-500/80 bg-rose-500/20 text-rose-300"
-                : "border-border/60 bg-muted/40 text-muted-foreground hover:text-foreground"
-            )}
-            title="Toggle Crescendo multi-turn steering trajectory stepper"
-          >
-            {showCrescendoStepper ? "Hide Crescendo Stepper" : "Crescendo Stepper"}
-          </button>
         </div>
         <div className="flex items-center gap-2">
-          {onDeployMitigation ? (
+          {liveMode && sessionId && onDeployMitigation && round.prompt.trim() ? (
             <button
               type="button"
               onClick={() => onDeployMitigation(round.prompt)}
               className="rounded px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider border border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
               title="Deploy authoritative policy mitigation rule from this prompt"
             >
-              DEPLOY MITIGATION
+              REQUEST MITIGATION
             </button>
           ) : null}
-          {onQuarantineTarget ? (
+          {liveMode && onQuarantineTarget && eventSessionId && eventSessionId !== "—" ? (
             <button
               type="button"
-              onClick={() => onQuarantineTarget(round.to)}
+              onClick={() => onQuarantineTarget(eventSessionId)}
               className={cn(
                 "rounded px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider border transition-colors cursor-pointer",
-                isFailed || round.bars.some((b) => b.pct >= 70)
+                isFailed || round.bars.some((bar) => bar.tone === "alert")
                   ? "border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 animate-pulse"
                   : "border-rose-500/40 bg-rose-500/5 text-rose-600 dark:text-rose-400 hover:bg-rose-500/15"
               )}
-              title={`Quick quarantine ${round.to}`}
+              title="Request quarantine for the recorded session"
             >
-              QUARANTINE TARGET
+              QUARANTINE SESSION
             </button>
           ) : null}
           <button
@@ -113,24 +103,23 @@ export function CommandCenterPromptAnalysis({
         </div>
       </div>
 
-      {showCrescendoStepper && (
-        <div className="mb-4">
-          <CrescendoTrajectoryStepper
-            onDeployMitigation={(turn) => onDeployMitigation?.(turn.prompt)}
-          />
-        </div>
-      )}
-
       {/* Code Box */}
-      <div className="rounded-lg border border-border bg-muted/40 p-4 text-[13px] leading-relaxed text-foreground dark:border-white/[0.06] dark:bg-[#05070a] dark:text-slate-200">
+      <div className="rounded-xl border border-slate-800 bg-[#0a0f1d] p-4 text-[13px] leading-relaxed text-slate-100 shadow-inner">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-3 font-mono text-[10px] text-slate-400">
+          <span className="flex items-center gap-1.5 uppercase font-semibold tracking-wider text-slate-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+            {liveMode ? "Backend event text" : "Walkthrough sample text"}
+          </span>
+          <span className="text-slate-500 font-mono">{round.event?.eventId ?? "No event ID"}</span>
+        </div>
         <p className="font-mono break-words whitespace-pre-wrap">
-          {spans.map((s, i) => {
+          {round.prompt.trim() ? spans.map((s, i) => {
             if (s.tone === "inject") {
               return (
                 <mark
                   key={i}
                   onClick={() => onSelectHighlight?.(s)}
-                  className="rounded border border-red-800/50 bg-red-950/80 px-1.5 py-0.5 font-mono text-red-300 inline-block my-0.5 font-medium cursor-pointer hover:border-red-600 transition-colors"
+                  className="rounded border border-rose-500/60 bg-rose-500/25 text-rose-200 px-1.5 py-0.5 font-mono inline-block my-0.5 font-semibold cursor-pointer hover:border-rose-400 hover:bg-rose-500/35 transition-colors shadow-2xs"
                   title="Click to inspect injection token"
                 >
                   {s.text}
@@ -142,15 +131,15 @@ export function CommandCenterPromptAnalysis({
                 <mark
                   key={i}
                   onClick={() => onSelectHighlight?.(s)}
-                  className="rounded border border-amber-700/50 bg-amber-950/70 px-1.5 py-0.5 font-mono text-amber-300 inline-block my-0.5 font-medium cursor-pointer hover:border-amber-600 transition-colors"
+                  className="rounded border border-amber-500/60 bg-amber-500/25 text-amber-200 px-1.5 py-0.5 font-mono inline-block my-0.5 font-semibold cursor-pointer hover:border-amber-400 hover:bg-amber-500/35 transition-colors shadow-2xs"
                   title="Click to inspect tool token"
                 >
                   {s.text}
                 </mark>
               );
             }
-            return <span key={i}>{s.text}</span>;
-          })}
+            return <span key={i} className="text-slate-300">{s.text}</span>;
+          }) : <span className="text-slate-400">No event text was included in the backend record.</span>}
         </p>
       </div>
 

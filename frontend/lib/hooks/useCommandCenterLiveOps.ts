@@ -9,8 +9,7 @@
  * Guarantees:
  * 1. Honest Freshness: Reports LIVE only when recent real events exist.
  *    Transitions to STALE after 30s or DISCONNECTED upon socket drop.
- * 2. Simulation Fallback: Preserves LIVE_ROUNDS fallback when backend is offline,
- *    clearly tagging state as telemetryMode: "SIMULATION".
+ * 2. Empty Failure State: Missing backend telemetry stays empty in the operational view.
  * 3. Security Boundary: Bounded/redacted strings only; never exposes API keys,
  *    HMAC secrets, or raw credentials.
  * 4. Authoritative Actions: Server-authoritative session containment (KILL, QUARANTINE).
@@ -44,7 +43,7 @@ export interface LiveOpsCampaign {
 export interface LiveOpsAgentSnapshot {
   agentId: string;
   role: string;
-  state: "idle" | "active" | "responding" | "waiting" | "contained" | "not_wired";
+  state: "idle" | "active" | "responding" | "waiting" | "contained" | "not_wired" | "unknown";
   currentTask: string | null;
   lastEventId: string | null;
   latencyMs: number | null;
@@ -74,7 +73,7 @@ export interface LiveOpsSecurityEvent {
   targetAgent: string;
   threatCode: string | null;
   threatStatus: "classified" | "unsupported" | "unwired" | "unclassified";
-  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO" | "UNCLASSIFIED";
   payload: string;
   detectionSignal: string;
   verdict: string;
@@ -109,7 +108,7 @@ export interface LiveOpsMetrics {
 }
 
 export interface LiveOpsCircuitBreaker {
-  status: "nominal" | "tripped" | "unsupported";
+  status: "unknown" | "nominal" | "tripped" | "unsupported";
   note: string;
 }
 
@@ -177,6 +176,20 @@ export interface OperatorActionResult {
   error?: string;
 }
 
+export interface CampaignRoundReplayResult {
+  success: boolean;
+  campaignId: string;
+  roundNumber: number;
+  statusCode?: number;
+  error?: string;
+  data?: {
+    replayedVerdict: string | null;
+    mitigated: boolean | null;
+    defenseLift: number | null;
+    eventId: string | null;
+  };
+}
+
 export interface UseCommandCenterLiveOpsOptions {
   enabled?: boolean;
   pollIntervalMs?: number;
@@ -193,8 +206,8 @@ const MAX_EVENTS_IN_MEMORY = 150;
 const API_BASE_URL = "/api/backend";
 
 export const INITIAL_CIRCUIT_BREAKER: LiveOpsCircuitBreaker = {
-  status: "nominal",
-  note: "ASI08 session circuit breaker is enabled; a trip is surfaced by session evidence.",
+  status: "unknown",
+  note: "Waiting for session circuit breaker telemetry.",
 };
 
 export const INITIAL_CONNECTION_STATE: LiveOpsConnectionState = {
@@ -231,16 +244,35 @@ export const DEFAULT_OPERATOR_ACTIONS: LiveOpsOperatorActionSpec[] = [
     implemented: true,
     method: "POST",
     path: "/api/v1/campaigns/{campaign_id}/rounds/{round_number}/replay",
-    note: "Re-evaluates a historical attack round against active policies and targets to measure regression and mitigation.",
+    note: "Replays a saved round through ARTSA's local target and current guardrails; it does not call the original external target.",
   },
   {
     actionId: "DEPLOY_MITIGATION",
-    implemented: false,
-    method: null,
-    path: null,
-    note: "Human-gated policy suggestions exist; auto-deploy not supported.",
+    implemented: true,
+    method: "POST",
+    path: "/api/v1/sessions/{session_id}/mitigate",
+    note: "After operator confirmation, the authenticated server deploys and records a policy mitigation rule.",
   },
 ];
+
+function disconnectedState(error: string | null = null): LiveOpsState {
+  return {
+    telemetryMode: "DISCONNECTED",
+    isLive: false,
+    tenantId: null,
+    currentCampaign: null,
+    currentSession: null,
+    currentRound: null,
+    agents: [],
+    events: [],
+    timeline: [],
+    metrics: null,
+    circuitBreaker: INITIAL_CIRCUIT_BREAKER,
+    connection: INITIAL_CONNECTION_STATE,
+    operatorActions: DEFAULT_OPERATOR_ACTIONS,
+    error,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // NORMALIZATION HELPERS (Exported for Testing)
@@ -311,17 +343,17 @@ export function normalizeSecurityEvent(raw: unknown): LiveOpsSecurityEvent | nul
   const eventId = String(r.event_id || r.eventId || r.id || "");
   if (!eventId) return null;
 
-  const rawSeverity = String(r.severity || "INFO").toUpperCase();
+  const rawSeverity = String(r.severity || "").toUpperCase();
   const severity: LiveOpsSecurityEvent["severity"] =
     rawSeverity === "CRITICAL" ||
     rawSeverity === "HIGH" ||
     rawSeverity === "MEDIUM" ||
     rawSeverity === "LOW"
       ? rawSeverity
-      : "INFO";
+      : "UNCLASSIFIED";
 
   // Sanitize & bound payload to prevent giant or sensitive dumps
-  let rawPayload = String(r.payload || r.tool_name || r.type || "");
+  let rawPayload = typeof r.payload === "string" ? r.payload : "";
   if (rawPayload.length > 2000) {
     rawPayload = rawPayload.slice(0, 2000) + "... [TRUNCATED]";
   }
@@ -336,22 +368,29 @@ export function normalizeSecurityEvent(raw: unknown): LiveOpsSecurityEvent | nul
     campaignId: r.campaign_id ? String(r.campaign_id) : r.campaignId ? String(r.campaignId) : null,
     sessionId: r.session_id ? String(r.session_id) : r.sessionId ? String(r.sessionId) : null,
     roundId: r.round_id ? String(r.round_id) : r.roundId ? String(r.roundId) : null,
-    timestamp: r.timestamp ? String(r.timestamp) : new Date().toISOString(),
+    timestamp: typeof r.timestamp === "string" ? r.timestamp : "",
     sourceAgent: String(r.source_agent || r.sourceAgent || r.agent_id || "unknown"),
-    targetAgent: String(r.target_agent || r.targetAgent || "containment"),
+    targetAgent: String(r.target_agent || r.targetAgent || "unknown"),
     threatCode: r.threat_code || r.threatCode ? String(r.threat_code || r.threatCode) : null,
-    threatStatus: (r.threat_status || r.threatStatus || "unclassified") as LiveOpsSecurityEvent["threatStatus"],
+    threatStatus:
+      r.threat_status === "classified" || r.threatStatus === "classified"
+        ? "classified"
+        : r.threat_status === "unsupported" || r.threatStatus === "unsupported"
+        ? "unsupported"
+        : r.threat_status === "unwired" || r.threatStatus === "unwired"
+        ? "unwired"
+        : "unclassified",
     severity,
     payload: sanitizedPayload,
     detectionSignal: String(r.detection_signal || r.detectionSignal || r.signal || ""),
     verdict: String(r.verdict || ""),
     mitigation: String(r.mitigation || r.action || ""),
     confidence: toOptionalNumber(r.confidence),
-    traceId: String(r.trace_id || r.traceId || eventId),
+    traceId: String(r.trace_id || r.traceId || ""),
     toolName: r.tool_name ? String(r.tool_name) : null,
     latencyMs: toOptionalNumber(r.latency_ms ?? r.latencyMs),
     status: r.status ? String(r.status) : null,
-    eventType: String(r.event_type || r.eventType || r.type || "security"),
+    eventType: String(r.event_type || r.eventType || r.type || "unknown"),
     hmac: normalizeHmacRecord(r.hmac),
   };
 }
@@ -359,9 +398,9 @@ export function normalizeSecurityEvent(raw: unknown): LiveOpsSecurityEvent | nul
 /**
  * Projects a normalized LiveOpsSecurityEvent into an AttackTimelineStep.
  */
-export function eventToTimelineStep(evt: LiveOpsSecurityEvent, index: number): AttackTimelineStep {
+export function eventToTimelineStep(evt: LiveOpsSecurityEvent): AttackTimelineStep {
   const parsedRound = evt.roundId ? parseInt(evt.roundId.replace(/\D/g, ""), 10) : NaN;
-  const roundNum = Number.isFinite(parsedRound) && parsedRound > 0 ? parsedRound : index + 1;
+  const roundNum = Number.isFinite(parsedRound) && parsedRound > 0 ? parsedRound : null;
 
   const vLower = evt.verdict.toLowerCase();
   const status: AttackTimelineStep["status"] =
@@ -373,19 +412,23 @@ export function eventToTimelineStep(evt: LiveOpsSecurityEvent, index: number): A
       ? "breach"
       : evt.severity === "CRITICAL" || evt.severity === "HIGH"
       ? "suspicious"
-      : "nominal";
+      : evt.severity === "INFO" || evt.verdict.toUpperCase() === "SAFE" || evt.verdict.toUpperCase() === "ALLOW"
+      ? "nominal"
+      : "unknown";
 
   return {
     round: roundNum,
-    label: `R${roundNum} · ${evt.threatCode || evt.eventType || "Event"}`,
-    whatHappened: evt.payload || "Security ops event recorded",
-    when: evt.timestamp ? new Date(evt.timestamp).toLocaleTimeString() : "Just now",
-    whatDetectedIt: evt.detectionSignal || "Detector",
-    actionTaken: evt.mitigation || evt.verdict || "Logged",
+    label: `${roundNum == null ? "Round unavailable" : `R${roundNum}`} · ${evt.threatCode || evt.eventType || "Event"}`,
+    whatHappened: evt.payload || "No event payload was recorded",
+    when: evt.timestamp && !Number.isNaN(Date.parse(evt.timestamp))
+      ? new Date(evt.timestamp).toLocaleTimeString()
+      : "Time unavailable",
+    whatDetectedIt: evt.detectionSignal || "Not recorded",
+    actionTaken: evt.mitigation || evt.verdict || "Not recorded",
     status,
     agentFrom: evt.sourceAgent,
     agentTo: evt.targetAgent,
-    threatCode: evt.threatCode || "INFO",
+    threatCode: evt.threatCode || "Unclassified",
     eventId: evt.eventId,
     traceId: evt.traceId,
   };
@@ -428,7 +471,11 @@ export function normalizeAgents(raw: unknown[]): LiveOpsAgentSnapshot[] {
     .map((a) => ({
       agentId: String(a.agent_id || a.agentId || "unknown"),
       role: String(a.role || a.agent_id || "agent"),
-      state: (a.state || "idle") as LiveOpsAgentSnapshot["state"],
+      state:
+        a.state === "idle" || a.state === "active" || a.state === "responding" ||
+        a.state === "waiting" || a.state === "contained" || a.state === "not_wired"
+          ? a.state
+          : "unknown",
       currentTask: a.current_task ? String(a.current_task) : null,
       lastEventId: a.last_event_id ? String(a.last_event_id) : null,
       latencyMs: toOptionalNumber(a.latency_ms ?? a.latencyMs),
@@ -473,7 +520,7 @@ export function normalizeSnapshot(raw: unknown): Omit<LiveOpsState, "connection"
 
   const timeline = events.map(eventToTimelineStep);
 
-  const rawActions = Array.isArray(r.operator_actions) ? r.operator_actions : DEFAULT_OPERATOR_ACTIONS;
+  const rawActions = Array.isArray(r.operator_actions) ? r.operator_actions : [];
   const operatorActions: LiveOpsOperatorActionSpec[] = rawActions
     .filter((a): a is Record<string, unknown> => Boolean(a && typeof a === "object"))
     .map((a) => ({
@@ -489,12 +536,16 @@ export function normalizeSnapshot(raw: unknown): Omit<LiveOpsState, "connection"
     mode === "LIVE" ? "LIVE" : mode === "STALE" ? "STALE" : mode === "SIMULATION" ? "SIMULATION" : "DISCONNECTED";
 
   const rawCircuitBreaker = r.circuit_breaker as Record<string, unknown> | null | undefined;
-  const circuitStatus = String(rawCircuitBreaker?.status || "nominal").toLowerCase();
+  const circuitStatus = String(rawCircuitBreaker?.status || "unknown").toLowerCase();
   const circuitBreaker: LiveOpsCircuitBreaker = {
-    status: circuitStatus === "tripped" ? "tripped" : circuitStatus === "unsupported" ? "unsupported" : "nominal",
+    status: circuitStatus === "tripped"
+      ? "tripped"
+      : circuitStatus === "nominal"
+        ? "nominal"
+        : circuitStatus === "unsupported" ? "unsupported" : "unknown",
     note: String(
       rawCircuitBreaker?.note ||
-        "ASI08 session circuit breaker is enabled; a trip is surfaced by session evidence."
+        "No circuit breaker status was included in the backend response."
     ),
   };
 
@@ -630,7 +681,7 @@ export async function executeOperatorAction(
   }
 
   let endpoint = `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/action`;
-  let reqBody: Record<string, any> = { action, tool_name: toolName };
+  let reqBody: Record<string, unknown> = { action, tool_name: toolName };
 
   if (action === "BLOCK_TOOL" && toolName) {
     endpoint = `/api/v1/sessions/${encodeURIComponent(cleanSessionId)}/tools/${encodeURIComponent(toolName.trim())}/block`;
@@ -750,6 +801,78 @@ export async function executeOperatorAction(
   }
 }
 
+/** Replay one persisted campaign round through the authenticated backend route. */
+export async function executeCampaignRoundReplay(
+  campaignId: string,
+  roundNumber: number
+): Promise<CampaignRoundReplayResult> {
+  const cleanCampaignId = campaignId.trim();
+  const invalid = (error: string): CampaignRoundReplayResult => ({
+    success: false,
+    campaignId: cleanCampaignId,
+    roundNumber,
+    error,
+  });
+  if (!cleanCampaignId || !Number.isInteger(roundNumber) || roundNumber < 1) {
+    return invalid("A campaign ID and positive round number are required.");
+  }
+
+  const endpoint = `${API_BASE_URL}/api/v1/campaigns/${encodeURIComponent(cleanCampaignId)}/rounds/${roundNumber}/replay`;
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify({ note: "command_center_replay" }),
+    });
+    let body: unknown;
+    try {
+      body = unwrapEnvelope(await response.json());
+    } catch {
+      return {
+        ...invalid("Backend returned an unreadable replay response."),
+        statusCode: response.status,
+      };
+    }
+    const record = body && typeof body === "object" && !Array.isArray(body)
+      ? body as Record<string, unknown>
+      : null;
+    if (!response.ok) {
+      return {
+        ...invalid(typeof record?.detail === "string"
+          ? record.detail
+          : typeof record?.message === "string"
+            ? record.message
+            : `Replay request failed with HTTP ${response.status}.`),
+        statusCode: response.status,
+      };
+    }
+    if (!record || record.action !== "REPLAY_ROUND") {
+      return {
+        ...invalid("Backend response did not confirm a campaign round replay."),
+        statusCode: response.status,
+      };
+    }
+    const replayed = record.replayed && typeof record.replayed === "object" && !Array.isArray(record.replayed)
+      ? record.replayed as Record<string, unknown>
+      : null;
+    const defenseLift = record.defense_lift;
+    return {
+      success: true,
+      campaignId: cleanCampaignId,
+      roundNumber,
+      statusCode: response.status,
+      data: {
+        replayedVerdict: typeof replayed?.verdict === "string" ? replayed.verdict : null,
+        mitigated: typeof record.mitigated === "boolean" ? record.mitigated : null,
+        defenseLift: typeof defenseLift === "number" && Number.isFinite(defenseLift) ? defenseLift : null,
+        eventId: typeof record.event_id === "string" ? record.event_id : null,
+      },
+    };
+  } catch (error) {
+    return invalid(error instanceof Error ? error.message : "Network failure connecting to replay API.");
+  }
+}
+
 // ---------------------------------------------------------------------------
 // MAIN REACT HOOK
 // ---------------------------------------------------------------------------
@@ -762,7 +885,9 @@ export function useCommandCenterLiveOps(options: UseCommandCenterLiveOpsOptions 
     forceSimulation = false,
   } = options;
 
-  const [state, setState] = useState<LiveOpsState>(() => buildSimulationFallbackState(0));
+  const [state, setState] = useState<LiveOpsState>(() =>
+    forceSimulation ? buildSimulationFallbackState(0) : disconnectedState()
+  );
   const seenEventIdsRef = useRef<Set<string>>(new Set());
   const lastEventTimestampRef = useRef<number | null>(null);
 
@@ -773,15 +898,15 @@ export function useCommandCenterLiveOps(options: UseCommandCenterLiveOpsOptions 
     try {
       const data = await fetchFromBackend<Record<string, unknown>>("/api/v1/telemetry/ops", { silent: true });
       if (!data) {
-        // Backend unavailable -> fallback to simulation
-        setState({
-          ...buildSimulationFallbackState(0),
-          error: "Telemetry endpoint returned null — simulation mode active",
-        });
+        setState(disconnectedState("No operational telemetry snapshot was returned."));
         return;
       }
 
       const normalized = normalizeSnapshot(data);
+      if (normalized.telemetryMode === "SIMULATION") {
+        setState(disconnectedState("Simulated telemetry was omitted from the operational view."));
+        return;
+      }
 
       // Populate deduplication set from snapshot
       for (const evt of normalized.events) {
@@ -802,17 +927,18 @@ export function useCommandCenterLiveOps(options: UseCommandCenterLiveOpsOptions 
         error: null,
       }));
     } catch (err: unknown) {
-      setState({
-        ...buildSimulationFallbackState(0),
-        error: err instanceof Error ? err.message : "Failed to load operational snapshot",
-      });
+      setState(disconnectedState(err instanceof Error ? err.message : "Failed to load operational snapshot"));
     }
   }, [enabled, forceSimulation]);
 
   // Initial load & optional light polling fallback
   useEffect(() => {
     if (!enabled || forceSimulation) {
-      setState(buildSimulationFallbackState(0));
+      setState(
+        forceSimulation
+          ? buildSimulationFallbackState(0)
+          : disconnectedState("Live telemetry is disabled.")
+      );
       return;
     }
 
@@ -868,7 +994,7 @@ export function useCommandCenterLiveOps(options: UseCommandCenterLiveOpsOptions 
 
     setState((prev) => {
       const mergedEvents = [...newNormalizedEvents, ...prev.events].slice(0, MAX_EVENTS_IN_MEMORY);
-      const newTimelineSteps = newNormalizedEvents.map((evt, idx) => eventToTimelineStep(evt, idx));
+      const newTimelineSteps = newNormalizedEvents.map((evt) => eventToTimelineStep(evt));
       const mergedTimeline = [...newTimelineSteps, ...prev.timeline].slice(0, MAX_EVENTS_IN_MEMORY);
 
       return {
@@ -979,12 +1105,19 @@ export function useCommandCenterLiveOps(options: UseCommandCenterLiveOpsOptions 
     []
   );
 
+  const replayRound = useCallback(
+    async (campaignId: string, roundNumber: number): Promise<CampaignRoundReplayResult> =>
+      executeCampaignRoundReplay(campaignId, roundNumber),
+    []
+  );
+
   return {
     state,
     killSession,
     quarantineAgent,
     blockTool,
     deployMitigation,
+    replayRound,
     refresh: fetchSnapshot,
   };
 }

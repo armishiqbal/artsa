@@ -20,7 +20,7 @@ import {
 import type { CampaignListItem } from "@/lib/hooks/useCampaigns";
 
 export type PrototypeWindow = "15m" | "1h" | "6h";
-export type MonitorStatus = "ok" | "warn" | "alert";
+export type MonitorStatus = "unknown" | "ok" | "warn" | "alert";
 export type InspectorKind = "campaign" | "asi" | "hop" | "monitor";
 
 export type MissionPostureResult = {
@@ -62,11 +62,11 @@ export type ChartAnnotation = {
 };
 
 export type AdaptiveLift = {
-  last: number;
-  min: number;
-  max: number;
-  baseline: number;
-  liftPp: number;
+  last: number | null;
+  min: number | null;
+  max: number | null;
+  baseline: number | null;
+  liftPp: number | null;
   sparkline: number[];
 };
 
@@ -82,12 +82,12 @@ export type AsiCell = {
   code: string;
   label: string;
   short: string;
-  coverage: number;
-  built: boolean;
+  coverage: number | null;
+  built: boolean | null;
   hits: number;
 };
 
-export type CurveProvenance = "walkthrough" | "projected";
+export type CurveProvenance = "walkthrough" | "backend_history" | "unavailable";
 
 export type CampaignRound = {
   campaignId: string;
@@ -118,29 +118,29 @@ export type CampaignCard = {
 
 export const FEATURED_ASI = ["ASI01", "ASI06", "ASI08", "ASI02"] as const;
 
-export type HmacState = "ok" | "fail" | "unwired";
+export type HmacState = "unknown" | "ok" | "fail" | "unwired";
 
 export type AgentHop = {
   agent: SixAgentName;
   short: string;
   status: AgentStatus;
-  hmacOk: boolean;
+  hmacOk: boolean | null;
   hmacState: HmacState;
-  latencyMs: number;
-  queue: number;
-  lastHop: string;
+  latencyMs: number | null;
+  queue: number | null;
+  lastHop: string | null;
 };
 
 export type Disagreement = {
-  judgeBreach: number;
-  defenderMiss: number;
-  defenderOverblock: number;
-  rate: number;
+  judgeBreach: number | null;
+  defenderMiss: number | null;
+  defenderOverblock: number | null;
+  rate: number | null;
   sparkline: number[];
 };
 
 export type CheckpointLag = {
-  ms: number;
+  ms: number | null;
   status: MonitorStatus;
 };
 
@@ -177,17 +177,16 @@ export type StrategicModel = {
   hmacSigned: boolean;
   hmacRate: number | null;
   hmacFails: number;
-  hopSloMs: number;
-  hopSloBurn: number;
+  hopSloMs: number | null;
+  hopSloBurn: number | null;
   activeCampaigns: number;
-  openAlerts: number;
-  asiCovered: number;
+  recordedAlerts: number;
+  asiCovered: number | null;
   campaignList: CampaignCard[];
 };
 
 const BASELINE = 62;
 const HOP_SLO_MS = 50;
-const LIVE_THRESHOLD = 8;
 
 const CANONICAL_HOPS: Array<[SixAgentName, SixAgentName]> = [
   ["Research", "Curator"],
@@ -284,13 +283,8 @@ export function yAxisScale(values: number[]): { domain: [number, number]; ticks:
   return { domain: [floor, ceil], ticks };
 }
 
-export function hopLatencyMs(agent: string, traffic = 0): number {
-  let h = 0;
-  for (let i = 0; i < agent.length; i += 1) h = (h * 33 + agent.charCodeAt(i)) | 0;
-  return 16 + (Math.abs(h) % 13) + (traffic % 5);
-}
-
 export function hmacLabel(state: HmacState): string {
+  if (state === "unknown") return "unknown";
   if (state === "fail") return "unsigned";
   if (state === "unwired") return "not wired";
   return "ok";
@@ -420,6 +414,9 @@ function seriesAnnotations(series: DetectionPoint[]): ChartAnnotation[] {
 }
 
 function liftFromSeries(series: DetectionPoint[]): AdaptiveLift {
+  if (series.length === 0) {
+    return { last: null, min: null, max: null, baseline: null, liftPp: null, sparkline: [] };
+  }
   const artsaVals = series.map((p) => p.artsa);
   const { min, max, last } = stats(artsaVals);
   const baseline = series[series.length - 1]?.baseline ?? BASELINE;
@@ -439,24 +436,21 @@ function asiCells(events: AgentEvent[]): AsiCell[] {
     if (!e.asiTag) continue;
     hits.set(e.asiTag, (hits.get(e.asiTag) ?? 0) + 1);
   }
-  const maxHits = Math.max(1, ...hits.values());
   return ASI_CATEGORIES.map((c) => {
-    // ASI08 is covered by the durable session circuit breaker. A zero-hit
-    // window means no trip was observed, not that the control is absent.
-    const built = true;
     const n = hits.get(c.code) ?? 0;
     return {
       code: c.code,
       label: c.label,
       short: c.short,
-      built,
-      hits: built ? n : 0,
-      coverage: built ? Math.round((n / maxHits) * 100) : 0,
+      built: null,
+      hits: n,
+      coverage: null,
     };
   });
 }
 
-function campaignRounds(campaigns: CampaignListItem[], campaignFilter: string): CampaignRound[] {
+function campaignRounds(campaigns: CampaignListItem[], campaignFilter: string, walkthrough: boolean): CampaignRound[] {
+  if (!walkthrough) return [];
   const rows: CampaignRound[] = [];
   const list =
     campaignFilter === "all" ? campaigns : campaigns.filter((c) => c.id === campaignFilter);
@@ -487,22 +481,8 @@ export function techniquesFrom(events: AgentEvent[]): TechniqueBar[] {
   if (events.length === 0) return [];
   const map = new Map<string, { count: number; asiCode?: string }>();
   for (const e of events) {
-    const text = `${e.message} ${e.asiTag ?? ""}`.toLowerCase();
-    const found = TECHNIQUE_DEFINITIONS.find((def) => text.includes(def.match));
-    let name: string;
-    let asiCode: string | undefined;
-    if (found) {
-      name = found.name;
-      asiCode = found.asi;
-    } else if (e.asiTag && ASI_TECHNIQUE_NAMES[e.asiTag]) {
-      name = ASI_TECHNIQUE_NAMES[e.asiTag]!;
-      asiCode = e.asiTag;
-    } else if (e.asiTag) {
-      name = e.asiTag;
-      asiCode = e.asiTag;
-    } else {
-      name = "Unclassified Vector";
-    }
+    const asiCode = e.asiTag;
+    const name = asiCode ? ASI_TECHNIQUE_NAMES[asiCode] ?? asiCode : "Unclassified Vector";
     const current = map.get(name) ?? { count: 0, asiCode };
     map.set(name, { count: current.count + 1, asiCode: current.asiCode ?? asiCode });
   }
@@ -521,45 +501,60 @@ export function techniquesFrom(events: AgentEvent[]): TechniqueBar[] {
 function hopsFrom(events: AgentEvent[]): AgentHop[] {
   const statuses = deriveAgentStatuses(events);
   return SIX_AGENTS.map((agent) => {
-    const msgs = events.filter((e) => e.sourceAgent === agent || e.targetAgent === agent);
+    const msgs = events
+      .filter((e) => e.sourceAgent === agent || e.targetAgent === agent)
+      .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
     const last = msgs[msgs.length - 1];
     const signed = msgs.filter((e) => e.hmacValid !== undefined);
-    const hmacState: HmacState = signed.some((e) => e.hmacValid === false) ? "fail" : "unwired";
+    const hmacState: HmacState = signed.some((e) => e.hmacValid === false)
+      ? "fail"
+      : signed.length > 0
+        ? "ok"
+        : "unknown";
+    const latencies = msgs
+      .map((event) => event.latencyMs)
+      .filter((value): value is number => value != null && Number.isFinite(value) && value >= 0);
     return {
       agent,
       short: AGENT_SHORT[agent] ?? agent.slice(0, 3).toUpperCase(),
-      status: statuses[agent] ?? "nominal",
-      hmacOk: false,
+      status: statuses[agent] ?? "unknown",
+      hmacOk: signed.length > 0 ? !signed.some((e) => e.hmacValid === false) : null,
       hmacState,
-      latencyMs: hopLatencyMs(agent, msgs.length),
-      queue: Math.max(0, msgs.length % 5),
-      lastHop: last ? `${last.sourceAgent}→${last.targetAgent ?? "—"}` : "idle",
+      latencyMs: latencies.length > 0
+        ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length)
+        : null,
+      queue: null,
+      lastHop: last ? `${last.sourceAgent}→${last.targetAgent ?? "—"}` : null,
     };
   });
 }
 
 function disagreementFrom(events: AgentEvent[]): Disagreement {
-  const judgeBreach = events.filter((e) => /judge-breach|breach/i.test(e.message)).length;
-  const defenderMiss = events.filter(
-    (e) => /judge-breach|breach/i.test(e.message) && !/contain|defend|block/i.test(e.message)
+  const pairs = events.filter((event) => event.judgeVerdict && event.defenderVerdict);
+  if (pairs.length === 0) {
+    return { judgeBreach: null, defenderMiss: null, defenderOverblock: null, rate: null, sparkline: [] };
+  }
+  const blocks = new Set(["BLOCK", "QUARANTINE", "KILL", "CONTAINED", "DENY"]);
+  const allows = new Set(["ALLOW", "SAFE", "PASS"]);
+  const normalized = pairs.map((event) => ({
+    judge: event.judgeVerdict!.trim().toUpperCase(),
+    defender: event.defenderVerdict!.trim().toUpperCase(),
+  }));
+  const judgeBreach = normalized.filter(({ judge }) => judge === "BREACHED" || judge === "BREACH").length;
+  const defenderMiss = normalized.filter(({ judge, defender }) =>
+    (judge === "BREACHED" || judge === "BREACH") && !blocks.has(defender)
   ).length;
-  const defenderOverblock = events.filter(
-    (e) => /contain|defend|block/i.test(e.message) && /info/i.test(e.severity ?? "")
+  const defenderOverblock = normalized.filter(({ judge, defender }) =>
+    allows.has(judge) && blocks.has(defender)
   ).length;
-  const denom = Math.max(1, Math.max(judgeBreach, events.filter((e) => e.type === "finding").length));
-  const rate = Math.min(100, Math.round((defenderMiss / denom) * 1000) / 10);
-  const sparkline = [
-    Math.min(100, Math.round((rate * 1.5 + 4) * 10) / 10),
-    Math.min(100, Math.round((rate * 1.3 + 2.5) * 10) / 10),
-    Math.min(100, Math.round((rate * 1.1 + 1) * 10) / 10),
-    rate,
-  ];
+  const disagreements = normalized.filter(({ judge, defender }) => judge !== defender).length;
+  const rate = Math.round((disagreements / normalized.length) * 1000) / 10;
   return {
     judgeBreach,
     defenderMiss,
     defenderOverblock,
     rate,
-    sparkline,
+    sparkline: [],
   };
 }
 
@@ -578,24 +573,26 @@ function monitorsOf(input: { disagreement: Disagreement }): MonitorItem[] {
   return [
     {
       id: "checkpoint",
-      name: "PostgresSaver lag",
-      status: "warn",
-      detail: "LangGraph checkpointing is not wired",
-      value: "NOT WIRED",
+      name: "Checkpoint lag",
+      status: "unknown",
+      detail: "No checkpoint lag measurement was reported in telemetry",
+      value: "UNAVAILABLE",
     },
     {
       id: "disagree",
       name: "Judge/Defender disagreement",
-      status: input.disagreement.rate >= 8 ? "alert" : input.disagreement.rate >= 3 ? "warn" : "ok",
-      detail: "Lower is better — Defender misses after a Judge breach",
-      value: `${input.disagreement.rate}%`,
+      status: input.disagreement.rate == null
+        ? "unknown"
+        : input.disagreement.rate >= 8 ? "alert" : input.disagreement.rate >= 3 ? "warn" : "ok",
+      detail: "Requires paired Judge and Defender outcomes in backend telemetry",
+      value: input.disagreement.rate == null ? "UNAVAILABLE" : `${input.disagreement.rate}%`,
     },
   ];
 }
 
 export function deriveContainment(
   rawEvents: Array<Record<string, unknown>>,
-  agentEvents: AgentEvent[],
+  _agentEvents: AgentEvent[],
   walkthrough: boolean
 ): ActiveContainment {
   if (walkthrough) {
@@ -613,26 +610,9 @@ export function deriveContainment(
 
   for (const evt of rawEvents) {
     const sid = String(evt.session_id ?? evt.sessionId ?? evt.session ?? "");
-    const verdict = String(evt.verdict ?? "").toUpperCase();
-    const action = String(evt.action ?? evt.recommended_action ?? "").toUpperCase();
-    const status = String(evt.status ?? "").toUpperCase();
-    const isKill =
-      action.includes("KILL") ||
-      action.includes("TERMINAT") ||
-      verdict.includes("KILL") ||
-      verdict.includes("TERMINAT") ||
-      status.includes("TERMINAT");
-    const isQuarantine =
-      !isKill &&
-      (action.includes("QUARANTINE") ||
-        action.includes("BLOCK") ||
-        action.includes("DENY") ||
-        verdict.includes("QUARANTINE") ||
-        verdict.includes("BLOCK") ||
-        verdict.includes("DENY") ||
-        status.includes("QUARANTIN") ||
-        status.includes("SUSPICIOUS") ||
-        Number(evt.risk_score ?? 0) >= 80);
+    const action = String(evt.enforced_action ?? evt.action ?? "").trim().toUpperCase();
+    const isKill = new Set(["KILL", "TERMINATE"]).has(action);
+    const isQuarantine = new Set(["QUARANTINE", "BLOCK", "DENY"]).has(action);
 
     if (sid) {
       if (isKill) {
@@ -646,22 +626,6 @@ export function deriveContainment(
     }
   }
 
-  if (sessionActions.size === 0 && directQuarantined === 0 && directTerminated === 0) {
-    for (const ae of agentEvents) {
-      const msg = ae.message.toLowerCase();
-      if (msg.includes("kill") || msg.includes("terminat")) {
-        directTerminated += 1;
-      } else if (
-        msg.includes("quarantine") ||
-        msg.includes("contain") ||
-        msg.includes("block") ||
-        ae.severity === "critical"
-      ) {
-        directQuarantined += 1;
-      }
-    }
-  }
-
   let sessionTerminated = 0;
   let sessionQuarantined = 0;
   for (const act of sessionActions.values()) {
@@ -672,22 +636,12 @@ export function deriveContainment(
   const quarantined = sessionQuarantined + directQuarantined;
   const terminated = sessionTerminated + directTerminated;
   const total = quarantined + terminated;
-  const sparkline =
-    total === 0
-      ? [0, 0, 0, 0]
-      : [
-          Math.max(0, Math.round(total * 0.18)),
-          Math.max(0, Math.round(total * 0.38)),
-          Math.max(0, Math.round(total * 0.62)),
-          Math.max(0, Math.round(total * 0.82)),
-          total,
-        ];
 
   return {
     quarantined,
     terminated,
     total,
-    sparkline,
+    sparkline: [],
   };
 }
 
@@ -698,14 +652,14 @@ export function buildStrategicModel(input: {
   now?: number;
 }): StrategicModel {
   const now = input.now ?? Date.now();
-  const hasLiveEvents = input.events.length >= LIVE_THRESHOLD;
+  const liveMapped = telemetryToAgentEvents(input.events);
+  const hasLiveEvents = liveMapped.length > 0;
   const hasCampaigns = input.campaigns.length > 0;
   const walkthrough = !hasLiveEvents && !hasCampaigns;
-  const liveMapped = telemetryToAgentEvents(input.events);
   const sourceEvents = walkthrough ? demoEvents(now) : liveMapped;
   const filtered = filterEvents(sourceEvents, input.filters, now);
   const campaigns = hasCampaigns ? input.campaigns : walkthrough ? demoCampaigns() : [];
-  const campaignRows = campaignRounds(campaigns, input.filters.campaign);
+  const campaignRows = campaignRounds(campaigns, input.filters.campaign, walkthrough);
   const series = walkthrough
     ? demoSeries(now, input.filters.window)
     : deriveDetectionSeries(filtered, now).map((p) => ({
@@ -715,21 +669,27 @@ export function buildStrategicModel(input: {
       }));
   const lift = liftFromSeries(series);
 
-  const activeEvents = filtered.length > 0 ? filtered : sourceEvents;
+  const activeEvents = filtered;
   const mission = deriveMissionPosture(activeEvents);
   const containment = deriveContainment(input.events, activeEvents, walkthrough);
 
-  const hmac = hmacStats(filtered.length > 0 ? filtered : sourceEvents);
-  const vitals = deriveVitals(filtered.length > 0 ? filtered : sourceEvents, now);
+  const hmac = hmacStats(filtered);
+  const vitals = deriveVitals(filtered, now);
   const hopSloMs = walkthrough ? 31 : vitals.avgResponseMs;
-  const disagreement = disagreementFrom(filtered.length > 0 ? filtered : sourceEvents);
-  const checkpoint: CheckpointLag = { ms: 0, status: "warn" };
-  const curveProvenance: CurveProvenance = walkthrough ? "walkthrough" : "projected";
+  const hopSloBurn = hopSloMs == null ? null : Math.min(100, Math.round((hopSloMs / HOP_SLO_MS) * 100));
+  const disagreement = disagreementFrom(filtered);
+  const checkpoint: CheckpointLag = { ms: null, status: "unknown" };
+  const curveProvenance: CurveProvenance = walkthrough
+    ? "walkthrough"
+    : series.length > 0 ? "backend_history" : "unavailable";
 
-  const asi = asiCells(filtered.length > 0 ? filtered : sourceEvents);
+  const asi = asiCells(filtered);
   const rawTechniques = techniquesFrom(filtered);
-  const techniques = rawTechniques.length > 0 ? rawTechniques : techniquesFrom(sourceEvents);
-  const hops = hopsFrom(sourceEvents);
+  const techniques = rawTechniques;
+  const hops = hopsFrom(filtered);
+  const activeCampaignCount = campaigns.filter((campaign) =>
+    /^(RUNNING|ACTIVE|STARTING|QUEUED|PENDING)$/i.test(campaign.status.trim())
+  ).length;
 
   return {
     walkthrough,
@@ -751,12 +711,12 @@ export function buildStrategicModel(input: {
     hmacRate: hmac.rate,
     hmacFails: hmac.fails,
     hopSloMs,
-    hopSloBurn: Math.min(100, Math.round((hopSloMs / HOP_SLO_MS) * 100)),
-    activeCampaigns: campaigns.length,
-    openAlerts: filtered.filter(
+    hopSloBurn,
+    activeCampaigns: activeCampaignCount,
+    recordedAlerts: filtered.filter(
       (e) => e.type === "finding" || e.severity === "critical" || e.severity === "warning"
     ).length,
-    asiCovered: asi.filter((c) => c.built).length,
+    asiCovered: null,
     campaignList: campaignListFrom(campaigns),
   };
 }
@@ -768,9 +728,12 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
       return {
         kind,
         id,
-        title: "HMAC handoff",
-        subtitle: "Signed Red Team → Target → Judge handoffs",
-        fields: [{ label: "Scope", value: "RT → Target → Judge" }, { label: "Other roles", value: "NOT WIRED" }],
+        title: "HMAC evidence",
+        subtitle: "Signature results recorded in the loaded events",
+        fields: [
+          { label: "Failed verifications", value: String(model.hmacFails) },
+          { label: "Verification", value: model.hmacRate == null ? "UNAVAILABLE" : `${model.hmacRate}%` },
+        ],
         alertsHref,
         detectionsHref: alertsHref,
         findingsHref: "/findings",
@@ -786,7 +749,7 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
         id,
         title: "Hop latency",
         subtitle: `Vs ${HOP_SLO_MS}ms budget`,
-        fields: [{ label: "Value", value: `${model.hopSloMs}ms` }],
+        fields: [{ label: "Value", value: model.hopSloMs == null ? "Unavailable" : `${model.hopSloMs}ms` }],
         alertsHref,
         detectionsHref: alertsHref,
         findingsHref: "/findings",
@@ -803,9 +766,9 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
         title: "Adaptive Lift",
         subtitle: "ARTSA last vs static baseline",
         fields: [
-          { label: "ARTSA", value: `${model.lift.last}%` },
-          { label: "Baseline", value: `${model.lift.baseline}%` },
-          { label: "Lift", value: `${model.lift.liftPp >= 0 ? "+" : ""}${model.lift.liftPp}pp` },
+          { label: "ARTSA", value: model.lift.last == null ? "Unavailable" : `${model.lift.last}%` },
+          { label: "Baseline", value: model.lift.baseline == null ? "Unavailable" : `${model.lift.baseline}%` },
+          { label: "Lift", value: model.lift.liftPp == null ? "Unavailable" : `${model.lift.liftPp >= 0 ? "+" : ""}${model.lift.liftPp}pp` },
         ],
         alertsHref,
         detectionsHref: alertsHref,
@@ -820,20 +783,19 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
       return {
         kind,
         id,
-        title: "Active Containment",
-        subtitle: `${model.containment.total} total sessions contained`,
+        title: "Recorded containment actions",
+        subtitle: `${model.containment.total} actions in the loaded events`,
         fields: [
-          { label: "Quarantined", value: `${model.containment.quarantined} sessions` },
-          { label: "Terminated", value: `${model.containment.terminated} sessions` },
-          { label: "Total Contained", value: `${model.containment.total} sessions` },
-          { label: "Status", value: model.containment.total > 0 ? "ACTIVE ENFORCEMENT" : "NOMINAL" },
+          { label: "Quarantine/block actions", value: String(model.containment.quarantined) },
+          { label: "Kill/terminate actions", value: String(model.containment.terminated) },
+          { label: "Total recorded actions", value: String(model.containment.total) },
         ],
         alertsHref,
         detectionsHref: alertsHref,
         findingsHref: "/findings",
         links: [
           { label: "Configure Containment in Strategic Monitors →", href: alertsHref },
-          { label: "Triage Active Containment in Detections Desk →", href: "/red-team/monitor?severity=CRITICAL" },
+          { label: "Review recorded actions in Detections Desk →", href: "/red-team/monitor?severity=CRITICAL" },
           { label: "Inspect Session Containment Logs →", href: "/logs" },
         ],
       };
@@ -843,11 +805,13 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
         kind,
         id,
         title: "Judge/Defender Disagreement",
-        subtitle: `${model.disagreement.rate}% divergence (${model.disagreement.defenderMiss} misses)`,
+        subtitle: model.disagreement.rate == null
+          ? "Paired Judge and Defender outcomes are unavailable"
+          : `${model.disagreement.rate}% divergence (${model.disagreement.defenderMiss} misses)`,
         fields: [
-          { label: "Divergence Rate", value: `${model.disagreement.rate}%` },
-          { label: "Defender Misses", value: `${model.disagreement.defenderMiss}` },
-          { label: "Defender Overblock", value: `${model.disagreement.defenderOverblock}` },
+          { label: "Divergence Rate", value: model.disagreement.rate == null ? "Unavailable" : `${model.disagreement.rate}%` },
+          { label: "Defender Misses", value: String(model.disagreement.defenderMiss ?? "Unavailable") },
+          { label: "Defender Overblock", value: String(model.disagreement.defenderOverblock ?? "Unavailable") },
         ],
         alertsHref,
         detectionsHref: alertsHref,
@@ -878,9 +842,9 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
       return {
         kind,
         id,
-        title: "Open alerts",
-        subtitle: "Findings and warnings in this window",
-        fields: [{ label: "Open", value: String(model.openAlerts) }],
+        title: "Recorded alerts",
+        subtitle: "Findings and warnings in the loaded window; resolution state is unavailable",
+        fields: [{ label: "Recorded", value: String(model.recordedAlerts) }],
         alertsHref,
         detectionsHref: alertsHref,
         findingsHref: "/findings",
@@ -925,9 +889,9 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
         kind,
         id,
         title: `${a.code} · ${a.short}`,
-        subtitle: a.built ? `${a.hits} hits this window` : "Control not implemented",
+        subtitle: `${a.hits} tagged events in this window; control assessment unavailable`,
         fields: [
-          { label: "Coverage", value: a.built ? `${a.coverage}%` : "NOT BUILT" },
+          { label: "Coverage", value: a.coverage == null ? "Unavailable" : `${a.coverage}%` },
           { label: "Hits", value: String(a.hits) },
           { label: "Label", value: a.label },
         ],
@@ -967,11 +931,11 @@ export function inspectorFor(model: StrategicModel, kind: InspectorKind, id: str
       kind,
       id,
       title: h.agent,
-      subtitle: h.lastHop,
+      subtitle: h.lastHop ?? "No hop recorded in this window",
       fields: [
         { label: "HMAC", value: hmacLabel(h.hmacState) },
-        { label: "Latency", value: `${h.latencyMs}ms` },
-        { label: "Queue", value: String(h.queue) },
+        { label: "Latency", value: h.latencyMs == null ? "Unavailable" : `${h.latencyMs}ms` },
+        { label: "Queue", value: h.queue == null ? "Unavailable" : String(h.queue) },
         { label: "Status", value: h.status },
       ],
       detectionsHref,

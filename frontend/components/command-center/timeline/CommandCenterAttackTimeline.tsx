@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import {
   AlertOctagon,
   CheckCircle2,
+  Circle,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -11,10 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  ATTACK_TIMELINE,
-  type AttackTimelineStep,
-} from "../prototype/liveRounds";
+import type { AttackTimelineStep } from "../prototype/liveRounds";
 
 export function CommandCenterAttackTimeline({
   currentRoundIdx,
@@ -27,11 +25,8 @@ export function CommandCenterAttackTimeline({
   onSelectStep?: (step: AttackTimelineStep, idx: number) => void;
   className?: string;
 }) {
-  const steps = useMemo(
-    () => (timeline && timeline.length > 0 ? timeline : ATTACK_TIMELINE),
-    [timeline]
-  );
-  const activeStep = steps[currentRoundIdx] ?? steps[0]!;
+  const steps = useMemo(() => timeline ?? [], [timeline]);
+  const activeStep = steps[currentRoundIdx] ?? steps[0];
   const scrollerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -65,6 +60,8 @@ export function CommandCenterAttackTimeline({
         return <ShieldCheck className="h-3 w-3 text-emerald-500" />;
       case "suspicious":
         return <Clock className="h-3 w-3 text-amber-500" />;
+      case "unknown":
+        return <Circle className="h-3 w-3 text-muted-foreground" />;
       default:
         return <CheckCircle2 className="h-3 w-3 text-sky-400" />;
     }
@@ -87,7 +84,7 @@ export function CommandCenterAttackTimeline({
     <div
       aria-label="Attack and Containment Timeline"
       className={cn(
-        "flex flex-col rounded-xl border border-border bg-card/40 p-4 transition-colors",
+        "flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 transition-colors shadow-2xs",
         className
       )}
     >
@@ -98,7 +95,7 @@ export function CommandCenterAttackTimeline({
             ATTACK & CONTAINMENT TIMELINE
           </span>
           <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-foreground">
-            STEP {currentRoundIdx + 1} OF {steps.length}
+            {steps.length > 0 ? `STEP ${currentRoundIdx + 1} OF ${steps.length}` : "NO EVENT RECORDS"}
           </span>
           {/* Horizontal scroll affordance buttons */}
           <div className="flex items-center gap-1 ml-1">
@@ -140,7 +137,11 @@ export function CommandCenterAttackTimeline({
         ref={scrollerRef}
         className="flex gap-2.5 overflow-x-auto p-1.5 pb-2 scroll-smooth [scrollbar-width:thin]"
       >
-        {steps.map((step, idx) => {
+        {steps.length === 0 ? (
+          <p className="w-full py-8 text-center font-mono text-xs text-muted-foreground">
+            No backend timeline events are available for this session.
+          </p>
+        ) : steps.map((step, idx) => {
           const isCurrent = idx === currentRoundIdx;
           const isPast = idx < currentRoundIdx;
 
@@ -214,7 +215,7 @@ export function CommandCenterAttackTimeline({
       </div>
 
       {/* Active step readout banner */}
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 font-mono text-[11px]">
+      {activeStep ? <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 font-mono text-[11px]">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-foreground uppercase">
             ACTIVE [{activeStep.label}]
@@ -242,7 +243,7 @@ export function CommandCenterAttackTimeline({
             {activeStep.actionTaken}
           </span>
         </div>
-      </div>
+      </div> : null}
     </div>
   );
 }
