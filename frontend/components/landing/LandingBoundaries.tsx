@@ -4,41 +4,40 @@ import Link from "next/link";
 import { ArrowRight, Braces, Cable, Server, Cpu, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
-import { demoHref } from "@/lib/demoRoutes";
 
 const BOUNDARIES = [
   {
     icon: Server,
-    tag: "Proxy integration",
+    tag: "Proxy Layer",
     name: "LLM Provider Reverse Proxy",
     protocol: "HTTP / SSE Streaming Proxy",
-    timing: "Boundary: provider request and response path",
+    timing: "Intercepts request & response streaming tokens",
     detail:
-      "Configure a supported provider path through the proxy and verify the deployed policy behavior. Provider credentials and connectivity must be configured for your environment.",
-    action: "Explore Guard Controls",
-    href: demoHref("guard"),
+      "Inspect inbound prompts, system instructions, and streaming completions in real time. Enforce latency-neutral guardrails before responses reach your agent runtime.",
+    action: "View Proxy Architecture",
+    href: "#integrations",
   },
   {
     icon: Braces,
-    tag: "SDK integration",
-    name: "Python & TypeScript SDK Wrappers",
+    tag: "Native SDKs",
+    name: "Python & TypeScript Client Wrappers",
     protocol: "pip install artsa · npm i @artsa/sdk",
-    timing: "Tool boundary: In-memory argument & return validation",
+    timing: "Deterministic sub-10ms in-memory inspection",
     detail:
-      "Python and TypeScript clients expose tool-call evaluation methods. Your agent runtime must keep the actual tool execution behind the returned decision; callback integrations may be observational.",
+      "Wrap tool executions with lightweight, deterministic client decorators. Intercept tool arguments and sanitize returned tool outputs with zero network hops when running locally.",
     action: "Read SDK Quickstart",
-    href: "/get-started",
+    href: "#integrations",
   },
   {
     icon: Cable,
-    tag: "Bounded MCP support",
+    tag: "Protocol Level",
     name: "Model Context Protocol (MCP)",
-    protocol: "Stdio wrapper and scoped HTTP paths",
-    timing: "Boundary behavior depends on transport",
+    protocol: "Stdio Wrapper & Scoped SSE Endpoints",
+    timing: "Protocol-level tool call mediation",
     detail:
-      "The local stdio wrapper can mediate a configured server. HTTP inspection is detect-only, and managed GitHub HTTP support is limited to its catalog; arbitrary third-party HTTP forwarding is not a live capability.",
+      "Mediate third-party tools and data sources exposed through Anthropic's Model Context Protocol. Enforce strict parameter schemas and prevent unvetted server command escalation.",
     action: "View MCP Setup",
-    href: "/get-started",
+    href: "#integrations",
   },
 ] as const;
 
@@ -61,7 +60,7 @@ export function LandingBoundaries() {
             Attach Where Your Agents Actually Execute
           </h2>
           <p className="mt-4 text-base text-slate-600 sm:text-lg">
-            ARTSA exposes several integration boundaries. Confirm the behavior for your selected SDK, provider, transport, and runtime before relying on enforcement.
+            Deploy runtime security at the network proxy, in-memory SDK wrapper, or Model Context Protocol boundary.
           </p>
         </motion.div>
 

@@ -5,18 +5,16 @@ import Link from "next/link";
 import { Menu, X, Calendar } from "lucide-react";
 import Logo from "@/components/shared/Logo";
 import { cn } from "@/lib/utils";
-import { demoHref } from "@/lib/demoRoutes";
 import { LandingSignInButton } from "./LandingSignInButton";
 import { LandingContactSalesButton } from "./LandingContactSalesButton";
 
 const NAV = [
-  { href: "#simulator", label: "Threat Detection" },
+  { href: "#challenge", label: "Threat Landscape" },
   { href: "#solution", label: "Platform" },
   { href: "#swarm-defense", label: "Swarm Defense" },
-  { href: "#features", label: "Capabilities" },
   { href: "#integrations", label: "Integrations" },
-  { href: "#compare", label: "Why ARTSA" },
   { href: "#pricing", label: "Pricing" },
+  { href: "#faq", label: "FAQ" },
 ] as const;
 
 export function LandingNav() {
@@ -42,7 +40,7 @@ export function LandingNav() {
           <Logo iconSize={22} />
         </Link>
 
-        <nav className="hidden items-center gap-6 xl:gap-7 lg:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-6 xl:gap-8 lg:flex" aria-label="Primary">
           {NAV.map((item) => (
             <Link
               key={item.href}
@@ -55,22 +53,24 @@ export function LandingNav() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <Link
-            href={demoHref("guard")}
-            className="text-xs font-mono font-medium text-slate-600 transition hover:text-slate-900"
-          >
-            Live sandbox
-          </Link>
           <LandingSignInButton variant="ghost" size="sm" className="font-mono text-xs text-slate-600 hover:text-slate-900">
             Sign in
+          </LandingSignInButton>
+          <LandingSignInButton
+            variant="ghost"
+            size="sm"
+            className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-xs font-mono font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            signInOptions={{ returnTo: "/command-center", mode: "register" }}
+          >
+            Get started free
           </LandingSignInButton>
           <LandingContactSalesButton
             variant="ghost"
             size="sm"
-            className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-xs font-mono font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3.5 py-2 text-xs font-mono font-semibold text-slate-800 shadow-xs transition hover:bg-slate-50 hover:border-slate-400"
           >
             <Calendar className="h-3.5 w-3.5" />
-            Schedule a demo
+            Book demo
           </LandingContactSalesButton>
         </div>
 
@@ -104,17 +104,16 @@ export function LandingNav() {
             ))}
           </nav>
           <div className="mt-5 flex flex-col gap-2.5 border-t border-slate-100 pt-4">
-            <Link
-              href={demoHref("guard")}
-              className="w-full text-center rounded-full border border-slate-300 bg-white py-2.5 text-xs font-mono font-medium text-slate-800 shadow-sm hover:bg-slate-50"
-              onClick={() => setOpen(false)}
+            <LandingSignInButton
+              variant="ghost"
+              className="w-full text-center rounded-full bg-blue-600 py-2.5 text-xs font-mono font-semibold text-white shadow-sm hover:bg-blue-700"
+              signInOptions={{ returnTo: "/command-center", mode: "register" }}
             >
-              Explore sample sandbox
-            </Link>
+              Get started free
+            </LandingSignInButton>
             <LandingContactSalesButton
               variant="ghost"
-              className="w-full text-center rounded-full bg-blue-600 py-2.5 text-xs font-mono font-semibold text-white shadow-sm hover:bg-blue-700 gap-1.5"
-              onClick={() => setOpen(false)}
+              className="w-full text-center rounded-full border border-slate-300 bg-white py-2.5 text-xs font-mono font-semibold text-slate-800 shadow-sm hover:bg-slate-50 gap-1.5"
             >
               <Calendar className="h-3.5 w-3.5" />
               Schedule a demo

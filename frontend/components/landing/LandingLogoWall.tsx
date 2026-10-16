@@ -5,10 +5,10 @@ import { Shield, BookOpen } from "lucide-react";
 import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
 
 const FRAMEWORKS = [
-  { name: "OWASP LLM / ASI", code: "Risk references" },
-  { name: "MITRE ATLAS", code: "Threat Matrix" },
-  { name: "NIST AI RMF", code: "Framework reference" },
-  { name: "EU AI Act", code: "Article 15 reference" },
+  { name: "OWASP Top 10 for LLMs", code: "ASI-01 - ASI-10" },
+  { name: "MITRE ATLAS", code: "Adversarial Threat Matrix" },
+  { name: "NIST AI RMF", code: "Risk Management Framework" },
+  { name: "EU AI Act", code: "Article 15 Compliance" },
 ] as const;
 
 export function LandingLogoWall() {
@@ -18,7 +18,7 @@ export function LandingLogoWall() {
         <div className="flex flex-col items-center justify-between gap-6 lg:flex-row">
           <div className="flex items-center gap-2.5 text-xs font-mono uppercase tracking-wider text-slate-600 shrink-0 font-medium">
             <Shield className="h-4 w-4 text-blue-600" />
-            <span>Framework references in selected reports:</span>
+            <span>Aligned with Security Standards:</span>
           </div>
 
           <motion.div

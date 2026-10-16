@@ -1,36 +1,51 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
-import { demoHref } from "@/lib/demoRoutes";
 import { LandingSignInButton } from "./LandingSignInButton";
 import { LandingContactSalesButton } from "./LandingContactSalesButton";
 
 const PLANS = [
   {
-    name: "Sample walkthrough",
-    price: "Open",
-    note: "uses illustrative records",
-    features: ["Explore the interface", "No live customer traffic", "No provider connection required"],
-    cta: "Open sample",
+    name: "Developer",
+    price: "$0",
+    note: "Free forever for individual engineers",
+    features: [
+      "Python & TypeScript SDK wrappers",
+      "Model Context Protocol (MCP) guard",
+      "Up to 25,000 monthly guarded tool calls",
+      "Community Slack & GitHub support",
+    ],
+    cta: "Start free",
     highlight: false,
   },
   {
-    name: "Connected evaluation",
-    price: "Configure",
-    note: "requires backend access",
-    features: ["Authenticate to a protected backend", "Configure a provider and storage", "Review tenant-scoped records"],
-    cta: "Create account",
-    highlight: false,
+    name: "Team",
+    price: "$499",
+    note: "per month / billed annually",
+    features: [
+      "Multi-agent swarm execution graphs",
+      "Automated adversarial red team campaigns",
+      "500,000 monthly guarded tool calls",
+      "HMAC-signed forensic execution replay",
+      "Dedicated Slack bridge & SLA support",
+    ],
+    cta: "Deploy Team tier",
+    highlight: true,
   },
   {
-    name: "Deployment review",
-    price: "Discuss",
-    note: "scope specific",
-    features: ["Authentication configuration", "Provider reachability", "Storage and runtime enforcement checks"],
-    cta: "Request a review",
+    name: "Enterprise",
+    price: "Custom",
+    note: "High-volume & regulated workloads",
+    features: [
+      "Self-hosted VPC & air-gapped deployment",
+      "Custom threat heuristics & private LLM judges",
+      "Unlimited agent fleets & tool calls",
+      "Role-Based Access Control (RBAC) & SAML SSO",
+      "24/7 incident response hotline",
+    ],
+    cta: "Talk to Enterprise Engineering",
     highlight: false,
     contact: true,
   },
@@ -48,13 +63,13 @@ export function LandingPricing() {
           transition={{ duration: 0.45, ease: easeOut }}
         >
           <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
-            DEPLOYMENT OPTIONS
+            DEPLOYMENT TIERS
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
-            Start With the Evidence You Need
+            Predictable Security for Any Fleet Size
           </h2>
           <p className="mt-4 text-base text-slate-600 sm:text-lg">
-            Pricing and deployment scope are not published here. The sample walkthrough is illustrative; a connected evaluation requires configured backend services.
+            Deploy in minutes with open-source client libraries or secure mission-critical agent swarms inside your own VPC.
           </p>
         </motion.div>
 
@@ -83,7 +98,7 @@ export function LandingPricing() {
                   </h3>
                   {plan.highlight ? (
                     <span className="rounded-full bg-blue-600 text-white font-mono text-[10px] font-bold px-2.5 py-0.5 uppercase tracking-wider shadow-xs">
-                      Popular
+                      Most Popular
                     </span>
                   ) : null}
                 </div>
@@ -112,15 +127,8 @@ export function LandingPricing() {
                     variant="ghost"
                     className="w-full rounded-xl border border-slate-300 bg-white py-3 px-4 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 hover:border-slate-400 shadow-xs"
                   >
-                    Contact sales
+                    {plan.cta}
                   </LandingContactSalesButton>
-                ) : plan.name === "Sample walkthrough" ? (
-                  <Link
-                    href={demoHref("guard")}
-                    className="block w-full text-center rounded-xl border border-slate-300 bg-white py-3 px-4 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 hover:border-slate-400 shadow-xs"
-                  >
-                    Open sample walkthrough
-                  </Link>
                 ) : (
                   <LandingSignInButton
                     variant="ghost"

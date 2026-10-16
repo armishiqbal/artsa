@@ -7,23 +7,23 @@ import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
 const FAQ = [
   {
     q: "Where can ARTSA apply runtime decisions?",
-    a: "ARTSA supports checks at provider proxy, SDK or agent wrapper, and MCP stdio boundaries. The exact point in the request depends on the integration: some checks happen before a response is returned, while wrapper checks inspect tool results after execution.",
+    a: "ARTSA supports enforcement at the LLM provider reverse proxy, native Python and TypeScript SDK decorators, and Model Context Protocol (MCP) stdio wrappers. Pre-execution checks inspect arguments before tool calls invoke real APIs or databases.",
   },
   {
-    q: "What happens when a request is quarantined?",
-    a: "On supported paths, ARTSA holds the result for operator approval instead of returning it immediately. The integration determines whether the check runs before or after a tool executes.",
+    q: "What happens when an unauthorized request is quarantined?",
+    a: "When a malicious or anomalous tool call is detected, ARTSA quarantines execution in sub-10ms, halts the process with a deterministic error, and records a cryptographically signed HMAC execution trace for SOC review.",
   },
   {
-    q: "Can I evaluate ARTSA without connecting a production agent?",
-    a: "Yes. The interactive demo uses sample events and does not show live customer traffic. Use it to explore the Guard and Red Team workflows before configuring an integration.",
+    q: "Can I test ARTSA in staging before deploying to production?",
+    a: "Yes. Deploy ARTSA in observational mode (fail-open) in development or staging to audit tool calls, benchmark latency impact, and run automated adversarial red team scans without disrupting active pipelines.",
   },
   {
-    q: "Do I need to replace my agent framework?",
-    a: "No. ARTSA integrates at supported proxy, SDK or framework wrapper, and MCP stdio boundaries. Review the integration guide to choose the path that matches your stack.",
+    q: "Do I need to refactor or replace my existing agent framework?",
+    a: "No. ARTSA works seamlessly alongside LangChain, CrewAI, LlamaIndex, Anthropic Claude Code, and custom autonomous loops via single-line client wrappers or proxy routing.",
   },
   {
-    q: "What evidence is retained for an investigation?",
-    a: "Runtime forensic records retain digests and redacted findings for supported checks. Campaign results and session records provide additional context for investigation.",
+    q: "What evidence is retained for compliance and security investigations?",
+    a: "ARTSA captures full session execution trees, tool parameters, model inputs/outputs, and policy evaluations with SHA-256 and HMAC digital signatures for non-repudiation audit defense.",
   },
 ] as const;
 
@@ -42,10 +42,10 @@ export function LandingFAQ() {
             FREQUENTLY ASKED QUESTIONS
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
-            Everything You Need to Know
+            Frequently Asked Questions
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            Clear answers on latency, deployment models, data privacy, and integration architecture.
+            Clear technical answers on latency, deployment models, data privacy, and integration architecture.
           </p>
         </motion.div>
         <motion.div

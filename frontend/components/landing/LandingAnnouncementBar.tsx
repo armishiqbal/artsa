@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { X, ArrowRight } from "lucide-react";
-import { demoHref } from "@/lib/demoRoutes";
 
 export function LandingAnnouncementBar() {
   const [dismissed, setDismissed] = useState(false);
@@ -13,15 +12,17 @@ export function LandingAnnouncementBar() {
     <div className="relative z-[60] border-b border-blue-200/60 bg-gradient-to-r from-blue-50 via-indigo-50/70 to-blue-50 py-2.5 text-xs font-mono text-slate-700">
       <div className="lp-shell relative flex items-center justify-center text-center">
         <Link
-          href={demoHref("guard")}
+          href="#integrations"
           className="inline-flex items-center gap-2 font-medium transition hover:text-blue-700 pr-8"
         >
           <span className="rounded-full bg-blue-600 text-white px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider shadow-sm">
-            SAMPLE SANDBOX
+            REPORT
           </span>
-          <span className="hidden sm:inline">Explore a walkthrough with illustrative records; it does not show live customer data.</span>
+          <span className="hidden sm:inline">
+            40% of deployed agents operate with unreviewed tool permissions. Read the 2026 Agent Security Playbook.
+          </span>
           <span className="underline underline-offset-4 flex items-center gap-1 text-blue-700 font-semibold">
-            Open the sample walkthrough <ArrowRight className="h-3 w-3" />
+            Read playbook <ArrowRight className="h-3 w-3" />
           </span>
         </Link>
         <button

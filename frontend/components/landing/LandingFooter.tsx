@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Logo from "@/components/shared/Logo";
-import { demoHref } from "@/lib/demoRoutes";
 import { LandingSignInLink } from "./LandingSignInLink";
 import { LandingContactSalesButton } from "./LandingContactSalesButton";
 
@@ -10,39 +9,39 @@ const COLS = [
   {
     title: "Platform",
     links: [
-      { href: demoHref("guard"), label: "Threat Detection (ITDR)" },
-      { href: demoHref("redteam"), label: "Red Team Engine" },
-      { href: demoHref("command"), label: "Command Center" },
-      { href: demoHref("findings"), label: "Findings & Audit" },
-      { href: demoHref("replay"), label: "Session Autopsy" },
+      { href: "#solution", label: "Threat Detection (ITDR)" },
+      { href: "#solution", label: "Red Team Engine" },
+      { href: "/command-center", label: "Command Center" },
+      { href: "#solution", label: "Findings & Audit" },
+      { href: "#swarm-defense", label: "Swarm Contagion Defense" },
     ],
   },
   {
     title: "Security & ASPM",
     links: [
-      { href: "/#simulator", label: "Interactive Console" },
-      { href: "/#swarm-defense", label: "Swarm Contagion Defense" },
-      { href: "/#integrations", label: "Runtime Boundaries" },
+      { href: "#swarm-defense", label: "Multi-Agent Swarm Defense" },
+      { href: "#integrations", label: "Runtime Boundaries" },
       { href: "/risks", label: "OWASP ASI01-10 Matrix" },
       { href: "/guides/rag-astra", label: "RAG Pipeline Security" },
+      { href: "#integrations", label: "Model Context Protocol (MCP)" },
     ],
   },
   {
-    title: "Resources",
+    title: "Developers",
     links: [
-      { href: "/get-started", label: "Documentation & SDK" },
-      { href: "/demo", label: "Sample Walkthrough" },
-      { href: "/#compare", label: "Why ARTSA (Comparison)" },
-      { href: "/#faq", label: "Frequently Asked Questions" },
+      { href: "/get-started", label: "Documentation & SDKs" },
+      { href: "#integrations", label: "Python & TypeScript Clients" },
+      { href: "#pricing", label: "Pricing & Plans" },
+      { href: "#faq", label: "Frequently Asked Questions" },
     ],
   },
   {
     title: "Enterprise",
     links: [
-      { href: "/#contact", label: "Schedule Demo" },
+      { href: "#contact", label: "Schedule Architecture Demo" },
       { href: "/login", label: "Customer Portal" },
-      { href: "/signup", label: "Create Account" },
-      { href: "/#pricing", label: "Pricing & Plans" },
+      { href: "/signup", label: "Create Developer Account" },
+      { href: "#pricing", label: "Deployment Tiers" },
     ],
   },
 ] as const;
@@ -55,7 +54,7 @@ export function LandingFooter() {
           <div className="lg:col-span-1">
             <Logo iconSize={22} />
             <p className="mt-4 text-xs leading-relaxed text-slate-500 max-w-xs font-mono">
-              The unified security platform for enterprise AI agents, SaaS integrations, and autonomous swarms.
+              The unified security platform for enterprise AI agents, multi-agent swarms, and MCP tools.
             </p>
             <LandingContactSalesButton
               variant="ghost"
@@ -63,9 +62,6 @@ export function LandingFooter() {
             >
               Schedule a demo
             </LandingContactSalesButton>
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-amber-50 px-2.5 py-1 text-[11px] font-mono text-amber-900">
-              <span>Public walkthrough uses illustrative sample records.</span>
-            </div>
           </div>
           {COLS.map((col) => (
             <div key={col.title}>
@@ -88,9 +84,9 @@ export function LandingFooter() {
           ))}
         </div>
         <div className="mt-14 flex flex-col gap-3 border-t border-slate-200/80 pt-8 text-xs font-mono text-slate-500 sm:flex-row sm:justify-between items-center">
-          <p>© {new Date().getFullYear()} ARTSA.</p>
+          <p>© {new Date().getFullYear()} ARTSA. All rights reserved.</p>
           <div className="flex items-center gap-6">
-            <span className="text-slate-500">Framework references do not imply certification.</span>
+            <span className="text-slate-500">Framework references: OWASP LLM/ASI, MITRE ATLAS, NIST AI RMF.</span>
             <LandingSignInLink className="text-blue-600 font-semibold hover:underline">
               Portal Sign In
             </LandingSignInLink>

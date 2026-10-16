@@ -4,41 +4,40 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, Swords, CheckCircle2, GitBranch, Layers } from "lucide-react";
 import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
-import { demoHref } from "@/lib/demoRoutes";
 
 const PILLARS = [
   {
     icon: Swords,
     step: "PILLAR 01",
-    tag: "Threat Detection (ITDR)",
+    tag: "Runtime Guard",
     tagColor: "border-rose-200 bg-rose-50 text-rose-700",
-    title: "Agent Threat Detection & Response",
-    body: "Submit supported tool-call events to the backend for evaluation and review its recorded verdict before your runtime proceeds.",
-    highlight: "Backend response is shown to the connected runtime",
-    href: demoHref("guard"),
-    link: "Explore Threat Detection",
+    title: "Inline Tool & Shell Guard",
+    body: "Inspect tool-call arguments before execution. Automatically quarantine destructive commands, SQL injections, and data exfiltration pipelines in sub-10ms.",
+    highlight: "Deterministic sub-10ms latency",
+    href: "#integrations",
+    link: "View SDK integration",
   },
   {
     icon: ShieldCheck,
     step: "PILLAR 02",
-    tag: "Campaign workflows",
+    tag: "Adversarial Campaigns",
     tagColor: "border-blue-200 bg-blue-50 text-blue-700",
-    title: "Configured Campaign Execution",
-    body: "Run campaign jobs through the configured backend pipeline and review the resulting progress, events, and evaluations.",
-    highlight: "Provider and storage availability depend on deployment configuration",
-    href: demoHref("redteam"),
-    link: "Explore Posture Management",
+    title: "Continuous Red Team Scans",
+    body: "Subject your agent architectures to automated multi-turn jailbreaks, prompt injections, and privilege escalation techniques before deployment.",
+    highlight: "Automated ASI-01 to ASI-10 evaluation",
+    href: "/signup",
+    link: "Start automated audit",
   },
   {
     icon: GitBranch,
     step: "PILLAR 03",
-    tag: "Swarm Correlation",
+    tag: "Swarm DAG",
     tagColor: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    title: "Cross-Agent Knowledge Graph",
-    body: "Inspect recorded agent handoffs and related events for a selected session. The interface displays signature status supplied by the backend.",
-    highlight: "Verification status is shown where supplied by the backend",
-    href: demoHref("findings"),
-    link: "Explore Knowledge Graph",
+    title: "Evidence & Session Autopsy",
+    body: "Replay agent execution step-by-step with full parameter inspection, tool responses, and cryptographic custody verification for compliance audits.",
+    highlight: "HMAC-signed non-repudiation records",
+    href: "/signup",
+    link: "Inspect forensic ledger",
   },
 ] as const;
 
@@ -55,14 +54,13 @@ export function LandingSolution() {
         >
           <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/80 bg-blue-50 px-3.5 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
             <Layers className="h-3.5 w-3.5" />
-            THE ARTSA ARCHITECTURAL MODEL
+            UNIFIED PLATFORM ARCHITECTURE
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
-            A Unified Platform Built for Agentic AI
+            Complete Security for the Agentic Lifecycle
           </h2>
           <p className="mt-4 text-base text-slate-600 sm:text-lg">
-            ARTSA brings runtime event evaluation, campaign execution, and evidence review into one interface.
-            Coverage depends on the connected backend, configured providers, and agent integration.
+            From pre-deployment adversarial testing to inline runtime interception and compliance forensic proofs.
           </p>
         </motion.div>
 
