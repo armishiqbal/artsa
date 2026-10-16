@@ -29,7 +29,7 @@ interface AuthGuardProps {
 
 /**
  * Client-side navigation guard for operational pages. Backend authorization
- * remains the security boundary; public product demonstrations live at /demo.
+ * remains the security boundary; public entry points include / and /signup.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();

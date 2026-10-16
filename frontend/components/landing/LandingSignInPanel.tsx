@@ -321,9 +321,9 @@ export function LandingSignInPanel({
 
               <div className="mt-5 w-full">
                 <p className="mb-2 text-center text-xs text-slate-500">
-                  Sign in requires a running ARTSA API. Public product tour:{" "}
-                  <Link href="/demo" className="font-semibold text-blue-600 underline-offset-4 hover:underline">
-                    /demo
+                  New deployment?{" "}
+                  <Link href="/signup" className="font-semibold text-blue-600 underline-offset-4 hover:underline" onClick={onClose}>
+                    Create workspace
                   </Link>
                 </p>
               </div>
@@ -332,7 +332,7 @@ export function LandingSignInPanel({
 
               {onContactSales ? (
                 <p className="mt-4 text-center text-xs text-slate-500">
-                  Need a demo instead?{" "}
+                  Evaluating for your enterprise?{" "}
                   <button
                     type="button"
                     className="font-semibold text-blue-600 underline-offset-4 hover:underline"
@@ -341,7 +341,7 @@ export function LandingSignInPanel({
                       onContactSales();
                     }}
                   >
-                    Contact sales
+                    Schedule architecture review
                   </button>
                 </p>
               ) : null}

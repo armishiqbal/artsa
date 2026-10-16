@@ -27,9 +27,10 @@ const PERKS = [
 export function LandingContactSection() {
   return (
     <section
-      id="contact"
+      id="contact-sales"
       className="lp-section scroll-mt-24 border-t border-slate-200/80 bg-white py-20 sm:py-28"
     >
+      <div id="contact" className="sr-only" />
       <div className="lp-shell">
         <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16">
           <motion.div
