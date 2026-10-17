@@ -39,6 +39,9 @@ import { selectPlaygroundProviderId } from "@/lib/playgroundProviderSelection";
 import { useProjectsStore } from "@/lib/stores/projects";
 import { useDashboardMetrics } from "@/lib/hooks/useDashboardMetrics";
 import { cn } from "@/lib/utils";
+import { ADVERSARIAL_PRESETS, type AdversarialPreset } from "@/lib/playgroundAdversarialPresets";
+import { AdversarialDetonationView } from "@/components/playground/AdversarialDetonationView";
+import { PromoteToPolicyModal } from "@/components/playground/PromoteToPolicyModal";
 
 type Provider = { id: string; name: string; provider_type: string; default_model?: string | null; enabled?: boolean };
 type Template = { id: string; name: string; category?: string; description?: string };
@@ -428,6 +431,8 @@ export default function SecurityPlaygroundPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [runs, setRuns] = useState<GuardRun[]>([]);
   const [lastChatPrompt, setLastChatPrompt] = useState("");
+  const [activePreset, setActivePreset] = useState<AdversarialPreset | null>(null);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const activeAssistantRef = useRef<string | null>(null);
   const activeRunRef = useRef<string | null>(null);
@@ -521,7 +526,15 @@ export default function SecurityPlaygroundPage() {
   }, [attackLibrary, threatCategories]);
 
   const featuredExamples = useMemo<PromptExample[]>(
-    () => EXAMPLE_CARDS.map((example) => ({ ...example, categoryCode: undefined })),
+    () =>
+      ADVERSARIAL_PRESETS.map((p) => ({
+        id: p.id,
+        title: p.title,
+        category: p.category,
+        categoryCode: p.categoryCode,
+        description: p.description,
+        content: p.prompt,
+      })),
     []
   );
 
@@ -552,6 +565,8 @@ export default function SecurityPlaygroundPage() {
   const chooseExample = (example: PromptExample) => {
     setContent(example.content);
     setTemplateId("");
+    const matched = ADVERSARIAL_PRESETS.find((p) => p.id === example.id || p.prompt === example.content);
+    setActivePreset(matched ?? null);
   };
 
   const beginRun = (submitted: string, runId = crypto.randomUUID(), defaultNature?: RunNature) => {
@@ -1405,7 +1420,7 @@ export default function SecurityPlaygroundPage() {
                     <h3 className="text-sm font-semibold text-foreground">Featured Attack Scenarios</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">Choose a real-world adversarial prompt to screen against ARTSA Guard.</p>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {featuredExamples.map((example) => (
                       <button
                         key={example.id}
@@ -1419,14 +1434,21 @@ export default function SecurityPlaygroundPage() {
                         className="group flex flex-col justify-between rounded-xl border border-border/80 bg-card p-4 text-left transition-all duration-150 hover:border-foreground/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                       >
                         <div>
-                          <span className={cn("inline-block rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider border", categoryClass(example.category))}>
-                            {example.category}
-                          </span>
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className={cn("inline-block rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider border", categoryClass(example.category))}>
+                              {example.category}
+                            </span>
+                            {example.categoryCode && (
+                              <span className="font-mono text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {example.categoryCode}
+                              </span>
+                            )}
+                          </div>
                           <h4 className="mt-2.5 text-sm font-medium text-foreground">{example.title}</h4>
                           <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{example.content}</p>
                         </div>
-                        <span className="mt-4 text-xs font-semibold text-primary transition-colors group-hover:underline">
-                          Use this example →
+                        <span className="mt-4 text-xs font-semibold text-primary transition-colors group-hover:underline flex items-center justify-between">
+                          <span>Detonate Probe →</span>
                         </span>
                       </button>
                     ))}
@@ -1534,11 +1556,44 @@ export default function SecurityPlaygroundPage() {
               {/* Horizontal Divider Line */}
               <div className="border-t border-border/60" />
 
-              {/* Guard Results Section (Screenshot 2) */}
-              <div className="flex min-h-[320px] flex-1 flex-col space-y-3.5 p-5 sm:p-6 lg:p-7">
-                <h2 className="text-sm sm:text-base font-semibold text-foreground">Guard Results</h2>
-                <div className="flex min-h-0 flex-1 flex-col">
+              {/* Guard Results & Adversarial Detonation Section */}
+              <div className="flex min-h-[320px] flex-1 flex-col space-y-4 p-5 sm:p-6 lg:p-7">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm sm:text-base font-semibold text-foreground">
+                    Guard Results &amp; Detonation
+                  </h2>
+                  {runs[0]?.assessment && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowPromoteModal(true)}
+                      className="h-7 text-xs gap-1.5 border-slate-300 text-slate-800 hover:bg-slate-100 shadow-2xs"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-sky-600" />
+                      Deploy Defense Patch
+                    </Button>
+                  )}
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col space-y-4">
                   <GuardResultsTable assessment={runs[0]?.assessment} />
+
+                  {(content.trim() || runs.length > 0 || activePreset) && (
+                    <AdversarialDetonationView
+                      prompt={content.trim() || runs[0]?.promptPreview || activePreset?.prompt || ""}
+                      preset={activePreset}
+                      assessmentAction={runs[0]?.assessment?.action as "BLOCK" | "ALLOW" | "QUARANTINE" | undefined}
+                      confidence={
+                        runs[0]?.assessment?.categories.find((c) => c.status === "detected")?.confidence
+                          ? Math.round((runs[0].assessment.categories.find((c) => c.status === "detected")?.confidence ?? 0) * 100)
+                          : 94
+                      }
+                      latencyMs={18}
+                      onPromotePolicy={(p) => {
+                        setActivePreset(p);
+                        setShowPromoteModal(true);
+                      }}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1968,6 +2023,13 @@ export default function SecurityPlaygroundPage() {
           </div>
         </aside>
       </div>
+
+      <PromoteToPolicyModal
+        isOpen={showPromoteModal}
+        onClose={() => setShowPromoteModal(false)}
+        preset={activePreset}
+        customPrompt={content}
+      />
     </div>
   );
 }
