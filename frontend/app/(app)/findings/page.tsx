@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { useFindings } from "@/lib/hooks/useFindings";
 import { useAppData } from "@/lib/context/AppDataProvider";
 import type { ExtendedFinding } from "@/lib/types/findings";
+import { DEMO_BENCHMARK_FINDINGS } from "@/lib/findingsDemoData";
+import { Sparkles, Radio, ShieldCheck as ShieldCheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function FindingsPage() {
@@ -29,11 +31,13 @@ export default function FindingsPage() {
   const [selected, setSelected] = useState<ExtendedFinding | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"workbench" | "table">("workbench");
+  const [datasetMode, setDatasetMode] = useState<"auto" | "live" | "demo">("auto");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Operational findings come only from the backend. Missing optional fields
-  // stay unknown instead of being filled with a fictional production record.
-  const effectiveFindings: ExtendedFinding[] = rawFindings;
+  // When operational telemetry has 0 records, automatically provide the labeled
+  // Pre-Flight Intelligence Benchmark so operators have immediate domain visibility.
+  const isViewingDemo = datasetMode === "demo" || (datasetMode === "auto" && rawFindings.length === 0);
+  const effectiveFindings: ExtendedFinding[] = isViewingDemo ? DEMO_BENCHMARK_FINDINGS : rawFindings;
 
   // Filtered by selected threat category in Attack Matrix
   const categoryFilteredFindings = useMemo(() => {
@@ -140,7 +144,39 @@ export default function FindingsPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {/* View Switcher */}
+            {/* Dataset Mode Switcher: Pre-Flight Benchmark vs Live Telemetry */}
+            <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setDatasetMode("demo")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                  isViewingDemo
+                    ? "bg-blue-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                )}
+                title="View 5 pre-flight intelligence scenarios across OWASP ASI01-ASI10 & MITRE ATLAS"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Benchmark Suite (5)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatasetMode("live")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                  !isViewingDemo
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                )}
+                title="View live operational findings recorded by the backend sensor database"
+              >
+                <Radio className="h-3 w-3" />
+                Live Telemetry ({rawFindings.length})
+              </button>
+            </div>
+
+            {/* View Switcher: Workbench vs Table */}
             <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
               <button
                 type="button"
@@ -191,6 +227,60 @@ export default function FindingsPage() {
           </div>
         }
       />
+
+      {/* Demonstration Benchmark Guidance Banner */}
+      {isViewingDemo && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3.5 shadow-2xs">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Pre-Flight Threat Intelligence Benchmark · Labeled Demonstration Suite
+                </span>
+                <span className="rounded bg-blue-200/80 px-1.5 py-0.2 font-mono text-[10px] font-bold text-blue-900">
+                  OWASP ASI &amp; MITRE ATLAS
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-blue-800 leading-relaxed font-sans">
+                {rawFindings.length === 0
+                  ? "Zero live breach telemetry recorded in the operational database. Displaying 5 pre-flight adversarial vectors covering prompt extraction, tool metadata SSRF, RAG data poisoning, SQL table exfiltration, and cascading failures."
+                  : "Reviewing pre-flight intelligence benchmark scenarios. Switch to Live Telemetry to inspect active operational findings."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <Button asChild size="sm" className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs">
+              <Link href="/red-team/lab">
+                <ShieldPlus className="h-3.5 w-3.5" />
+                Run Campaign in Lab
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Zero Live Breaches Notification when user manually switches to Live with empty database */}
+      {!isViewingDemo && rawFindings.length === 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-center space-y-3 shadow-2xs">
+          <ShieldCheckIcon className="mx-auto h-8 w-8 text-emerald-600" />
+          <h3 className="font-bold text-slate-900 text-sm">No Live Breaches Recorded</h3>
+          <p className="text-xs text-slate-600 max-w-md mx-auto">
+            The operational sensor database contains zero active breach findings. Your targets and agents are currently protected by active playbook policies.
+          </p>
+          <div className="flex justify-center gap-2 pt-1">
+            <Button size="sm" onClick={() => setDatasetMode("demo")} className="bg-blue-600 text-white text-xs h-8">
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              Explore Pre-Flight Threat Benchmark
+            </Button>
+            <Button asChild size="sm" variant="outline" className="text-xs h-8">
+              <Link href="/red-team/lab">Launch Simulation</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Top Executive KPI Ribbon */}
       <FindingsSummaryBar

@@ -337,6 +337,24 @@ export function FindingWorkbenchView({
                       </p>
                     </div>
                   )}
+
+                  {/* Immediate Action: Promote to Defense Policy */}
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-amber-500" />
+                      <span className="font-mono text-xs font-semibold text-slate-800">
+                        {active.promoted_rule_name ? `Active Rule: ${active.promoted_rule_name}` : "Ready for Playbook Promotion"}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setActiveTab("hotpatch")}
+                      className="h-7 bg-slate-900 text-white font-mono text-xs gap-1.5 hover:bg-slate-800 shadow-xs"
+                    >
+                      <Zap className="h-3 w-3 text-amber-400" />
+                      Deploy Defense Patch
+                    </Button>
+                  </div>
                 </div>
               )}
 
