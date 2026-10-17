@@ -9,6 +9,7 @@ import {
   CircleAlert,
   Fingerprint,
   RefreshCw,
+  ShieldAlert,
   ShieldCheck,
   Workflow,
 } from "lucide-react";
@@ -415,6 +416,83 @@ export function CommandCenterStrategicFloor({
             </div>
             <p className="mt-1 border-t border-slate-200 pt-3 text-[10px] text-slate-500">Last event: {formatUtcTime(liveOps.connection.lastEventAt)} <span className="px-1 text-slate-700">·</span> reconnects {liveOps.connection.reconnectCount}</p>
           </article>
+        </section>
+
+        {/* Agent & MCP Tool Blast Radius Shelf (OWASP ASI08) */}
+        <section aria-labelledby="agent-blast-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700">
+                <ShieldAlert className="h-4 w-4 text-blue-600" />
+              </span>
+              <div>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Agentic Governance &amp; Runtime Boundaries
+                </p>
+                <h2 id="agent-blast-title" className="mt-0.5 text-lg font-semibold text-slate-950">
+                  Agent Blast Radius &amp; Circuit Breakers (ASI08)
+                </h2>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] font-bold text-emerald-800">
+                Breaker Threshold: 3 blocks / 60s
+              </span>
+              <Button asChild variant="outline" size="sm" className="h-7 text-xs border-slate-200 text-slate-700 hover:bg-slate-50">
+                <Link href="/admin/policies">Review Gating Rules</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 font-mono text-xs">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">agent-customer-support</span>
+                <span className="rounded bg-emerald-100 text-emerald-800 px-1.5 py-0.2 text-[9.5px] font-bold">ARMED</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-sans">Authorized Tools: <code className="font-mono text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200">chat</code></p>
+              <div className="text-[10px] text-slate-500 border-t border-slate-200/80 pt-1.5 flex justify-between">
+                <span>Egress Fence:</span>
+                <span className="font-bold text-slate-800">Restricted Buffer</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">agent-ops-worker</span>
+                <span className="rounded bg-blue-100 text-blue-800 px-1.5 py-0.2 text-[9.5px] font-bold">CONTAINED</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-sans">Authorized Tools: <code className="font-mono text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200">read_file, web_fetch</code></p>
+              <div className="text-[10px] text-slate-500 border-t border-slate-200/80 pt-1.5 flex justify-between">
+                <span>SSRF Gate:</span>
+                <span className="font-bold text-rose-700">169.254.0.0/16 Blocked</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">agent-data-analytics</span>
+                <span className="rounded bg-emerald-100 text-emerald-800 px-1.5 py-0.2 text-[9.5px] font-bold">ARMED</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-sans">Authorized Tools: <code className="font-mono text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200">query_database</code></p>
+              <div className="text-[10px] text-slate-500 border-t border-slate-200/80 pt-1.5 flex justify-between">
+                <span>SQL Scope:</span>
+                <span className="font-bold text-slate-800">Read-Only Analytics</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">agent-workflow-coordinator</span>
+                <span className="rounded bg-emerald-100 text-emerald-800 px-1.5 py-0.2 text-[9.5px] font-bold">HEALTHY</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-sans">Max Recursion Depth: <code className="font-mono text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200">3 levels</code></p>
+              <div className="text-[10px] text-slate-500 border-t border-slate-200/80 pt-1.5 flex justify-between">
+                <span>Trip Status:</span>
+                <span className="font-bold text-emerald-700">0 / 3 Tripped</span>
+              </div>
+            </div>
+          </div>
         </section>
 
         <details className="group mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

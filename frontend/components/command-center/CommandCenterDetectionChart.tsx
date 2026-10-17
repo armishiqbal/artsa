@@ -173,9 +173,20 @@ export function CommandCenterDetectionChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:px-5">
-        <span className="inline-flex items-center gap-2"><span className="h-0.5 w-4 bg-sky-500" />ARTSA adaptive defense</span>
-        <span className="inline-flex items-center gap-2"><span className="h-0.5 w-4 bg-slate-400" />Static baseline</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3 text-xs text-muted-foreground sm:px-5">
+        <div className="flex flex-wrap gap-x-5 gap-y-1">
+          <span className="inline-flex items-center gap-2">
+            <span className="h-0.5 w-4 bg-sky-500 rounded-full" />
+            <strong className="font-medium text-slate-900">ARTSA Closed-Loop Defense</strong> (Adaptive rule learning)
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-0.5 w-4 bg-slate-400 rounded-full" />
+            <strong className="font-medium text-slate-700">Static Baseline</strong> (Unpatched target)
+          </span>
+        </div>
+        <span className="font-mono text-[11px] text-slate-500">
+          Core Thesis: Closed-loop defense elevates detection per round against mutating adversarial prompts
+        </span>
       </div>
       </>
       )}
