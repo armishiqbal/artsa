@@ -21,20 +21,20 @@
 ## Tasks (Executed One-by-One)
 
 ### Task 1: Replay Walkthrough Dataset & Zero-State Engine (`frontend/lib/replayDemoData.ts`)
-- [ ] **Step 1.1**: Create `frontend/lib/replayDemoData.ts` exporting canonical pre-flight demonstration sessions and rich multi-hop timelines (covering `sess-cyberstorm-01`, `sess-finance-pivot-02`, and `sess-rag-sanitize-03`), with complete HMAC custody metadata and evaluations.
-- [ ] **Step 1.2**: Write unit tests in `frontend/__tests__/lib/replayDemoData.test.ts` verifying session metadata, timeline hop continuity, and breach verdicts.
-- [ ] **Step 1.3**: Run `npm test -- replayDemoData.test.ts` to confirm test passes.
-- [ ] **Step 1.4**: Commit Task 1.
+- [x] **Step 1.1**: Create `frontend/lib/replayDemoData.ts` exporting canonical pre-flight demonstration sessions and rich multi-hop timelines (covering `sess-cyberstorm-01`, `sess-finance-pivot-02`, and `sess-rag-sanitize-03`), with complete HMAC custody metadata and evaluations.
+- [x] **Step 1.2**: Write unit tests in `frontend/__tests__/lib/replayDemoData.test.ts` verifying session metadata, timeline hop continuity, and breach verdicts.
+- [x] **Step 1.3**: Run `npm test -- replayDemoData.test.ts` to confirm test passes.
+- [x] **Step 1.4**: Commit Task 1.
 
 ---
 
 ### Task 2: Replay Content Dataset Mode & Walkthrough Banner (`frontend/app/(app)/replay/ReplayContent.tsx`)
-- [ ] **Step 2.1**: Update `ReplayContent.tsx`:
+- [x] **Step 2.1**: Update `ReplayContent.tsx`:
   - Add `datasetMode: "demo" | "live"` state with intelligent fallback when `liveSessions.length === 0`.
   - Add a pre-flight walkthrough guidance banner with clear dataset toggle (`Incident Walkthrough (3)` vs `Live Operations (N)`).
   - Clean up any legacy or prohibited keywords in code comments and labels.
-- [ ] **Step 2.2**: Integrate HMAC chain-of-custody verification badge and tool blast radius indicators into the timeline.
-- [ ] **Step 2.3**: Run `npm run typecheck` and `npm test -- replayTheater.test.tsx` to verify.
+- [x] **Step 2.2**: Integrate HMAC chain-of-custody verification badge and tool blast radius indicators into the timeline.
+- [x] **Step 2.3**: Run `npm run typecheck` and `npm test -- replayTheater.test.tsx` to verify.
 - [ ] **Step 2.4**: Commit Task 2.
 
 ---

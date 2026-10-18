@@ -42,7 +42,7 @@ describe("replayDemoData", () => {
   });
 
   it("verifies chronological order of timeline events", () => {
-    for (const [sessionId, timeline] of Object.entries(DEMO_REPLAY_TIMELINES)) {
+    for (const timeline of Object.values(DEMO_REPLAY_TIMELINES)) {
       for (let i = 1; i < timeline.length; i++) {
         const prev = new Date(timeline[i - 1].event.timestamp).getTime();
         const curr = new Date(timeline[i].event.timestamp).getTime();

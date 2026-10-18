@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { X, ShieldPlus, ArrowRight, CheckCircle2 } from "lucide-react";
+import { X, ShieldPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PromoteToPlaybookPanel } from "@/components/wargame/PromoteToPlaybookPanel";
 import type { AdversarialPreset } from "@/lib/playgroundAdversarialPresets";

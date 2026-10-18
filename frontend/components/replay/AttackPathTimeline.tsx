@@ -25,6 +25,8 @@ export interface AttackHop {
   verdict: string;
   timestamp: string;
   latency_ms?: number | null;
+  blast_radius?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  hmac_verified?: boolean;
 }
 
 function hopTacticLabel(tool: string, verdict: string): string {
@@ -266,14 +268,38 @@ export function AttackPathTimeline({
                       {tactic}
                     </p>
 
-                    <div className="flex items-center gap-2 pt-0.5 font-mono text-[9.5px] text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-2.5 w-2.5" />
-                        {new Date(hop.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                      </span>
-                      {typeof hop.latency_ms === "number" && (
-                        <span>• {hop.latency_ms}ms</span>
-                      )}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5 font-mono text-[9.5px] text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-2.5 w-2.5" />
+                          {new Date(hop.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </span>
+                        {typeof hop.latency_ms === "number" && (
+                          <span>• {hop.latency_ms}ms</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {hop.hmac_verified && (
+                          <span className="inline-flex items-center gap-0.5 rounded border border-blue-200/60 bg-blue-50/60 px-1 py-0.2 font-mono text-[8.5px] font-semibold text-blue-700">
+                            <Lock className="h-2 w-2" />
+                            HMAC
+                          </span>
+                        )}
+                        {hop.blast_radius && (
+                          <span
+                            className={cn(
+                              "rounded px-1 py-0.2 font-mono text-[8.5px] font-bold uppercase border",
+                              hop.blast_radius === "CRITICAL"
+                                ? "border-rose-200 bg-rose-50 text-rose-700"
+                                : hop.blast_radius === "HIGH"
+                                ? "border-amber-200 bg-amber-50 text-amber-700"
+                                : "border-slate-200 bg-slate-50 text-slate-600"
+                            )}
+                          >
+                            {hop.blast_radius}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

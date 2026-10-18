@@ -91,7 +91,7 @@ export function ActivityAuditSummaryBar({
         </div>
       </div>
 
-      {/* 4 Obsidian-Style Audit Metric Tiles */}
+      {/* Forensic Audit Metric Tiles */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3 shadow-2xs">
           <div className="flex items-center justify-between">

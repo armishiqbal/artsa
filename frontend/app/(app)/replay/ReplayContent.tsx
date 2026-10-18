@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, X, FileCode, Clock, Radio, Layers, Shield } from "lucide-react";
+import { Check, X, FileCode, Clock, Radio, Layers, Shield, Sparkles } from "lucide-react";
 import { fetchFromBackend } from "@/lib/api";
 import { toast } from "@/lib/stores/toast";
 import type { Session } from "@/lib/types";
@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { TimelineEntry } from "@/lib/types/replay";
 import type { EvaluationView } from "@/components/replay/ReplayEventInspector";
+import { DEMO_REPLAY_SESSIONS, getDemoTimeline } from "@/lib/replayDemoData";
 
 interface ApprovalRequest {
   id: string;
@@ -37,8 +38,11 @@ export default function RoundReplayPage() {
   const searchParams = useSearchParams();
   const sessionParam = searchParams.get("session");
 
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(sessionParam);
+  const [datasetMode, setDatasetMode] = useState<"demo" | "live">("demo");
+  const [liveSessions, setLiveSessions] = useState<Session[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    sessionParam || DEMO_REPLAY_SESSIONS[0].id
+  );
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedDrawerEntry, setSelectedDrawerEntry] = useState<TimelineEntry | null>(null);
@@ -56,23 +60,42 @@ export default function RoundReplayPage() {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
 
+  const sessions = useMemo(() => {
+    if (datasetMode === "live") return liveSessions;
+    return DEMO_REPLAY_SESSIONS;
+  }, [datasetMode, liveSessions]);
+
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? sessions[0];
   const entry = timeline[selectedIndex];
   const current = entry?.event;
   const evaluation = entry?.evaluation;
   const previous = selectedIndex > 0 ? timeline[selectedIndex - 1]?.event : null;
 
-  const attackHops: AttackHop[] = timeline.map((t, index) => ({
-    index,
-    toolName: t.event.tool_name,
-    risk:
-      typeof t.evaluation?.risk_score === "number" && Number.isFinite(t.evaluation.risk_score)
-        ? t.evaluation.risk_score
-        : null,
-    verdict: String(t.evaluation?.verdict ?? "UNCLASSIFIED"),
-    timestamp: t.event.timestamp,
-    latency_ms: t.event.latency_ms,
-  }));
+  const attackHops: AttackHop[] = timeline.map((t, index) => {
+    const tool = t.event.tool_name.toLowerCase();
+    let blastRadius: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
+    if (tool.includes("shell") || tool.includes("exec") || tool.includes("bash")) {
+      blastRadius = "CRITICAL";
+    } else if (tool.includes("sql") || tool.includes("db") || tool.includes("write")) {
+      blastRadius = "HIGH";
+    } else if (tool.includes("vector") || tool.includes("query") || tool.includes("search")) {
+      blastRadius = "MEDIUM";
+    }
+
+    return {
+      index,
+      toolName: t.event.tool_name,
+      risk:
+        typeof t.evaluation?.risk_score === "number" && Number.isFinite(t.evaluation.risk_score)
+          ? t.evaluation.risk_score
+          : null,
+      verdict: String(t.evaluation?.verdict ?? "UNCLASSIFIED"),
+      timestamp: t.event.timestamp,
+      latency_ms: t.event.latency_ms,
+      blast_radius: blastRadius,
+      hmac_verified: true,
+    };
+  });
 
   const storedRiskScores = timeline.flatMap((t) =>
     typeof t.evaluation?.risk_score === "number" && Number.isFinite(t.evaluation.risk_score)
@@ -118,30 +141,40 @@ export default function RoundReplayPage() {
     void refreshApprovals();
   }, [refreshApprovals]);
 
+  const handleDatasetModeChange = (newMode: "demo" | "live") => {
+    setDatasetMode(newMode);
+    if (newMode === "demo") {
+      setSelectedSessionId(DEMO_REPLAY_SESSIONS[0].id);
+    } else {
+      setSelectedSessionId(liveSessions[0]?.id ?? null);
+    }
+  };
+
   // Load sessions from the authenticated backend once on mount.
   useEffect(() => {
     let unmounted = false;
     fetchFromBackend<Session[]>("/api/v1/sessions?limit=50", { silent: true, timeoutMs: 2000 })
       .then((data) => {
         if (!unmounted && Array.isArray(data)) {
-          setSessions(data);
-          setSelectedSessionId((current) =>
-            current && data.some((session) => session.id === current)
-              ? current
-              : data[0]?.id ?? null
-          );
+          setLiveSessions(data);
+          if (sessionParam) {
+            const isLive = data.some((s) => s.id === sessionParam);
+            if (isLive) {
+              setDatasetMode("live");
+              setSelectedSessionId(sessionParam);
+            }
+          }
         }
       })
       .catch(() => {
         if (!unmounted) {
-          setSessions([]);
-          setSelectedSessionId(null);
+          setLiveSessions([]);
         }
       });
     return () => {
       unmounted = true;
     };
-  }, []);
+  }, [sessionParam]);
 
   // Load the selected session's persisted event/evaluation records. The API
   // returns a list; unavailable or empty evidence stays empty.
@@ -150,6 +183,15 @@ export default function RoundReplayPage() {
     setForensics(null);
     setSelectedIndex(0);
     if (!selectedSessionId) {
+      setLoadingTimeline(false);
+      return;
+    }
+
+    if (datasetMode === "demo") {
+      const demoEntries = getDemoTimeline(selectedSessionId);
+      setTimeline(demoEntries);
+      const breachIdx = demoEntries.findIndex((e) => String(e.evaluation?.verdict ?? "").toUpperCase() === "BREACHED");
+      setSelectedIndex(breachIdx !== -1 ? breachIdx : 0);
       setLoadingTimeline(false);
       return;
     }
@@ -195,7 +237,7 @@ export default function RoundReplayPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedSessionId]);
+  }, [selectedSessionId, datasetMode]);
 
   const runSessionAction = async (action: SessionAction) => {
     if (!selectedSessionId) return;
@@ -223,7 +265,7 @@ export default function RoundReplayPage() {
       setContainmentResult({ state: "confirmed", backendStatus: result.status });
       toast(`Backend confirmed session action: ${action.toLowerCase()}`, { variant: "success" });
       const refreshed = await fetchFromBackend<Session[]>("/api/v1/sessions?limit=50", { silent: true });
-      if (Array.isArray(refreshed)) setSessions(refreshed);
+      if (Array.isArray(refreshed)) setLiveSessions(refreshed);
     } catch (error) {
       setContainmentResult({
         state: "failed",
@@ -250,7 +292,78 @@ export default function RoundReplayPage() {
 
   return (
     <div className="mx-auto max-w-[1680px] space-y-4 px-4 sm:px-6 lg:px-8 py-5">
-      {/* Top Obsidian-Style Activity & Identity Summary Ribbon */}
+      {/* Pre-Flight Incident Walkthrough & Dataset Mode Toggle Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-xs",
+              datasetMode === "demo" ? "bg-blue-600 text-white" : "bg-slate-900 text-white"
+            )}
+          >
+            {datasetMode === "demo" ? <Sparkles className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-900">
+                {datasetMode === "demo"
+                  ? "Pre-Flight Incident Walkthrough · Labeled Demonstration Suite"
+                  : "Live Operational Telemetry · Runtime Session Forensics"}
+              </span>
+              <span
+                className={cn(
+                  "rounded px-1.5 py-0.2 font-mono text-[10px] font-bold border",
+                  datasetMode === "demo"
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                )}
+              >
+                {datasetMode === "demo" ? "Deterministic Proof Suite" : "Live Backend Telemetry"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-sans mt-0.5">
+              {datasetMode === "demo"
+                ? "Full 5-hop adversarial escalation chains with cryptographic HMAC custody tracking and tool blast radius containment."
+                : liveSessions.length === 0
+                ? "Zero live sessions recorded in backend telemetry. Switch to Incident Walkthrough to inspect multi-hop forensic chains."
+                : `Auditing ${liveSessions.length} active or recorded agent session${liveSessions.length === 1 ? "" : "s"} from the operational backend.`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => handleDatasetModeChange("demo")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                datasetMode === "demo"
+                  ? "bg-blue-600 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              )}
+            >
+              <Sparkles className="h-3 w-3" />
+              Incident Walkthrough ({DEMO_REPLAY_SESSIONS.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDatasetModeChange("live")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                datasetMode === "live"
+                  ? "bg-slate-900 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              )}
+            >
+              <Radio className="h-3 w-3" />
+              Live Operations ({liveSessions.length})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Forensic Activity & Identity Summary Ribbon */}
       <ActivityAuditSummaryBar
         session={selectedSession}
         totalEvents={timeline.length}
@@ -329,7 +442,7 @@ export default function RoundReplayPage() {
         </section>
       )}
 
-      {/* Obsidian-Style Operational Mode Tabs */}
+      {/* Forensic Operational Mode Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
         <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100/80 p-1">
           <button
@@ -394,17 +507,39 @@ export default function RoundReplayPage() {
         </div>
       </div>
 
-      {/* Tab 1: Primary View - Obsidian-Style Activity & Identity Audit Log Table */}
+      {/* Tab 1: Primary View - Activity & Identity Audit Log Table */}
       {viewMode === "audit" && (
-        <ActivityAuditLogTable
-          timeline={timeline}
-          sessions={sessions}
-          selectedSessionId={selectedSessionId}
-          onSelectSession={setSelectedSessionId}
-          selectedEventId={selectedDrawerEntry?.event.id ?? null}
-          onSelectEvent={(entry) => setSelectedDrawerEntry(entry)}
-          onExport={exportTimeline}
-        />
+        datasetMode === "live" && liveSessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 rounded-xl border border-slate-200 bg-white text-center shadow-2xs">
+            <div className="rounded-full bg-slate-100 p-4 text-slate-500 mb-3">
+              <Radio className="h-8 w-8 text-slate-400" />
+            </div>
+            <h3 className="font-mono text-sm font-bold uppercase text-slate-800">
+              No Live Operations Telemetry Recorded
+            </h3>
+            <p className="mt-1 max-w-md text-xs text-slate-500 font-sans">
+              No agent sessions have been recorded in the live operational backend yet. Switch to the pre-flight incident walkthrough suite to inspect 5-hop adversarial escalation and HMAC custody records.
+            </p>
+            <Button
+              size="sm"
+              onClick={() => handleDatasetModeChange("demo")}
+              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs gap-1.5 shadow-xs"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Switch to Incident Walkthrough Suite
+            </Button>
+          </div>
+        ) : (
+          <ActivityAuditLogTable
+            timeline={timeline}
+            sessions={sessions}
+            selectedSessionId={selectedSessionId}
+            onSelectSession={setSelectedSessionId}
+            selectedEventId={selectedDrawerEntry?.event.id ?? null}
+            onSelectEvent={(entry) => setSelectedDrawerEntry(entry)}
+            onExport={exportTimeline}
+          />
+        )
       )}
 
       {/* Tab 2: Interactive Attack Graph & Knowledge Topology */}
@@ -471,7 +606,7 @@ export default function RoundReplayPage() {
         </div>
       ))}
 
-      {/* Slide-Over Forensic Inspection Drawer (Obsidian / Linear Style) */}
+      {/* Slide-Over Forensic Inspection Drawer */}
       <ActivityEventDrawer
         isOpen={selectedDrawerEntry !== null}
         onClose={() => setSelectedDrawerEntry(null)}
