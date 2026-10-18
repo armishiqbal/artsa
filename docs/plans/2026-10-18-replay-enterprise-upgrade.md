@@ -35,12 +35,12 @@
   - Clean up any legacy or prohibited keywords in code comments and labels.
 - [x] **Step 2.2**: Integrate HMAC chain-of-custody verification badge and tool blast radius indicators into the timeline.
 - [x] **Step 2.3**: Run `npm run typecheck` and `npm test -- replayTheater.test.tsx` to verify.
-- [ ] **Step 2.4**: Commit Task 2.
+- [x] **Step 2.4**: Commit Task 2.
 
 ---
 
 ### Task 3: Full Verification & Verification Gates
-- [ ] **Step 3.1**: Run `npm run typecheck`.
-- [ ] **Step 3.2**: Run full Vitest suite (`npm test`).
-- [ ] **Step 3.3**: Run risk framework and documentation sync scripts.
-- [ ] **Step 3.4**: Curl `http://localhost:3000/replay` to verify HTTP 200 and clean rendering.
+- [x] **Step 3.1**: Run `npm run typecheck`.
+- [x] **Step 3.2**: Run full Vitest suite (`npm test`).
+- [x] **Step 3.3**: Run risk framework and documentation sync scripts.
+- [x] **Step 3.4**: Curl `http://localhost:3000/replay` to verify HTTP 200 and clean rendering.
