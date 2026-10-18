@@ -32,12 +32,12 @@
 ---
 
 ### Task 2: CrewAI Six-Agent Orchestration Visualizer Component (`frontend/components/red-team/CrewAgentChainViz.tsx`)
-- [ ] **Step 2.1**: Build `frontend/components/red-team/CrewAgentChainViz.tsx`:
+- [x] **Step 2.1**: Build `frontend/components/red-team/CrewAgentChainViz.tsx`:
   - Visualizes the 6-agent chain with active execution pulse, HMAC custody badges, and tool badges.
   - Allows clicking any agent in the crew to inspect its Role, Operational Goal, Toolset, and Output Context passed to the next agent.
-- [ ] **Step 2.2**: Write unit tests in `frontend/__tests__/components/crewAgentChainViz.test.tsx`.
-- [ ] **Step 2.3**: Run `npm test -- crewAgentChainViz.test.tsx` to verify.
-- [ ] **Step 2.4**: Commit Task 2.
+- [x] **Step 2.2**: Write unit tests in `frontend/__tests__/components/crewAgentChainViz.test.tsx`.
+- [x] **Step 2.3**: Run `npm test -- crewAgentChainViz.test.tsx` to verify.
+- [x] **Step 2.4**: Commit Task 2.
 
 ---
 
