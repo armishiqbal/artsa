@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Sparkles, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CampaignCohortHero } from "@/components/red-team/CampaignCohortHero";
 import { CampaignWatchFloor } from "@/components/red-team/CampaignWatchFloor";
+import { CrewAgentChainViz } from "@/components/red-team/CrewAgentChainViz";
 import {
   friendlyStatus,
   RedTeamGlossary,
@@ -17,6 +19,7 @@ import { riskScoreFromSummary } from "@/lib/assessmentResults";
 import { useAuthRole } from "@/lib/hooks/useAuthRole";
 import { useCampaigns, type CampaignListItem } from "@/lib/hooks/useCampaigns";
 import { deriveRedTeamOverview } from "@/lib/redTeamOverview";
+import { DEMO_REDTEAM_CAMPAIGNS } from "@/lib/redTeamDemoData";
 import { cn } from "@/lib/utils";
 
 type StatusFilter = "all" | "running" | "completed" | "failed" | "lab";
@@ -144,12 +147,18 @@ function RedTeamCampaignsInner() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("risk");
+  const [datasetMode, setDatasetMode] = useState<"demo" | "live">("demo");
 
   useEffect(() => {
     if (searchParams.get("new") === "1") setWizardOpen(true);
   }, [searchParams]);
 
-  const overview = useMemo(() => deriveRedTeamOverview(campaigns), [campaigns]);
+  const effectiveCampaigns = useMemo(() => {
+    if (datasetMode === "demo") return DEMO_REDTEAM_CAMPAIGNS;
+    return campaigns;
+  }, [datasetMode, campaigns]);
+
+  const overview = useMemo(() => deriveRedTeamOverview(effectiveCampaigns), [effectiveCampaigns]);
 
   const cohort = useMemo(() => {
     const risks = overview.campaignRisk.map((c) => c.risk).filter((r) => r > 0);
@@ -158,15 +167,15 @@ function RedTeamCampaignsInner() {
         ? Math.round((risks.reduce((a, b) => a + b, 0) / risks.length) * 10) / 10
         : null;
     const maxRisk = risks.length > 0 ? Math.max(...risks) : 0;
-    const labCount = campaigns.filter(isLabRun).length;
-    const assessmentCount = campaigns.length - labCount;
-    const failed = campaigns.filter((c) => statusBucket(c.status) === "failed").length;
+    const labCount = effectiveCampaigns.filter(isLabRun).length;
+    const assessmentCount = effectiveCampaigns.length - labCount;
+    const failed = effectiveCampaigns.filter((c) => statusBucket(c.status) === "failed").length;
     let finding =
-      campaigns.length === 0
+      effectiveCampaigns.length === 0
         ? "No campaigns yet. Launch a quick scan or open the builder."
         : overview.runningCount > 0
           ? `${overview.runningCount} running · ${overview.completedCount} complete. Watch live to follow rounds.`
-          : `${campaigns.length} campaign${campaigns.length === 1 ? "" : "s"} · mean risk ${meanRisk ?? "—"}.`;
+          : `${effectiveCampaigns.length} campaign${effectiveCampaigns.length === 1 ? "" : "s"} · mean risk ${meanRisk ?? "—"}.`;
     if (overview.critical > 0) {
       finding += ` ${overview.critical} critical result${overview.critical === 1 ? "" : "s"} need review.`;
     }
@@ -185,11 +194,11 @@ function RedTeamCampaignsInner() {
       posture: overview.posture,
       riskSpark,
     };
-  }, [campaigns, overview]);
+  }, [effectiveCampaigns, overview]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let rows = [...campaigns];
+    let rows = [...effectiveCampaigns];
     if (filter === "running") {
       rows = rows.filter((c) => statusBucket(c.status) === "running");
     } else if (filter === "completed") {
@@ -229,11 +238,11 @@ function RedTeamCampaignsInner() {
       return riskOf(b) - riskOf(a) || a.name.localeCompare(b.name);
     });
     return rows;
-  }, [campaigns, filter, query, sort]);
+  }, [effectiveCampaigns, filter, query, sort]);
 
   const ongoing = useMemo(
-    () => campaigns.filter((c) => statusBucket(c.status) === "running"),
-    [campaigns]
+    () => effectiveCampaigns.filter((c) => statusBucket(c.status) === "running"),
+    [effectiveCampaigns]
   );
 
   // When a run first appears, switch to Running so ongoing live is obvious.
@@ -256,13 +265,103 @@ function RedTeamCampaignsInner() {
 
   return (
     <div className="space-y-6">
+      {/* Pre-Flight Multi-Agent Guidance Banner */}
+      {datasetMode === "demo" ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3.5 shadow-2xs">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Pre-Flight Multi-Agent Simulation · Labeled Demonstration Suite
+                </span>
+                <span className="rounded bg-blue-200/80 px-1.5 py-0.2 font-mono text-[10px] font-bold text-blue-900">
+                  CrewAI 6-Agent Chain
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-blue-800 leading-relaxed font-sans">
+                {campaigns.length === 0
+                  ? "Zero live campaigns recorded in the operational database. Displaying 3 pre-flight multi-agent simulations across OWASP ASI01, ASI02, and ASI04 with HMAC-signed handoffs."
+                  : "Reviewing pre-flight multi-agent simulation scenarios. Switch to Live Telemetry to inspect active operational runs."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <Button asChild size="sm" className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs">
+              <Link href="/red-team/campaigns/new">
+                Launch Live Campaign
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : campaigns.length === 0 ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white shadow-xs">
+              <Radio className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-900">
+                Live Operations Telemetry · No Campaigns Recorded
+              </span>
+              <p className="mt-0.5 text-xs text-slate-500 font-sans">
+                No active or completed live campaign sessions recorded in backend telemetry. Switch to Simulation Suite to inspect the multi-agent chain.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setDatasetMode("demo")}
+            className="h-7 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center"
+          >
+            <Sparkles className="h-3 w-3" />
+            Switch to Simulation Suite
+          </Button>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 max-w-xl">
+          <h2 className="text-lg font-semibold tracking-tight">Campaign War Room</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Live list from ARTSA — not demo data. Updates as runs finish or fail.
+            {datasetMode === "demo"
+              ? "Autonomous 6-agent offensive simulations with HMAC custody passing across adversarial rounds."
+              : "Live list from ARTSA operational database. Updates as runs finish or fail."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Dataset Switcher: Simulation Suite vs Live Telemetry */}
+          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setDatasetMode("demo")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                datasetMode === "demo"
+                  ? "bg-blue-600 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Simulation Suite ({DEMO_REDTEAM_CAMPAIGNS.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDatasetMode("live")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                datasetMode === "live"
+                  ? "bg-slate-900 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <Radio className="h-3 w-3" />
+              Live Telemetry ({campaigns.length})
+            </button>
+          </div>
+
           <Button size="sm" variant="outline" onClick={() => void refresh()}>
             Refresh
           </Button>
@@ -277,6 +376,9 @@ function RedTeamCampaignsInner() {
           </Button>
         </div>
       </div>
+
+      {/* Autonomous Multi-Agent Crew Pipeline (Six-Agent Chain) */}
+      <CrewAgentChainViz />
 
       {ongoing.length === 0 ? (
         <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-[13px]">
@@ -344,7 +446,7 @@ function RedTeamCampaignsInner() {
       {/* Cohort analytical hero */}
       <CampaignCohortHero
         model={{
-          n: campaigns.length,
+          n: effectiveCampaigns.length,
           running: overview.runningCount,
           completed: overview.completedCount,
           failed: cohort.failed,
@@ -360,7 +462,7 @@ function RedTeamCampaignsInner() {
         }}
       />
 
-      <CampaignWatchFloor campaigns={campaigns} />
+      <CampaignWatchFloor campaigns={effectiveCampaigns} />
 
       {/* Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -422,7 +524,7 @@ function RedTeamCampaignsInner() {
           <span className="text-right">Open</span>
         </div>
 
-        {loading && campaigns.length === 0 ? (
+        {loading && effectiveCampaigns.length === 0 ? (
           <div className="space-y-2 p-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
@@ -430,7 +532,7 @@ function RedTeamCampaignsInner() {
           </div>
         ) : filtered.length === 0 ? (
           <p className="px-4 py-12 text-center text-[13px] text-muted-foreground">
-            {campaigns.length === 0 ? (
+            {effectiveCampaigns.length === 0 ? (
               <>
                 No campaigns yet.{" "}
                 <button
@@ -460,7 +562,7 @@ function RedTeamCampaignsInner() {
       </section>
 
       <p className="text-[12px] text-muted-foreground">
-        Showing {filtered.length} of {campaigns.length}. Deep dive:{" "}
+        Showing {filtered.length} of {effectiveCampaigns.length}. Deep dive:{" "}
         <Link href="/red-team/matrix" className="underline-offset-2 hover:underline">
           Outcomes
         </Link>{" "}

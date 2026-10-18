@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -11,11 +11,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Sparkles, Radio } from "lucide-react";
 import { KpiTile } from "@/components/red-team/KpiTile";
 import { OutcomeBadge } from "@/components/red-team/OutcomeBadge";
 import { RedTeamHomeCharts } from "@/components/red-team/RedTeamHomeCharts";
 import { RedTeamGlossary } from "@/components/red-team/RedTeamGlossary";
 import { SecurityBoundaryViz } from "@/components/red-team/SecurityBoundaryViz";
+import { CrewAgentChainViz } from "@/components/red-team/CrewAgentChainViz";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CHART_AXIS_TICK, CHART_CRITICAL, CHART_GRID, CHART_PRIMARY, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
@@ -24,6 +26,7 @@ import { useDashboardMetrics } from "@/lib/context/DashboardMetricsProvider";
 import { useCampaigns } from "@/lib/hooks/useCampaigns";
 import { buildLiveAiActivity, ingestDetectionStats, severityBuckets } from "@/lib/redTeamLiveIngest";
 import { deriveRedTeamOverview } from "@/lib/redTeamOverview";
+import { DEMO_REDTEAM_CAMPAIGNS } from "@/lib/redTeamDemoData";
 import { cn } from "@/lib/utils";
 
 const WORKFLOW = [
@@ -39,8 +42,14 @@ export default function RedTeamHomePage() {
   const { campaigns, loading } = useCampaigns();
   const { liveEvents, connected, metrics } = useDashboardMetrics();
   const { apiOnline, wsConnected } = useConnection();
+  const [datasetMode, setDatasetMode] = useState<"demo" | "live">("demo");
 
-  const overview = useMemo(() => deriveRedTeamOverview(campaigns), [campaigns]);
+  const effectiveCampaigns = useMemo(() => {
+    if (datasetMode === "demo") return DEMO_REDTEAM_CAMPAIGNS;
+    return campaigns;
+  }, [datasetMode, campaigns]);
+
+  const overview = useMemo(() => deriveRedTeamOverview(effectiveCampaigns), [effectiveCampaigns]);
   const ingestStats = useMemo(() => ingestDetectionStats(liveEvents), [liveEvents]);
   const sev = useMemo(() => severityBuckets(liveEvents), [liveEvents]);
   const activity = useMemo(() => buildLiveAiActivity(liveEvents), [liveEvents]);
@@ -72,15 +81,101 @@ export default function RedTeamHomePage() {
     <div className="space-y-6">
       <RedTeamGlossary />
 
+      {/* Pre-Flight Multi-Agent Guidance Banner */}
+      {datasetMode === "demo" ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3.5 shadow-2xs">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Pre-Flight Multi-Agent Simulation · Labeled Demonstration Suite
+                </span>
+                <span className="rounded bg-blue-200/80 px-1.5 py-0.2 font-mono text-[10px] font-bold text-blue-900">
+                  CrewAI 6-Agent Chain
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-blue-800 leading-relaxed font-sans">
+                {campaigns.length === 0
+                  ? "Zero live campaigns recorded in the operational database. Displaying 3 pre-flight multi-agent simulations across OWASP ASI01, ASI02, and ASI04 with HMAC-signed handoffs."
+                  : "Reviewing pre-flight multi-agent simulation scenarios. Switch to Live Telemetry to inspect active operational runs."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <Button asChild size="sm" className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs">
+              <Link href="/red-team/campaigns/new">
+                Launch Live Campaign
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : campaigns.length === 0 ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white shadow-xs">
+              <Radio className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-900">
+                Live Operations Telemetry · No Campaigns Recorded
+              </span>
+              <p className="mt-0.5 text-xs text-slate-500 font-sans">
+                No active or completed live campaign sessions recorded in backend telemetry. Switch to Simulation Suite to inspect the multi-agent chain.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setDatasetMode("demo")}
+            className="h-7 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center"
+          >
+            <Sparkles className="h-3 w-3" />
+            Switch to Simulation Suite
+          </Button>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Red Team</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Red Team War Room</h2>
           <p className="mt-1 max-w-xl text-[13px] text-muted-foreground">
-            Probe containment, launch campaigns, open live theaters — posture numbers support the next
-            action.
+            Multi-agent autonomous offensive simulation and runtime defense testing against target models and agent swarms.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Dataset Switcher: Simulation Suite vs Live Telemetry */}
+          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setDatasetMode("demo")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                datasetMode === "demo"
+                  ? "bg-blue-600 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Simulation Suite ({DEMO_REDTEAM_CAMPAIGNS.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDatasetMode("live")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
+                datasetMode === "live"
+                  ? "bg-slate-900 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <Radio className="h-3 w-3" />
+              Live Telemetry ({campaigns.length})
+            </button>
+          </div>
+
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-[11px]",
@@ -107,6 +202,9 @@ export default function RedTeamHomePage() {
           </Button>
         </div>
       </div>
+
+      {/* Autonomous Multi-Agent Crew Pipeline (Six-Agent Chain) */}
+      <CrewAgentChainViz />
 
       {/* Workflow strip */}
       <nav
@@ -159,9 +257,9 @@ export default function RedTeamHomePage() {
         />
         <KpiTile
           label="Live risk"
-          value={Math.round(metrics.max_risk_score || 0)}
+          value={Math.round(metrics?.max_risk_score || 0)}
           hint="Highest live risk"
-          tone={(metrics.max_risk_score || 0) >= 80 ? "critical" : "neutral"}
+          tone={(metrics?.max_risk_score || 0) >= 80 ? "critical" : "neutral"}
         />
       </div>
 

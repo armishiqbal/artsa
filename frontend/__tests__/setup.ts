@@ -44,3 +44,24 @@ if (typeof window !== "undefined" && !window.ResizeObserver) {
     disconnect() {}
   };
 }
+
+class MockIntersectionObserver {
+  readonly root: Element | Document | null = null;
+  readonly rootMargin: string = "";
+  readonly thresholds: ReadonlyArray<number> = [];
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+if (typeof window !== "undefined" && !window.IntersectionObserver) {
+  window.IntersectionObserver = MockIntersectionObserver as unknown as typeof window.IntersectionObserver;
+}
+
+if (!globalThis.IntersectionObserver) {
+  globalThis.IntersectionObserver = MockIntersectionObserver as unknown as typeof globalThis.IntersectionObserver;
+}
+

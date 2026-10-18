@@ -11,7 +11,6 @@ import {
   Lock,
   ArrowRight,
   CheckCircle2,
-  Clock,
   Wrench,
   KeyRound,
   FileText,
