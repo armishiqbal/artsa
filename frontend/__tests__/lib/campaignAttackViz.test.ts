@@ -54,8 +54,9 @@ describe("buildCampaignAttackViz", () => {
     expect(m.rounds).toHaveLength(1);
     expect(m.rounds[0]?.outcome).toBe("pass");
     expect(m.outcomeCounts.pass).toBe(1);
+    expect(m.path).toHaveLength(6);
     expect(m.path[0]?.active).toBe(true);
-    expect(m.path[3]?.detail).toBe("BLOCKED");
+    expect(m.path.find((n) => n.id === "defender")?.detail).toBe("BLOCKED");
     expect(m.hopSeries).toHaveLength(1);
   });
 });

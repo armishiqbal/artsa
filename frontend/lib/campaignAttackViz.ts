@@ -3,11 +3,13 @@
 import type { LiveMonitorEvent, LiveOutcome } from "@/lib/liveMonitorEvents";
 
 export type CampaignPathNode = {
-  id: "red_team" | "target" | "judge" | "defender";
+  id: "research" | "curator" | "red_team" | "target" | "judge" | "defender";
   label: string;
+  role?: string;
   detail: string;
   active: boolean;
   hot: boolean;
+  hmacVerified?: boolean;
 };
 
 export type CampaignRoundPulse = {
@@ -61,58 +63,90 @@ export function buildCampaignAttackViz(events: LiveMonitorEvent[]): CampaignAtta
   const latestRound = latest ? roundKey(latest) : null;
   const latestBundle = latestRound != null ? byRound.get(latestRound) ?? [] : [];
 
-  const hasAttack = latestBundle.some((e) => e.kind === "attack") || latest?.kind === "attack";
-  const hasResponse = latestBundle.some((e) => e.kind === "response") || latest?.kind === "response";
-  const hasVerdict = latestBundle.some((e) => e.kind === "verdict") || latest?.kind === "verdict";
-  const lastOutcome = [...latestBundle].reverse().find((e) => e.kind === "verdict")?.outcome ?? null;
-  const hot = lastOutcome === "fail";
+  const researchEvt = [...latestBundle].reverse().find((e) => e.actor === "research" || e.attack_type === "reconnaissance");
+  const curatorEvt = [...latestBundle].reverse().find((e) => e.actor === "curator" || e.attack_type === "curation");
+  const attackEvt = [...latestBundle].reverse().find((e) => e.kind === "attack" || e.actor === "red_team");
+  const responseEvt = [...latestBundle].reverse().find((e) => e.kind === "response" || e.actor === "target");
+  const verdictEvt = [...latestBundle].reverse().find((e) => e.kind === "verdict" || e.actor === "judge");
+  const defenderEvt = [...latestBundle].reverse().find((e) => e.actor === "defender" || e.attack_type === "containment");
 
-  const attackEvt = [...latestBundle].reverse().find((e) => e.kind === "attack");
-  const responseEvt = [...latestBundle].reverse().find((e) => e.kind === "response");
-  const verdictEvt = [...latestBundle].reverse().find((e) => e.kind === "verdict");
+  const hasResearch = Boolean(researchEvt || latest?.actor === "research");
+  const hasCurator = Boolean(curatorEvt || latest?.actor === "curator");
+  const hasAttack = Boolean(attackEvt || latest?.kind === "attack");
+  const hasResponse = Boolean(responseEvt || latest?.kind === "response");
+  const hasVerdict = Boolean(verdictEvt || latest?.kind === "verdict");
+  const hasDefender = Boolean(defenderEvt || latest?.actor === "defender");
+  const lastOutcome = verdictEvt?.outcome ?? [...latestBundle].reverse().find((e) => e.kind === "verdict")?.outcome ?? null;
+  const hot = lastOutcome === "fail";
 
   const path: CampaignPathNode[] = [
     {
+      id: "research",
+      label: "Research",
+      role: "Recon",
+      detail: researchEvt?.summary?.replace(/^ResearchAgent\s*/i, "").slice(0, 36) || (hasResearch ? "enumerating…" : "idle"),
+      active: Boolean(hasResearch || chronological.length),
+      hot: latest?.actor === "research",
+      hmacVerified: Boolean(researchEvt?.hmac_token),
+    },
+    {
+      id: "curator",
+      label: "Curator",
+      role: "Payloads",
+      detail: curatorEvt?.summary?.replace(/^CuratorAgent\s*/i, "").slice(0, 36) || (hasCurator ? "synthesizing…" : "idle"),
+      active: Boolean(hasCurator || (hasResearch && chronological.length)),
+      hot: latest?.actor === "curator",
+      hmacVerified: Boolean(curatorEvt?.hmac_token),
+    },
+    {
       id: "red_team",
       label: "Red Team",
-      detail: attackEvt?.attack_type?.slice(0, 42) || (hasAttack ? "launching…" : "idle"),
+      role: "Exploit",
+      detail: attackEvt?.attack_type?.slice(0, 36) || (hasAttack ? "launching…" : "idle"),
       active: Boolean(hasAttack || chronological.length),
       hot: latest?.kind === "attack",
+      hmacVerified: Boolean(attackEvt?.hmac_token),
     },
     {
       id: "target",
       label: "Target",
+      role: "SUT",
       detail: hasResponse
-        ? (responseEvt?.summary?.replace(/^Target →\s*/i, "").slice(0, 42) || "responding")
+        ? (responseEvt?.summary?.replace(/^TargetAgent\s*/i, "").replace(/^Target →\s*/i, "").slice(0, 36) || "responding")
         : hasAttack
-          ? "awaiting…"
+          ? "evaluating…"
           : "idle",
       active: Boolean(hasResponse || (hasAttack && latest?.kind === "response")),
       hot: latest?.kind === "response",
+      hmacVerified: Boolean(responseEvt?.hmac_token),
     },
     {
       id: "judge",
       label: "Judge",
+      role: "Evaluator",
       detail: hasVerdict
-        ? (verdictEvt?.summary?.replace(/^Judge →\s*/i, "").slice(0, 42) || "scoring")
+        ? (verdictEvt?.summary?.replace(/^JudgeAgent\s*/i, "").replace(/^Judge →\s*/i, "").slice(0, 36) || "scoring")
         : hasResponse
           ? "scoring…"
           : "idle",
       active: Boolean(hasVerdict),
-      hot: latest?.kind === "verdict" && lastOutcome === "flag",
+      hot: latest?.kind === "verdict" && (lastOutcome === "flag" || lastOutcome === "fail"),
+      hmacVerified: Boolean(verdictEvt?.hmac_token),
     },
     {
       id: "defender",
-      label: "Outcome",
-      detail: lastOutcome
+      label: "Defender",
+      role: "Containment",
+      detail: defenderEvt?.summary?.replace(/^DefenderAgent\s*/i, "").slice(0, 36) || (lastOutcome
         ? lastOutcome === "pass"
           ? "BLOCKED"
           : lastOutcome === "fail"
             ? "BREACHED"
             : "FLAGGED"
-        : "—",
-      active: Boolean(hasVerdict),
+        : "—"),
+      active: Boolean(hasDefender || hasVerdict),
       hot,
+      hmacVerified: Boolean(defenderEvt?.hmac_token),
     },
   ];
 

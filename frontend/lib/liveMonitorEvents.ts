@@ -32,6 +32,9 @@ export type LiveMonitorEvent = {
   summary: string;
   agents?: Partial<Record<LiveAgentName, LiveAgentState>>;
   campaign_status?: string;
+  hmac_token?: string;
+  tool_invocations?: string[];
+  payload_snippet?: string;
 };
 
 export function idleAgents(): Record<LiveAgentName, LiveAgentState> {

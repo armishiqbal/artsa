@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { CampaignAttackViz } from "@/components/red-team/CampaignAttackViz";
+import { LiveAgentTurnCards } from "@/components/red-team/LiveAgentTurnCards";
 import { publishRedTeamChrome } from "@/components/red-team/RedTeamShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +18,7 @@ import {
   type LiveMonitorEvent,
   type LiveOutcome,
 } from "@/lib/liveMonitorEvents";
+import { getDemoCampaign, getDemoCampaignEvents } from "@/lib/redTeamDemoData";
 import type { LiveChromeState } from "@/lib/redTeamNav";
 import { cn } from "@/lib/utils";
 
@@ -111,7 +114,9 @@ function TheaterInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { campaigns, loading: listLoading } = useCampaigns();
-  const campaign = campaigns.find((c) => c.id === id);
+  const demoCampaign = useMemo(() => getDemoCampaign(id), [id]);
+  const campaign = campaigns.find((c) => c.id === id) ?? demoCampaign;
+  const isDemo = Boolean(demoCampaign);
 
   const follow = searchParams.get("follow") !== "0";
   const [followLatest, setFollowLatest] = useState(follow);
@@ -122,9 +127,30 @@ function TheaterInner() {
     followLatest
   );
 
-  const viz = useMemo(() => buildCampaignAttackViz(stream), [stream]);
-  const status = (campaignStatus ?? campaign?.status ?? "UNKNOWN").toUpperCase();
+  const demoEvents = useMemo(() => (isDemo ? getDemoCampaignEvents(id) : []), [isDemo, id]);
+  const effectiveEvents = useMemo(() => {
+    if (isDemo && stream.length === 0) return demoEvents;
+    return stream;
+  }, [isDemo, stream, demoEvents]);
+
+  const viz = useMemo(() => buildCampaignAttackViz(effectiveEvents), [effectiveEvents]);
+  const status = (campaignStatus ?? campaign?.status ?? (isDemo ? "COMPLETED" : "UNKNOWN")).toUpperCase();
   const running = Boolean(id) && !TERMINAL.has(status);
+
+  const effectiveDetection = useMemo(() => {
+    if (isDemo && detection.rate == null) {
+      const summary = demoCampaign?.summary;
+      const blocks = Number(summary?.blocks) || 10;
+      const breaches = Number(summary?.breaches) || 2;
+      return {
+        rate: Number(summary?.detection_rate) || 83.3,
+        judged: blocks + breaches,
+        passed: blocks,
+        spark: [100, 100, 80, 83.3],
+      };
+    }
+    return detection;
+  }, [isDemo, detection, demoCampaign]);
 
   const setFollow = useCallback(
     (next: boolean) => {
@@ -150,10 +176,10 @@ function TheaterInner() {
 
   // Follow latest round unless user picks one
   useEffect(() => {
-    if (followLatest && viz.latestRound != null) {
+    if (followLatest && viz.latestRound != null && selectedRound == null) {
       setSelectedRound(viz.latestRound);
     }
-  }, [followLatest, viz.latestRound]);
+  }, [followLatest, viz.latestRound, selectedRound]);
 
   if (!id) {
     return (
@@ -178,10 +204,39 @@ function TheaterInner() {
 
   return (
     <div className="flex min-h-[calc(100vh-12rem)] flex-col gap-3">
+      {/* Pre-Flight Multi-Agent Guidance Banner */}
+      {isDemo ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3.5 shadow-2xs">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Pre-Flight Multi-Agent Simulation · Labeled Demonstration Suite
+                </span>
+                <span className="rounded bg-blue-200/80 px-1.5 py-0.2 font-mono text-[10px] font-bold text-blue-900">
+                  CrewAI 6-Agent Chain
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-blue-800 leading-relaxed font-sans">
+                Inspecting pre-flight multi-agent walkthrough for {campaign?.name}. Follow sequential turns across Research, Curator, Red Team, Target, Judge, and Defender agents with cryptographic HMAC custody tokens.
+              </p>
+            </div>
+          </div>
+          <Button asChild size="sm" className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center">
+            <Link href="/red-team/campaigns">
+              View All Campaigns
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border px-3 py-2.5">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Live run · under Monitor
+            {isDemo ? "Pre-Flight Simulation · under Monitor" : "Live run · under Monitor"}
           </p>
           <p className="mt-0.5 text-[14px] font-medium text-foreground">
             {campaign?.name || id.slice(0, 8)}
@@ -205,7 +260,7 @@ function TheaterInner() {
               ? ` · ${campaign.rounds_completed}/${campaign.total_rounds}`
               : ""}
             {" · "}
-            {transport === "ws" ? "live" : transport === "poll" ? "refreshing" : "offline"}
+            {isDemo ? "simulation" : transport === "ws" ? "live" : transport === "poll" ? "refreshing" : "offline"}
           </span>
           <Button
             size="sm"
@@ -239,7 +294,7 @@ function TheaterInner() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-4">
           {LIVE_AGENTS.map((a) => {
-            const st = agents[a.id] ?? "idle";
+            const st = isDemo ? "done" : (agents[a.id] ?? "idle");
             return (
               <div key={a.id} className="flex items-center gap-1.5 text-[11px]">
                 <span
@@ -247,7 +302,8 @@ function TheaterInner() {
                     "h-2.5 w-2.5 rounded-full",
                     st === "running" && "animate-pulse bg-[#67b3ef] shadow-[0_0_8px_#67b3ef88]",
                     st === "done" && "bg-[hsl(var(--severity-low))]",
-                    st === "idle" && "bg-muted-foreground/35"
+                    st === "idle" && "bg-muted-foreground/35",
+                    st === "not_wired" && "bg-muted-foreground/20"
                   )}
                   title={st}
                 />
@@ -263,13 +319,13 @@ function TheaterInner() {
           })}
         </div>
         <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          detect {detection.rate != null ? `${detection.rate}%` : "—"}
+          detect {effectiveDetection.rate != null ? `${effectiveDetection.rate}%` : "—"}
           {" · "}
-          {detection.passed}/{detection.judged} blocked
+          {effectiveDetection.passed}/{effectiveDetection.judged} blocked
         </div>
       </div>
 
-      {/* Visual attack launch theater */}
+      {/* Visual attack launch theater (6-Agent Chain) */}
       <CampaignAttackViz
         model={viz}
         selectedRound={selectedRound}
@@ -279,15 +335,21 @@ function TheaterInner() {
         }}
       />
 
+      {/* Multi-Agent Turn Cards */}
+      <LiveAgentTurnCards
+        round={selectedRound ?? viz.latestRound ?? 1}
+        events={effectiveEvents}
+      />
+
       {/* Event stream */}
       <section className="min-w-0 space-y-2">
         <div className="flex items-baseline justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Attack event stream
           </h2>
-          <span className="font-mono text-[10px] text-muted-foreground">{stream.length} events</span>
+          <span className="font-mono text-[10px] text-muted-foreground">{effectiveEvents.length} events</span>
         </div>
-        <VirtualEventStream events={stream} follow={followLatest} />
+        <VirtualEventStream events={effectiveEvents} follow={followLatest} />
       </section>
     </div>
   );

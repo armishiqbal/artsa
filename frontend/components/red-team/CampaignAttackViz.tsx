@@ -29,12 +29,17 @@ export function CampaignAttackViz({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {/* Kill-chain path */}
+      {/* Six-agent attack launch path */}
       <div className="rounded-md border border-border p-3">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Attack launch path
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Six-Agent Autonomous Attack Chain
+            </h3>
+            <span className="rounded bg-muted px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground">
+              HMAC Custody Passing
+            </span>
+          </div>
           <span className="font-mono text-[10px] text-muted-foreground">
             {model.idle
               ? "waiting"
@@ -43,42 +48,47 @@ export function CampaignAttackViz({
                 : "live"}
           </span>
         </div>
-        <div className="flex flex-wrap items-stretch gap-1 sm:flex-nowrap">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {model.path.map((node, i) => (
-            <div key={node.id} className="flex min-w-0 flex-1 items-center gap-1">
+            <div key={node.id} className="min-w-0">
               <div
                 className={cn(
-                  "w-full rounded-md border px-2.5 py-2.5 transition-colors",
+                  "w-full rounded-md border p-2.5 transition-colors relative",
                   node.active
                     ? node.hot
                       ? "border-[hsl(var(--severity-critical))]/50 bg-[hsl(var(--severity-critical))]/10"
                       : "border-foreground/20 bg-muted/40"
-                    : "border-border/60 opacity-45"
+                    : "border-border/60 opacity-55"
                 )}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-mono text-[9px] font-bold text-muted-foreground">
+                    Hop {i + 1}
+                  </span>
+                  {node.hmacVerified ? (
+                    <span className="rounded bg-emerald-500/10 px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-600">
+                      HMAC
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 font-semibold text-[11px] text-foreground truncate">
                   {node.label}
                 </p>
+                {node.role ? (
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {node.role}
+                  </p>
+                ) : null}
                 <p
                   className={cn(
-                    "mt-0.5 truncate font-mono text-[11px]",
-                    node.hot ? "text-[hsl(var(--severity-critical))]" : "text-foreground"
+                    "mt-1 truncate font-mono text-[10px]",
+                    node.hot ? "text-[hsl(var(--severity-critical))] font-semibold" : "text-muted-foreground"
                   )}
+                  title={node.detail}
                 >
                   {node.detail}
                 </p>
               </div>
-              {i < model.path.length - 1 ? (
-                <span
-                  className={cn(
-                    "hidden shrink-0 sm:inline",
-                    node.hot ? "animate-pulse text-[hsl(var(--severity-critical))]" : "text-muted-foreground"
-                  )}
-                  aria-hidden
-                >
-                  →
-                </span>
-              ) : null}
             </div>
           ))}
         </div>
