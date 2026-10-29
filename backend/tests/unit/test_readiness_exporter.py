@@ -1,7 +1,6 @@
 """Tests for go-live readiness report exporter."""
 
 import pytest
-
 from src.reporting.readiness_exporter import ReadinessReportExporter
 
 SAMPLE = {

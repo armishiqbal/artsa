@@ -8,8 +8,8 @@ mathematical HMAC non-repudiation cryptographic verification proofs.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -132,7 +132,7 @@ class ComplianceReportExporter:
             parsed = float(value)
         except (TypeError, ValueError):
             return None
-        return parsed if parsed == parsed and abs(parsed) != float("inf") else None
+        return parsed if not math.isnan(parsed) and not math.isinf(parsed) else None
 
     @staticmethod
     def _optional_int(value: Any) -> int | None:
@@ -317,7 +317,7 @@ class ComplianceReportExporter:
         hop_hashes = (
             [
                 hashlib.sha256(
-                    f"{r['event_id']}:{r['nonce_sha256']}:{r['body_sha256']}".encode("utf-8")
+                    f"{r['event_id']}:{r['nonce_sha256']}:{r['body_sha256']}".encode()
                 ).digest()
                 for r in records
             ]
@@ -644,7 +644,7 @@ class ComplianceReportExporter:
         pdf.cell(90, 5, f"Audit Date: {self._pdf_safe(datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC'))}", ln=True)
         pdf.set_x(14)
         pdf.cell(90, 5, f"Target Model: {self._pdf_safe(self.model)} ({self._pdf_safe(self.provider)})")
-        pdf.cell(90, 5, f"Classification: RESTRICTED COMPLIANCE AUDIT", ln=True)
+        pdf.cell(90, 5, "Classification: RESTRICTED COMPLIANCE AUDIT", ln=True)
         pdf.set_x(14)
         pdf.cell(90, 5, f"Governance Readiness: {self._pdf_value(iso['readiness_score'])}/100 ({self._pdf_safe(iso['readiness_level'])})")
         pdf.cell(90, 5, f"HMAC Non-Repudiation: {self._pdf_safe(hmac_proofs['non_repudiation_status'])}", ln=True)
@@ -773,7 +773,7 @@ class ComplianceReportExporter:
         )
         pdf.cell(0, 5, ledger_line, ln=True)
 
-        raw = pdf.output(dest="S")
+        raw = pdf.output()
         if isinstance(raw, str):
             return raw.encode("latin-1", errors="replace")
         return bytes(raw)

@@ -130,35 +130,35 @@ class ReadinessReportExporter:
         pdf.set_auto_page_break(auto=True, margin=18)
         pdf.add_page()
         pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "ARTSA GO-LIVE READINESS REPORT", ln=True, align="C")
+        pdf.cell(0, 10, "ARTSA GO-LIVE READINESS REPORT", align="C", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "", 9)
-        pdf.cell(0, 6, f"Generated {self._pdf_safe(self.generated_at)}", ln=True, align="C")
+        pdf.cell(0, 6, f"Generated {self._pdf_safe(self.generated_at)}", align="C", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(4)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, self._pdf_safe(f"Readiness: {self.readiness_pct}% -- {self._sign_off_status()}"), ln=True)
+        pdf.cell(0, 8, self._pdf_safe(f"Readiness: {self.readiness_pct}% -- {self._sign_off_status()}"), new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 6, f"Security tests: {passed}/{total} passed", ln=True)
+        pdf.cell(0, 6, f"Security tests: {passed}/{total} passed", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(3)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, "Validation suite", ln=True)
+        pdf.cell(0, 8, "Validation suite", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "", 9)
         for row in self.suite:
             status = "PASS" if row.get("passed") else "FAIL" if row.get("passed") is False else "-"
             line = self._pdf_safe(f"{row.get('owasp', '-')} {row.get('label', '')} [{status}] risk={row.get('risk', '-')}")
-            pdf.multi_cell(0, 5, line)
+            pdf.multi_cell(0, 5, line, new_x="LMARGIN", new_y="NEXT")
 
         if ingest:
             pdf.ln(3)
             pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 8, "Ingest smoke test", ln=True)
+            pdf.cell(0, 8, "Ingest smoke test", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 9)
-            pdf.cell(0, 6, self._pdf_safe(f"Session: {ingest.get('sessionId', '-')}"), ln=True)
-            pdf.cell(0, 6, self._pdf_safe(f"Latency: {ingest.get('latencyMs', '-')} ms"), ln=True)
-            pdf.cell(0, 6, self._pdf_safe(f"Verdict: {ingest.get('verdict', '-')} / Action: {ingest.get('action', '-')}"), ln=True)
+            pdf.cell(0, 6, self._pdf_safe(f"Session: {ingest.get('sessionId', '-')}"), new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 6, self._pdf_safe(f"Latency: {ingest.get('latencyMs', '-')} ms"), new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 6, self._pdf_safe(f"Verdict: {ingest.get('verdict', '-')} / Action: {ingest.get('action', '-')}"), new_x="LMARGIN", new_y="NEXT")
 
-        raw = pdf.output(dest="S")
+        raw = pdf.output()
         if isinstance(raw, str):
             return raw.encode("latin-1", errors="replace")
         return bytes(raw)

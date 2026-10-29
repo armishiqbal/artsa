@@ -45,7 +45,7 @@ dependencies = [
     "langchain-community>=0.3.0",
     "chromadb>=0.5.0",
     # Reporting / CLI
-    "fpdf>=1.7.2",
+    "fpdf2>=2.7.0",
     "rich>=13.0",
     # Misc
     "pyyaml>=6.0",
