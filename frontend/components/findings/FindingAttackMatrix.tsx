@@ -117,8 +117,8 @@ export function FindingAttackMatrix({
 
   return (
     <div className="space-y-2.5">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 px-0.5">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-700">
             MITRE ATLAS &amp; OWASP LLM Attack Surface Matrix
           </span>
@@ -130,14 +130,14 @@ export function FindingAttackMatrix({
           <button
             type="button"
             onClick={() => onSelectCategory("ALL")}
-            className="font-mono text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+            className="font-mono text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition-colors self-start sm:self-auto"
           >
             ← View All Categories
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
         {categories.map((cat) => {
           const Icon = cat.icon;
           const isActive = activeCategory === cat.asiCode;
@@ -148,53 +148,53 @@ export function FindingAttackMatrix({
               type="button"
               onClick={() => onSelectCategory(isActive ? "ALL" : cat.asiCode)}
               className={cn(
-                "group relative flex flex-col justify-between rounded-xl border p-3 text-left transition-all shadow-2xs hover:shadow-xs",
+                "group relative flex flex-col justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all shadow-2xs hover:shadow-xs min-w-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
                 isActive
-                  ? "border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20"
+                  ? "border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20"
                   : "border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/50"
               )}
             >
               {/* Header: ASI Code & MITRE Tag */}
-              <div className="flex items-start justify-between gap-1 mb-2">
-                <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700">
+              <div className="flex items-center justify-between gap-1 mb-1.5">
+                <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shrink-0">
                   {cat.asiCode}
                 </span>
-                <span className="font-mono text-[9px] font-semibold text-slate-500">
+                <span className="font-mono text-[9px] font-semibold text-slate-500 truncate" title={cat.mitreAtlas}>
                   {cat.mitreAtlas}
                 </span>
               </div>
 
               {/* Title & Description */}
-              <div className="space-y-1 mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Icon className={cn("h-3.5 w-3.5 shrink-0", 
+              <div className="space-y-1 mb-2 min-w-0 flex-1">
+                <div className="flex items-start gap-1.5 min-w-0">
+                  <Icon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", 
                     cat.color === "rose" ? "text-rose-600" :
                     cat.color === "amber" ? "text-amber-600" :
                     cat.color === "blue" ? "text-blue-600" : "text-slate-600"
                   )} />
-                  <p className="font-semibold text-xs text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">
+                  <p className="font-semibold text-xs text-slate-900 leading-tight group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[2rem]">
                     {cat.title}
                   </p>
                 </div>
-                <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
+                <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed hidden lg:block">
                   {cat.description}
                 </p>
               </div>
 
               {/* Metrics Footer */}
-              <div className="flex items-center justify-between border-t border-slate-100 pt-2 font-mono text-[10px]">
-                <span className="font-bold text-slate-900">
+              <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 font-mono text-[10px] min-w-0">
+                <span className="font-bold text-slate-900 shrink-0">
                   {cat.count} {cat.count === 1 ? "Probe" : "Probes"}
                 </span>
                 {cat.breachedCount > 0 ? (
-                  <span className="font-bold text-rose-600 flex items-center gap-0.5">
-                    <ShieldAlert className="h-2.5 w-2.5" />
-                    {cat.breachedCount} Breached
+                  <span className="font-bold text-rose-600 flex items-center gap-0.5 truncate">
+                    <ShieldAlert className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">{cat.breachedCount} Breached</span>
                   </span>
                 ) : cat.containedCount > 0 ? (
-                  <span className="font-bold text-emerald-600 flex items-center gap-0.5">
-                    <ShieldCheck className="h-2.5 w-2.5" />
-                    Contained
+                  <span className="font-bold text-emerald-600 flex items-center gap-0.5 truncate">
+                    <ShieldCheck className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">Contained</span>
                   </span>
                 ) : (
                   <span className="text-slate-400">0 Open</span>

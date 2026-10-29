@@ -143,104 +143,111 @@ export default function FindingsPage() {
           </span>
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Dataset Mode Switcher: Pre-Flight Benchmark vs Live Telemetry */}
-            <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setDatasetMode("demo")}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
-                  isViewingDemo
-                    ? "bg-blue-600 text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                )}
-                title="View 5 pre-flight intelligence scenarios across OWASP ASI01-ASI10 & MITRE ATLAS"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Benchmark Suite (5)
-              </button>
-              <button
-                type="button"
-                onClick={() => setDatasetMode("live")}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
-                  !isViewingDemo
-                    ? "bg-slate-900 text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                )}
-                title="View live operational findings recorded by the backend sensor database"
-              >
-                <Radio className="h-3 w-3" />
-                Live Telemetry ({rawFindings.length})
-              </button>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+            {/* Primary Mode Switchers */}
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+              {/* Dataset Mode Switcher: Pre-Flight Benchmark vs Live Telemetry */}
+              <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setDatasetMode("demo")}
+                  className={cn(
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    isViewingDemo
+                      ? "bg-blue-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  )}
+                  title="View 5 pre-flight intelligence scenarios across OWASP ASI01-ASI10 & MITRE ATLAS"
+                >
+                  <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                  <span>Benchmark ({DEMO_BENCHMARK_FINDINGS.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatasetMode("live")}
+                  className={cn(
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    !isViewingDemo
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  )}
+                  title="View live operational findings recorded by the backend sensor database"
+                >
+                  <Radio className="h-3 w-3 shrink-0" />
+                  <span>Live ({rawFindings.length})</span>
+                </button>
+              </div>
+
+              {/* View Switcher: Workbench vs Table */}
+              <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("workbench")}
+                  className={cn(
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    viewMode === "workbench"
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  )}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
+                  <span>Studio</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  className={cn(
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    viewMode === "table"
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  )}
+                >
+                  <TableIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span>Table</span>
+                </button>
+              </div>
             </div>
 
-            {/* View Switcher: Workbench vs Table */}
-            <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setViewMode("workbench")}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
-                  viewMode === "workbench"
-                    ? "bg-slate-900 text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                )}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Forensic Studio
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
-                  viewMode === "table"
-                    ? "bg-slate-900 text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                )}
-              >
-                <TableIcon className="h-3.5 w-3.5" />
-                SOC Table
-              </button>
+            {/* Quick Action Navigation Links */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-initial h-8 border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs">
+                <Link href="/replay">
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-slate-500 shrink-0" />
+                  <span>Replay</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-initial h-8 border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs">
+                <Link href="/admin/policies">
+                  <BookMarked className="mr-1.5 h-3.5 w-3.5 text-slate-500 shrink-0" />
+                  <span>Policies</span>
+                </Link>
+              </Button>
+              <Button asChild size="sm" className="flex-1 sm:flex-initial h-8 bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 shadow-2xs">
+                <Link href="/red-team/lab">
+                  <ShieldPlus className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <span>Simulate</span>
+                </Link>
+              </Button>
             </div>
-
-            <Button asChild variant="outline" size="sm" className="h-8 border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs">
-              <Link href="/replay">
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-slate-500" />
-                Fleet Replay
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="h-8 border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs">
-              <Link href="/admin/policies">
-                <BookMarked className="mr-1.5 h-3.5 w-3.5 text-slate-500" />
-                Active Policies
-              </Link>
-            </Button>
-            <Button asChild size="sm" className="h-8 bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 shadow-2xs">
-              <Link href="/red-team/lab">
-                <ShieldPlus className="mr-1.5 h-3.5 w-3.5" />
-                Simulate in Lab
-              </Link>
-            </Button>
           </div>
         }
       />
 
       {/* Demonstration Benchmark Guidance Banner */}
       {isViewingDemo && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3.5 shadow-2xs">
-          <div className="flex items-start gap-2.5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3 sm:p-3.5 shadow-2xs">
+          <div className="flex items-start gap-2.5 min-w-0 flex-1">
             <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
               <Sparkles className="h-4 w-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span className="font-mono text-xs font-bold uppercase tracking-wider text-blue-900">
-                  Pre-Flight Threat Intelligence Benchmark · Labeled Demonstration Suite
+                  <span className="hidden sm:inline">Pre-Flight </span>Threat Intelligence Benchmark
+                  <span className="hidden md:inline"> · Labeled Demonstration Suite</span>
                 </span>
-                <span className="rounded bg-blue-200/80 px-1.5 py-0.2 font-mono text-[10px] font-bold text-blue-900">
+                <span className="rounded bg-blue-200/80 px-1.5 py-0.5 font-mono text-[10px] font-bold text-blue-900 shrink-0">
                   OWASP ASI &amp; MITRE ATLAS
                 </span>
               </div>
@@ -251,8 +258,8 @@ export default function FindingsPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-            <Button asChild size="sm" className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs">
+          <div className="flex items-center gap-2 self-stretch sm:self-center shrink-0">
+            <Button asChild size="sm" className="h-7.5 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs w-full sm:w-auto">
               <Link href="/red-team/lab">
                 <ShieldPlus className="h-3.5 w-3.5" />
                 Run Campaign in Lab

@@ -102,13 +102,13 @@ export function FindingDetailDrawer({
       </div>
 
       {/* Quick Action Ribbon */}
-      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-2.5 bg-white">
-        <div className="flex items-center gap-2 font-mono text-xs text-slate-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 sm:px-6 py-2.5 bg-white">
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-slate-500">
           <span>Impact Score:</span>
           <span className="font-bold text-slate-900">{finding.impact_score == null ? "—" : `${finding.impact_score}/100`}</span>
-          <span className="text-slate-300">|</span>
-          <span>Category:</span>
-          <span className="text-slate-700 truncate max-w-[220px]">{finding.category}</span>
+          <span className="text-slate-300 hidden xs:inline">|</span>
+          <span className="hidden xs:inline">Category:</span>
+          <span className="text-slate-700 truncate max-w-[200px]">{finding.category}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -120,7 +120,7 @@ export function FindingDetailDrawer({
           >
             {finding.source_ref ? (
               <Link href={`/replay?session=${encodeURIComponent(finding.source_ref)}`}>
-                Replay Turn
+                <span>Replay Turn</span>
                 <ArrowUpRight className="h-3 w-3 text-slate-400" />
               </Link>
             ) : <span className="text-slate-400">Replay unavailable</span>}
@@ -129,58 +129,58 @@ export function FindingDetailDrawer({
       </div>
 
       {/* Navigation Segmented Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 px-6 pt-2 bg-slate-50/40">
+      <div className="flex items-center gap-1 border-b border-slate-200 px-4 sm:px-6 pt-2 bg-slate-50/40 overflow-x-auto scrollbar-none whitespace-nowrap">
         <button
           type="button"
           onClick={() => setActiveTab("exploit")}
           className={cn(
-            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors",
+            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "exploit"
               ? "border-blue-600 text-blue-700 bg-white rounded-t"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
           <Code className="h-3.5 w-3.5" />
-          Evidence &amp; Exploit
+          <span>Evidence &amp; Exploit</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("remediation")}
           className={cn(
-            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors",
+            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "remediation"
               ? "border-blue-600 text-blue-700 bg-white rounded-t"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
           <BookMarked className="h-3.5 w-3.5" />
-          Policy Hotpatch
+          <span>Policy Hotpatch</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("identity")}
           className={cn(
-            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors",
+            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "identity"
               ? "border-blue-600 text-blue-700 bg-white rounded-t"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
           <Layers className="h-3.5 w-3.5" />
-          Blast Radius &amp; Identity
+          <span>Blast Radius &amp; Identity</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("custody")}
           className={cn(
-            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors",
+            "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "custody"
               ? "border-blue-600 text-blue-700 bg-white rounded-t"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
           <Activity className="h-3.5 w-3.5" />
-          Chain of Custody
+          <span>Chain of Custody</span>
         </button>
       </div>
 

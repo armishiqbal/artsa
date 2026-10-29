@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { Badge } from "@/components/ui/badge";
@@ -137,8 +138,18 @@ export function FindingsTable({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by threat, vector payload, ASI code, or MITRE ATLAS..."
-              className="h-9 pl-9 text-xs border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white"
+              className="h-9 pl-9 pr-7 text-xs border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Agent Fleet Selector */}
@@ -209,8 +220,65 @@ export function FindingsTable({
         </div>
       </div>
 
-      {/* Main High-Density Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+      {/* Mobile / Compact Card View (< md screens) */}
+      <div className="md:hidden space-y-2.5">
+        {filtered.length === 0 ? (
+          <div className="rounded-xl border border-slate-200/90 bg-white p-8 text-center text-xs font-mono text-slate-500">
+            No vulnerability findings match this filter query.
+          </div>
+        ) : (
+          filtered.map((row) => {
+            const isSelected = selectedId === row.id;
+            const isBreached = row.verdict?.toUpperCase() === "BREACHED";
+
+            return (
+              <div
+                key={row.id}
+                onClick={() => onSelect?.(row)}
+                className={cn(
+                  "rounded-xl border p-3.5 bg-white transition-all shadow-2xs cursor-pointer active:scale-[0.99]",
+                  isSelected
+                    ? "border-blue-500 ring-2 ring-blue-500/10 bg-blue-50/30"
+                    : "border-slate-200/90 hover:border-slate-300"
+                )}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-600">
+                    <span className="font-bold text-slate-800">{row.id}</span>
+                    <span className="text-slate-300">·</span>
+                    <span>{row.asi_code ?? row.category}</span>
+                  </div>
+                  <SeverityBadge severity={row.severity} />
+                </div>
+
+                <p className="font-semibold text-xs text-slate-900 leading-snug mb-1.5">
+                  {row.title}
+                </p>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 font-mono text-[11px] text-slate-500">
+                  <span className="truncate max-w-[150px] font-medium text-slate-700">{row.target_agent}</span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "font-bold uppercase text-[10px]",
+                        isBreached ? "text-rose-600" : "text-emerald-600"
+                      )}
+                    >
+                      {row.verdict ?? "UNCLASSIFIED"}
+                    </span>
+                    <span className="text-xs font-semibold text-blue-600 flex items-center">
+                      Inspect <ChevronRight className="h-3 w-3 ml-0.5" />
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Main High-Density Table (hidden on mobile, visible on md+) */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200/90 bg-white shadow-2xs">
         <table className="w-full min-w-[980px] text-left text-xs">
           <thead className="border-b border-slate-200/90 bg-slate-50/80 font-mono text-[11px] uppercase tracking-wider text-slate-600">
             <tr>
