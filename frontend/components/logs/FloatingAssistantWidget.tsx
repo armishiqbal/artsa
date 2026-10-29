@@ -51,7 +51,7 @@ export function FloatingAssistantWidget() {
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-full bg-[#0a1b39] text-white shadow-xl transition-all duration-200 hover:scale-105 hover:bg-[#0e244d] dark:bg-blue-600 dark:hover:bg-blue-500",
+            "flex h-12 w-12 items-center justify-center rounded-full bg-black text-white shadow-xl transition-all duration-200 hover:scale-105 hover:bg-slate-900 dark:bg-black dark:hover:bg-slate-900",
             open && "rotate-90 scale-95"
           )}
           aria-label="Open AI Security Assistant"

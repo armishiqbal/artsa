@@ -335,7 +335,7 @@ export function LandingSignInPanel({
                   Evaluating for your enterprise?{" "}
                   <button
                     type="button"
-                    className="font-semibold text-blue-600 underline-offset-4 hover:underline"
+                    className="font-bold text-slate-900 underline-offset-4 hover:underline"
                     onClick={() => {
                       onClose();
                       onContactSales();

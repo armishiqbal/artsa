@@ -82,7 +82,7 @@ export function AttackLibraryPromotionBar({
             </Button>
           )}
 
-          <Button size="sm" asChild className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-[12px] cursor-pointer">
+          <Button size="sm" asChild className="gap-2 bg-black hover:bg-slate-900 text-white font-mono text-[12px] cursor-pointer">
             <Link href={campaignLaunchUrl}>
               <Play className="h-3.5 w-3.5 fill-current" />
               <span>Launch Targeted Campaign</span>

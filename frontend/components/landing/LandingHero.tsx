@@ -44,7 +44,7 @@ export function LandingHero() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
             <LandingSignInButton
               variant="ghost"
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-7 py-3 text-sm font-mono font-semibold text-white shadow-md shadow-blue-500/15 transition hover:bg-blue-700"
+              className="inline-flex items-center gap-2 rounded-full bg-black px-7 py-3 text-sm font-mono font-semibold text-white shadow-md transition hover:bg-slate-900"
               signInOptions={{ returnTo: "/command-center", mode: "register" }}
             >
               Start free trial

@@ -132,7 +132,7 @@ export function LandingPricing() {
                 ) : (
                   <LandingSignInButton
                     variant="ghost"
-                    className="w-full rounded-xl bg-blue-600 py-3 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-700 shadow-md text-center block"
+                    className="w-full rounded-xl bg-black py-3 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-900 shadow-md text-center block"
                     signInOptions={{ returnTo: "/command-center", mode: "register" }}
                   >
                     {plan.cta}

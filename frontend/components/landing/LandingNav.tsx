@@ -59,7 +59,7 @@ export function LandingNav() {
           <LandingSignInButton
             variant="ghost"
             size="sm"
-            className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-xs font-mono font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-xs font-mono font-semibold text-white shadow-sm transition hover:bg-slate-900"
             signInOptions={{ returnTo: "/command-center", mode: "register" }}
           >
             Get started free
@@ -96,7 +96,7 @@ export function LandingNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="py-2 text-slate-700 transition hover:text-blue-600"
+                className="py-2 text-slate-700 transition hover:text-black hover:font-semibold"
                 onClick={() => setOpen(false)}
               >
                 {item.label}
@@ -106,7 +106,7 @@ export function LandingNav() {
           <div className="mt-5 flex flex-col gap-2.5 border-t border-slate-100 pt-4">
             <LandingSignInButton
               variant="ghost"
-              className="w-full text-center rounded-full bg-blue-600 py-2.5 text-xs font-mono font-semibold text-white shadow-sm hover:bg-blue-700"
+              className="w-full text-center rounded-full bg-black py-2.5 text-xs font-mono font-semibold text-white shadow-sm hover:bg-slate-900"
               signInOptions={{ returnTo: "/command-center", mode: "register" }}
             >
               Get started free

@@ -271,7 +271,7 @@ export function ContactSalesForm({
 
       <button
         type="submit"
-        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 flex items-center justify-center gap-2"
+        className="w-full rounded-xl bg-black py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-slate-900 flex items-center justify-center gap-2"
         disabled={loading}
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
@@ -291,7 +291,7 @@ export function ContactSalesForm({
           ) : (
             <button
               type="button"
-              className="font-semibold text-blue-600 underline-offset-4 hover:underline"
+              className="font-bold text-slate-900 underline-offset-4 hover:underline"
               onClick={onLogin}
             >
               Sign in
