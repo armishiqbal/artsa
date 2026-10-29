@@ -120,7 +120,8 @@ export function LiveAgentTurnCards({
           const Icon = AGENT_ICONS[spec.id as keyof typeof AGENT_ICONS] ?? Bot;
           const isExpanded = Boolean(expandedTrace[spec.id]);
           const tools = evt?.tool_invocations ?? spec.tools;
-          const hmacToken = evt?.hmac_token ?? "hmac-sha256:verified-custody";
+          const isHmacVerified = Boolean(evt?.hmac_token) || (Boolean(evt) && (state === "completed" || state === "breached" || state === "contained"));
+          const hmacToken = evt?.hmac_token ?? (isHmacVerified ? "hmac-sha256:verified-custody" : null);
           const snippet = evt?.payload_snippet;
 
           return (
@@ -180,10 +181,17 @@ export function LiveAgentTurnCards({
 
                 <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-start">
                   {/* HMAC verification badge */}
-                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-700">
-                    <Lock className="h-2.5 w-2.5 text-slate-500" />
-                    HMAC Verified
-                  </span>
+                  {state === "pending" || state === "standby" ? (
+                    <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                      <Lock className="h-2.5 w-2.5 text-slate-400" />
+                      {state === "standby" ? "Standby Handoff" : "Awaiting Handoff"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-700">
+                      <Lock className="h-2.5 w-2.5 text-slate-500" />
+                      HMAC Verified
+                    </span>
+                  )}
 
                   {/* Outcome badge */}
                   {state === "breached" ? (

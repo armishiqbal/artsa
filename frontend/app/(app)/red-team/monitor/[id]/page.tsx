@@ -174,12 +174,12 @@ function TheaterInner() {
     publishRedTeamChrome(state);
   }, [id, listLoading, campaign, status, followLatest, running, wsConnected, transport]);
 
-  // Follow latest round unless user picks one
+  // Follow latest round unless user pauses or manually picks one
   useEffect(() => {
-    if (followLatest && viz.latestRound != null && selectedRound == null) {
+    if (followLatest && viz.latestRound != null) {
       setSelectedRound(viz.latestRound);
     }
-  }, [followLatest, viz.latestRound, selectedRound]);
+  }, [followLatest, viz.latestRound]);
 
   if (!id) {
     return (
