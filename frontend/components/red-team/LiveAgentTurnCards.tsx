@@ -243,7 +243,7 @@ export function LiveAgentTurnCards({
                   <button
                     type="button"
                     onClick={() => toggleTrace(spec.id)}
-                    className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-blue-600 hover:text-blue-800 hover:underline"
+                    className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-slate-800 hover:text-black font-semibold hover:underline"
                   >
                     {isExpanded ? (
                       <>

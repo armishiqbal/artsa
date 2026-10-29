@@ -105,7 +105,7 @@ export default function RedTeamHomePage() {
             </div>
           </div>
           <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-            <Button asChild size="sm" className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs">
+            <Button asChild size="sm" className="h-7 bg-black hover:bg-slate-900 text-white font-mono text-xs gap-1.5 shadow-xs">
               <Link href="/red-team/campaigns/new">
                 Launch Live Campaign
               </Link>
@@ -130,7 +130,7 @@ export default function RedTeamHomePage() {
           <Button
             size="sm"
             onClick={() => setDatasetMode("demo")}
-            className="h-7 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center"
+            className="h-7 bg-black hover:bg-slate-900 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center"
           >
             <Sparkles className="h-3 w-3" />
             Switch to Simulation Suite
@@ -154,7 +154,7 @@ export default function RedTeamHomePage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
                 datasetMode === "demo"
-                  ? "bg-blue-600 text-white shadow-2xs"
+                  ? "bg-black text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
               )}
             >
@@ -167,7 +167,7 @@ export default function RedTeamHomePage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
                 datasetMode === "live"
-                  ? "bg-slate-900 text-white shadow-2xs"
+                  ? "bg-black text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
               )}
             >

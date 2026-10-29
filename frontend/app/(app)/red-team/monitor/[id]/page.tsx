@@ -225,7 +225,7 @@ function TheaterInner() {
               </p>
             </div>
           </div>
-          <Button asChild size="sm" className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center">
+          <Button asChild size="sm" className="h-7 bg-black hover:bg-slate-900 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center">
             <Link href="/red-team/campaigns">
               View All Campaigns
             </Link>
