@@ -4,7 +4,6 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 from fastapi import BackgroundTasks
-
 from src.api.routes.campaigns import (
     BaselineCampaignRequest,
     RunCampaignRequest,

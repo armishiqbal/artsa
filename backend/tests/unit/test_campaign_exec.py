@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from src.agents.handoff_worker import run_target_hop
 from src.core.campaign_exec import (
     CampaignExecContext,
     JudgeExecSpec,
@@ -14,10 +15,9 @@ from src.core.campaign_exec import (
     secret_ref_for_provider,
 )
 from src.core.hmac_handoff import HandoffIntegrityError, sign_handoff
-from src.models import AttackCategory, CampaignConfig, GuardrailConfig, TargetConfig
-from src.agents.handoff_worker import run_target_hop
 from src.data.hmac_audit_store import clear_handoff_audits
 from src.data.redis_client import reset_redis_client
+from src.models import AttackCategory, CampaignConfig, TargetConfig
 
 
 @pytest.fixture(autouse=True)

@@ -183,7 +183,7 @@ def _arguments_for_tool(tool_name: str, text: str, matched: str) -> dict[str, An
         )
         return {"path": path_match.group(0) if path_match else matched}
     if tool_name == "query_database":
-        return {"query": text if re.search(r"(?i)\bselect\b", text) else text}
+        return {"query": text}
     if tool_name == "run_command":
         return {"cmd": text}
     return {"prompt": text}

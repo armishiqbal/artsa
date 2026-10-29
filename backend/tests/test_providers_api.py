@@ -239,6 +239,7 @@ def test_provider_test_blocks_ssrf_internal_target(provider_api, monkeypatch):
 def test_provider_test_success(provider_api, monkeypatch):
     """The provider test endpoint succeeds with a safe external endpoint."""
     from unittest.mock import AsyncMock, MagicMock
+
     import httpx
 
     _add_provider(provider_api, name="safe-test-provider")
@@ -266,6 +267,7 @@ def test_provider_test_success(provider_api, monkeypatch):
 def test_provider_test_trailing_slash_normalized(provider_api, monkeypatch):
     """Trailing slash on base_url must not result in double slashes in the target URL."""
     from unittest.mock import AsyncMock, MagicMock
+
     import httpx
 
     _add_provider(provider_api, name="trailing-slash-provider", base_url="https://api.openai.com/v1/")

@@ -10,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from src.agents.defender_agent import DefenderAgent
 from src.agents.guardrails.adapters import (
     DynamicSemanticGuardrailAdapter,

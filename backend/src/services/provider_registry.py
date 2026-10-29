@@ -128,7 +128,7 @@ def create_llm_instance(
         from src.core.campaign_exec import DETERMINISTIC_RESPONSE, record_test_llm_call
 
         class _CountingFake(FakeListChatModel):
-            def invoke(self, input, config=None, **kwargs):  # noqa: A002
+            def invoke(self, input, config=None, **kwargs):
                 record_test_llm_call()
                 return super().invoke(input, config=config, **kwargs)
 

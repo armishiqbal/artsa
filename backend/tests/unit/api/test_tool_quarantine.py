@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
 from fastapi.testclient import TestClient
-
 from src.agents.target_agent import TargetAgent
 from src.api.main import app
 from src.core.models.ops_events import OPERATOR_ACTIONS

@@ -5,14 +5,12 @@ from __future__ import annotations
 import tempfile
 
 import pytest
-
 from src.core.models.targets import TargetCreate, TargetUpdate
 
 
 @pytest.fixture
 async def session():
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from src.data.db import Base
     from src.data.orm import TargetORM  # noqa: F401 — register the table
 
@@ -173,10 +171,10 @@ async def test_unreachable_target_reports_unknown_not_empty(session, monkeypatch
 
 
 def test_discovery_config_resolves_tenant_provider_alias(monkeypatch):
+    import src.services.provider_resolver as resolver_module
     from src.core.models.targets import Target
     from src.discovery.engine import _build_target_config
     from src.services.provider_resolver import ResolvedProvider
-    import src.services.provider_resolver as resolver_module
 
     calls: dict[str, object] = {}
 
@@ -217,10 +215,10 @@ def test_discovery_config_resolves_tenant_provider_alias(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_target_preflight_checks_authorization_provider_and_discovery(monkeypatch):
+    import src.api.routes.targets as targets_route
     from src.api.routes.targets import target_campaign_preflight
     from src.core.models.targets import Target, TargetSurface
     from src.services.provider_resolver import ResolvedProvider
-    import src.api.routes.targets as targets_route
 
     target = Target(
         id="target-1",
@@ -266,10 +264,10 @@ async def test_target_preflight_checks_authorization_provider_and_discovery(monk
 
 @pytest.mark.asyncio
 async def test_campaign_target_gate_requires_authorization_and_reachable_discovery(monkeypatch):
+    import src.data.target_store as target_store_module
     from fastapi import HTTPException
     from src.api.routes.campaigns import RunCampaignRequest, _apply_registered_target
     from src.core.models.targets import Target, TargetSurface
-    import src.data.target_store as target_store_module
 
     target = Target(
         id="target-1",

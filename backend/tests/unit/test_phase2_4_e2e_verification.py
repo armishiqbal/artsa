@@ -6,21 +6,16 @@ deployed WebSocket service. They exercise selected Python components and stores.
 
 from __future__ import annotations
 
-import asyncio
-import time
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
-
 from src.core.models.hops import AgentRole, HmacState, HopEventType, executed_hop
-from src.core.models.ops_events import AgentOpsState, OperatorActionSpec, SecurityOpsEvent
 from src.core.models.sessions import Session
 from src.data.campaign_job_store import campaign_job_store
-from src.data.memory_store import store_session
-from src.models import AttackCategory, AttackPayload, AttackProfile, CampaignConfig, TargetConfig
+from src.models import AttackCategory, AttackProfile, CampaignConfig, TargetConfig
 from src.orchestrator.campaign_manager import CampaignManager
 from src.runtime.circuit_breaker import circuit_breaker
 from src.services.campaign_live_bus import campaign_live_bus, emit_round_events

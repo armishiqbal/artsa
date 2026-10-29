@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
-
-from src.agents.research_agent import ResearchAgent, ThreatIntelligenceRecord
+from src.agents.research_agent import ResearchAgent
 from src.api.main import app
 from src.models import AttackCategory
 from tests.conftest import unwrap_response

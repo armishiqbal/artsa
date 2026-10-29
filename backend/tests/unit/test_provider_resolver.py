@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from sqlalchemy import create_engine
-
 from src.core.config import settings
 from src.data.db import Base
 from src.data.orm import ProviderORM

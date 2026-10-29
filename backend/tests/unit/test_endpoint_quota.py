@@ -2,9 +2,7 @@
 
 import pytest
 from fastapi import HTTPException
-
 from src.services.endpoint_quota import (
-    EndpointQuotaStore,
     endpoint_quota_store,
     enforce_baseline_start_quota,
     enforce_situation_quota,
@@ -83,7 +81,7 @@ def test_zero_limit_disables_quota(monkeypatch):
 
 def test_quota_includes_retry_after_header(monkeypatch):
     from src.core.config import settings
-    from src.services.endpoint_quota import enforce_baseline_start_quota, endpoint_quota_store
+    from src.services.endpoint_quota import endpoint_quota_store, enforce_baseline_start_quota
 
     endpoint_quota_store.reset()
     monkeypatch.setattr(settings, "BASELINE_STARTS_PER_HOUR", 1)

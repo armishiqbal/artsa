@@ -102,8 +102,8 @@ def _sqlite_candidates() -> list[Path]:
                 continue
             p = Path(rel)
             paths.append(p if p.is_absolute() else Path.cwd() / p)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Could not parse db URL for candidate paths: %s", exc)
     # Common locations when cwd is repo root vs backend/
     paths.extend(
         [

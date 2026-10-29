@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-import pytest
 
+import pytest
 from src.agents.curator_agent import CuratorAgent, TargetAttackSurface
 from src.agents.research_agent import ResearchAgent, ThreatIntelligenceRecord
-from src.core.hmac_handoff import HandoffIntegrityError, sign_handoff, verify_handoff
+from src.core.hmac_handoff import HandoffIntegrityError, verify_handoff
 from src.data.attack_library import AttackLibrary
 from src.models import (
     AttackCategory,
@@ -167,7 +167,6 @@ def test_curator_hmac_handoff_cycle():
     assert len(extracted_findings) == len(findings)
 
     # 3. Curator curates seeds and signs envelope for Red Team
-    target = TargetConfig(tools=["search_web"])
     seeds = curator.generate_attack_seeds(extracted_findings)
     red_team_envelope = curator.sign_handoff_envelope(seeds, campaign_id="camp-cur-1", round_id=1)
 

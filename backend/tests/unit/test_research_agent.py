@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.agents.research_agent import (
     NIST_THREAT_CATALOG,
     ResearchAgent,
     ThreatIntelligenceRecord,
 )
 from src.core.hmac_handoff import verify_handoff
-from src.models import AttackCategory, Severity
+from src.models import AttackCategory
 
 
 def test_research_agent_loads_nist_patterns():

@@ -62,7 +62,7 @@ def test_init_db_replaces_legacy_global_provider_name_index(monkeypatch, tmp_pat
     monkeypatch.setattr(settings, "DATABASE_URL", database_url)
     monkeypatch.setattr(settings, "SYNC_DATABASE_URL", f"sqlite:///{database}")
 
-    import src.data.db as db
+    from src.data import db
 
     monkeypatch.setattr(db, "_engine", None)
     monkeypatch.setattr(db, "_session_factory", None)

@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
 from src.core.config import settings
 from src.data.db import Base
 from src.data.orm import SessionCircuitBreakerORM

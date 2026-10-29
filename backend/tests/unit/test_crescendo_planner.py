@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.attacks.crescendo import (
     CrescendoAttackChain,
     CrescendoPlanner,
     CrescendoStage,
-    CrescendoTurn,
 )
 from src.models import AttackCategory, AttackMetadata, AttackTemplate, Severity
 

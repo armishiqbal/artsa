@@ -11,7 +11,6 @@ the inter-agent HMAC handoff envelope (Research → Curator).
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import uuid
 from typing import Any
@@ -19,7 +18,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from src.agents.base_agent import BaseAgent
-from src.core.asi import ASI_CATALOG, AsiEntry
+from src.core.asi import ASI_CATALOG
 from src.core.hmac_handoff import sign_handoff
 from src.models import AttackCategory, Severity
 
@@ -645,7 +644,7 @@ class ResearchAgent(BaseAgent):
                         metrics = cve.get("metrics", {})
                         cvss_data = None
                         for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV40"):
-                            if key in metrics and metrics[key]:
+                            if metrics.get(key):
                                 cvss_data = metrics[key][0].get("cvssData", {})
                                 break
                         base_score = float(cvss_data.get("baseScore", 7.5)) if cvss_data else 7.5

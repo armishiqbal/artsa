@@ -8,7 +8,12 @@ import yaml
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from src.data.policy_version_store import current_version, diff_versions, list_versions, snapshot_rules
+from src.data.policy_version_store import (
+    current_version,
+    diff_versions,
+    list_versions,
+    snapshot_rules,
+)
 
 router = APIRouter(tags=["Policies"])
 

@@ -7,15 +7,11 @@ deployed service or external LLM provider.
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 import yaml
-
 from src.agents.curator_agent import CuratorAgent
 from src.agents.defender_agent import DefenderAgent
-from src.agents.judge_agent import JudgeAgent
-from src.agents.red_team_agent import RedTeamAgent
-from src.agents.research_agent import ResearchAgent
-from src.agents.target_agent import TargetAgent
 from src.agents.handoff_worker import (
     run_curator_hop,
     run_defender_hop,
@@ -24,6 +20,10 @@ from src.agents.handoff_worker import (
     run_research_hop,
     run_target_hop,
 )
+from src.agents.judge_agent import JudgeAgent
+from src.agents.red_team_agent import RedTeamAgent
+from src.agents.research_agent import ResearchAgent
+from src.agents.target_agent import TargetAgent
 from src.core.hmac_handoff import sign_handoff
 from src.data.attack_library import AttackLibrary
 from src.models import (

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from src.containment.detectors.tool_output_scanner import OUTPUT_PATTERNS
 from src.containment.detectors.prompt_injection import INJECTION_PATTERNS
+from src.containment.detectors.tool_output_scanner import OUTPUT_PATTERNS
 from src.runtime.actions import RuntimeAction
 from src.runtime.evidence import RedactedFinding, finding_from_span
 

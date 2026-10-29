@@ -446,8 +446,8 @@ async def playground_chat(
                 model=payload.model,
             )
             await db.commit()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.warning("Failed recording playground provider_unavailable run: %s", err)
         assessment = unavailable_guard_assessment(run_id=run_id, session_id=session_id, phase="input")
         _log_playground_event("playground.chat.provider_unavailable", tenant_id=tenant_id, session_id=session_id, action="UNAVAILABLE", channel="chat", mode=payload.mode, run_id=run_id, outcome="unavailable")
         return JSONResponse(status_code=422, content={"code": exc.code, "detail": exc.code, "run_id": run_id, "session_id": str(session_id), "assessment": assessment})
@@ -472,8 +472,8 @@ async def playground_chat(
                     model=resolved.model if resolved else None,
                 )
                 await db.commit()
-            except Exception:
-                pass
+            except Exception as err:
+                logger.warning("Failed recording playground quota_rejected run: %s", err)
             _log_playground_event(
                 "playground.chat.quota_rejected",
                 tenant_id=tenant_id,
@@ -613,8 +613,8 @@ async def playground_chat(
                     started_at=started,
                 )
                 await stream_db.commit()
-            except Exception:
-                pass
+            except Exception as err:
+                logger.warning("Failed recording playground quota_rejected run: %s", err)
             raise
         except Exception:
             decision = fail_closed_decision(stream=True)

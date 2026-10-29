@@ -196,14 +196,14 @@ class GitHubAuthManager:
             if expires_at_str and cached_token_str:
                 try:
                     from datetime import datetime
-                    exp_dt = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+                    exp_dt = datetime.fromisoformat(expires_at_str)
                     if exp_dt.timestamp() - now > 60:
                         cached_repos = self._cached_token.get("repositories")
                         req_repos = [r.strip().split("/")[-1] for r in repos if r and r.strip()] if repos else []
                         if cached_repos is None or set(req_repos).issubset(set(cached_repos)):
                             return str(cached_token_str)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed validating cached token timestamp: %s", exc)
 
         token_data = await generate_installation_token(
             installation_id=self.installation_id,

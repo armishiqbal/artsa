@@ -12,10 +12,10 @@ import uuid
 from typing import Any
 
 from src.containment.engine import ContainmentEngine
+from src.core.config import settings
 from src.core.models.events import ToolCallEvent
 from src.core.severity import SUSPICIOUS_RISK_THRESHOLD
 from src.data.embedding_manager import HighAccuracy1024EmbeddingFunction, cosine_similarity
-from src.core.config import settings
 
 POISON_THRESHOLD = float(SUSPICIOUS_RISK_THRESHOLD)
 

@@ -8,9 +8,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from src.agents.research_agent import ResearchAgent, ThreatIntelligenceRecord
+from src.agents.research_agent import ResearchAgent
 from src.api.dependencies import get_current_tenant
-from src.models import AttackCategory
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Research"])

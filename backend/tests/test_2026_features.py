@@ -1,7 +1,6 @@
 """Unit tests for 2026 Agentic AI Security Features: MCP, AILM, Stepwise Monitor, Red Queen, SDK."""
 
 import pytest
-
 from src.agents.action_monitor import StepwiseActionMonitor
 from src.attacks.mcp_attack import MCPServerSimulator, MCPToolPoisoningAttack
 from src.evolution.red_queen import RedQueenCoEvolutionEngine

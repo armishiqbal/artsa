@@ -3,13 +3,11 @@
 from pathlib import Path
 
 import pytest
-from starlette.testclient import TestClient
-
 from src.api.main import app
 from src.core.models.ops_events import OPERATOR_ACTIONS
 from src.services.session_tracker import session_tracker
+from starlette.testclient import TestClient
 from tests.conftest import unwrap_response
-
 
 client = TestClient(app)
 
@@ -111,6 +109,7 @@ def test_deploy_session_mitigation_tenant_isolation():
 
 def test_deploy_campaign_round_mitigation(tmp_path: Path, monkeypatch):
     """Test deploying mitigation from historical campaign round breach."""
+    import src.api.routes.campaigns as campaigns_mod
     from src.data.results_store import ResultsStore
     from src.models import (
         AttackCategory,
@@ -121,7 +120,6 @@ def test_deploy_campaign_round_mitigation(tmp_path: Path, monkeypatch):
         TargetResponse,
         Verdict,
     )
-    import src.api.routes.campaigns as campaigns_mod
 
     monkeypatch.setattr(campaigns_mod, "BACKEND_DIR", tmp_path)
     results_dir = tmp_path / "data" / "results"

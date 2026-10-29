@@ -16,7 +16,7 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from src.core.config import settings
 from src.data.embedding_manager import (

@@ -1,7 +1,7 @@
 """Unit tests for findings and playbook version stores."""
 
-from src.data.findings_registry import set_promoted, get_record, all_records
-from src.data.policy_version_store import snapshot_rules, diff_versions, current_version
+from src.data.findings_registry import all_records, get_record, set_promoted
+from src.data.policy_version_store import current_version, diff_versions, snapshot_rules
 
 
 def test_policy_version_snapshot_and_diff():

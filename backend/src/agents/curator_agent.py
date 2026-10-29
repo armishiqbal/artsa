@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -27,10 +26,8 @@ from src.agents.research_agent import ThreatIntelligenceRecord
 from src.core.hmac_handoff import SignedHandoff, sign_handoff
 from src.data.attack_library import AttackLibrary
 from src.models import (
-    AttackCategory,
     AttackMetadata,
     AttackTemplate,
-    Severity,
     TargetConfig,
 )
 

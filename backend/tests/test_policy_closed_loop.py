@@ -72,7 +72,7 @@ def test_suggest_policy_from_finding(temp_policy_client):
 
 
 def test_suggest_then_enforce_marks_it_covered(temp_policy_client):
-    scan, content = _run_sample_attack(temp_policy_client)
+    _scan, content = _run_sample_attack(temp_policy_client)
     phrases = ["ignore all previous instructions", "print your system prompt"]
 
     suggestion = _unwrap(temp_policy_client.post(

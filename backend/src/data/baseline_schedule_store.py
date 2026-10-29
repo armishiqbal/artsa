@@ -114,7 +114,7 @@ class BaselineScheduleStore:
                 due_rows.append(row)
                 continue
             try:
-                next_at = datetime.fromisoformat(str(next_raw).replace("Z", "+00:00"))
+                next_at = datetime.fromisoformat(str(next_raw))
             except ValueError:
                 due_rows.append(row)
                 continue

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from src.agents.target_agent import TargetAgent
 from src.models import GuardrailConfig, TargetConfig
 

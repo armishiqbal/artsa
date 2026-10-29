@@ -16,7 +16,6 @@ from src.data.orm import Base, SessionORM
 from src.data.redis_client import InMemoryRedis
 from src.gateway.llm_proxy import LLMProxy
 from src.services.prompt_scanner import PromptScanner
-
 from tests.conftest import unwrap_response
 
 SAFE_PROMPT = "Summarize the quarterly financial report and list the top risks."

@@ -16,8 +16,13 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.dependencies import get_current_tenant, get_db, get_redis, get_session_tracker
 from src.core.config import settings
+from src.data.orm import SessionORM
+from src.data.repositories.sessions import SessionRepository
 from src.gateway.llm_proxy import ProxyAction, get_llm_proxy
 from src.gateway.url_safety import SSRFBlockedError
 from src.runtime.actions import RuntimeAction
@@ -31,13 +36,12 @@ from src.runtime.completions import (
 from src.runtime.evidence import RedactedFinding, sha256_text
 from src.runtime.gate import RuntimeDecision, get_runtime_gate
 from src.runtime.session import apply_runtime_session_action
-from src.runtime.stream import AnthropicStreamGate, OpenAIStreamGate, OpenAIToAnthropicStreamTranslator
-from src.api.dependencies import get_current_tenant, get_db, get_redis, get_session_tracker
-from src.data.orm import SessionORM
-from src.data.repositories.sessions import SessionRepository
+from src.runtime.stream import (
+    AnthropicStreamGate,
+    OpenAIStreamGate,
+    OpenAIToAnthropicStreamTranslator,
+)
 from src.services.approval_service import consume_retry_token, create_request
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["LLM Proxy"])
 logger = logging.getLogger(__name__)

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
-
 from src.api.main import app
 from src.core.models.ops_events import OPERATOR_ACTIONS
 from src.data.results_store import ResultsStore

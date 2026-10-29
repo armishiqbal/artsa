@@ -11,15 +11,9 @@ Verifies:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+
 import pytest
 import yaml
-
-from src.agents.defender_agent import DefenderAgent
-from src.agents.judge_agent import JudgeAgent
-from src.agents.red_team_agent import RedTeamAgent
-from src.agents.target_agent import TargetAgent
-from src.data.attack_library import AttackLibrary
 from src.models import (
     AttackCategory,
     AttackProfile,

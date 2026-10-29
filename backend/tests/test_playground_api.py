@@ -120,7 +120,6 @@ def test_chat_monitor_records_input_finding_without_enforcing_it(playground_clie
 async def test_chat_token_budget_reserves_the_full_token_allowance(monkeypatch):
     """Token admission must charge estimated input plus reserved output, not one request."""
     from fastapi import HTTPException
-
     from src.api.dependencies import MockAsyncSession
     from src.core.config import settings
     from src.data.redis_client import InMemoryRedis
@@ -273,6 +272,7 @@ def test_quota_rejection_records_rejected_run(tmp_path, monkeypatch):
 
     import uuid
     from datetime import UTC, datetime
+
     from sqlalchemy.orm import sessionmaker
 
     Session = sessionmaker(bind=sync_engine)
@@ -317,6 +317,7 @@ def test_quota_rejection_records_rejected_run(tmp_path, monkeypatch):
 async def test_cancelled_run_persists_action_cancelled(tmp_path):
     """Cancelled runs must persist into PlaygroundRunAuditORM with action='CANCELLED'."""
     import uuid
+
     from sqlalchemy import create_engine, select
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from src.data.orm import Base, PlaygroundRunAuditORM

@@ -102,6 +102,7 @@ def test_get_current_tenant_uses_user_home_not_header(monkeypatch):
     """Password sessions resolve tenants through the configured account store."""
 
     from types import SimpleNamespace
+
     from src.api.dependencies import get_current_tenant, get_provider_tenant
     from src.core.config import settings
     from src.core.password_auth import create_session_token

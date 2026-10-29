@@ -12,11 +12,11 @@ Round 2: Attacker re-attempts vector -> Target's OrgPolicyGuardrailAdapter
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 import yaml
-
 from src.agents.defender_agent import DefenderAgent
-from src.agents.guardrails.adapters import OrgPolicyGuardrailAdapter, GuardrailContext
+from src.agents.guardrails.adapters import GuardrailContext, OrgPolicyGuardrailAdapter
 from src.agents.handoff_worker import run_defender_hop
 from src.core.hmac_handoff import sign_handoff
 from src.models import (

@@ -31,13 +31,11 @@ class SessionCircuitBreaker:
                 )
             )).scalar_one_or_none()
             return bool(row and row.opened_at is not None)
-        except Exception as exc:
-            if settings.ENVIRONMENT == "production":
-                # The protected operation must never proceed when its durable
-                # guard cannot be consulted.  Treat an unavailable store as
-                # open rather than leaking a backend exception to the caller.
-                return True
-            return False
+        except Exception:
+            # The protected operation must never proceed when its durable
+            # guard cannot be consulted.  Treat an unavailable store as
+            # open rather than leaking a backend exception to the caller.
+            return settings.ENVIRONMENT == "production"
 
     async def record_block(self, db: AsyncSession, *, tenant_id: str, session_id: uuid.UUID) -> bool:
         """Record one BLOCK and return whether this call opened the breaker."""
@@ -60,7 +58,7 @@ class SessionCircuitBreaker:
             timestamps: list[str] = []
             for value in row.block_timestamps or []:
                 try:
-                    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    parsed = datetime.fromisoformat(value)
                     if parsed >= cutoff:
                         timestamps.append(parsed.astimezone(UTC).isoformat())
                 except (TypeError, ValueError):
@@ -71,12 +69,10 @@ class SessionCircuitBreaker:
                 row.opened_at = now
                 return True
             return False
-        except Exception as exc:
-            if settings.ENVIRONMENT == "production":
-                # A failing write cannot make a dangerous operation safe.
-                # Callers handle this as an open breaker and withhold it.
-                return True
-            return False
+        except Exception:
+            # A failing write cannot make a dangerous operation safe.
+            # Callers handle this as an open breaker and withhold it.
+            return settings.ENVIRONMENT == "production"
 
 
 circuit_breaker = SessionCircuitBreaker()

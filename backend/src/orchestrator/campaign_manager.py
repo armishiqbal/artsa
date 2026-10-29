@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 import time
 from typing import Any
 
 if sys.platform == "win32":
-    try:
+    with contextlib.suppress(Exception):
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
         if hasattr(sys.stderr, "reconfigure"):
             sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
-    except Exception:
-        pass
 
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
@@ -48,8 +47,8 @@ from src.models import (
     CampaignConfig,
     CampaignSummary,
     HopLatencyMs,
-    RoundResult,
     JudgeScore,
+    RoundResult,
     TargetResponse,
     Verdict,
 )
@@ -131,6 +130,7 @@ class CampaignManager:
         """Check if campaign session has been contained or killed by operator."""
         try:
             import uuid
+
             from src.services.session_tracker import session_tracker
 
             cid = uuid.UUID(self.config.id)

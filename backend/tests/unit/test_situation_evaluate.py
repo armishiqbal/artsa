@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.services.situation_classifier import classify_situation
 from src.services.situation_evaluator import SituationEvaluator
 

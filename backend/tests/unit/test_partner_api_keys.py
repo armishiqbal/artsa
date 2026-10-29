@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from src.core.rbac import Role, resolve_role
 from src.services import partner_key_registry
 
