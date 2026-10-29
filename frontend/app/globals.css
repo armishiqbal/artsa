@@ -129,9 +129,9 @@
     --ring: 224 73% 51%;
     --radius: 1rem;
 
-    --button: 222 47% 11%;
+    --button: 0 0% 0%;              /* #000000 pure black button */
     --button-foreground: 0 0% 100%;
-    --button-hover: 215 25% 22%;
+    --button-hover: 0 0% 15%;       /* #262626 dark hover */
 
     --chart-1: 224 73% 51%;
     --chart-2: 0 0% 40%;

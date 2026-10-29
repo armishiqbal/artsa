@@ -779,7 +779,7 @@ export function CommandCenterFloor({
                     onClick={() => setRoundIdx((prev) => (prev - 1 + LIVE_ROUNDS.length) % LIVE_ROUNDS.length)}
                     aria-label="Previous walkthrough round"
                     title="Previous example"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
                   >
                     <ChevronLeft className="h-4 w-4" aria-hidden />
                   </button>
@@ -791,7 +791,7 @@ export function CommandCenterFloor({
                     onClick={() => setRoundIdx((prev) => nextRoundIndex(prev, LIVE_ROUNDS.length))}
                     aria-label="Next walkthrough round"
                     title="Next example"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
                   >
                     <ChevronRight className="h-4 w-4" aria-hidden />
                   </button>
@@ -801,9 +801,9 @@ export function CommandCenterFloor({
                     onClick={() => setIsPaused((paused) => !paused)}
                     aria-label={isPaused ? "Play walkthrough" : "Freeze walkthrough"}
                     title={isPaused ? "Play walkthrough" : "Freeze walkthrough"}
-                    className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 font-mono text-[11px] font-medium text-slate-800 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 font-mono text-[11px] font-medium text-slate-800 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
                   >
-                    {isPaused ? <Play className="h-3 w-3 text-blue-600" aria-hidden /> : <Pause className="h-3 w-3" aria-hidden />}
+                    {isPaused ? <Play className="h-3 w-3 text-slate-900" aria-hidden /> : <Pause className="h-3 w-3" aria-hidden />}
                     {isPaused ? "Play" : "Hold"}
                   </button>
                 </div>

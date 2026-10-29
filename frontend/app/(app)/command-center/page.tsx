@@ -202,7 +202,7 @@ export default function CommandCenterPage() {
                   <ArrowUpRight className="h-3 w-3 text-slate-400" aria-hidden />
                 </Link>
               </Button>
-              <Button asChild size="sm" className="h-8 gap-1.5 bg-blue-600 px-3 text-xs font-medium text-white shadow-xs hover:bg-blue-700">
+              <Button asChild size="sm" className="h-8 gap-1.5 bg-black px-3 text-xs font-medium text-white shadow-xs hover:bg-slate-900">
                 <Link href="/red-team/lab">
                   <Crosshair className="h-3.5 w-3.5" aria-hidden />
                   Attack Lab
@@ -326,18 +326,18 @@ export default function CommandCenterPage() {
                 role="tab"
                 aria-selected={viewMode === "tactical"}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  "flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900",
                   viewMode === "tactical"
                     ? "bg-white text-slate-950 shadow-xs border border-slate-200/80"
                     : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
                 )}
                 onClick={() => setViewMode("tactical")}
               >
-                <Zap className={cn("h-3.5 w-3.5", viewMode === "tactical" ? "text-blue-600" : "text-slate-500")} aria-hidden />
+                <Zap className={cn("h-3.5 w-3.5", viewMode === "tactical" ? "text-slate-900" : "text-slate-500")} aria-hidden />
                 <span>Tactical Operations Floor</span>
                 <span className={cn(
                   "rounded-full px-1.5 py-0.2 font-mono text-[9px] uppercase",
-                  viewMode === "tactical" ? "bg-blue-50 text-blue-700 font-bold" : "bg-slate-200/80 text-slate-600"
+                  viewMode === "tactical" ? "bg-slate-900 text-white font-bold" : "bg-slate-200/80 text-slate-600"
                 )}>
                   {isLive ? "Live telemetry" : "No live data"}
                 </span>
@@ -348,7 +348,7 @@ export default function CommandCenterPage() {
                 role="tab"
                 aria-selected={viewMode === "posture"}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  "flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900",
                   viewMode === "posture"
                     ? "bg-white text-slate-950 shadow-xs border border-slate-200/80"
                     : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
@@ -416,7 +416,7 @@ export default function CommandCenterPage() {
             <p className="mt-2 text-sm text-slate-600">
               The tactical floor shows backend campaign events only. Start an authorized campaign or check the API and telemetry connection.
             </p>
-            <Button asChild className="mt-5 bg-blue-600 text-white hover:bg-blue-700">
+            <Button asChild className="mt-5 bg-black text-white hover:bg-slate-900">
               <Link href="/red-team/campaigns/new">Start a campaign</Link>
             </Button>
           </div>
