@@ -185,7 +185,7 @@ export function AttackGraphVisualizer({
               className={cn(
                 "rounded px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
                 filterMode === "all"
-                  ? "bg-blue-600 text-white font-semibold shadow-2xs"
+                  ? "bg-black text-white font-semibold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               )}
             >

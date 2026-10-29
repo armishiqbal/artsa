@@ -214,7 +214,7 @@ export function ReplayTheaterHeader({
               size="icon"
               className={cn(
                 "h-8 w-8 text-white shadow-2xs transition-all",
-                playing ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700"
+                playing ? "bg-amber-600 hover:bg-amber-700" : "bg-black hover:bg-slate-900"
               )}
               onClick={onTogglePlay}
               disabled={eventCount === 0}

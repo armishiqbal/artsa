@@ -250,9 +250,9 @@ export function ActivityAuditLogTable({
                         clickEvent.stopPropagation();
                         onSelectEvent(entry);
                       }}
-                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 font-mono text-[11px] font-semibold text-slate-700 shadow-2xs transition-colors group-hover:border-blue-300 group-hover:bg-blue-50 group-hover:text-blue-700"
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 font-mono text-[11px] font-semibold text-slate-700 shadow-2xs transition-colors group-hover:border-slate-400 group-hover:bg-slate-100 group-hover:text-slate-900"
                     >
-                      Inspect <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-blue-600" />
+                      Inspect <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-slate-900" />
                     </button>
                   </td>
                 </tr>

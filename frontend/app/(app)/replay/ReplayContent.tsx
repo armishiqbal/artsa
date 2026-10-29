@@ -428,7 +428,7 @@ export default function RoundReplayPage() {
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-blue-600 text-xs font-medium text-white hover:bg-blue-700 shadow-2xs"
+                    className="bg-black text-xs font-medium text-white hover:bg-slate-900 shadow-2xs"
                     disabled={approvalLoading === approval.id}
                     onClick={() => void decideApproval(approval.id, "APPROVE")}
                   >
@@ -523,7 +523,7 @@ export default function RoundReplayPage() {
             <Button
               size="sm"
               onClick={() => handleDatasetModeChange("demo")}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs gap-1.5 shadow-xs"
+              className="mt-4 bg-black hover:bg-slate-900 text-white font-mono text-xs gap-1.5 shadow-xs"
             >
               <Sparkles className="h-3.5 w-3.5" />
               Switch to Incident Walkthrough Suite
