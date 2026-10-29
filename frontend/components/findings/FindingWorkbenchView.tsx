@@ -233,7 +233,7 @@ export function FindingWorkbenchView({
                 <button
                   type="button"
                   onClick={() => setMobilePane("list")}
-                  className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-blue-700 hover:text-blue-900 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs"
+                  className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-slate-900 hover:text-black bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   <span>Back to Findings</span>
@@ -336,9 +336,9 @@ export function FindingWorkbenchView({
                   aria-selected={activeTab === "exploit"}
                   onClick={() => setActiveTab("exploit")}
                   className={cn(
-                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     activeTab === "exploit"
-                      ? "border-blue-600 text-blue-700 bg-white rounded-t shadow-2xs"
+                      ? "border-black text-black bg-white rounded-t shadow-2xs"
                       : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50"
                   )}
                 >
@@ -351,9 +351,9 @@ export function FindingWorkbenchView({
                   aria-selected={activeTab === "hotpatch"}
                   onClick={() => setActiveTab("hotpatch")}
                   className={cn(
-                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     activeTab === "hotpatch"
-                      ? "border-blue-600 text-blue-700 bg-white rounded-t shadow-2xs"
+                      ? "border-black text-black bg-white rounded-t shadow-2xs"
                       : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50"
                   )}
                 >
@@ -366,9 +366,9 @@ export function FindingWorkbenchView({
                   aria-selected={activeTab === "blast"}
                   onClick={() => setActiveTab("blast")}
                   className={cn(
-                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     activeTab === "blast"
-                      ? "border-blue-600 text-blue-700 bg-white rounded-t shadow-2xs"
+                      ? "border-black text-black bg-white rounded-t shadow-2xs"
                       : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50"
                   )}
                 >
@@ -381,9 +381,9 @@ export function FindingWorkbenchView({
                   aria-selected={activeTab === "custody"}
                   onClick={() => setActiveTab("custody")}
                   className={cn(
-                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold font-mono transition-colors shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     activeTab === "custody"
-                      ? "border-blue-600 text-blue-700 bg-white rounded-t shadow-2xs"
+                      ? "border-black text-black bg-white rounded-t shadow-2xs"
                       : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50"
                   )}
                 >

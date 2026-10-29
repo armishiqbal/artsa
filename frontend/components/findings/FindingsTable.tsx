@@ -209,7 +209,7 @@ export function FindingsTable({
                 className={cn(
                   "rounded px-2.5 py-0.5 font-mono text-[11px] font-semibold capitalize transition-all",
                   statusFilter === st
-                    ? "bg-blue-600 text-white shadow-2xs"
+                    ? "bg-black text-white shadow-2xs"
                     : "bg-slate-100/80 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
                 )}
               >
@@ -266,7 +266,7 @@ export function FindingsTable({
                     >
                       {row.verdict ?? "UNCLASSIFIED"}
                     </span>
-                    <span className="text-xs font-semibold text-blue-600 flex items-center">
+                    <span className="text-xs font-semibold text-slate-900 flex items-center">
                       Inspect <ChevronRight className="h-3 w-3 ml-0.5" />
                     </span>
                   </div>

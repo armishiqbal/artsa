@@ -152,9 +152,9 @@ export default function FindingsPage() {
                   type="button"
                   onClick={() => setDatasetMode("demo")}
                   className={cn(
-                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     isViewingDemo
-                      ? "bg-blue-600 text-white shadow-2xs"
+                      ? "bg-black text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   )}
                   title="View 5 pre-flight intelligence scenarios across OWASP ASI01-ASI10 & MITRE ATLAS"
@@ -166,9 +166,9 @@ export default function FindingsPage() {
                   type="button"
                   onClick={() => setDatasetMode("live")}
                   className={cn(
-                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     !isViewingDemo
-                      ? "bg-slate-900 text-white shadow-2xs"
+                      ? "bg-black text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   )}
                   title="View live operational findings recorded by the backend sensor database"
@@ -223,7 +223,7 @@ export default function FindingsPage() {
                   <span>Policies</span>
                 </Link>
               </Button>
-              <Button asChild size="sm" className="flex-1 sm:flex-initial h-8 bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 shadow-2xs">
+              <Button asChild size="sm" className="flex-1 sm:flex-initial h-8 bg-black text-xs font-semibold text-white hover:bg-slate-900 shadow-2xs">
                 <Link href="/red-team/lab">
                   <ShieldPlus className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                   <span>Simulate</span>
@@ -259,7 +259,7 @@ export default function FindingsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 self-stretch sm:self-center shrink-0">
-            <Button asChild size="sm" className="h-7.5 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs gap-1.5 shadow-xs w-full sm:w-auto">
+            <Button asChild size="sm" className="h-7.5 bg-black hover:bg-slate-900 text-white font-mono text-xs gap-1.5 shadow-xs w-full sm:w-auto">
               <Link href="/red-team/lab">
                 <ShieldPlus className="h-3.5 w-3.5" />
                 Run Campaign in Lab
@@ -278,7 +278,7 @@ export default function FindingsPage() {
             The operational sensor database contains zero active breach findings. Your targets and agents are currently protected by active playbook policies.
           </p>
           <div className="flex justify-center gap-2 pt-1">
-            <Button size="sm" onClick={() => setDatasetMode("demo")} className="bg-blue-600 text-white text-xs h-8">
+            <Button size="sm" onClick={() => setDatasetMode("demo")} className="bg-black hover:bg-slate-900 text-white text-xs h-8">
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
               Explore Pre-Flight Threat Benchmark
             </Button>

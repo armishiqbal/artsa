@@ -130,7 +130,7 @@ export function FindingAttackMatrix({
           <button
             type="button"
             onClick={() => onSelectCategory("ALL")}
-            className="font-mono text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition-colors self-start sm:self-auto"
+            className="font-mono text-[11px] font-semibold text-slate-900 hover:text-black transition-colors self-start sm:self-auto"
           >
             ← View All Categories
           </button>
@@ -148,9 +148,9 @@ export function FindingAttackMatrix({
               type="button"
               onClick={() => onSelectCategory(isActive ? "ALL" : cat.asiCode)}
               className={cn(
-                "group relative flex flex-col justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all shadow-2xs hover:shadow-xs min-w-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                "group relative flex flex-col justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all shadow-2xs hover:shadow-xs min-w-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                 isActive
-                  ? "border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20"
+                  ? "border-black bg-slate-100 ring-2 ring-black/10"
                   : "border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/50"
               )}
             >
