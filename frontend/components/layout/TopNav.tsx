@@ -74,9 +74,15 @@ export default function TopNav() {
   return (
     <>
       <header className="shell-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-2 lg:hidden">
+        <div className="flex items-center gap-2.5 lg:hidden">
           <MobileNav />
-          <span className="font-semibold tracking-tight">ARTSA</span>
+          <Link
+            href="/command-center"
+            className="flex items-center gap-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring rounded"
+          >
+            <LogoIcon size={20} />
+            <span className="font-semibold tracking-tight text-foreground text-sm">ARTSA</span>
+          </Link>
         </div>
 
         <div className="hidden items-center gap-3 sm:flex">

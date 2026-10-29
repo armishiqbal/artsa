@@ -22,6 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const commandCenter = pathname.startsWith("/command-center");
   const playground = pathname.startsWith("/playground");
   const replay = pathname.startsWith("/replay");
+  const findings = pathname.startsWith("/findings");
   const isCleanConsole = pathname.startsWith("/logs") || pathname.startsWith("/projects") || replay;
 
   // AppShell persists across client-side route changes, so its scrollable main
@@ -58,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       ? "min-h-full w-full max-w-none"
                       : playground
                         ? "h-full min-h-0 w-full max-w-none"
-                      : redTeam
+                      : redTeam || findings
                         ? "w-full max-w-[1400px]"
                         : replay
                           ? "w-full max-w-[1680px]"

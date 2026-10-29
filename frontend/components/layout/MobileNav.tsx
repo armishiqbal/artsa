@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const { identity, capabilities } = useAuthRole();
   const reducedMotion = useReducedMotion();
@@ -25,6 +27,10 @@ export default function MobileNav() {
     capabilities,
     identity.role === "admin"
   );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setOpen(false);
@@ -53,11 +59,77 @@ export default function MobileNav() {
   }, [open]);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
     return () => {
       document.body.style.overflow = "";
     };
   }, [open]);
+
+  const drawerContent = (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 lg:hidden" aria-live="assertive">
+          {/* Full-screen backdrop */}
+          <motion.div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Full-height slide-over drawer */}
+          <motion.aside
+            ref={dialogRef}
+            tabIndex={-1}
+            className="fixed inset-y-0 left-0 flex h-full w-72 max-w-[85vw] flex-col border-r border-border bg-card shadow-2xl focus:outline-hidden"
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={
+              reducedMotion
+                ? { duration: 0 }
+                : { type: "spring", bounce: 0, duration: 0.3 }
+            }
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+          >
+            <div className="flex h-14 items-center justify-between border-b border-border px-4">
+              <Logo iconSize={20} />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setOpen(false)}
+                aria-label="Close navigation menu"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto p-3" aria-label="Main navigation">
+              <NavItemsList
+                items={visibleItems}
+                variant="mobile"
+                onNavigate={() => setOpen(false)}
+              />
+            </nav>
+
+            <div className="border-t border-border p-3">
+              <UserProfileMenu onNavigate={() => setOpen(false)} />
+            </div>
+          </motion.aside>
+        </div>
+      )}
+    </AnimatePresence>
+  );
 
   return (
     <>
@@ -65,7 +137,7 @@ export default function MobileNav() {
         ref={menuButtonRef}
         variant="ghost"
         size="icon"
-        className="lg:hidden"
+        className="lg:hidden h-9 w-9 text-foreground hover:bg-muted/60"
         onClick={() => setOpen(true)}
         aria-label="Open navigation menu"
         aria-expanded={open}
@@ -73,53 +145,9 @@ export default function MobileNav() {
         <Menu className="h-5 w-5" />
       </Button>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.button
-              type="button"
-              className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={reducedMotion ? { duration: 0 } : undefined}
-              onClick={() => setOpen(false)}
-              aria-label="Close navigation menu"
-            />
-            <motion.aside
-              ref={dialogRef}
-              tabIndex={-1}
-              className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-border bg-card lg:hidden"
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={reducedMotion ? { duration: 0 } : { type: "spring", bounce: 0, duration: 0.35 }}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Navigation menu"
-            >
-              <div className="flex items-center justify-between border-b border-border p-4">
-                <Logo iconSize={20} />
-                <Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Close menu">
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-
-              <nav className="flex-1 overflow-y-auto p-3" aria-label="Main navigation">
-                <NavItemsList
-                  items={visibleItems}
-                  variant="mobile"
-                  onNavigate={() => setOpen(false)}
-                />
-              </nav>
-
-              <div className="border-t border-border p-3">
-                <UserProfileMenu onNavigate={() => setOpen(false)} />
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      {mounted && typeof document !== "undefined"
+        ? createPortal(drawerContent, document.body)
+        : null}
     </>
   );
 }
