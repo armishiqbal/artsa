@@ -83,7 +83,7 @@ export function FindingWorkbenchView({
           type="button"
           onClick={() => setMobilePane("list")}
           className={cn(
-            "flex-1 py-2 px-3 rounded-lg text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+            "flex-1 py-2 px-3 rounded-lg text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
             mobilePane === "list"
               ? "bg-white text-slate-900 shadow-2xs font-bold"
               : "text-slate-600 hover:text-slate-900"
@@ -96,7 +96,7 @@ export function FindingWorkbenchView({
           type="button"
           onClick={() => setMobilePane("detail")}
           className={cn(
-            "flex-1 py-2 px-3 rounded-lg text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+            "flex-1 py-2 px-3 rounded-lg text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
             mobilePane === "detail"
               ? "bg-white text-slate-900 shadow-2xs font-bold"
               : "text-slate-600 hover:text-slate-900"
@@ -162,9 +162,9 @@ export function FindingWorkbenchView({
                     type="button"
                     onClick={() => handleSelect(item)}
                     className={cn(
-                      "w-full text-left p-3 rounded-lg transition-all flex flex-col gap-1.5 min-h-[58px] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                      "w-full text-left p-3 rounded-lg transition-all flex flex-col gap-1.5 min-h-[58px] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                       isSelected
-                        ? "bg-blue-50/80 border border-blue-300/80 shadow-2xs ring-1 ring-blue-500/10"
+                        ? "bg-slate-100 border border-slate-900 shadow-2xs ring-1 ring-slate-900/10"
                         : "hover:bg-slate-50/80 border border-transparent"
                     )}
                   >
@@ -188,7 +188,7 @@ export function FindingWorkbenchView({
                     <p
                       className={cn(
                         "text-xs font-bold leading-snug line-clamp-1",
-                        isSelected ? "text-blue-950" : "text-slate-900"
+                        isSelected ? "text-slate-950 font-bold" : "text-slate-900"
                       )}
                     >
                       {item.title}
@@ -254,7 +254,7 @@ export function FindingWorkbenchView({
                     {active.asi_code && (
                       <Badge
                         variant="outline"
-                        className="border-blue-200 bg-blue-50 font-mono text-[10px] font-bold text-blue-700"
+                        className="border-slate-200 bg-slate-100 font-mono text-[10px] font-bold text-slate-800"
                       >
                         {active.asi_code}
                         {active.mitre_atlas ? ` · ${active.mitre_atlas}` : ""}
@@ -422,7 +422,7 @@ export function FindingWorkbenchView({
                           )}
                         </Button>
                       </div>
-                      <div className="rounded-lg border border-slate-800 bg-slate-950 p-3.5 text-xs font-mono text-slate-100 shadow-inner overflow-x-auto whitespace-pre-wrap break-words leading-relaxed selection:bg-blue-600 selection:text-white max-h-56 sm:max-h-72 overflow-y-auto">
+                      <div className="rounded-lg border border-slate-800 bg-slate-950 p-3.5 text-xs font-mono text-slate-100 shadow-inner overflow-x-auto whitespace-pre-wrap break-words leading-relaxed selection:bg-slate-800 selection:text-white max-h-56 sm:max-h-72 overflow-y-auto">
                         {active.attack_prompt || "No prompt payload captured."}
                       </div>
                     </div>
@@ -445,9 +445,9 @@ export function FindingWorkbenchView({
 
                     {/* Remediation Hint */}
                     {active.remediation_hint && (
-                      <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3.5 space-y-1">
-                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1">
-                          <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 space-y-1">
+                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1">
+                          <ShieldCheck className="h-3.5 w-3.5 text-slate-900" />
                           Remediation Architecture
                         </span>
                         <p className="text-xs text-slate-700 leading-relaxed">

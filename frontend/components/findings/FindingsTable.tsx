@@ -159,7 +159,7 @@ export function FindingsTable({
               <select
                 value={agentFilter}
                 onChange={(e) => setAgentFilter(e.target.value)}
-                className="h-8 rounded border border-slate-200 bg-white px-2 font-mono text-xs font-semibold text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-hidden"
+                className="h-8 rounded border border-slate-200 bg-white px-2 font-mono text-xs font-semibold text-slate-800 shadow-2xs focus:border-slate-900 focus:outline-hidden"
               >
                 <option value="ALL">All Fleet Agents ({rows.length})</option>
                 {agents.map((ag) => (
@@ -238,7 +238,7 @@ export function FindingsTable({
                 className={cn(
                   "rounded-xl border p-3.5 bg-white transition-all shadow-2xs cursor-pointer active:scale-[0.99]",
                   isSelected
-                    ? "border-blue-500 ring-2 ring-blue-500/10 bg-blue-50/30"
+                    ? "border-slate-900 ring-2 ring-slate-900/10 bg-slate-50"
                     : "border-slate-200/90 hover:border-slate-300"
                 )}
               >
@@ -353,7 +353,7 @@ export function FindingsTable({
                     onClick={() => onSelect?.(row)}
                     className={cn(
                       "group cursor-pointer transition-colors hover:bg-slate-50/80",
-                      isSelected && "bg-blue-50/50",
+                      isSelected && "bg-slate-100",
                     )}
                   >
                     {/* Column 1: Title & Exploit Summary */}
@@ -367,7 +367,7 @@ export function FindingsTable({
                           {row.category}
                         </span>
                       </div>
-                      <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                      <p className="font-semibold text-slate-900 group-hover:text-slate-950 transition-colors leading-snug">
                         {row.title}
                       </p>
                       {row.remediation_hint && (
@@ -477,7 +477,7 @@ export function FindingsTable({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 border-slate-200 font-mono text-[11px] font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700 shadow-2xs gap-1"
+                        className="h-7 border-slate-200 font-mono text-[11px] font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-950 shadow-2xs gap-1"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelect?.(row);

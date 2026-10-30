@@ -65,7 +65,7 @@ export function FindingDetailDrawer({
             </span>
             <SeverityBadge severity={finding.severity} />
             {finding.asi_code && (
-              <Badge variant="outline" className="border-blue-200 bg-blue-50/70 font-mono text-[10px] font-bold text-blue-700">
+              <Badge variant="outline" className="border-slate-200 bg-slate-100 font-mono text-[10px] font-bold text-slate-800">
                 {finding.asi_code}
               </Badge>
             )}
@@ -136,7 +136,7 @@ export function FindingDetailDrawer({
           className={cn(
             "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "exploit"
-              ? "border-blue-600 text-blue-700 bg-white rounded-t"
+              ? "border-black text-black bg-white rounded-t shadow-2xs"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
@@ -149,7 +149,7 @@ export function FindingDetailDrawer({
           className={cn(
             "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "remediation"
-              ? "border-blue-600 text-blue-700 bg-white rounded-t"
+              ? "border-black text-black bg-white rounded-t shadow-2xs"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
@@ -162,7 +162,7 @@ export function FindingDetailDrawer({
           className={cn(
             "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "identity"
-              ? "border-blue-600 text-blue-700 bg-white rounded-t"
+              ? "border-black text-black bg-white rounded-t shadow-2xs"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
@@ -175,7 +175,7 @@ export function FindingDetailDrawer({
           className={cn(
             "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold font-mono transition-colors shrink-0",
             activeTab === "custody"
-              ? "border-blue-600 text-blue-700 bg-white rounded-t"
+              ? "border-black text-black bg-white rounded-t shadow-2xs"
               : "border-transparent text-slate-600 hover:text-slate-900"
           )}
         >
@@ -214,7 +214,7 @@ export function FindingDetailDrawer({
                   )}
                 </Button>
               </div>
-              <div className="rounded-lg border border-slate-300 bg-slate-900 p-3.5 text-xs font-mono text-slate-100 shadow-inner overflow-x-auto whitespace-pre-wrap leading-relaxed selection:bg-blue-500 selection:text-white">
+              <div className="rounded-lg border border-slate-300 bg-slate-900 p-3.5 text-xs font-mono text-slate-100 shadow-inner overflow-x-auto whitespace-pre-wrap leading-relaxed selection:bg-slate-800 selection:text-white">
                 {finding.attack_prompt || "No prompt vector captured."}
               </div>
             </div>
@@ -239,9 +239,9 @@ export function FindingDetailDrawer({
 
             {/* Remediation Guidance */}
             {finding.remediation_hint && (
-              <div className="rounded-lg border border-blue-200/90 bg-blue-50/50 p-4 space-y-1.5">
-                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-1.5">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-slate-900" />
                   Recommended Defense Architecture
                 </span>
                 <p className="text-xs text-slate-700 leading-relaxed">

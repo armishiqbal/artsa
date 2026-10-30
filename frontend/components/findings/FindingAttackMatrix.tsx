@@ -84,7 +84,7 @@ export function FindingAttackMatrix({
         title: "Cross-Tenant State Spill",
         description: "Multi-tenant session cache leakage in shared agent pods",
         icon: Cpu,
-        color: "blue",
+        color: "slate",
       },
       {
         id: "ASI-04",
@@ -169,10 +169,9 @@ export function FindingAttackMatrix({
                 <div className="flex items-start gap-1.5 min-w-0">
                   <Icon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", 
                     cat.color === "rose" ? "text-rose-600" :
-                    cat.color === "amber" ? "text-amber-600" :
-                    cat.color === "blue" ? "text-blue-600" : "text-slate-600"
+                    cat.color === "amber" ? "text-amber-600" : "text-slate-600"
                   )} />
-                  <p className="font-semibold text-xs text-slate-900 leading-tight group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[2rem]">
+                  <p className="font-semibold text-xs text-slate-900 leading-tight group-hover:text-slate-950 transition-colors line-clamp-2 min-h-[2rem]">
                     {cat.title}
                   </p>
                 </div>

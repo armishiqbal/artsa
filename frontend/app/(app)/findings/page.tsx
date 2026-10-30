@@ -136,7 +136,7 @@ export default function FindingsPage() {
       <PageHeader
         title="Security Findings & Vulnerability Posture"
         description="Backend-recorded security findings, evidence details, and policy promotion status."
-        icon={<FileSearch className="h-5 w-5 text-blue-600" />}
+        icon={<FileSearch className="h-5 w-5 text-slate-900" />}
         badge={
           <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">
             Playbook v{loading || unavailable ? "—" : playbookVersion}
@@ -184,9 +184,9 @@ export default function FindingsPage() {
                   type="button"
                   onClick={() => setViewMode("workbench")}
                   className={cn(
-                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     viewMode === "workbench"
-                      ? "bg-slate-900 text-white shadow-2xs"
+                      ? "bg-black text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   )}
                 >
@@ -197,9 +197,9 @@ export default function FindingsPage() {
                   type="button"
                   onClick={() => setViewMode("table")}
                   className={cn(
-                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900",
                     viewMode === "table"
-                      ? "bg-slate-900 text-white shadow-2xs"
+                      ? "bg-black text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   )}
                 >
@@ -236,22 +236,22 @@ export default function FindingsPage() {
 
       {/* Demonstration Benchmark Guidance Banner */}
       {isViewingDemo && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3 sm:p-3.5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-3.5 shadow-2xs">
           <div className="flex items-start gap-2.5 min-w-0 flex-1">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-black text-white shadow-xs">
               <Sparkles className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <span className="font-mono text-xs font-bold uppercase tracking-wider text-blue-900">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-900">
                   <span className="hidden sm:inline">Pre-Flight </span>Threat Intelligence Benchmark
                   <span className="hidden md:inline"> · Labeled Demonstration Suite</span>
                 </span>
-                <span className="rounded bg-blue-200/80 px-1.5 py-0.5 font-mono text-[10px] font-bold text-blue-900 shrink-0">
+                <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-800 shrink-0">
                   OWASP ASI &amp; MITRE ATLAS
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-blue-800 leading-relaxed font-sans">
+              <p className="mt-0.5 text-xs text-slate-600 leading-relaxed font-sans">
                 {rawFindings.length === 0
                   ? "Zero live breach telemetry recorded in the operational database. Displaying 5 pre-flight adversarial vectors covering prompt extraction, tool metadata SSRF, RAG data poisoning, SQL table exfiltration, and cascading failures."
                   : "Reviewing pre-flight intelligence benchmark scenarios. Switch to Live Telemetry to inspect active operational findings."}
