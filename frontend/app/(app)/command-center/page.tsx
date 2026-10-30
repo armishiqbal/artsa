@@ -95,13 +95,13 @@ export default function CommandCenterPage() {
                 <span
                   className={cn(
                     "absolute inline-flex h-full w-full animate-ping rounded-full opacity-75",
-                    isLive ? "bg-emerald-400" : "bg-blue-400"
+                    isLive ? "bg-emerald-400" : "bg-slate-300"
                   )}
                 />
                 <span
                   className={cn(
                     "relative inline-flex h-2.5 w-2.5 rounded-full",
-                    isLive ? "bg-emerald-600" : "bg-blue-600"
+                    isLive ? "bg-emerald-600" : "bg-slate-600"
                   )}
                 />
               </span>
@@ -119,7 +119,7 @@ export default function CommandCenterPage() {
                     ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
                     : liveOps.state.telemetryMode === "STALE"
                       ? "border-amber-200 bg-amber-50/90 text-amber-800"
-                      : "border-blue-200 bg-blue-50/90 text-blue-800"
+                      : "border-slate-200 bg-slate-100 text-slate-700"
                 )}
               >
                 <Radio className="h-3 w-3" aria-hidden />
@@ -166,7 +166,7 @@ export default function CommandCenterPage() {
                 disabled={isRefreshing}
                 aria-label="Refresh telemetry and platform state"
               >
-                <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin text-blue-600")} aria-hidden />
+                <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin text-slate-900")} aria-hidden />
                 <span className="font-medium">Sync</span>
               </Button>
             </div>
@@ -179,7 +179,7 @@ export default function CommandCenterPage() {
                 <h1 className="text-2xl font-bold tracking-[-0.03em] text-slate-950 sm:text-3xl">
                   Command Center
                 </h1>
-                <span className="hidden rounded-md border border-blue-200/80 bg-blue-50 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-blue-700 sm:inline-block">
+                <span className="hidden rounded-md border border-slate-200/80 bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-700 sm:inline-block">
                   Enterprise SecOps
                 </span>
               </div>
@@ -244,8 +244,8 @@ export default function CommandCenterPage() {
                 <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Runtime Shield
                 </span>
-                <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
+                <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-slate-800 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-900 animate-pulse" />
                   Enforcing
                 </span>
               </div>
@@ -370,7 +370,7 @@ export default function CommandCenterPage() {
                 role="tab"
                 aria-selected={viewMode === "topology"}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  "flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900",
                   viewMode === "topology"
                     ? "bg-white text-slate-950 shadow-xs border border-slate-200/80"
                     : "text-slate-600 hover:text-slate-950 hover:bg-white/50"

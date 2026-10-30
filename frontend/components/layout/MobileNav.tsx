@@ -88,7 +88,7 @@ export default function MobileNav() {
           <motion.aside
             ref={dialogRef}
             tabIndex={-1}
-            className="fixed inset-y-0 left-0 flex h-full w-72 max-w-[85vw] flex-col border-r border-border bg-card shadow-2xl focus:outline-hidden"
+            className="fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-border bg-white dark:bg-[#131313] shadow-2xl focus:outline-hidden"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
@@ -101,7 +101,7 @@ export default function MobileNav() {
             aria-modal="true"
             aria-label="Navigation menu"
           >
-            <div className="flex h-14 items-center justify-between border-b border-border px-4">
+            <div className="flex h-14 items-center justify-between border-b border-border px-4 bg-white dark:bg-[#131313]">
               <Logo iconSize={20} />
               <Button
                 variant="ghost"
@@ -114,7 +114,7 @@ export default function MobileNav() {
               </Button>
             </div>
 
-            <nav className="flex-1 overflow-y-auto p-3" aria-label="Main navigation">
+            <nav className="flex-1 overflow-y-auto p-3 bg-white dark:bg-[#131313]" aria-label="Main navigation">
               <NavItemsList
                 items={visibleItems}
                 variant="mobile"
@@ -122,7 +122,7 @@ export default function MobileNav() {
               />
             </nav>
 
-            <div className="border-t border-border p-3">
+            <div className="border-t border-border p-3 bg-white dark:bg-[#131313]">
               <UserProfileMenu onNavigate={() => setOpen(false)} />
             </div>
           </motion.aside>
