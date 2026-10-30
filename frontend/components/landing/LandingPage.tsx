@@ -4,10 +4,7 @@ import { LandingAnnouncementBar } from "./LandingAnnouncementBar";
 import { LandingBackdrop } from "./LandingBackdrop";
 import { LandingHero } from "./LandingHero";
 import { LandingLogoWall } from "./LandingLogoWall";
-import { LandingChallenge } from "./LandingChallenge";
 import { LandingSolution } from "./LandingSolution";
-import { LandingMultiAgentFlow } from "./LandingMultiAgentFlow";
-import { LandingBoundaries } from "./LandingBoundaries";
 import { LandingCodeShowcase } from "./LandingCodeShowcase";
 import { LandingPricing } from "./LandingPricing";
 import { LandingFAQ } from "./LandingFAQ";
@@ -20,7 +17,7 @@ export function LandingPage() {
   return (
     <LandingSignInRoot>
       <div
-        className="lp lp--light relative min-h-screen bg-white text-slate-900 selection:bg-blue-100 selection:text-blue-900"
+        className="lp lp--light relative min-h-screen bg-white text-slate-900 selection:bg-slate-200 selection:text-slate-950"
         data-theme="light"
       >
         <LandingBackdrop />
@@ -30,10 +27,7 @@ export function LandingPage() {
           <main id="main-content" className="flex-1">
             <LandingHero />
             <LandingLogoWall />
-            <LandingChallenge />
             <LandingSolution />
-            <LandingMultiAgentFlow />
-            <LandingBoundaries />
             <LandingCodeShowcase />
             <LandingPricing />
             <LandingFAQ />

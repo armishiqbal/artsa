@@ -9,10 +9,8 @@ import { LandingSignInButton } from "./LandingSignInButton";
 import { LandingContactSalesButton } from "./LandingContactSalesButton";
 
 const NAV = [
-  { href: "#challenge", label: "Threat Landscape" },
-  { href: "#solution", label: "Platform" },
-  { href: "#swarm-defense", label: "Swarm Defense" },
-  { href: "#integrations", label: "Integrations" },
+  { href: "#platform", label: "Platform" },
+  { href: "#integrations", label: "Quickstart" },
   { href: "#pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ] as const;
@@ -53,6 +51,12 @@ export function LandingNav() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
+          <Link
+            href="/command-center"
+            className="font-mono text-xs text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            Live Demo
+          </Link>
           <LandingSignInButton variant="ghost" size="sm" className="font-mono text-xs text-slate-600 hover:text-slate-900">
             Sign in
           </LandingSignInButton>
@@ -104,6 +108,13 @@ export function LandingNav() {
             ))}
           </nav>
           <div className="mt-5 flex flex-col gap-2.5 border-t border-slate-100 pt-4">
+            <Link
+              href="/command-center"
+              className="w-full text-center rounded-full border border-slate-200 bg-slate-50 py-2.5 text-xs font-mono font-semibold text-slate-800 shadow-xs hover:bg-slate-100"
+              onClick={() => setOpen(false)}
+            >
+              Explore Live Demo
+            </Link>
             <LandingSignInButton
               variant="ghost"
               className="w-full text-center rounded-full bg-black py-2.5 text-xs font-mono font-semibold text-white shadow-sm hover:bg-slate-900"

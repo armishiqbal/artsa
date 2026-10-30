@@ -84,19 +84,18 @@ export function LandingCodeShowcase() {
   };
 
   return (
-    <section className="border-t border-slate-200/80 bg-slate-50/60 px-4 py-20 sm:px-6 sm:py-28">
+    <section id="integrations" className="scroll-mt-24 border-t border-slate-200/80 bg-slate-50/60 px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-2xs">
             <Code2 className="h-3.5 w-3.5" />
-            DEVELOPER FIRST INTEGRATION
+            2-LINE QUICKSTART
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
             Integrate at the Tool Boundary
           </h2>
-          <p className="mt-4 text-base text-slate-600 sm:text-lg">
-            These examples use the repository&apos;s Python and TypeScript clients or the HTTP ingest endpoint.
-            Set the API URL and credentials for your deployment, then keep tool execution behind the returned decision.
+          <p className="mt-4 text-base text-slate-600 sm:text-lg font-sans">
+            Add inline interception with zero architecture refactoring. Use lightweight Python/TypeScript decorators or the Model Context Protocol stdio wrapper.
           </p>
         </div>
 
@@ -116,7 +115,7 @@ export function LandingCodeShowcase() {
                   onClick={() => setTab(t.id)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-mono transition-colors ${
                     tab === t.id
-                      ? "bg-blue-500/20 text-blue-400 border border-blue-500/30 font-semibold"
+                      ? "bg-white/10 text-white border border-white/20 font-semibold shadow-xs"
                       : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                   }`}
                 >

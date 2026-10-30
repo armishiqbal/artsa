@@ -39,14 +39,14 @@ export function LandingContactSection() {
             viewport={{ once: true }}
             transition={{ duration: 0.45, ease: easeOut }}
           >
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-2xs">
               <Calendar className="h-3.5 w-3.5" />
               SCHEDULE AN ARCHITECTURE REVIEW
             </div>
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
               See the Control Points on Your Agent Fleet
             </h2>
-            <p className="mt-4 text-base text-slate-600 leading-relaxed sm:text-lg">
+            <p className="mt-4 text-base text-slate-600 leading-relaxed sm:text-lg font-sans">
               Tell us about the agent workflows you are shipping. Our security architects will walk
               through where ARTSA evaluates events, what the backend records, and which enforcement steps remain in your runtime.
             </p>
@@ -55,7 +55,7 @@ export function LandingContactSection() {
                 const Icon = p.icon;
                 return (
                   <li key={p.title} className="flex gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-800">
                       <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                     </div>
                     <div>

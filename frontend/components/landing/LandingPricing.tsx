@@ -62,7 +62,7 @@ export function LandingPricing() {
           viewport={{ once: true }}
           transition={{ duration: 0.45, ease: easeOut }}
         >
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-xs">
             DEPLOYMENT TIERS
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
@@ -87,7 +87,7 @@ export function LandingPricing() {
               transition={{ ease: easeOut }}
               className={`flex flex-col justify-between rounded-2xl p-7 sm:p-8 transition-all ${
                 plan.highlight
-                  ? "border-2 border-blue-600 bg-white shadow-xl ring-4 ring-blue-50 relative"
+                  ? "border-2 border-slate-900 bg-white shadow-xl ring-4 ring-slate-100 relative"
                   : "border border-slate-200 bg-white shadow-xs hover:border-slate-300 hover:shadow-md"
               }`}
             >
@@ -97,7 +97,7 @@ export function LandingPricing() {
                     {plan.name}
                   </h3>
                   {plan.highlight ? (
-                    <span className="rounded-full bg-blue-600 text-white font-mono text-[10px] font-bold px-2.5 py-0.5 uppercase tracking-wider shadow-xs">
+                    <span className="rounded-full bg-black text-white font-mono text-[10px] font-bold px-2.5 py-0.5 uppercase tracking-wider shadow-xs">
                       Most Popular
                     </span>
                   ) : null}
@@ -113,7 +113,7 @@ export function LandingPricing() {
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-slate-600">
                       <Check
-                        className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 stroke-[2.5]"
+                        className="mt-0.5 h-4 w-4 shrink-0 text-slate-900 stroke-[2.5]"
                         aria-hidden
                       />
                       <span>{f}</span>

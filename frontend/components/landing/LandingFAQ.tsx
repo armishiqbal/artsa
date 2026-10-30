@@ -38,13 +38,13 @@ export function LandingFAQ() {
           transition={{ duration: 0.45, ease: easeOut }}
           className="text-center"
         >
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-xs font-mono font-medium text-blue-700 mb-3 shadow-xs">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-2xs">
             FREQUENTLY ASKED QUESTIONS
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
             Frequently Asked Questions
           </h2>
-          <p className="mt-3 text-base text-slate-600">
+          <p className="mt-3 text-base text-slate-600 font-sans">
             Clear technical answers on latency, deployment models, data privacy, and integration architecture.
           </p>
         </motion.div>
@@ -60,12 +60,12 @@ export function LandingFAQ() {
               key={item.q}
               variants={fadeUp}
               transition={{ ease: easeOut }}
-              className="group rounded-2xl border border-slate-200 bg-white shadow-xs transition-all open:border-blue-200 open:shadow-md"
+              className="group rounded-2xl border border-slate-200 bg-white shadow-xs transition-all open:border-slate-300 open:shadow-sm"
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-base font-semibold text-slate-900 marker:content-none hover:text-blue-600 select-none">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-base font-semibold text-slate-900 marker:content-none hover:text-black select-none">
                 {item.q}
                 <ChevronDown
-                  className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180 group-open:text-blue-600"
+                  className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180 group-open:text-slate-900"
                   aria-hidden
                 />
               </summary>

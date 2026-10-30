@@ -1,43 +1,73 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Shield, BookOpen } from "lucide-react";
+import { Shield, Cpu } from "lucide-react";
 import { easeOut, staggerContainer, fadeUp } from "@/lib/motionPresets";
 
-const FRAMEWORKS = [
-  { name: "OWASP Top 10 for LLMs", code: "ASI-01 - ASI-10" },
-  { name: "MITRE ATLAS", code: "Adversarial Threat Matrix" },
-  { name: "NIST AI RMF", code: "Risk Management Framework" },
-  { name: "EU AI Act", code: "Article 15 Compliance" },
+const STACKS = [
+  "LangChain",
+  "CrewAI",
+  "Model Context Protocol (MCP)",
+  "OpenAI Swarms",
+  "Anthropic Claude",
+  "LlamaIndex",
+  "Ollama",
+] as const;
+
+const STANDARDS = [
+  { name: "OWASP Top 10 for LLMs", code: "ASI01 - ASI10" },
+  { name: "MITRE ATLAS", code: "Adversarial Matrix" },
+  { name: "NIST AI RMF", code: "Risk Framework" },
+  { name: "EU AI Act", code: "Article 15 Ready" },
 ] as const;
 
 export function LandingLogoWall() {
   return (
-    <section className="border-y border-slate-200 bg-slate-50/70 py-8" aria-label="Security Framework Alignment">
-      <div className="lp-shell">
-        <div className="flex flex-col items-center justify-between gap-6 lg:flex-row">
-          <div className="flex items-center gap-2.5 text-xs font-mono uppercase tracking-wider text-slate-600 shrink-0 font-medium">
-            <Shield className="h-4 w-4 text-blue-600" />
-            <span>Aligned with Security Standards:</span>
+    <section className="border-y border-slate-200 bg-slate-50/70 py-7" aria-label="Ecosystem and Standards">
+      <div className="lp-shell space-y-4">
+        {/* Row 1: Ecosystem compatibility */}
+        <div className="flex flex-col items-center justify-between gap-3 md:flex-row">
+          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-500 shrink-0 font-medium">
+            <Cpu className="h-3.5 w-3.5 text-slate-700" />
+            <span>Works with your stack:</span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
+            {STACKS.map((st) => (
+              <span
+                key={st}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700 shadow-2xs"
+              >
+                {st}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Row 2: Security Standards */}
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200/60 pt-3 md:flex-row">
+          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-500 shrink-0 font-medium">
+            <Shield className="h-3.5 w-3.5 text-slate-700" />
+            <span>Standards alignment:</span>
           </div>
 
           <motion.div
-            className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3"
+            className="flex flex-wrap items-center justify-center gap-2"
             variants={staggerContainer}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
           >
-            {FRAMEWORKS.map((fw) => (
+            {STANDARDS.map((s) => (
               <motion.div
-                key={fw.name}
+                key={s.name}
                 variants={fadeUp}
                 transition={{ ease: easeOut }}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono shadow-xs transition-all hover:border-blue-400 hover:bg-blue-50/30"
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-mono shadow-2xs"
               >
-                <BookOpen className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                <span className="font-semibold text-slate-900">{fw.name}</span>
-                <span className="text-[10px] text-slate-500 border-l border-slate-200 pl-2">{fw.code}</span>
+                <span className="font-semibold text-slate-800">{s.name}</span>
+                <span className="text-[10px] text-slate-400">·</span>
+                <span className="text-[10px] text-slate-500">{s.code}</span>
               </motion.div>
             ))}
           </motion.div>
