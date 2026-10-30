@@ -43,7 +43,7 @@ export function LandingNav() {
             <Link
               key={item.href}
               href={item.href}
-              className="text-xs font-mono font-medium text-slate-600 transition hover:text-blue-600"
+              className="text-xs font-mono font-medium text-slate-600 transition hover:text-slate-950"
             >
               {item.label}
             </Link>

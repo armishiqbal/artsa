@@ -136,7 +136,7 @@ export function ContactSalesForm({
 
   const label = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700 font-mono";
   const fieldClass =
-    "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-2xs transition-colors";
+    "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 shadow-2xs transition-colors";
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
@@ -284,7 +284,7 @@ export function ContactSalesForm({
           {onLoginHref ? (
             <a
               href={onLoginHref}
-              className="font-semibold text-blue-600 underline-offset-4 hover:underline"
+              className="font-semibold text-slate-900 underline-offset-4 hover:underline"
             >
               Sign in
             </a>
@@ -367,11 +367,11 @@ export function LandingContactSalesPanel({
             </button>
 
             <div className="mb-6 flex items-center gap-3 pr-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-900">
                 <LogoIcon size={22} />
               </div>
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-wider font-semibold text-blue-700">
+                <p className="font-mono text-[11px] uppercase tracking-wider font-semibold text-slate-700">
                   Enterprise
                 </p>
                 <h2

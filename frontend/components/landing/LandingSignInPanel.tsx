@@ -199,7 +199,7 @@ export function LandingSignInPanel({
             </button>
 
             <div className="flex flex-col items-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 text-slate-900">
                 <LogoIcon size={28} aria-hidden />
               </div>
               <h2
@@ -231,7 +231,7 @@ export function LandingSignInPanel({
                       if (isRegister) handleRegister();
                       else handlePasswordLogin();
                     }}
-                    className="pl-10 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-600 shadow-2xs h-11"
+                    className="pl-10 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-900 shadow-2xs h-11"
                     aria-label="Email"
                   />
                 </div>
@@ -242,7 +242,7 @@ export function LandingSignInPanel({
                     autoComplete="name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-600 shadow-2xs h-11"
+                    className="rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-900 shadow-2xs h-11"
                     aria-label="Display name"
                   />
                 )}
@@ -262,7 +262,7 @@ export function LandingSignInPanel({
                       if (isRegister) handleRegister();
                       else handlePasswordLogin();
                     }}
-                    className="pl-10 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-600 shadow-2xs h-11"
+                    className="pl-10 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-900 shadow-2xs h-11"
                     aria-label="Password"
                   />
                 </div>
@@ -270,7 +270,7 @@ export function LandingSignInPanel({
                   size="lg"
                   onClick={isRegister ? handleRegister : handlePasswordLogin}
                   disabled={loading}
-                  className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 h-11 shadow-md gap-2"
+                  className="w-full rounded-xl bg-black hover:bg-slate-900 text-white font-semibold py-3 h-11 shadow-md gap-2"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -288,7 +288,7 @@ export function LandingSignInPanel({
                       setMode(isRegister ? "login" : "register");
                       setError(null);
                     }}
-                    className="w-full text-center text-xs font-medium text-slate-600 hover:text-blue-600 hover:underline pt-1"
+                    className="w-full text-center text-xs font-medium text-slate-600 hover:text-slate-950 hover:underline pt-1"
                   >
                     {isRegister
                       ? "Already have an account? Sign in"
@@ -313,7 +313,7 @@ export function LandingSignInPanel({
                     onClick={handleSsoLogin}
                     disabled={loading}
                   >
-                    <LogIn className="h-4 w-4 text-blue-600" aria-hidden />
+                    <LogIn className="h-4 w-4 text-slate-700" aria-hidden />
                     Organization SSO
                   </Button>
                 </div>
@@ -322,7 +322,7 @@ export function LandingSignInPanel({
               <div className="mt-5 w-full">
                 <p className="mb-2 text-center text-xs text-slate-500">
                   New deployment?{" "}
-                  <Link href="/signup" className="font-semibold text-blue-600 underline-offset-4 hover:underline" onClick={onClose}>
+                  <Link href="/signup" className="font-semibold text-slate-900 underline-offset-4 hover:underline" onClick={onClose}>
                     Create workspace
                   </Link>
                 </p>

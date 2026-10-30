@@ -73,7 +73,7 @@ export function LandingFooter() {
                   <li key={l.label}>
                     <Link
                       href={l.href}
-                      className="text-xs text-slate-600 transition hover:text-blue-600 font-mono"
+                      className="text-xs text-slate-600 transition hover:text-slate-950 font-mono"
                     >
                       {l.label}
                     </Link>
@@ -87,7 +87,7 @@ export function LandingFooter() {
           <p>© {new Date().getFullYear()} ARTSA. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <span className="text-slate-500">Framework references: OWASP LLM/ASI, MITRE ATLAS, NIST AI RMF.</span>
-            <LandingSignInLink className="text-blue-600 font-semibold hover:underline">
+            <LandingSignInLink className="text-slate-900 font-semibold hover:underline">
               Portal Sign In
             </LandingSignInLink>
           </div>
