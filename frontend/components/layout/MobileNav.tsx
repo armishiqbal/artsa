@@ -75,7 +75,7 @@ export default function MobileNav() {
         <div className="fixed inset-0 z-50 lg:hidden" aria-live="assertive">
           {/* Full-screen backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -88,7 +88,7 @@ export default function MobileNav() {
           <motion.aside
             ref={dialogRef}
             tabIndex={-1}
-            className="fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-border bg-white dark:bg-[#131313] shadow-2xl focus:outline-hidden"
+            className="fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-72 max-w-[85vw] flex-col border-r border-neutral-800 bg-[#0a0a0a] text-white shadow-2xl focus:outline-hidden"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
@@ -101,12 +101,12 @@ export default function MobileNav() {
             aria-modal="true"
             aria-label="Navigation menu"
           >
-            <div className="flex h-14 items-center justify-between border-b border-border px-4 bg-white dark:bg-[#131313]">
+            <div className="flex h-14 items-center justify-between border-b border-neutral-800 px-4 bg-[#0a0a0a]">
               <Logo iconSize={20} />
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 text-neutral-400 hover:text-white hover:bg-neutral-800"
                 onClick={() => setOpen(false)}
                 aria-label="Close navigation menu"
               >
@@ -114,7 +114,7 @@ export default function MobileNav() {
               </Button>
             </div>
 
-            <nav className="flex-1 overflow-y-auto p-3 bg-white dark:bg-[#131313]" aria-label="Main navigation">
+            <nav className="flex-1 overflow-y-auto p-3 bg-[#0a0a0a]" aria-label="Main navigation">
               <NavItemsList
                 items={visibleItems}
                 variant="mobile"
@@ -122,7 +122,7 @@ export default function MobileNav() {
               />
             </nav>
 
-            <div className="border-t border-border p-3 bg-white dark:bg-[#131313]">
+            <div className="border-t border-neutral-800 p-3 bg-[#0a0a0a]">
               <UserProfileMenu onNavigate={() => setOpen(false)} />
             </div>
           </motion.aside>

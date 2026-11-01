@@ -41,15 +41,15 @@ describe("ThemeProvider", () => {
     vi.restoreAllMocks();
   });
 
-  it("defaults to the light workspace when nothing is stored", () => {
+  it("defaults to the dark control room when nothing is stored", () => {
     mockMatchMedia(false); // system preference must not override the product default
     render(
       <ThemeProvider>
         <ThemeProbe />
       </ThemeProvider>
     );
-    expect(screen.getByTestId("current-theme")).toHaveTextContent("light");
-    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(screen.getByTestId("current-theme")).toHaveTextContent("dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
   });
 
   it("reads a stored choice over the system preference", () => {
@@ -118,6 +118,6 @@ describe("ThemeProvider", () => {
         <ThemeProbe />
       </ThemeProvider>
     );
-    expect(document.documentElement.style.colorScheme).toBe("light");
+    expect(document.documentElement.style.colorScheme).toBe("dark");
   });
 });

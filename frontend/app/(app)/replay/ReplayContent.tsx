@@ -298,7 +298,7 @@ export default function RoundReplayPage() {
           <div
             className={cn(
               "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-xs",
-              datasetMode === "demo" ? "bg-blue-600 text-white" : "bg-slate-900 text-white"
+              datasetMode === "demo" ? "bg-black text-white" : "bg-slate-900 text-white"
             )}
           >
             {datasetMode === "demo" ? <Sparkles className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
@@ -314,7 +314,7 @@ export default function RoundReplayPage() {
                 className={cn(
                   "rounded px-1.5 py-0.2 font-mono text-[10px] font-bold border",
                   datasetMode === "demo"
-                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    ? "border-slate-300 bg-slate-100 text-slate-800"
                     : "border-emerald-200 bg-emerald-50 text-emerald-700"
                 )}
               >
@@ -339,7 +339,7 @@ export default function RoundReplayPage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
                 datasetMode === "demo"
-                  ? "bg-blue-600 text-white shadow-2xs"
+                  ? "bg-black text-white shadow-2xs font-bold"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
               )}
             >

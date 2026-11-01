@@ -460,7 +460,7 @@ export function CommandCenterStrategicFloor({
             <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-900">agent-ops-worker</span>
-                <span className="rounded bg-blue-100 text-blue-800 px-1.5 py-0.2 text-[9.5px] font-bold">CONTAINED</span>
+                <span className="rounded bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 px-1.5 py-0.2 text-[9.5px] font-bold">CONTAINED</span>
               </div>
               <p className="text-[11px] text-slate-600 font-sans">Authorized Tools: <code className="font-mono text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200">read_file, web_fetch</code></p>
               <div className="text-[10px] text-slate-500 border-t border-slate-200/80 pt-1.5 flex justify-between">

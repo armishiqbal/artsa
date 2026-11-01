@@ -761,8 +761,8 @@ export function CommandCenterFloor({
                         className={cn(
                           "px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all",
                           roundIdx === i
-                            ? "bg-blue-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                            ? "bg-slate-900 dark:bg-white text-white dark:text-black shadow-2xs font-bold"
+                            : "text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800"
                         )}
                         title={`Jump to Round ${r.round}: ${r.from} -> ${r.to}`}
                       >

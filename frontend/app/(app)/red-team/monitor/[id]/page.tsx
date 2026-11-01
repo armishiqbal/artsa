@@ -206,21 +206,21 @@ function TheaterInner() {
     <div className="flex min-h-[calc(100vh-12rem)] flex-col gap-3">
       {/* Pre-Flight Multi-Agent Guidance Banner */}
       {isDemo ? (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-blue-50/70 p-3.5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-slate-50/70 dark:bg-neutral-900/60 p-3.5 shadow-2xs">
           <div className="flex items-start gap-2.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-black dark:bg-white text-white dark:text-black shadow-xs">
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold uppercase tracking-wider text-blue-900">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                   Pre-Flight Multi-Agent Simulation · Labeled Demonstration Suite
                 </span>
-                <span className="rounded bg-blue-200/80 px-1.5 py-0.2 font-mono text-[10px] font-bold text-blue-900">
+                <span className="rounded bg-slate-200 dark:bg-neutral-800 px-1.5 py-0.2 font-mono text-[10px] font-bold text-slate-800 dark:text-neutral-200">
                   CrewAI 6-Agent Chain
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-blue-800 leading-relaxed font-sans">
+              <p className="mt-0.5 text-xs text-slate-700 dark:text-neutral-300 leading-relaxed font-sans">
                 Inspecting pre-flight multi-agent walkthrough for {campaign?.name}. Follow sequential turns across Research, Curator, Red Team, Target, Judge, and Defender agents with cryptographic HMAC custody tokens.
               </p>
             </div>
