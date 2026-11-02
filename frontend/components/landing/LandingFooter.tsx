@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Logo from "@/components/shared/Logo";
 import { LandingSignInLink } from "./LandingSignInLink";
-import { LandingContactSalesButton } from "./LandingContactSalesButton";
+import { LandingContactSalesButton, LandingContactSalesLink } from "./LandingContactSalesButton";
 
 const COLS = [
   {
@@ -71,12 +71,18 @@ export function LandingFooter() {
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((l) => (
                   <li key={l.label}>
-                    <Link
-                      href={l.href}
-                      className="text-xs text-neutral-400 transition hover:text-white font-mono"
-                    >
-                      {l.label}
-                    </Link>
+                    {l.href === "#contact" ? (
+                      <LandingContactSalesLink className="text-xs text-neutral-400 transition hover:text-white font-mono">
+                        {l.label}
+                      </LandingContactSalesLink>
+                    ) : (
+                      <Link
+                        href={l.href}
+                        className="text-xs text-neutral-400 transition hover:text-white font-mono"
+                      >
+                        {l.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

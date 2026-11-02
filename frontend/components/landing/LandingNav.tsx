@@ -114,6 +114,7 @@ export function LandingNav() {
             <LandingContactSalesButton
               variant="ghost"
               className="w-full text-center rounded-lg border border-neutral-800 bg-neutral-900 py-2.5 text-xs font-mono font-medium text-neutral-200 shadow-2xs hover:bg-neutral-800 gap-1.5"
+              onClick={() => setOpen(false)}
             >
               <Calendar className="h-3.5 w-3.5 text-neutral-400" />
               Schedule a demo
@@ -121,6 +122,7 @@ export function LandingNav() {
             <LandingSignInButton
               variant="ghost"
               className="w-full text-center py-2 text-xs font-mono text-neutral-400 hover:text-white"
+              onClick={() => setOpen(false)}
             >
               Sign in to Portal
             </LandingSignInButton>

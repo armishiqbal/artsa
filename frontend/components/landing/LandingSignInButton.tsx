@@ -4,33 +4,41 @@ import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { authLoginHref, authSignupHref } from "@/lib/authSession";
+import { useLandingSignInOptional } from "./LandingSignInContext";
 
 // Re-export for call sites that imported SignInOptions from context
 export type { SignInOptions } from "@/lib/authSession";
 
-type LandingSignInButtonProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
+type LandingSignInButtonProps = ComponentProps<typeof Button> & {
   signInOptions?: { returnTo?: string; mode?: "login" | "register" };
 };
 
-/** Navigates to the dedicated /login or /signup page (no popup). */
+/** Opens the authentication modal in-place (no page scroll or redirect) when within LandingSignInProvider. */
 export function LandingSignInButton({
   signInOptions,
   children,
+  onClick,
   ...props
 }: LandingSignInButtonProps) {
   const router = useRouter();
+  const signInCtx = useLandingSignInOptional();
 
   return (
     <Button
       type="button"
       {...props}
       onClick={(e) => {
-        e.preventDefault();
-        const href =
-          signInOptions?.mode === "register"
-            ? authSignupHref({ returnTo: signInOptions.returnTo })
-            : authLoginHref({ returnTo: signInOptions?.returnTo });
-        router.push(href);
+        onClick?.(e);
+        if (e.defaultPrevented) return;
+        if (signInCtx) {
+          signInCtx.openSignIn(signInOptions);
+        } else {
+          const href =
+            signInOptions?.mode === "register"
+              ? authSignupHref({ returnTo: signInOptions.returnTo })
+              : authLoginHref({ returnTo: signInOptions?.returnTo });
+          router.push(href);
+        }
       }}
     >
       {children}

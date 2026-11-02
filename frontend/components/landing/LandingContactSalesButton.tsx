@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLandingContactOptional } from "./LandingContactContext";
 
 type Props = Omit<ComponentProps<typeof Button>, "onClick" | "asChild"> & {
   onClick?: ComponentProps<typeof Button>["onClick"];
@@ -20,13 +21,15 @@ function scrollToContact() {
   }
 }
 
-/** Scrolls to the Contact sales section on the landing page (no popup). */
+/** Opens the Contact Sales modal in-place when within LandingContactProvider (no scrolling), or scrolls to #contact as fallback. */
 export function LandingContactSalesButton({
   children = "Contact sales",
   className,
   onClick,
   ...props
 }: Props) {
+  const contactCtx = useLandingContactOptional();
+
   return (
     <Button
       type="button"
@@ -35,7 +38,11 @@ export function LandingContactSalesButton({
       onClick={(e) => {
         onClick?.(e);
         if (e.defaultPrevented) return;
-        scrollToContact();
+        if (contactCtx) {
+          contactCtx.openContactSales();
+        } else {
+          scrollToContact();
+        }
       }}
     >
       {children}
@@ -53,14 +60,21 @@ export function LandingContactSalesLink({
   className?: string;
   onNavigate?: () => void;
 }) {
+  const contactCtx = useLandingContactOptional();
+
   return (
     <Link
       href="#contact"
       className={className}
-      onClick={() => {
+      onClick={(e) => {
         onNavigate?.();
-        // Next Link + hash: ensure smooth scroll after navigation
-        requestAnimationFrame(() => scrollToContact());
+        if (contactCtx) {
+          e.preventDefault();
+          contactCtx.openContactSales();
+        } else {
+          // Next Link + hash: ensure smooth scroll after navigation
+          requestAnimationFrame(() => scrollToContact());
+        }
       }}
     >
       {children}

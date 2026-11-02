@@ -5,6 +5,7 @@ import { Calendar, Shield, Award } from "lucide-react";
 import { easeOut } from "@/lib/motionPresets";
 import { ContactSalesForm } from "./LandingContactSales";
 import { authLoginHref } from "@/lib/authSession";
+import { useLandingSignInOptional } from "./LandingSignInContext";
 
 const PERKS = [
   {
@@ -25,6 +26,8 @@ const PERKS = [
 ] as const;
 
 export function LandingContactSection() {
+  const signIn = useLandingSignInOptional();
+
   return (
     <section
       id="contact-sales"
@@ -83,7 +86,8 @@ export function LandingContactSection() {
             </div>
             <ContactSalesForm
               idPrefix="section-contact"
-              onLoginHref={authLoginHref({ returnTo: "/command-center" })}
+              onLogin={signIn ? () => signIn.openSignIn({ mode: "login" }) : undefined}
+              onLoginHref={signIn ? undefined : authLoginHref({ returnTo: "/command-center" })}
             />
           </motion.div>
         </div>

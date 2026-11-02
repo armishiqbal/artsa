@@ -18,7 +18,7 @@ import {
 } from "@/lib/authSession";
 import { unwrapEnvelope } from "@/lib/api";
 import { isOidcEnabled, startOidcLogin } from "@/lib/oidc";
-import { useAuthStore } from "@/lib/stores/auth";
+import { hydrateAuthStore, useAuthStore } from "@/lib/stores/auth";
 
 interface LandingSignInPanelProps {
   open: boolean;
@@ -87,7 +87,8 @@ export function LandingSignInPanel({
     };
   }, [open, initialMode]);
 
-  const finishWithSession = (session: AuthResponse) => {
+  const finishWithSession = async (session: AuthResponse) => {
+    await hydrateAuthStore();
     setSession({ access_token: session.access_token, expires_in: session.expires_in }, session.user);
     router.replace(dest);
   };
@@ -266,6 +267,16 @@ export function LandingSignInPanel({
                     aria-label="Password"
                   />
                 </div>
+
+                {error ? (
+                  <p
+                    className="rounded-lg border border-rose-900/60 bg-rose-950/40 p-2.5 text-center font-mono text-xs font-medium text-rose-400"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                ) : null}
+
                 <Button
                   size="lg"
                   onClick={isRegister ? handleRegister : handlePasswordLogin}
@@ -320,22 +331,20 @@ export function LandingSignInPanel({
               )}
 
               <div className="mt-5 w-full">
-                <p className="mb-2 text-center text-xs text-slate-500">
+                <p className="mb-2 text-center text-xs text-neutral-400">
                   New deployment?{" "}
-                  <Link href="/signup" className="font-semibold text-slate-900 underline-offset-4 hover:underline" onClick={onClose}>
+                  <Link href="/signup" className="font-semibold text-white underline-offset-4 hover:underline" onClick={onClose}>
                     Create workspace
                   </Link>
                 </p>
               </div>
 
-              {error ? <p className="mt-3 text-xs font-semibold text-rose-600 text-center">{error}</p> : null}
-
               {onContactSales ? (
-                <p className="mt-4 text-center text-xs text-slate-500">
+                <p className="mt-4 text-center text-xs text-neutral-400">
                   Evaluating for your enterprise?{" "}
                   <button
                     type="button"
-                    className="font-bold text-slate-900 underline-offset-4 hover:underline"
+                    className="font-bold text-white underline-offset-4 hover:underline"
                     onClick={() => {
                       onClose();
                       onContactSales();

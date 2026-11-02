@@ -264,7 +264,7 @@ function SignupFormInner() {
 
         {error ? (
           <p
-            className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700"
+            className="rounded-xl border border-rose-900/60 bg-rose-950/40 px-3.5 py-2.5 text-xs font-semibold font-mono text-rose-400"
             role="alert"
           >
             {error}
@@ -273,23 +273,23 @@ function SignupFormInner() {
 
         <button
           type="submit"
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-black text-sm font-semibold text-white shadow-md transition-colors hover:bg-slate-900 disabled:opacity-50"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold font-mono text-black shadow-md transition-colors hover:bg-neutral-200 disabled:opacity-50"
           disabled={loading}
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin text-black" aria-hidden /> : null}
           {loading ? "Signing up…" : "Sign up"}
         </button>
 
-        <p className="text-center text-xs text-slate-400">
+        <p className="text-center text-xs text-neutral-500 font-mono">
           By signing up you agree to use ARTSA for authorized security testing only.
         </p>
       </form>
 
-      <p className="mt-6 text-center text-xs text-slate-500">
+      <p className="mt-6 text-center text-xs text-neutral-400">
         Already have an account?{" "}
         <Link
           href={authLoginHref({ returnTo: dest !== "/command-center" ? dest : undefined })}
-          className="font-semibold text-blue-600 underline-offset-4 hover:underline"
+          className="font-semibold text-white underline-offset-4 hover:underline"
         >
           Sign in
         </Link>
@@ -302,8 +302,8 @@ export default function SignupClient() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-white" data-theme="light">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden />
+        <div className="flex min-h-screen items-center justify-center bg-[#070707]" data-theme="dark">
+          <Loader2 className="h-6 w-6 animate-spin text-neutral-400" aria-hidden />
         </div>
       }
     >
