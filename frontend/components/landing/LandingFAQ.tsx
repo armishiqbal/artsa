@@ -29,7 +29,7 @@ const FAQ = [
 
 export function LandingFAQ() {
   return (
-    <section id="faq" className="lp-section scroll-mt-24 border-t border-slate-200/80 bg-slate-50/70 py-20 sm:py-28">
+    <section id="faq" className="lp-section scroll-mt-24 border-t border-neutral-800 bg-[#0a0a0a] py-20 sm:py-28">
       <div className="lp-shell max-w-3xl">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -38,13 +38,13 @@ export function LandingFAQ() {
           transition={{ duration: 0.45, ease: easeOut }}
           className="text-center"
         >
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-2xs">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/90 px-3.5 py-1 text-xs font-mono font-medium text-neutral-300 mb-3 shadow-2xs">
             FREQUENTLY ASKED QUESTIONS
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
             Frequently Asked Questions
           </h2>
-          <p className="mt-3 text-base text-slate-600 font-sans">
+          <p className="mt-3 text-base text-neutral-400 font-sans">
             Clear technical answers on latency, deployment models, data privacy, and integration architecture.
           </p>
         </motion.div>
@@ -60,16 +60,16 @@ export function LandingFAQ() {
               key={item.q}
               variants={fadeUp}
               transition={{ ease: easeOut }}
-              className="group rounded-2xl border border-slate-200 bg-white shadow-xs transition-all open:border-slate-300 open:shadow-sm"
+              className="group rounded-2xl border border-neutral-800 bg-[#0e0e0e] shadow-md transition-all open:border-neutral-700 hover:border-neutral-700"
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-base font-semibold text-slate-900 marker:content-none hover:text-black select-none">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-base font-semibold text-white marker:content-none hover:text-neutral-200 select-none">
                 {item.q}
                 <ChevronDown
-                  className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180 group-open:text-slate-900"
+                  className="h-4 w-4 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180 group-open:text-white"
                   aria-hidden
                 />
               </summary>
-              <p className="border-t border-slate-100 px-6 pb-5 pt-4 text-sm leading-relaxed text-slate-600">
+              <p className="border-t border-neutral-800/80 px-6 pb-5 pt-4 text-sm leading-relaxed text-neutral-400">
                 {item.a}
               </p>
             </motion.details>

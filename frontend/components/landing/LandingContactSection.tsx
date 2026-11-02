@@ -28,7 +28,7 @@ export function LandingContactSection() {
   return (
     <section
       id="contact-sales"
-      className="lp-section scroll-mt-24 border-t border-slate-200/80 bg-white py-20 sm:py-28"
+      className="lp-section scroll-mt-24 border-t border-neutral-800 bg-[#070707] py-20 sm:py-28"
     >
       <div id="contact" className="sr-only" />
       <div className="lp-shell">
@@ -39,14 +39,14 @@ export function LandingContactSection() {
             viewport={{ once: true }}
             transition={{ duration: 0.45, ease: easeOut }}
           >
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-2xs">
-              <Calendar className="h-3.5 w-3.5" />
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/90 px-3.5 py-1 text-xs font-mono font-medium text-neutral-300 mb-3 shadow-2xs">
+              <Calendar className="h-3.5 w-3.5 text-neutral-400" />
               SCHEDULE AN ARCHITECTURE REVIEW
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
               See the Control Points on Your Agent Fleet
             </h2>
-            <p className="mt-4 text-base text-slate-600 leading-relaxed sm:text-lg font-sans">
+            <p className="mt-4 text-base text-neutral-400 leading-relaxed sm:text-lg font-sans">
               Tell us about the agent workflows you are shipping. Our security architects will walk
               through where ARTSA evaluates events, what the backend records, and which enforcement steps remain in your runtime.
             </p>
@@ -55,14 +55,14 @@ export function LandingContactSection() {
                 const Icon = p.icon;
                 return (
                   <li key={p.title} className="flex gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-800">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-neutral-800 bg-[#141414] text-neutral-200">
                       <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                     </div>
                     <div>
-                      <p className="text-base font-semibold text-slate-900">
+                      <p className="text-base font-semibold text-white">
                         {p.title}
                       </p>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600">{p.body}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-neutral-400">{p.body}</p>
                     </div>
                   </li>
                 );
@@ -71,15 +71,15 @@ export function LandingContactSection() {
           </motion.div>
 
           <motion.div
-            className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl"
+            className="rounded-3xl border border-neutral-800 bg-[#0e0e0e] p-6 sm:p-8 shadow-2xl"
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.08, duration: 0.5, ease: easeOut }}
           >
-            <div className="mb-6 pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-xl">Book an Architecture Demo</h3>
-              <p className="text-sm text-slate-500 mt-1">Connect with an enterprise security engineer.</p>
+            <div className="mb-6 pb-4 border-b border-neutral-800">
+              <h3 className="font-bold text-white text-xl">Book an Architecture Demo</h3>
+              <p className="text-sm text-neutral-400 mt-1">Connect with an enterprise security engineer.</p>
             </div>
             <ContactSalesForm
               idPrefix="section-contact"

@@ -2536,21 +2536,21 @@
 
 [data-theme="light"] .lp-btn-secondary:hover {
   color: var(--color-obsidian);
-  border-color: var(--color-deep-blue);
-  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.04);
 }
 
 [data-theme="light"] .lp-btn-primary,
 [data-theme="light"] .lp-section--cloud .lp-btn-primary,
 [data-theme="light"] .lp-section--sky .lp-btn-primary {
-  background: #1d4ed8 !important;
+  background: #000000 !important;
   color: #ffffff !important;
 }
 
 [data-theme="light"] .lp-btn-primary:hover,
 [data-theme="light"] .lp-section--cloud .lp-btn-primary:hover,
 [data-theme="light"] .lp-section--sky .lp-btn-primary:hover {
-  background: #1e40af !important;
+  background: #1e1e1e !important;
   color: #ffffff !important;
 }
 

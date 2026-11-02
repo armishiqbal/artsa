@@ -53,7 +53,7 @@ const PLANS = [
 
 export function LandingPricing() {
   return (
-    <section id="pricing" className="lp-section scroll-mt-24 border-t border-slate-200/80 bg-white py-20 sm:py-28">
+    <section id="pricing" className="lp-section scroll-mt-24 border-t border-neutral-800 bg-[#070707] py-20 sm:py-28">
       <div className="lp-shell">
         <motion.div
           className="mx-auto max-w-3xl text-center"
@@ -62,13 +62,13 @@ export function LandingPricing() {
           viewport={{ once: true }}
           transition={{ duration: 0.45, ease: easeOut }}
         >
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-xs">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/90 px-3.5 py-1 text-xs font-mono font-medium text-neutral-300 mb-3 shadow-2xs">
             DEPLOYMENT TIERS
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
             Predictable Security for Any Fleet Size
           </h2>
-          <p className="mt-4 text-base text-slate-600 sm:text-lg">
+          <p className="mt-4 text-base text-neutral-400 sm:text-lg">
             Deploy in minutes with open-source client libraries or secure mission-critical agent swarms inside your own VPC.
           </p>
         </motion.div>
@@ -87,33 +87,33 @@ export function LandingPricing() {
               transition={{ ease: easeOut }}
               className={`flex flex-col justify-between rounded-2xl p-7 sm:p-8 transition-all ${
                 plan.highlight
-                  ? "border-2 border-slate-900 bg-white shadow-xl ring-4 ring-slate-100 relative"
-                  : "border border-slate-200 bg-white shadow-xs hover:border-slate-300 hover:shadow-md"
+                  ? "border-2 border-neutral-600 bg-[#121212] shadow-xl relative ring-1 ring-neutral-700"
+                  : "border border-neutral-800 bg-[#0e0e0e] shadow-md hover:border-neutral-700 hover:bg-[#111111]"
               }`}
             >
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-lg font-bold tracking-tight text-slate-900">
+                  <h3 className="text-lg font-bold tracking-tight text-white">
                     {plan.name}
                   </h3>
                   {plan.highlight ? (
-                    <span className="rounded-full bg-black text-white font-mono text-[10px] font-bold px-2.5 py-0.5 uppercase tracking-wider shadow-xs">
+                    <span className="rounded-full bg-white text-black font-mono text-[10px] font-bold px-2.5 py-0.5 uppercase tracking-wider shadow-2xs">
                       Most Popular
                     </span>
                   ) : null}
                 </div>
                 <div className="mt-5 flex items-baseline gap-2">
-                  <span className="text-4xl font-extrabold tracking-tight text-slate-900">
+                  <span className="text-4xl font-extrabold tracking-tight text-white">
                     {plan.price}
                   </span>
-                  <span className="text-xs font-medium text-slate-500 font-mono">{plan.note}</span>
+                  <span className="text-xs font-medium text-neutral-400 font-mono">{plan.note}</span>
                 </div>
-                <div className="my-6 border-t border-slate-100" />
+                <div className="my-6 border-t border-neutral-800" />
                 <ul className="space-y-3">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm text-slate-600">
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-neutral-300">
                       <Check
-                        className="mt-0.5 h-4 w-4 shrink-0 text-slate-900 stroke-[2.5]"
+                        className="mt-0.5 h-4 w-4 shrink-0 text-white stroke-[2.5]"
                         aria-hidden
                       />
                       <span>{f}</span>
@@ -125,14 +125,14 @@ export function LandingPricing() {
                 {"contact" in plan && plan.contact ? (
                   <LandingContactSalesButton
                     variant="ghost"
-                    className="w-full rounded-xl border border-slate-300 bg-white py-3 px-4 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 hover:border-slate-400 shadow-xs"
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-900/80 py-3 px-4 text-sm font-semibold text-neutral-200 transition-colors hover:bg-neutral-800 hover:text-white shadow-xs"
                   >
                     {plan.cta}
                   </LandingContactSalesButton>
                 ) : (
                   <LandingSignInButton
                     variant="ghost"
-                    className="w-full rounded-xl bg-black py-3 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-900 shadow-md text-center block"
+                    className="w-full rounded-xl bg-white hover:bg-neutral-200 py-3 px-4 text-sm font-semibold text-black transition-colors shadow-md text-center block"
                     signInOptions={{ returnTo: "/command-center", mode: "register" }}
                   >
                     {plan.cta}

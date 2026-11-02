@@ -166,7 +166,7 @@ export function LandingSignInPanel({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -182,7 +182,7 @@ export function LandingSignInPanel({
             role="dialog"
             aria-modal="true"
             aria-labelledby="landing-signin-title"
-            className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl text-slate-900"
+            className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-neutral-800 bg-[#0e0e0e] p-6 sm:p-8 shadow-2xl text-white"
             initial={{ opacity: 0, y: 20, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -191,7 +191,7 @@ export function LandingSignInPanel({
           >
             <button
               type="button"
-              className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              className="absolute right-4 top-4 rounded-xl p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors"
               onClick={onClose}
               aria-label="Close"
             >
@@ -199,16 +199,16 @@ export function LandingSignInPanel({
             </button>
 
             <div className="flex flex-col items-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 text-slate-900">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-900 text-white">
                 <LogoIcon size={28} aria-hidden />
               </div>
               <h2
                 id="landing-signin-title"
-                className="text-2xl font-bold tracking-tight text-slate-900"
+                className="text-2xl font-bold tracking-tight text-white"
               >
                 {isRegister ? "Create the admin account" : "Sign in to ARTSA"}
               </h2>
-              <p className="mt-2 text-center text-sm text-slate-600">
+              <p className="mt-2 text-center text-sm text-neutral-400">
                 {isRegister
                   ? "The first account becomes administrator and unlocks admin features."
                   : "Sign in with your admin email and password."}
@@ -217,7 +217,7 @@ export function LandingSignInPanel({
               <div className="mt-6 w-full space-y-3">
                 <div className="relative">
                   <Mail
-                    className="absolute left-3.5 top-3 h-4 w-4 text-slate-400"
+                    className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500"
                     aria-hidden
                   />
                   <Input
@@ -231,7 +231,7 @@ export function LandingSignInPanel({
                       if (isRegister) handleRegister();
                       else handlePasswordLogin();
                     }}
-                    className="pl-10 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-900 shadow-2xs h-11"
+                    className="pl-10 rounded-xl border-neutral-800 bg-[#141414] text-white placeholder:text-neutral-500 focus:border-neutral-500 shadow-2xs h-11"
                     aria-label="Email"
                   />
                 </div>
@@ -242,13 +242,13 @@ export function LandingSignInPanel({
                     autoComplete="name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-900 shadow-2xs h-11"
+                    className="rounded-xl border-neutral-800 bg-[#141414] text-white placeholder:text-neutral-500 focus:border-neutral-500 shadow-2xs h-11"
                     aria-label="Display name"
                   />
                 )}
                 <div className="relative">
                   <Lock
-                    className="absolute left-3.5 top-3 h-4 w-4 text-slate-400"
+                    className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500"
                     aria-hidden
                   />
                   <Input
@@ -262,7 +262,7 @@ export function LandingSignInPanel({
                       if (isRegister) handleRegister();
                       else handlePasswordLogin();
                     }}
-                    className="pl-10 rounded-xl border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-900 shadow-2xs h-11"
+                    className="pl-10 rounded-xl border-neutral-800 bg-[#141414] text-white placeholder:text-neutral-500 focus:border-neutral-500 shadow-2xs h-11"
                     aria-label="Password"
                   />
                 </div>
@@ -270,7 +270,7 @@ export function LandingSignInPanel({
                   size="lg"
                   onClick={isRegister ? handleRegister : handlePasswordLogin}
                   disabled={loading}
-                  className="w-full rounded-xl bg-black hover:bg-slate-900 text-white font-semibold py-3 h-11 shadow-md gap-2"
+                  className="w-full rounded-xl bg-white hover:bg-neutral-200 text-black font-semibold py-3 h-11 shadow-md gap-2 font-mono"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -288,14 +288,14 @@ export function LandingSignInPanel({
                       setMode(isRegister ? "login" : "register");
                       setError(null);
                     }}
-                    className="w-full text-center text-xs font-medium text-slate-600 hover:text-slate-950 hover:underline pt-1"
+                    className="w-full text-center text-xs font-medium text-neutral-400 hover:text-white hover:underline pt-1"
                   >
                     {isRegister
                       ? "Already have an account? Sign in"
                       : "First time? Create the admin account"}
                   </button>
                 ) : (
-                  <p className="text-center text-xs text-slate-500">
+                  <p className="text-center text-xs text-neutral-500">
                     Registration is closed. Sign in as the existing admin.
                   </p>
                 )}
@@ -303,17 +303,17 @@ export function LandingSignInPanel({
 
               {isOidcEnabled() && (
                 <div className="mt-5 w-full">
-                  <p className="mb-2 text-center text-xs uppercase tracking-wider text-slate-400 font-mono">
+                  <p className="mb-2 text-center text-xs uppercase tracking-wider text-neutral-500 font-mono">
                     or continue with
                   </p>
                   <Button
                     variant="outline"
                     size="lg"
-                    className="w-full gap-2 rounded-xl border-slate-300 bg-white text-slate-800 hover:bg-slate-50 shadow-xs h-11"
+                    className="w-full gap-2 rounded-xl border-neutral-800 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white shadow-xs h-11"
                     onClick={handleSsoLogin}
                     disabled={loading}
                   >
-                    <LogIn className="h-4 w-4 text-slate-700" aria-hidden />
+                    <LogIn className="h-4 w-4 text-neutral-400" aria-hidden />
                     Organization SSO
                   </Button>
                 </div>

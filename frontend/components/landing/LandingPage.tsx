@@ -17,8 +17,8 @@ export function LandingPage() {
   return (
     <LandingSignInRoot>
       <div
-        className="lp lp--light relative min-h-screen bg-white text-slate-900 selection:bg-slate-200 selection:text-slate-950"
-        data-theme="light"
+        className="lp lp--obsidian relative min-h-screen bg-[#070707] text-white selection:bg-neutral-800 selection:text-white"
+        data-theme="dark"
       >
         <LandingBackdrop />
         <div className="relative z-10 flex min-h-screen flex-col">

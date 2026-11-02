@@ -23,8 +23,8 @@ export function LogoIcon({ className, size = 26 }: { className?: string; size?: 
     >
       <path
         d="M18 3.2 L31.4 11 V25 L18 32.8 L4.6 25 V11 Z"
-        fill="#070707"
-        stroke="#67b3ef"
+        fill="#0e0e0e"
+        stroke="#ffffff"
         strokeWidth="1.75"
         strokeLinejoin="round"
       />
@@ -36,12 +36,12 @@ export function LogoIcon({ className, size = 26 }: { className?: string; size?: 
       />
       <path
         d="M10 21.4 L14.2 20.2 L18.4 16.1 L22.6 12.8 L26 11.4"
-        stroke="#67b3ef"
+        stroke="#ffffff"
         strokeWidth="1.7"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="26" cy="11.4" r="1.55" fill="#67b3ef" />
+      <circle cx="26" cy="11.4" r="1.55" fill="#ffffff" />
     </svg>
   );
 }
@@ -63,7 +63,7 @@ export function LogoWordmark({
       >
         ARTSA
       </span>
-      <span className="rounded-sm border border-primary/25 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-primary">
+      <span className="rounded-sm border border-neutral-750 bg-neutral-850 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-neutral-300">
         EDS
       </span>
     </div>

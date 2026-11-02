@@ -116,13 +116,13 @@ export function ContactSalesForm({
         <h3 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">
           Thanks — we got your request
         </h3>
-        <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
-          A solutions engineer will email <span className="font-semibold text-slate-900">{values.workEmail.trim()}</span> within one business day with
+        <p className="mt-3 max-w-sm text-sm leading-relaxed text-neutral-300">
+          A solutions engineer will email <span className="font-semibold text-white">{values.workEmail.trim()}</span> within one business day with
           next steps and a tailored demo.
         </p>
         <button
           type="button"
-          className="mt-6 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 shadow-xs transition hover:bg-slate-50 hover:border-slate-400"
+          className="mt-6 rounded-xl border border-neutral-800 bg-neutral-900 px-5 py-2.5 text-xs font-semibold text-neutral-200 shadow-xs transition hover:bg-neutral-800 hover:border-neutral-700"
           onClick={() => {
             setDone(false);
             setValues(EMPTY);
@@ -134,9 +134,9 @@ export function ContactSalesForm({
     );
   }
 
-  const label = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700 font-mono";
+  const label = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-neutral-300 font-mono";
   const fieldClass =
-    "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 shadow-2xs transition-colors";
+    "w-full rounded-xl border border-neutral-800 bg-[#141414] px-3.5 py-2.5 text-sm text-white placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 shadow-2xs transition-colors";
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
@@ -271,7 +271,7 @@ export function ContactSalesForm({
 
       <button
         type="submit"
-        className="w-full rounded-xl bg-black py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-slate-900 flex items-center justify-center gap-2"
+        className="w-full rounded-xl bg-white py-3 text-sm font-semibold text-black shadow-md transition-colors hover:bg-neutral-200 flex items-center justify-center gap-2 font-mono"
         disabled={loading}
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
@@ -279,19 +279,19 @@ export function ContactSalesForm({
       </button>
 
       {onLogin || onLoginHref ? (
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-neutral-400">
           Already have an account?{" "}
           {onLoginHref ? (
             <a
               href={onLoginHref}
-              className="font-semibold text-slate-900 underline-offset-4 hover:underline"
+              className="font-semibold text-white underline-offset-4 hover:underline"
             >
               Sign in
             </a>
           ) : (
             <button
               type="button"
-              className="font-bold text-slate-900 underline-offset-4 hover:underline"
+              className="font-bold text-white underline-offset-4 hover:underline"
               onClick={onLogin}
             >
               Sign in
@@ -300,7 +300,7 @@ export function ContactSalesForm({
         </p>
       ) : null}
 
-      <p className="text-center text-[11px] text-slate-400">
+      <p className="text-center text-[11px] text-neutral-500">
         By submitting, you agree to be contacted about ARTSA. No spam — one business day response.
       </p>
     </form>
@@ -334,7 +334,7 @@ export function LandingContactSalesPanel({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -350,7 +350,7 @@ export function LandingContactSalesPanel({
             role="dialog"
             aria-modal="true"
             aria-labelledby="contact-sales-title"
-            className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl"
+            className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-neutral-800 bg-[#0e0e0e] text-white p-6 sm:p-8 shadow-2xl"
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -359,7 +359,7 @@ export function LandingContactSalesPanel({
           >
             <button
               type="button"
-              className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              className="absolute right-4 top-4 rounded-xl p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors"
               onClick={onClose}
               aria-label="Close"
             >
@@ -367,22 +367,22 @@ export function LandingContactSalesPanel({
             </button>
 
             <div className="mb-6 flex items-center gap-3 pr-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-900">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-white">
                 <LogoIcon size={22} />
               </div>
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-wider font-semibold text-slate-700">
+                <p className="font-mono text-[11px] uppercase tracking-wider font-semibold text-neutral-400">
                   Enterprise
                 </p>
                 <h2
                   id="contact-sales-title"
-                  className="mt-0.5 text-2xl font-bold tracking-tight text-slate-900"
+                  className="mt-0.5 text-2xl font-bold tracking-tight text-white"
                 >
                   Contact sales
                 </h2>
               </div>
             </div>
-            <p className="mb-6 text-sm text-slate-600">
+            <p className="mb-6 text-sm text-neutral-400">
               Tell us about your agent fleet — we&apos;ll schedule a tailored containment demo.
             </p>
             <ContactSalesForm

@@ -84,29 +84,29 @@ export function LandingCodeShowcase() {
   };
 
   return (
-    <section id="integrations" className="scroll-mt-24 border-t border-slate-200/80 bg-slate-50/60 px-4 py-20 sm:px-6 sm:py-28">
+    <section id="integrations" className="scroll-mt-24 border-t border-neutral-800 bg-[#0a0a0a] px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-mono font-medium text-slate-700 mb-3 shadow-2xs">
-            <Code2 className="h-3.5 w-3.5" />
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/90 px-3.5 py-1 text-xs font-mono font-medium text-neutral-300 mb-3 shadow-2xs">
+            <Code2 className="h-3.5 w-3.5 text-neutral-400" />
             2-LINE QUICKSTART
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
             Integrate at the Tool Boundary
           </h2>
-          <p className="mt-4 text-base text-slate-600 sm:text-lg font-sans">
+          <p className="mt-4 text-base text-neutral-400 sm:text-lg font-sans">
             Add inline interception with zero architecture refactoring. Use lightweight Python/TypeScript decorators or the Model Context Protocol stdio wrapper.
           </p>
         </div>
 
         <motion.div
-          className="mx-auto mt-12 max-w-3xl overflow-hidden rounded-2xl border border-slate-800 bg-[#0F172A] shadow-2xl"
+          className="mx-auto mt-12 max-w-3xl overflow-hidden rounded-2xl border border-neutral-800 bg-[#050505] shadow-2xl"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.55, ease: easeOut }}
         >
-          <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-[#1E293B] px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between border-b border-neutral-800 bg-[#111111] px-4 py-2.5">
             <div className="flex gap-1">
               {TABS.map((t) => (
                 <button
@@ -115,8 +115,8 @@ export function LandingCodeShowcase() {
                   onClick={() => setTab(t.id)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-mono transition-colors ${
                     tab === t.id
-                      ? "bg-white/10 text-white border border-white/20 font-semibold shadow-xs"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      ? "bg-neutral-800 text-white border border-neutral-700 font-semibold shadow-2xs"
+                      : "text-neutral-400 hover:bg-neutral-850 hover:text-neutral-200"
                   }`}
                 >
                   {t.label}
@@ -127,7 +127,7 @@ export function LandingCodeShowcase() {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 font-mono text-xs text-slate-400 hover:text-white hover:bg-slate-800"
+              className="h-8 gap-1.5 font-mono text-xs text-neutral-400 hover:text-white hover:bg-neutral-800"
               onClick={() => void onCopy()}
             >
               {copied ? (
@@ -138,7 +138,7 @@ export function LandingCodeShowcase() {
               {copied ? "Copied" : "Copy snippet"}
             </Button>
           </div>
-          <pre className="overflow-x-auto p-4 sm:p-6 text-slate-200">
+          <pre className="overflow-x-auto p-4 sm:p-6 text-neutral-200">
             <code className="font-mono text-xs leading-relaxed sm:text-sm">{code}</code>
           </pre>
         </motion.div>
