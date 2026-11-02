@@ -15,7 +15,7 @@ const STACKS = [
 ] as const;
 
 const STANDARDS = [
-  { name: "OWASP Top 10 for LLMs", code: "ASI01 - ASI10" },
+  { name: "OWASP Agentic Top 10", code: "ASI01 - ASI10" },
   { name: "MITRE ATLAS", code: "Adversarial Matrix" },
   { name: "NIST AI RMF", code: "Risk Framework" },
   { name: "EU AI Act", code: "Article 15 Ready" },

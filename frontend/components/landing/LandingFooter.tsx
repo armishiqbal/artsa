@@ -75,6 +75,20 @@ export function LandingFooter() {
                       <LandingContactSalesLink className="text-xs text-neutral-400 transition hover:text-white font-mono">
                         {l.label}
                       </LandingContactSalesLink>
+                    ) : l.href === "/login" ? (
+                      <LandingSignInLink
+                        signInOptions={{ mode: "login" }}
+                        className="text-xs text-neutral-400 transition hover:text-white font-mono"
+                      >
+                        {l.label}
+                      </LandingSignInLink>
+                    ) : l.href === "/signup" ? (
+                      <LandingSignInLink
+                        signInOptions={{ mode: "register" }}
+                        className="text-xs text-neutral-400 transition hover:text-white font-mono"
+                      >
+                        {l.label}
+                      </LandingSignInLink>
                     ) : (
                       <Link
                         href={l.href}
