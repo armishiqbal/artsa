@@ -28,9 +28,7 @@ export function LandingHero() {
 
           {/* High-Impact Human Headline */}
           <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl text-balance leading-tight">
-            Runtime Security for{" "}
-            <span className="underline decoration-slate-900 decoration-3 underline-offset-8">AI Agents</span>{" "}
-            with Tools.
+            Runtime Security for AI Agents with Tools.
           </h1>
 
           {/* Plain, Human Subtitle */}
