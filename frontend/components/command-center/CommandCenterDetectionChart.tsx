@@ -11,7 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useThemeSafe } from "@/lib/context/ThemeProvider";
+import { TrendingUp, ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type GenericDetectionPoint = {
   round?: string;
@@ -34,15 +35,13 @@ export function CommandCenterDetectionChart({
   onSelectRound?: (roundIdx: number) => void;
   dataMode?: "WALKTHROUGH" | "NO_LIVE_HISTORY" | "DATA_VIEW";
 }) {
-  const { isLight } = useThemeSafe();
-
-  const artsStroke = isLight ? "#0284c7" : "#38bdf8";
-  const baseStroke = isLight ? "#94a3b8" : "#64748b";
-  const gridStroke = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.08)";
-  const tickFill = isLight ? "#64748b" : "#94a3b8";
-  const tooltipBg = isLight ? "#ffffff" : "#0d1117";
-  const tooltipBorder = isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(255, 255, 255, 0.12)";
-  const tooltipText = isLight ? "#0f172a" : "#f8fafc";
+  const artsStroke = "#10b981"; // Emerald for Adaptive Defense
+  const baseStroke = "#737373"; // Neutral gray for Static Baseline
+  const gridStroke = "rgba(255, 255, 255, 0.07)";
+  const tickFill = "#a3a3a3";
+  const tooltipBg = "#0e0e0e";
+  const tooltipBorder = "rgba(255, 255, 255, 0.12)";
+  const tooltipText = "#ffffff";
 
   const chartData = series.map((pt, idx) => ({
     ...pt,
@@ -56,139 +55,171 @@ export function CommandCenterDetectionChart({
     return pt?.round ?? null;
   }, [activeRound, chartData]);
 
+  // Compute adaptive lift over baseline for the latest recorded point
+  const latestPoint = chartData[chartData.length - 1];
+  const latestAdaptive = latestPoint?.artsa ?? 0;
+  const latestBaseline = latestPoint?.baseline ?? 0;
+  const adaptiveLift = Math.round((latestAdaptive - latestBaseline) * 10) / 10;
+
   return (
-    <section className={`w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xs ${className ?? ""}`} aria-label="Detection rate trend">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+    <section
+      className={cn(
+        "w-full overflow-hidden rounded-2xl border border-neutral-800 bg-[#0e0e0e] shadow-xl text-white",
+        className
+      )}
+      aria-label="Detection rate trend"
+    >
+      {/* Top Telemetry Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 bg-[#121212] px-4 py-3 sm:px-5">
         <div>
-          <p className="text-sm font-semibold text-foreground">
-            DETECTION RATE HISTORY
-          </p>
-          {chartData.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] tabular-nums lowercase mt-1">
-            <span className="flex items-center gap-1.5 text-foreground">
-              <span className="text-sky-500 font-bold">●</span>
-              <span className="text-muted-foreground">ARTSA</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <span className="text-slate-400 font-bold">●</span>
-              <span>Baseline</span>
-            </span>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+            <p className="font-mono text-xs font-bold uppercase tracking-wider text-white">
+              DETECTION RATE HISTORY
+            </p>
           </div>
+          {chartData.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-3 font-mono text-[11px] tabular-nums">
+              <span className="flex items-center gap-1.5 text-neutral-200">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span>Adaptive Defense: <strong className="text-white">{latestAdaptive}%</strong></span>
+              </span>
+              <span className="flex items-center gap-1.5 text-neutral-400">
+                <span className="h-2 w-2 rounded-full bg-neutral-500" />
+                <span>Static Baseline: <strong className="text-neutral-300">{latestBaseline}%</strong></span>
+              </span>
+            </div>
           )}
         </div>
-        <span className="rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {dataMode === "WALKTHROUGH" ? "Walkthrough sample" : dataMode === "NO_LIVE_HISTORY" ? "History unavailable" : "Data view"}
-        </span>
+
+        <div className="flex items-center gap-2">
+          {adaptiveLift > 0 ? (
+            <span className="rounded-md border border-emerald-800/80 bg-emerald-950/50 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
+              +{adaptiveLift}pp Adaptive Lift
+            </span>
+          ) : null}
+          <span className="rounded-full border border-neutral-700 bg-neutral-900 px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
+            {dataMode === "WALKTHROUGH"
+              ? "Walkthrough sample"
+              : dataMode === "NO_LIVE_HISTORY"
+                ? "History unavailable"
+                : "Data view"}
+          </span>
+        </div>
       </div>
 
       {dataMode === "NO_LIVE_HISTORY" ? (
-        <div className="flex min-h-[260px] items-center justify-center px-6 py-8 text-center">
-          <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+        <div className="flex min-h-[260px] items-center justify-center px-6 py-8 text-center bg-[#070707]">
+          <p className="max-w-sm font-mono text-xs leading-6 text-neutral-400">
             The live feed does not provide round-by-round detection history yet. Historical trend data will appear here when available.
           </p>
         </div>
       ) : (
-      <>
-      <div className="h-[260px] w-full min-w-0 px-3 pt-4" data-testid="detection-chart-container">
-        <ResponsiveContainer width="100%" height="100%" minHeight={220} minWidth={100}>
-          <LineChart
-            data={chartData}
-            margin={{ top: 12, right: 12, left: -16, bottom: 0 }}
-            onClick={(state) => {
-              if (state && state.activeTooltipIndex != null) {
-                onSelectRound?.(state.activeTooltipIndex);
-              }
-            }}
-          >
-            <CartesianGrid
-              stroke={gridStroke}
-              vertical={false}
-              strokeDasharray=""
-            />
-            <XAxis
-              dataKey="round"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 11, fill: tickFill, fontFamily: "ui-monospace, monospace" }}
-              dy={6}
-            />
-            <YAxis
-              domain={[0, 100]}
-              ticks={[0, 20, 40, 60, 80, 100]}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => `${v}%`}
-              tick={{ fontSize: 11, fill: tickFill, fontFamily: "ui-monospace, monospace" }}
-              width={54}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: tooltipBg,
-                borderColor: tooltipBorder,
-                borderRadius: "8px",
-                fontSize: "11px",
-                fontFamily: "ui-monospace, monospace",
-                color: tooltipText,
-                boxShadow: isLight ? "0 4px 12px rgba(0,0,0,0.1)" : "0 8px 24px rgba(0,0,0,0.6)",
-              }}
-              formatter={(value, name) => [
-                `${value}%`,
-                name === "artsa" ? "ARTSA adaptive defense" : "Static baseline",
-              ]}
-            />
-            {activeRoundKey ? (
-              <ReferenceLine
-                x={activeRoundKey}
-                stroke={artsStroke}
-                strokeDasharray="3 3"
-                strokeWidth={1.5}
-                label={{
-                  value: "ACTIVE",
-                  position: "insideTopRight",
-                  fill: artsStroke,
-                  fontSize: 9,
-                  fontFamily: "ui-monospace, monospace",
+        <>
+          <div className="h-[260px] w-full min-w-0 px-3 pt-4 bg-[#090909]" data-testid="detection-chart-container">
+            <ResponsiveContainer width="100%" height="100%" minHeight={220} minWidth={100}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 12, right: 12, left: -16, bottom: 0 }}
+                onClick={(state) => {
+                  if (state && state.activeTooltipIndex != null) {
+                    onSelectRound?.(state.activeTooltipIndex);
+                  }
                 }}
-              />
-            ) : null}
-            <Line
-              type="monotone"
-              dataKey="artsa"
-              name="artsa"
-              stroke={artsStroke}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, fill: artsStroke, stroke: tooltipBg, strokeWidth: 1.5 }}
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="baseline"
-              name="baseline"
-              stroke={baseStroke}
-              strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3 text-xs text-muted-foreground sm:px-5">
-        <div className="flex flex-wrap gap-x-5 gap-y-1">
-          <span className="inline-flex items-center gap-2">
-            <span className="h-0.5 w-4 bg-sky-500 rounded-full" />
-            <strong className="font-medium text-slate-900">ARTSA Closed-Loop Defense</strong> (Adaptive rule learning)
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-0.5 w-4 bg-slate-400 rounded-full" />
-            <strong className="font-medium text-slate-700">Static Baseline</strong> (Unpatched target)
-          </span>
-        </div>
-        <span className="font-mono text-[11px] text-slate-500">
-          Core Thesis: Closed-loop defense elevates detection per round against mutating adversarial prompts
-        </span>
-      </div>
-      </>
+              >
+                <CartesianGrid
+                  stroke={gridStroke}
+                  vertical={false}
+                  strokeDasharray="2 2"
+                />
+                <XAxis
+                  dataKey="round"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: tickFill, fontFamily: "ui-monospace, monospace" }}
+                  dy={6}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  ticks={[0, 20, 40, 60, 80, 100]}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `${v}%`}
+                  tick={{ fontSize: 11, fill: tickFill, fontFamily: "ui-monospace, monospace" }}
+                  width={54}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: tooltipBg,
+                    borderColor: tooltipBorder,
+                    borderRadius: "10px",
+                    fontSize: "11px",
+                    fontFamily: "ui-monospace, monospace",
+                    color: tooltipText,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.8)",
+                  }}
+                  formatter={(value, name) => [
+                    `${value}%`,
+                    name === "artsa" ? "Adaptive Defense (climbing)" : "Static Baseline (control)",
+                  ]}
+                />
+                {activeRoundKey ? (
+                  <ReferenceLine
+                    x={activeRoundKey}
+                    stroke={artsStroke}
+                    strokeDasharray="3 3"
+                    strokeWidth={1.5}
+                    label={{
+                      value: "ACTIVE",
+                      position: "insideTopRight",
+                      fill: artsStroke,
+                      fontSize: 9,
+                      fontFamily: "ui-monospace, monospace",
+                    }}
+                  />
+                ) : null}
+                <Line
+                  type="monotone"
+                  dataKey="artsa"
+                  name="artsa"
+                  stroke={artsStroke}
+                  strokeWidth={2.25}
+                  dot={false}
+                  activeDot={{ r: 4.5, fill: artsStroke, stroke: tooltipBg, strokeWidth: 2 }}
+                  isAnimationActive={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="baseline"
+                  name="baseline"
+                  stroke={baseStroke}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Bottom Footnote Explaining Adaptive Lift */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 bg-[#0e0e0e] px-4 py-2.5 text-xs text-neutral-400 sm:px-5">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px]">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-1 w-3 bg-emerald-400 rounded-full" />
+                <strong className="font-medium text-white">Adaptive Defense</strong> (Self-updating Defender)
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-1 w-3 bg-neutral-500 rounded-full" />
+                <strong className="font-medium text-neutral-300">Static Baseline</strong> (Non-updating control)
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 font-mono text-[10.5px] text-neutral-400">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Thesis: Closed-loop policy lift accelerates round over round</span>
+            </div>
+          </div>
+        </>
       )}
     </section>
   );
