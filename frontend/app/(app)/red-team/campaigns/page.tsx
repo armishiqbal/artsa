@@ -45,40 +45,38 @@ function CampaignRow({ campaign }: { campaign: CampaignListItem }) {
   const pct = Math.min(100, Math.round((done / total) * 100));
 
   return (
-    <li className="border-b border-border last:border-0">
-      <div className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(0,1.5fr)_7rem_6rem_5rem_auto] sm:items-center">
+    <li className="border-b border-neutral-800 last:border-0 hover:bg-neutral-900/40 transition-colors">
+      <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.5fr)_7rem_6rem_5rem_auto] sm:items-center">
         <Link href={`/red-team/monitor/${campaign.id}`} className="min-w-0 group">
           <div className="flex items-center gap-2">
             <span
               className={cn(
-                "h-1.5 w-1.5 shrink-0 rounded-full",
-                bucket === "running" && "animate-pulse bg-primary",
-                bucket === "completed" && "bg-[hsl(var(--severity-low))]",
-                bucket === "failed" && "bg-[hsl(var(--severity-critical))]",
-                bucket === "other" && "bg-muted-foreground/40"
+                "h-2 w-2 shrink-0 rounded-full",
+                bucket === "running" && "animate-pulse bg-emerald-400",
+                bucket === "completed" && "bg-emerald-500",
+                bucket === "failed" && "bg-rose-500",
+                bucket === "other" && "bg-neutral-600"
               )}
               aria-hidden
             />
-            <span className="truncate text-[13px] font-medium group-hover:underline">
+            <span className="truncate text-sm font-medium text-white group-hover:text-neutral-200">
               {campaign.name}
             </span>
             {isLabRun(campaign) ? (
-              <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              <span className="shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.2 font-mono text-[9px] uppercase tracking-wider text-neutral-300">
                 lab
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+          <p className="mt-0.5 truncate font-mono text-[11px] text-neutral-400">
             {campaign.provider}/{campaign.model}
             {campaign.error ? ` · ${String(campaign.error).slice(0, 48)}` : ""}
           </p>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted sm:hidden">
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-neutral-800 sm:hidden">
             <div
               className={cn(
                 "h-full rounded-full",
-                bucket === "failed"
-                  ? "bg-[hsl(var(--severity-critical))]"
-                  : "bg-foreground/45"
+                bucket === "failed" ? "bg-rose-500" : "bg-emerald-500"
               )}
               style={{ width: `${pct}%` }}
             />
@@ -86,18 +84,18 @@ function CampaignRow({ campaign }: { campaign: CampaignListItem }) {
         </Link>
 
         <div className="hidden sm:block">
-          <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          <p className="font-mono text-[11px] tabular-nums text-neutral-400">
             {done}/{campaign.total_rounds} · {pct}%
           </p>
-          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
             <div
               className={cn(
                 "h-full rounded-full",
                 bucket === "failed"
-                  ? "bg-[hsl(var(--severity-critical))]"
+                  ? "bg-rose-500"
                   : bucket === "running"
-                    ? "bg-primary"
-                    : "bg-foreground/45"
+                  ? "bg-emerald-400"
+                  : "bg-emerald-500"
               )}
               style={{ width: `${pct}%` }}
             />
@@ -106,11 +104,11 @@ function CampaignRow({ campaign }: { campaign: CampaignListItem }) {
 
         <span
           className={cn(
-            "text-[12px]",
-            bucket === "failed" && "text-[hsl(var(--severity-critical))]",
-            bucket === "running" && "text-primary",
-            bucket === "completed" && "text-[hsl(var(--severity-low))]",
-            bucket === "other" && "text-muted-foreground"
+            "font-mono text-xs font-semibold uppercase tracking-wider",
+            bucket === "failed" && "text-rose-400",
+            bucket === "running" && "text-emerald-400",
+            bucket === "completed" && "text-neutral-300",
+            bucket === "other" && "text-neutral-500"
           )}
         >
           {friendlyStatus(campaign.status)}
@@ -118,17 +116,20 @@ function CampaignRow({ campaign }: { campaign: CampaignListItem }) {
 
         <span
           className={cn(
-            "tabular-nums text-[13px]",
-            risk != null && risk >= 80
-              ? "text-[hsl(var(--severity-critical))]"
-              : "text-foreground"
+            "tabular-nums text-sm font-mono font-bold",
+            risk != null && risk >= 80 ? "text-rose-400" : "text-white"
           )}
         >
           {risk != null ? `${risk}/100` : "—"}
         </span>
 
         <div className="flex flex-wrap gap-1.5 sm:justify-end">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 border-neutral-800 bg-neutral-900 px-2.5 font-mono text-[11px] font-semibold text-neutral-200 hover:bg-neutral-800 hover:text-white shadow-2xs"
+            asChild
+          >
             <Link href={`/red-team/monitor/${campaign.id}?follow=1`}>
               {bucket === "running" ? "Watch live" : "Open run"}
             </Link>
@@ -257,7 +258,7 @@ function RedTeamCampaignsInner() {
 
   if (!authLoading && !capabilities.can_run_campaigns) {
     return (
-      <div className="rounded-md border border-border px-4 py-8 text-center text-[13px] text-muted-foreground">
+      <div className="rounded-xl border border-neutral-800 bg-[#0e0e0e] px-4 py-8 text-center text-[13px] text-neutral-400">
         You don’t have permission to run campaigns. Ask an admin for access.
       </div>
     );
@@ -267,21 +268,21 @@ function RedTeamCampaignsInner() {
     <div className="space-y-6">
       {/* Pre-Flight Multi-Agent Guidance Banner */}
       {datasetMode === "demo" ? (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-slate-50/70 dark:bg-neutral-900/60 p-3.5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-neutral-800 bg-[#0e0e0e] p-3.5 shadow-2xs">
           <div className="flex items-start gap-2.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-black dark:bg-white text-white dark:text-black shadow-xs">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-black shadow-xs">
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-white">
                   Pre-Flight Multi-Agent Simulation · Labeled Demonstration Suite
                 </span>
-                <span className="rounded bg-slate-200 dark:bg-neutral-800 px-1.5 py-0.2 font-mono text-[10px] font-bold text-slate-800 dark:text-neutral-200">
+                <span className="rounded bg-neutral-800 border border-neutral-700 px-1.5 py-0.2 font-mono text-[10px] font-bold text-neutral-200">
                   CrewAI 6-Agent Chain
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-slate-700 dark:text-neutral-300 leading-relaxed font-sans">
+              <p className="mt-0.5 text-xs text-neutral-400 leading-relaxed font-sans">
                 {campaigns.length === 0
                   ? "Zero live campaigns recorded in the operational database. Displaying 3 pre-flight multi-agent simulations across OWASP ASI01, ASI02, and ASI04 with HMAC-signed handoffs."
                   : "Reviewing pre-flight multi-agent simulation scenarios. Switch to Live Telemetry to inspect active operational runs."}
@@ -289,7 +290,7 @@ function RedTeamCampaignsInner() {
             </div>
           </div>
           <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-            <Button asChild size="sm" className="h-7 bg-black hover:bg-slate-900 text-white font-mono text-xs gap-1.5 shadow-xs">
+            <Button asChild size="sm" className="h-7 bg-white hover:bg-neutral-200 text-black font-semibold font-mono text-xs gap-1.5 shadow-xs">
               <Link href="/red-team/campaigns/new">
                 Launch Live Campaign
               </Link>
@@ -297,16 +298,16 @@ function RedTeamCampaignsInner() {
           </div>
         </div>
       ) : campaigns.length === 0 ? (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-neutral-800 bg-[#0e0e0e] p-3.5 shadow-2xs">
           <div className="flex items-start gap-2.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white shadow-xs">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-white shadow-xs">
               <Radio className="h-4 w-4" />
             </div>
             <div>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-900">
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-white">
                 Live Operations Telemetry · No Campaigns Recorded
               </span>
-              <p className="mt-0.5 text-xs text-slate-500 font-sans">
+              <p className="mt-0.5 text-xs text-neutral-400 font-sans">
                 No active or completed live campaign sessions recorded in backend telemetry. Switch to Simulation Suite to inspect the multi-agent chain.
               </p>
             </div>
@@ -314,7 +315,7 @@ function RedTeamCampaignsInner() {
           <Button
             size="sm"
             onClick={() => setDatasetMode("demo")}
-            className="h-7 bg-black hover:bg-slate-900 text-white font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center"
+            className="h-7 bg-white hover:bg-neutral-200 text-black font-semibold font-mono text-xs gap-1.5 shadow-xs shrink-0 self-end sm:self-center"
           >
             <Sparkles className="h-3 w-3" />
             Switch to Simulation Suite
@@ -324,8 +325,8 @@ function RedTeamCampaignsInner() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 max-w-xl">
-          <h2 className="text-lg font-semibold tracking-tight">Campaign War Room</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">
+          <h2 className="text-xl font-bold tracking-tight text-white">Campaign War Room</h2>
+          <p className="mt-1 text-xs text-neutral-400">
             {datasetMode === "demo"
               ? "Autonomous 6-agent offensive simulations with HMAC custody passing across adversarial rounds."
               : "Live list from ARTSA operational database. Updates as runs finish or fail."}
@@ -333,15 +334,15 @@ function RedTeamCampaignsInner() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Dataset Switcher: Simulation Suite vs Live Telemetry */}
-          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+          <div className="flex items-center rounded-lg border border-neutral-800 bg-[#0e0e0e] p-0.5 shadow-2xs">
             <button
               type="button"
               onClick={() => setDatasetMode("demo")}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
                 datasetMode === "demo"
-                  ? "bg-black text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  ? "bg-white text-black font-bold shadow-2xs"
+                  : "text-neutral-400 hover:text-white hover:bg-neutral-800"
               )}
             >
               <Sparkles className="h-3.5 w-3.5" />
@@ -353,8 +354,8 @@ function RedTeamCampaignsInner() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors",
                 datasetMode === "live"
-                  ? "bg-black text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  ? "bg-white text-black font-bold shadow-2xs"
+                  : "text-neutral-400 hover:text-white hover:bg-neutral-800"
               )}
             >
               <Radio className="h-3 w-3" />
@@ -362,16 +363,35 @@ function RedTeamCampaignsInner() {
             </button>
           </div>
 
-          <Button size="sm" variant="outline" onClick={() => void refresh()}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-neutral-800 bg-[#0e0e0e] text-neutral-200 hover:bg-neutral-800 hover:text-white"
+            onClick={() => void refresh()}
+          >
             Refresh
           </Button>
-          <Button size="sm" variant="outline" asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-neutral-800 bg-[#0e0e0e] text-neutral-200 hover:bg-neutral-800 hover:text-white"
+            asChild
+          >
             <Link href="/red-team/lab">Attack Lab</Link>
           </Button>
-          <Button size="sm" variant="outline" asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-neutral-800 bg-[#0e0e0e] text-neutral-200 hover:bg-neutral-800 hover:text-white"
+            asChild
+          >
             <Link href="/red-team/campaigns/new">Builder</Link>
           </Button>
-          <Button size="sm" onClick={() => setWizardOpen(true)}>
+          <Button
+            size="sm"
+            className="bg-white text-black font-semibold hover:bg-neutral-200"
+            onClick={() => setWizardOpen(true)}
+          >
             Quick scan
           </Button>
         </div>
@@ -381,49 +401,58 @@ function RedTeamCampaignsInner() {
       <CrewAgentChainViz />
 
       {ongoing.length === 0 ? (
-        <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-[13px]">
-          <p className="font-medium text-foreground">No ongoing live runs</p>
-          <p className="mt-1 text-muted-foreground">
-            Orbit / table below are finished history. Start a run — it will jump to the top here,
-            on Detections, and under Command Center.
+        <div className="rounded-xl border border-neutral-800 bg-[#0e0e0e] px-4 py-3.5 text-xs">
+          <p className="font-semibold text-white">No ongoing live runs</p>
+          <p className="mt-1 text-neutral-400">
+            Orbit and table below represent past assessment history. Start a run — it will surface at the top here, on Detections, and in Command Center.
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button size="sm" asChild>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" className="bg-white text-black font-semibold hover:bg-neutral-200" asChild>
               <Link href="/red-team/lab">Start Attack Lab</Link>
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setWizardOpen(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-neutral-800 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
+              onClick={() => setWizardOpen(true)}
+            >
               Quick scan
             </Button>
-            <Button size="sm" variant="outline" asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-neutral-800 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
+              asChild
+            >
               <Link href="/red-team/monitor">Open Detections</Link>
             </Button>
           </div>
         </div>
       ) : (
-        <div className="rounded-md border border-emerald-500/35 bg-emerald-500/10 px-3 py-3 text-[13px]">
+        <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/40 px-4 py-3.5 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-medium text-emerald-400">
-              Ongoing live · {ongoing.length} run{ongoing.length === 1 ? "" : "s"} · refresh every 5s
+            <p className="font-semibold text-emerald-400 font-mono">
+              Ongoing live · {ongoing.length} run{ongoing.length === 1 ? "" : "s"} · auto-refreshing
             </p>
-            <Button size="sm" variant="outline" className="h-7 text-[11px]" asChild>
+            <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/40" asChild>
               <Link href="/red-team/monitor">All on Detections</Link>
             </Button>
           </div>
-          <ul className="mt-2 space-y-1.5">
+          <ul className="mt-3 space-y-2">
             {ongoing.map((c) => {
               const done = Number(c.rounds_completed || 0);
               return (
                 <li
                   key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-500/20 bg-background/40 px-2.5 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-800/40 bg-[#0e0e0e]/90 px-3 py-2.5"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-foreground">{c.name}</p>
-                    <p className="font-mono text-[11px] text-muted-foreground">
+                    <p className="truncate font-semibold text-white">{c.name}</p>
+                    <p className="font-mono text-[11px] text-neutral-400">
                       {done}/{c.total_rounds} rounds · {c.provider}/{c.model}
                     </p>
                   </div>
-                  <Button size="sm" className="h-7 shrink-0 text-[11px]" asChild>
+                  <Button size="sm" className="h-7 shrink-0 text-xs bg-white text-black font-semibold hover:bg-neutral-200" asChild>
                     <Link href={`/red-team/monitor/${c.id}?follow=1`}>Watch live</Link>
                   </Button>
                 </li>
@@ -481,10 +510,10 @@ function RedTeamCampaignsInner() {
               type="button"
               onClick={() => setFilter(id)}
               className={cn(
-                "rounded-md px-2.5 py-1 text-[12px] transition-colors",
+                "rounded-md px-3 py-1 font-mono text-xs font-semibold transition-colors",
                 filter === id
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white text-black font-bold shadow-2xs"
+                  : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
               )}
             >
               {label}
@@ -497,13 +526,13 @@ function RedTeamCampaignsInner() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, provider, id…"
-            className="h-8 w-full min-w-[12rem] rounded-md border border-border bg-background px-2.5 text-[12px] sm:w-56"
+            className="h-8 w-full min-w-[12rem] rounded-md border border-neutral-800 bg-neutral-900 px-2.5 text-xs text-white placeholder:text-neutral-500 sm:w-56"
             aria-label="Search campaigns"
           />
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="h-8 rounded-md border border-border bg-background px-2 text-[12px]"
+            className="h-8 rounded-md border border-neutral-800 bg-neutral-900 px-2 font-mono text-xs text-neutral-200"
             aria-label="Sort campaigns"
           >
             <option value="risk">Sort: risk</option>
@@ -515,8 +544,8 @@ function RedTeamCampaignsInner() {
       </div>
 
       {/* Table */}
-      <section className="overflow-hidden rounded-md border border-border">
-        <div className="hidden grid-cols-[minmax(0,1.5fr)_7rem_6rem_5rem_auto] gap-3 border-b border-border bg-muted/20 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground sm:grid">
+      <section className="overflow-hidden rounded-xl border border-neutral-800 bg-[#0e0e0e] shadow-2xs">
+        <div className="hidden grid-cols-[minmax(0,1.5fr)_7rem_6rem_5rem_auto] gap-3 border-b border-neutral-800 bg-[#121212] px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-neutral-400 sm:grid">
           <span>Campaign</span>
           <span>Progress</span>
           <span>Status</span>
@@ -527,23 +556,23 @@ function RedTeamCampaignsInner() {
         {loading && effectiveCampaigns.length === 0 ? (
           <div className="space-y-2 p-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
+              <Skeleton key={i} className="h-14 w-full bg-neutral-900" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="px-4 py-12 text-center text-[13px] text-muted-foreground">
+          <p className="px-4 py-12 text-center text-xs text-neutral-400 font-mono">
             {effectiveCampaigns.length === 0 ? (
               <>
                 No campaigns yet.{" "}
                 <button
                   type="button"
-                  className="text-foreground underline-offset-2 hover:underline"
+                  className="text-white underline underline-offset-2 hover:text-neutral-200"
                   onClick={() => setWizardOpen(true)}
                 >
                   Launch a quick scan
                 </button>{" "}
                 or{" "}
-                <Link href="/red-team/campaigns/new" className="underline-offset-2 hover:underline">
+                <Link href="/red-team/campaigns/new" className="text-white underline underline-offset-2 hover:text-neutral-200">
                   open the builder
                 </Link>
                 .
@@ -553,7 +582,7 @@ function RedTeamCampaignsInner() {
             )}
           </p>
         ) : (
-          <ul>
+          <ul className="divide-y divide-neutral-800/80">
             {filtered.map((c) => (
               <CampaignRow key={c.id} campaign={c} />
             ))}
@@ -561,13 +590,13 @@ function RedTeamCampaignsInner() {
         )}
       </section>
 
-      <p className="text-[12px] text-muted-foreground">
+      <p className="text-xs text-neutral-400 font-mono">
         Showing {filtered.length} of {effectiveCampaigns.length}. Deep dive:{" "}
-        <Link href="/red-team/matrix" className="underline-offset-2 hover:underline">
+        <Link href="/red-team/matrix" className="text-white underline underline-offset-2 hover:text-neutral-200">
           Outcomes
         </Link>{" "}
         ·{" "}
-        <Link href="/red-team/graph" className="underline-offset-2 hover:underline">
+        <Link href="/red-team/graph" className="text-white underline underline-offset-2 hover:text-neutral-200">
           Attack Graph
         </Link>
         .
@@ -580,7 +609,7 @@ function RedTeamCampaignsInner() {
 
 export default function RedTeamCampaignsPage() {
   return (
-    <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+    <Suspense fallback={<Skeleton className="h-40 w-full bg-neutral-900" />}>
       <RedTeamCampaignsInner />
     </Suspense>
   );

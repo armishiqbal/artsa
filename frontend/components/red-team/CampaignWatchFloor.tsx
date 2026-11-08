@@ -64,10 +64,10 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
       <LandingMotionCard
         index={0}
         className={cn(
-          "overflow-hidden border bg-card p-4 sm:p-5",
+          "overflow-hidden border p-4 sm:p-5",
           liveActive
-            ? "border-[hsl(var(--severity-info-border))] ring-1 ring-primary/20"
-            : "border-border"
+            ? "border-emerald-500/30 bg-[#0e0e0e] ring-1 ring-emerald-500/20"
+            : "border-neutral-800 bg-[#0e0e0e]"
         )}
         glow={false}
       >
@@ -161,7 +161,7 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
               />
             </svg>
 
-            <p className="pointer-events-none absolute right-[6%] top-[14%] font-mono text-[9px] uppercase tracking-wider text-primary">
+            <p className="pointer-events-none absolute right-[6%] top-[14%] font-mono text-[9px] uppercase tracking-wider text-emerald-400">
               Live
             </p>
             <p className="pointer-events-none absolute bottom-[6%] left-1/2 -translate-x-1/2 font-mono text-[9px] uppercase tracking-wider text-[hsl(var(--severity-low))]">
@@ -176,7 +176,7 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
                 className="pointer-events-none absolute inset-[6%] rounded-full"
                 style={{
                   background:
-                    "conic-gradient(from 0deg, transparent 0deg, hsl(var(--primary) / 0.28) 24deg, transparent 48deg)",
+                    "conic-gradient(from 0deg, transparent 0deg, rgba(16, 185, 129, 0.28) 24deg, transparent 48deg)",
                 }}
                 animate={{ rotate: 360 }}
                 transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
@@ -187,33 +187,33 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
             {/* Core: LIVE count when working; IDLE when not — never fake μ as “live” */}
             <div
               className={cn(
-                "absolute left-1/2 top-1/2 z-[1] flex h-[4.75rem] w-[4.75rem] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border bg-card shadow-md",
+                "absolute left-1/2 top-1/2 z-[1] flex h-[4.75rem] w-[4.75rem] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border shadow-md",
                 liveActive
-                  ? "border-primary/50 ring-2 ring-primary/25"
-                  : "border-border"
+                  ? "border-emerald-500/50 bg-[#121212] ring-2 ring-emerald-500/25"
+                  : "border-neutral-800 bg-[#0e0e0e]"
               )}
             >
               {liveActive ? (
                 <>
-                  <span className="font-mono text-[8px] uppercase tracking-wider text-primary">
+                  <span className="font-mono text-[8px] uppercase tracking-wider text-emerald-400">
                     Live
                   </span>
-                  <span className="font-mono text-[20px] font-semibold tabular-nums text-primary">
+                  <span className="font-mono text-[20px] font-semibold tabular-nums text-emerald-400">
                     {stats.live}
                   </span>
-                  <span className="font-mono text-[8px] text-muted-foreground">
+                  <span className="font-mono text-[8px] text-neutral-400">
                     {stats.liveProgress}% rounds
                   </span>
                 </>
               ) : (
                 <>
-                  <span className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground">
+                  <span className="font-mono text-[8px] uppercase tracking-wider text-neutral-400">
                     Idle
                   </span>
-                  <span className="font-mono text-[17px] font-semibold tabular-nums text-muted-foreground">
+                  <span className="font-mono text-[17px] font-semibold tabular-nums text-neutral-400">
                     0
                   </span>
-                  <span className="font-mono text-[8px] text-muted-foreground">
+                  <span className="font-mono text-[8px] text-neutral-500">
                     {stats.mean != null ? `hist μ ${stats.mean}` : "no live"}
                   </span>
                 </>
@@ -222,7 +222,7 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
 
             {liveActive && stats.liveProgress > 0 ? (
               <div
-                className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-primary/40"
+                className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-emerald-500/40"
                 style={{
                   width: `${(30 + (stats.liveProgress / 100) * 18) * 2}%`,
                   height: `${(30 + (stats.liveProgress / 100) * 18) * 2}%`,
@@ -259,7 +259,7 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
                     <motion.span
                       className={cn(
                         "block rounded-full border-2",
-                        n.live && "border-primary bg-primary",
+                        n.live && "border-emerald-400 bg-emerald-400",
                         n.failed &&
                           !n.live &&
                           "border-[hsl(var(--severity-critical))] bg-[hsl(var(--severity-critical))]",
@@ -277,9 +277,9 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
                           ? {
                               scale: [1, 1.35, 1],
                               boxShadow: [
-                                "0 0 0 0 hsl(var(--primary) / 0.4)",
-                                "0 0 0 8px hsl(var(--primary) / 0)",
-                                "0 0 0 0 hsl(var(--primary) / 0.4)",
+                                "0 0 0 0 rgba(16, 185, 129, 0.4)",
+                                "0 0 0 8px rgba(16, 185, 129, 0)",
+                                "0 0 0 0 rgba(16, 185, 129, 0.4)",
                               ],
                             }
                           : { scale: active ? 1.15 : 1 }
@@ -301,8 +301,8 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
               className={cn(
                 "rounded-md border px-3 py-2.5 shadow-sm",
                 liveActive
-                  ? "border-[hsl(var(--severity-info-border))] bg-[hsl(var(--severity-info-subtle))]"
-                  : "border-border bg-card"
+                  ? "border-emerald-500/30 bg-emerald-950/20"
+                  : "border-neutral-800 bg-[#0e0e0e]"
               )}
             >
               <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
@@ -351,14 +351,14 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
                   className={cn(
                     "rounded-md border px-3 py-3",
                     focus.live &&
-                      "border-[hsl(var(--severity-info-border))] bg-[hsl(var(--severity-info-subtle))]",
+                      "border-emerald-500/30 bg-emerald-950/20",
                     focus.failed &&
                       !focus.live &&
                       "border-[hsl(var(--severity-critical-border))] bg-[hsl(var(--severity-critical-subtle))]",
                     focus.done &&
                       !focus.live &&
                       "border-[hsl(var(--severity-low-border))] bg-[hsl(var(--severity-low-subtle))]",
-                    !focus.live && !focus.failed && !focus.done && "border-border bg-card"
+                    !focus.live && !focus.failed && !focus.done && "border-neutral-800 bg-[#0e0e0e]"
                   )}
                 >
                   <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
@@ -434,20 +434,20 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
                       className={cn(
                         "flex h-full flex-col p-4 sm:p-5",
                         live &&
-                          "border-[hsl(var(--severity-info-border))] bg-[hsl(var(--severity-info-subtle))] ring-1 ring-primary/25"
+                          "border-emerald-500/30 bg-emerald-950/20 ring-1 ring-emerald-500/25"
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           {live ? (
                             <motion.span
-                              className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary"
+                              className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-400"
                               animate={{ opacity: [1, 0.55, 1] }}
                               transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
                             >
                               <span className="relative flex h-1.5 w-1.5">
-                                <span className="absolute inset-0 animate-ping rounded-full bg-primary/50" />
-                                <span className="relative h-1.5 w-1.5 rounded-full bg-primary" />
+                                <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/50" />
+                                <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
                               </span>
                               Live
                             </motion.span>
@@ -476,7 +476,7 @@ export function CampaignWatchFloor({ campaigns }: { campaigns: CampaignListItem[
                           <motion.div
                             className={cn(
                               "h-full origin-left rounded-full",
-                              live ? "bg-primary" : "bg-[hsl(var(--severity-low))]"
+                              live ? "bg-emerald-400" : "bg-[hsl(var(--severity-low))]"
                             )}
                             animate={{ scaleX: Math.max(live ? 0.08 : 0.02, pct / 100) }}
                             transition={{ duration: 0.4, ease: easeOut }}
@@ -505,12 +505,12 @@ function Metric({
   tone?: "live" | "critical" | "neutral";
 }) {
   return (
-    <div className="rounded-md border border-border px-2.5 py-2">
+    <div className="rounded-md border border-neutral-800 bg-[#0e0e0e] px-2.5 py-2">
       <dt className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{k}</dt>
       <dd
         className={cn(
           "mt-0.5 font-mono text-[16px] font-semibold tabular-nums",
-          tone === "live" && "text-primary",
+          tone === "live" && "text-emerald-400",
           tone === "critical" && "text-[hsl(var(--severity-critical))]",
           tone === "neutral" && "text-foreground"
         )}

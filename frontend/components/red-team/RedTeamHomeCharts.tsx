@@ -167,7 +167,7 @@ export function RedTeamHomeCharts({
                       : row.risk >= 50
                         ? "bg-[hsl(var(--severity-medium))]"
                         : running
-                          ? "bg-[#67b3ef]"
+                          ? "bg-emerald-400"
                           : "bg-[hsl(var(--severity-low))]";
                   return (
                     <tr key={row.id} className="hover:bg-muted/20">
@@ -190,7 +190,7 @@ export function RedTeamHomeCharts({
                             failed
                               ? "font-mono text-[10px] uppercase text-[hsl(var(--severity-critical))]"
                               : running
-                                ? "font-mono text-[10px] uppercase text-[#67b3ef]"
+                                ? "font-mono text-[10px] uppercase text-emerald-400 font-semibold"
                                 : "font-mono text-[10px] uppercase text-muted-foreground"
                           }
                         >

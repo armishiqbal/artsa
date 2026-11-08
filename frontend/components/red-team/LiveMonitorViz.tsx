@@ -408,7 +408,7 @@ export function CampaignProgressViz({
           cy={28}
           r={r}
           fill="none"
-          className={running ? "stroke-[#67b3ef]" : "stroke-foreground/60"}
+          className={running ? "stroke-emerald-400" : "stroke-foreground/60"}
           strokeWidth={5}
           strokeDasharray={c}
           strokeDashoffset={c * (1 - pct / 100)}

@@ -83,10 +83,10 @@ export function CampaignCohortHero({ model }: { model: CohortHeroModel }) {
               </p>
               <PosturePill posture={posture} />
               {running > 0 ? (
-                <span className="inline-flex items-center gap-1.5 rounded-sm border border-[hsl(var(--severity-info-border))] bg-[hsl(var(--severity-info-subtle))] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <span className="inline-flex items-center gap-1.5 rounded-sm border border-emerald-500/30 bg-emerald-950/40 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
                   <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inset-0 animate-ping rounded-full bg-primary/50" />
-                    <span className="relative h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/50" />
+                    <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   </span>
                   {running} live
                 </span>
@@ -104,18 +104,18 @@ export function CampaignCohortHero({ model }: { model: CohortHeroModel }) {
               {running > 0 ? (
                 <>
                   <span aria-hidden>·</span>
-                  <span className="font-medium text-primary">Watch orbit for live nodes</span>
+                  <span className="font-medium text-emerald-400">Watch orbit for live nodes</span>
                 </>
               ) : null}
             </div>
           </div>
 
           {/* Risk spark — mini analytical strip */}
-          <div className="w-full shrink-0 rounded-md border border-border bg-card p-3 shadow-sm lg:w-[200px]">
+          <div className="w-full shrink-0 rounded-md border border-neutral-800 bg-[#0e0e0e] p-3 shadow-sm lg:w-[200px]">
             <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
               Risk spark · launches
             </p>
-            <div className="mt-2 flex h-14 items-end gap-0.5 rounded-sm bg-muted/60 px-1 py-1">
+            <div className="mt-2 flex h-14 items-end gap-0.5 rounded-sm bg-neutral-900/60 px-1 py-1">
               {(riskSpark.length ? riskSpark : [0]).slice(0, 24).map((r, i) => {
                 const h = Math.max(8, Math.round((r / 100) * 48));
                 const tone =
@@ -241,19 +241,19 @@ export function CampaignCohortHero({ model }: { model: CohortHeroModel }) {
         <motion.div variants={fadeUp} transition={{ ease: easeOut }}>
           <LandingMotionCard
             index={2}
-            className="h-full border-[hsl(var(--severity-info-border))] bg-[hsl(var(--severity-info-subtle))] p-3.5"
+            className="h-full border-neutral-800 bg-[#0e0e0e] p-3.5"
             glow={false}
           >
-            <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-neutral-400">
               Lab experiments
             </p>
-            <p className="mt-1 font-mono text-[22px] font-semibold tabular-nums text-primary">
+            <p className="mt-1 font-mono text-[22px] font-semibold tabular-nums text-white">
               {labCount}
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">From Attack Lab · {labShare}%</p>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+            <p className="mt-0.5 text-[11px] text-neutral-400">From Attack Lab · {labShare}%</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-800">
               <motion.div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-neutral-300"
                 initial={{ width: 0 }}
                 animate={{ width: `${labShare}%` }}
                 transition={{ duration: 0.55, ease: easeOut }}
@@ -359,18 +359,18 @@ function Kpi({
 }) {
   const barClass =
     tone === "live"
-      ? "bg-primary"
+      ? "bg-emerald-400"
       : tone === "ok"
         ? "bg-[hsl(var(--severity-low))]"
         : tone === "warn"
           ? "bg-[hsl(var(--severity-medium))]"
           : tone === "critical"
             ? "bg-[hsl(var(--severity-critical))]"
-            : "bg-foreground/50";
+            : "bg-neutral-300";
 
   const valueClass =
     tone === "live"
-      ? "text-primary"
+      ? "text-emerald-400"
       : tone === "ok"
         ? "text-[hsl(var(--severity-low))]"
         : tone === "warn"
@@ -387,14 +387,14 @@ function Kpi({
         className={cn(
           "h-full border p-3",
           tone === "live" &&
-            "border-[hsl(var(--severity-info-border))] bg-[hsl(var(--severity-info-subtle))]",
+            "border-emerald-500/30 bg-emerald-950/20",
           tone === "ok" &&
             "border-[hsl(var(--severity-low-border))] bg-[hsl(var(--severity-low-subtle))]",
           tone === "warn" &&
             "border-[hsl(var(--severity-medium-border))] bg-[hsl(var(--severity-medium-subtle))]",
           tone === "critical" &&
             "border-[hsl(var(--severity-critical-border))] bg-[hsl(var(--severity-critical-subtle))]",
-          tone === "neutral" && "border-border bg-card"
+          tone === "neutral" && "border-neutral-800 bg-[#0e0e0e]"
         )}
       >
         <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{label}</p>

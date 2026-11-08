@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CHART_AXIS_TICK, CHART_CRITICAL, CHART_GRID, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
+import { CHART_AXIS_TICK, CHART_GRID, CHART_TOOLTIP_PROPS } from "@/lib/chartTheme";
 import type { CampaignAttackVizModel } from "@/lib/campaignAttackViz";
 import { cn } from "@/lib/utils";
 
@@ -30,17 +30,17 @@ export function CampaignAttackViz({
   return (
     <div className={cn("space-y-3", className)}>
       {/* Six-agent attack launch path */}
-      <div className="rounded-md border border-border p-3">
+      <div className="rounded-lg border border-neutral-800 bg-[#0e0e0e] p-3.5">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-neutral-400">
               Six-Agent Autonomous Attack Chain
             </h3>
-            <span className="rounded bg-muted px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground">
+            <span className="rounded border border-neutral-800 bg-neutral-900 px-1.5 py-0.2 font-mono text-[10px] text-neutral-400">
               HMAC Custody Passing
             </span>
           </div>
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-[10px] text-neutral-500">
             {model.idle
               ? "waiting"
               : model.latestRound != null
@@ -56,33 +56,33 @@ export function CampaignAttackViz({
                   "w-full rounded-md border p-2.5 transition-colors relative",
                   node.active
                     ? node.hot
-                      ? "border-[hsl(var(--severity-critical))]/50 bg-[hsl(var(--severity-critical))]/10"
-                      : "border-foreground/20 bg-muted/40"
-                    : "border-border/60 opacity-55"
+                      ? "border-rose-800/60 bg-rose-950/30"
+                      : "border-neutral-700 bg-neutral-900"
+                    : "border-neutral-800/60 bg-[#080808] opacity-50"
                 )}
               >
                 <div className="flex items-center justify-between gap-1">
-                  <span className="font-mono text-[9px] font-bold text-muted-foreground">
+                  <span className="font-mono text-[9px] font-bold text-neutral-500">
                     Hop {i + 1}
                   </span>
                   {node.hmacVerified ? (
-                    <span className="rounded bg-emerald-500/10 px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-600">
+                    <span className="rounded border border-emerald-800/50 bg-emerald-950/60 px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-400">
                       HMAC
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 font-semibold text-[11px] text-foreground truncate">
+                <p className="mt-1 font-semibold text-[11px] text-white truncate">
                   {node.label}
                 </p>
                 {node.role ? (
-                  <p className="text-[10px] text-muted-foreground truncate">
+                  <p className="text-[10px] text-neutral-400 truncate">
                     {node.role}
                   </p>
                 ) : null}
                 <p
                   className={cn(
                     "mt-1 truncate font-mono text-[10px]",
-                    node.hot ? "text-[hsl(var(--severity-critical))] font-semibold" : "text-muted-foreground"
+                    node.hot ? "text-rose-400 font-semibold" : "text-neutral-500"
                   )}
                   title={node.detail}
                 >
@@ -93,20 +93,20 @@ export function CampaignAttackViz({
           ))}
         </div>
         {model.latestAttack ? (
-          <p className="mt-2 truncate font-mono text-[11px] text-muted-foreground">
-            Latest probe: <span className="text-foreground">{model.latestAttack}</span>
+          <p className="mt-2.5 truncate font-mono text-[11px] text-neutral-500">
+            Latest probe: <span className="text-neutral-300">{model.latestAttack}</span>
           </p>
         ) : null}
       </div>
 
       {/* Round pulse rail */}
-      <div className="rounded-md border border-border p-3">
-        <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="rounded-lg border border-neutral-800 bg-[#0e0e0e] p-3.5">
+        <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-wider text-neutral-400">
           <span>Round timeline</span>
-          <span className="font-mono tabular-nums">{model.rounds.length} rounds</span>
+          <span className="font-mono tabular-nums text-neutral-500">{model.rounds.length} rounds</span>
         </div>
         {model.rounds.length === 0 ? (
-          <div className="flex h-14 items-center justify-center rounded-md border border-dashed border-border text-[12px] text-muted-foreground">
+          <div className="flex h-14 items-center justify-center rounded-md border border-dashed border-neutral-800 bg-[#070707] text-[12px] text-neutral-500">
             Waiting for Red Team to launch the first attack…
           </div>
         ) : (
@@ -124,13 +124,13 @@ export function CampaignAttackViz({
                   className={cn(
                     "relative flex h-12 min-w-[2.75rem] flex-1 flex-col items-center justify-end rounded-md border px-1 pb-1.5 pt-2 transition-transform",
                     tone === "bad" &&
-                      "border-[hsl(var(--severity-critical-border))] bg-[hsl(var(--severity-critical-subtle))]",
+                      "border-rose-900/60 bg-rose-950/30 text-rose-300",
                     tone === "ok" &&
-                      "border-[hsl(var(--severity-low-border))] bg-[hsl(var(--severity-low-subtle))]",
+                      "border-emerald-900/60 bg-emerald-950/30 text-emerald-300",
                     tone === "warn" &&
-                      "border-[hsl(var(--severity-medium-border))] bg-[hsl(var(--severity-medium-subtle))]",
-                    tone === "idle" && "border-border bg-muted/20",
-                    active && "scale-[1.03] ring-2 ring-foreground/40",
+                      "border-amber-900/60 bg-amber-950/30 text-amber-300",
+                    tone === "idle" && "border-neutral-800 bg-neutral-900/40 text-neutral-500",
+                    active && "scale-[1.03] ring-2 ring-white/60",
                     r.round === model.latestRound && "animate-pulse"
                   )}
                   aria-pressed={active}
@@ -138,13 +138,13 @@ export function CampaignAttackViz({
                   <span
                     className={cn(
                       "absolute top-1.5 h-2 w-2 rounded-full",
-                      tone === "bad" && "bg-[hsl(var(--severity-critical))]",
-                      tone === "ok" && "bg-[hsl(var(--severity-low))]",
-                      tone === "warn" && "bg-[hsl(var(--severity-medium))]",
-                      tone === "idle" && "bg-muted-foreground/40"
+                      tone === "bad" && "bg-rose-500",
+                      tone === "ok" && "bg-emerald-500",
+                      tone === "warn" && "bg-amber-500",
+                      tone === "idle" && "bg-neutral-600"
                     )}
                   />
-                  <span className="font-mono text-[10px] tabular-nums text-foreground">R{r.round}</span>
+                  <span className="font-mono text-[10px] tabular-nums">R{r.round}</span>
                 </button>
               );
             })}
@@ -154,8 +154,8 @@ export function CampaignAttackViz({
 
       {/* Cumulative outcomes chart + counts */}
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
-        <div className="rounded-md border border-border p-3">
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="rounded-lg border border-neutral-800 bg-[#0e0e0e] p-3.5">
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-neutral-400">
             Cumulative outcomes
           </h3>
           {model.hopSeries.length >= 1 ? (
@@ -170,8 +170,8 @@ export function CampaignAttackViz({
                     type="monotone"
                     dataKey="pass"
                     stackId="1"
-                    stroke="hsl(var(--severity-low))"
-                    fill="hsl(var(--severity-low))"
+                    stroke="#10b981"
+                    fill="#10b981"
                     fillOpacity={0.35}
                     name="Blocked"
                   />
@@ -188,8 +188,8 @@ export function CampaignAttackViz({
                     type="monotone"
                     dataKey="fail"
                     stackId="1"
-                    stroke={CHART_CRITICAL}
-                    fill={CHART_CRITICAL}
+                    stroke="#f43f5e"
+                    fill="#f43f5e"
                     fillOpacity={0.4}
                     name="Breached"
                   />
@@ -197,32 +197,32 @@ export function CampaignAttackViz({
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex h-[140px] items-center justify-center text-[12px] text-muted-foreground">
+            <div className="flex h-[140px] items-center justify-center text-[12px] text-neutral-500">
               Outcomes stack as rounds finish.
             </div>
           )}
         </div>
 
-        <aside className="rounded-md border border-border px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <aside className="rounded-lg border border-neutral-800 bg-[#0e0e0e] p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
             Scoreboard
           </p>
           <ul className="mt-3 space-y-2 font-mono text-[12px]">
             <li className="flex justify-between">
-              <span className="text-[hsl(var(--severity-low))]">Blocked</span>
-              <span>{model.outcomeCounts.pass}</span>
+              <span className="text-emerald-400">Blocked</span>
+              <span className="text-white">{model.outcomeCounts.pass}</span>
             </li>
             <li className="flex justify-between">
-              <span className="text-[hsl(var(--severity-critical))]">Breached</span>
-              <span>{model.outcomeCounts.fail}</span>
+              <span className="text-rose-400">Breached</span>
+              <span className="text-white">{model.outcomeCounts.fail}</span>
             </li>
             <li className="flex justify-between">
-              <span className="text-[hsl(var(--severity-medium))]">Flagged</span>
-              <span>{model.outcomeCounts.flag}</span>
+              <span className="text-amber-400">Flagged</span>
+              <span className="text-white">{model.outcomeCounts.flag}</span>
             </li>
           </ul>
           {model.latestVerdict ? (
-            <p className="mt-3 border-t border-border pt-2 text-[10px] text-muted-foreground">
+            <p className="mt-3 border-t border-neutral-800 pt-2 text-[10px] text-neutral-500">
               {model.latestVerdict}
             </p>
           ) : null}

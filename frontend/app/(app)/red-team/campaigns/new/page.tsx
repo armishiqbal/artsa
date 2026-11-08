@@ -274,68 +274,68 @@ function CampaignBuilder() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Create campaign</h2>
-        <p className="mt-1 max-w-xl text-[13px] text-muted-foreground">
+        <h2 className="text-lg font-semibold tracking-tight text-white">Create campaign</h2>
+        <p className="mt-1 max-w-xl text-[13px] text-neutral-400">
           Pick a preset or customize attack sets — then launch and watch rounds in Monitor.
         </p>
       </div>
 
       {target ? (
-        <div className="rounded-md border border-border bg-card px-3 py-2.5 text-[13px]">
-          <p className="font-medium text-foreground">
+        <div className="rounded-lg border border-neutral-800 bg-[#0e0e0e] p-4 text-[13px] shadow-sm">
+          <p className="font-medium text-white">
             Target: {target.name}
-            <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+            <span className="ml-2 font-mono text-[11px] text-neutral-400">
               {kindLabel(target.kind)} · {target.version} · {target.provider}/{target.model}
             </span>
           </p>
           {target.authorized ? (
-            <p className="mt-1 text-[12px] text-muted-foreground">
+            <p className="mt-1 text-[12px] text-neutral-400">
               This assessment uses the registered target configuration and stores results against this version.
             </p>
           ) : (
-            <p className="mt-1 text-[12px] text-[hsl(var(--severity-high))]">
+            <p className="mt-1 text-[12px] text-rose-400">
               This target is not authorized. ARTSA will refuse to send it traffic until you
               authorize it on{" "}
-              <Link href="/targets" className="underline-offset-2 hover:underline">
+              <Link href="/targets" className="text-rose-300 underline underline-offset-2 hover:underline">
                 Targets
               </Link>
               .
             </p>
           )}
           <ul aria-label="Campaign preflight" className="mt-3 grid gap-1.5 text-[12px] sm:grid-cols-3">
-            {preflightLoading ? <li className="text-muted-foreground">Checking readiness…</li> : null}
+            {preflightLoading ? <li className="text-neutral-500">Checking readiness…</li> : null}
             {preflight?.checks.map((check) => (
-              <li key={check.id} className={check.ready ? "text-emerald-700" : "text-amber-700"}>
+              <li key={check.id} className={check.ready ? "text-emerald-400 font-medium" : "text-amber-400"}>
                 {check.ready ? "✓" : "•"} {check.message}
               </li>
             ))}
             {!preflightLoading && !preflight ? (
-              <li className="text-amber-700 sm:col-span-3">Could not check campaign readiness. Refresh the target and try again.</li>
+              <li className="text-amber-400 sm:col-span-3">Could not check campaign readiness. Refresh the target and try again.</li>
             ) : null}
           </ul>
         </div>
       ) : targetId ? (
-        <p className="text-[13px] text-muted-foreground">Loading target…</p>
+        <p className="text-[13px] text-neutral-400">Loading target…</p>
       ) : (
-        <p className="text-[12px] text-muted-foreground">
+        <div className="rounded-lg border border-neutral-800 bg-[#0e0e0e] p-4 text-[12px] text-neutral-400">
           No target selected.{" "}
-          <Link href="/targets" className="underline-offset-2 hover:underline">
+          <Link href="/targets" className="text-white underline underline-offset-2 hover:text-neutral-300">
             Register, authorize, and discover one
           </Link>{" "}
           before launching a campaign.
-        </p>
+        </div>
       )}
 
       {isResearchSource && (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3.5 flex items-start gap-3">
-          <div className="rounded p-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3.5 flex items-start gap-3">
+          <div className="rounded p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
             <Sparkles className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-mono text-[12px] font-bold text-foreground">
+            <p className="font-mono text-[12px] font-bold text-white">
               Curated Threat Assessment Workflow
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground font-mono">
+            <p className="mt-0.5 text-[11px] text-neutral-400 font-mono">
               Pre-configured from Threat Intelligence Feeds with {researchThreatIds.length} prioritized attack vector{researchThreatIds.length !== 1 ? "s" : ""}.
               {researchThreatIds.length > 0 && ` Targeted frameworks: ${researchThreatIds.slice(0, 4).join(", ")}.`}
             </p>
@@ -353,9 +353,9 @@ function CampaignBuilder() {
 
       <section className="space-y-2">
         <label className="block space-y-1 text-[12px]">
-          <span className="text-muted-foreground">Campaign name</span>
+          <span className="text-neutral-400 font-medium">Campaign name</span>
           <input
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-[13px]"
+            className="w-full rounded-md border border-neutral-800 bg-[#070707] px-3 py-2 text-[13px] text-white placeholder-neutral-500 focus:border-neutral-600 focus:outline-none"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -363,7 +363,7 @@ function CampaignBuilder() {
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-[12px] font-medium text-muted-foreground">How thorough?</h3>
+        <h3 className="text-[12px] font-medium text-neutral-400">How thorough?</h3>
         <div className="grid gap-2 sm:grid-cols-3">
           {PRESETS.map((p) => (
             <button
@@ -371,43 +371,43 @@ function CampaignBuilder() {
               type="button"
               onClick={() => applyPreset(p.id)}
               className={cn(
-                "rounded-md border px-3 py-3 text-left transition-colors",
+                "rounded-lg border p-3.5 text-left transition-all",
                 preset === p.id
-                  ? "border-primary/40 bg-[hsl(var(--severity-info-subtle))]"
-                  : "border-border bg-card hover:border-foreground/20"
+                  ? "border-neutral-500 bg-neutral-900 ring-1 ring-white/15 text-white shadow-sm"
+                  : "border-neutral-800 bg-[#0e0e0e] text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
               )}
             >
-              <p className="text-[14px] font-medium text-foreground">{p.label}</p>
-              <p className="mt-1 text-[12px] text-muted-foreground">{p.blurb}</p>
+              <p className="text-[14px] font-semibold text-white">{p.label}</p>
+              <p className="mt-1 text-[12px] text-neutral-400">{p.blurb}</p>
             </button>
           ))}
         </div>
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-[12px] font-medium text-muted-foreground">What to test</h3>
+        <h3 className="text-[12px] font-medium text-neutral-400">What to test</h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {ATTACK_SETS.map((s) => (
             <label
               key={s}
               className={cn(
-                "flex items-start gap-2 rounded-md border px-3 py-2.5 text-[13px]",
+                "flex items-start gap-3 rounded-lg border p-3 text-[13px] cursor-pointer transition-all",
                 sets.includes(s)
-                  ? "border-primary/30 bg-[hsl(var(--severity-info-subtle))]"
-                  : "border-border bg-card"
+                  ? "border-neutral-500 bg-neutral-900/90 text-white shadow-sm"
+                  : "border-neutral-800 bg-[#0e0e0e] text-neutral-400 hover:border-neutral-700 hover:text-neutral-300"
               )}
             >
               <input
                 type="checkbox"
-                className="mt-0.5"
+                className="mt-0.5 rounded border-neutral-700 bg-neutral-800 text-white focus:ring-0"
                 checked={sets.includes(s)}
                 onChange={() => toggleSet(s)}
               />
               <span>
-                <span className="font-medium text-foreground">
+                <span className="font-semibold text-white">
                   {FRIENDLY_SET[s] ?? FRIENDLY_TECHNIQUE[s]?.label ?? s}
                 </span>
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                <span className="mt-0.5 block text-[11px] text-neutral-400">
                   {FRIENDLY_TECHNIQUE[s]?.why ?? "Include this risk type in the test."}
                 </span>
               </span>
@@ -421,6 +421,7 @@ function CampaignBuilder() {
           size="sm"
           variant="ghost"
           onClick={() => setShowAdvanced((v) => !v)}
+          className="text-neutral-400 hover:text-white hover:bg-neutral-900"
         >
           {showAdvanced ? "Hide advanced options" : "Show advanced options"}
         </Button>
@@ -429,16 +430,16 @@ function CampaignBuilder() {
       {showAdvanced ? (
         <>
           <section className="space-y-2">
-            <h3 className="text-[12px] font-medium text-muted-foreground">
+            <h3 className="text-[12px] font-medium text-neutral-400">
               Pressure levels (optional)
             </h3>
-            <div className="overflow-x-auto rounded-md border border-border">
+            <div className="overflow-x-auto rounded-lg border border-neutral-800 bg-[#0e0e0e]">
               <table className="w-full min-w-[360px] text-left text-[12px]">
                 <thead>
-                  <tr className="border-b border-border bg-muted/20 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    <th className="px-3 py-2 font-medium">Risk</th>
+                  <tr className="border-b border-neutral-800 bg-[#121212] text-[10px] uppercase tracking-wide text-neutral-400">
+                    <th className="px-3 py-2.5 font-medium">Risk</th>
                     {INTENSITIES.map((i) => (
-                      <th key={i} className="px-3 py-2 font-medium">
+                      <th key={i} className="px-3 py-2.5 font-medium">
                         {i}
                       </th>
                     ))}
@@ -446,20 +447,22 @@ function CampaignBuilder() {
                 </thead>
                 <tbody>
                   {MATRIX_ROWS.map((row) => (
-                    <tr key={row} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2 text-foreground">{row}</td>
+                    <tr key={row} className="border-b border-neutral-800/60 last:border-0 hover:bg-neutral-900/40">
+                      <td className="px-3 py-2.5 font-medium text-white">{row}</td>
                       {INTENSITIES.map((col) => (
-                        <td key={col} className="px-3 py-2">
+                        <td key={col} className="px-3 py-2.5">
                           <button
                             type="button"
                             onClick={() => toggleCell(row, col)}
                             className={cn(
-                              "text-[13px]",
-                              matrix[row]?.[col] ? "text-foreground" : "text-muted-foreground/40"
+                              "rounded px-2 py-0.5 font-mono text-[11px] transition-colors",
+                              matrix[row]?.[col]
+                                ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 font-semibold"
+                                : "text-neutral-500 hover:text-neutral-300"
                             )}
                             aria-pressed={matrix[row]?.[col]}
                           >
-                            {matrix[row]?.[col] ? "On" : "Off"}
+                            {matrix[row]?.[col] ? "ON" : "OFF"}
                           </button>
                         </td>
                       ))}
@@ -471,12 +474,12 @@ function CampaignBuilder() {
           </section>
 
           <label className="block max-w-xs space-y-1 text-[12px]">
-            <span className="text-muted-foreground">How many rounds</span>
+            <span className="text-neutral-400 font-medium">How many rounds</span>
             <input
               type="number"
               min={1}
               max={100}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-[13px]"
+              className="w-full rounded-md border border-neutral-800 bg-[#070707] px-3 py-2 text-[13px] text-white focus:border-neutral-600 focus:outline-none"
               value={iterations}
               onChange={(e) => {
                 const n = Number(e.target.value);
@@ -486,23 +489,24 @@ function CampaignBuilder() {
           </label>
         </>
       ) : (
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-[12px] text-neutral-400">
           This preset runs about {iterations} rounds
           {categories.length ? ` across ${categories.length} risk areas` : ""}.
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" asChild>
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <Button variant="outline" size="sm" asChild className="border-neutral-800 bg-[#0e0e0e] text-neutral-300 hover:bg-neutral-800 hover:text-white">
           <Link href="/red-team/campaigns">Back</Link>
         </Button>
-        <Button size="sm" variant="outline" asChild>
+        <Button size="sm" variant="outline" asChild className="border-neutral-800 bg-[#0e0e0e] text-neutral-300 hover:bg-neutral-800 hover:text-white">
           <Link href="/red-team/lab">Attack Lab</Link>
         </Button>
         <Button
           size="sm"
           onClick={() => void launch()}
           disabled={launching || preflightLoading || !preflight?.ready || categories.length === 0 || !targetId || !target}
+          className="bg-white text-black font-semibold hover:bg-neutral-200 disabled:opacity-40 disabled:hover:bg-white"
         >
           {launching ? "Launching…" : "Launch campaign"}
         </Button>

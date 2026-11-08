@@ -32,7 +32,7 @@ function outcomeBorder(outcome: LiveOutcome | null | undefined, kind: string): s
     if (outcome === "fail") return "border-l-[hsl(var(--severity-critical))]";
     return "border-l-[hsl(var(--severity-medium))]";
   }
-  if (kind === "attack") return "border-l-[#67b3ef]";
+  if (kind === "attack") return "border-l-neutral-400";
   if (kind === "response") return "border-l-muted-foreground/50";
   return "border-l-border";
 }
@@ -63,7 +63,7 @@ function VirtualEventStream({
   return (
     <div
       ref={scrollerRef}
-      className="relative overflow-y-auto rounded-md border border-border bg-background/40"
+      className="relative overflow-y-auto rounded-lg border border-neutral-800 bg-[#070707]"
       style={{ height: VIEWPORT_H }}
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       role="log"
@@ -266,24 +266,29 @@ function TheaterInner() {
             size="sm"
             variant={followLatest ? "default" : "outline"}
             onClick={() => setFollow(!followLatest)}
+            className={
+              followLatest
+                ? "bg-white text-black font-semibold hover:bg-neutral-200"
+                : "border-neutral-800 bg-[#0e0e0e] text-neutral-300 hover:bg-neutral-800 hover:text-white"
+            }
           >
             {followLatest ? "Following" : "Follow"}
           </Button>
-          <Button size="sm" variant="outline" asChild>
+          <Button size="sm" variant="outline" asChild className="border-neutral-800 bg-[#0e0e0e] text-neutral-300 hover:bg-neutral-800 hover:text-white">
             <Link href={`/red-team/evidence?campaign=${id}`}>Evidence</Link>
           </Button>
-          <Button size="sm" variant="outline" asChild>
+          <Button size="sm" variant="outline" asChild className="border-neutral-800 bg-[#0e0e0e] text-neutral-300 hover:bg-neutral-800 hover:text-white">
             <Link href="/red-team/monitor">← Monitor</Link>
           </Button>
         </div>
       </div>
 
       {progress != null ? (
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
           <div
             className={cn(
               "h-full rounded-full transition-all",
-              running ? "bg-[#67b3ef]" : "bg-[hsl(var(--severity-low))]"
+              running ? "bg-emerald-400" : "bg-[hsl(var(--severity-low))]"
             )}
             style={{ width: `${progress}%` }}
           />
@@ -291,7 +296,7 @@ function TheaterInner() {
       ) : null}
 
       {/* Agent stage */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-[#0e0e0e] px-4 py-3">
         <div className="flex flex-wrap items-center gap-4">
           {LIVE_AGENTS.map((a) => {
             const st = isDemo ? "done" : (agents[a.id] ?? "idle");
@@ -300,16 +305,16 @@ function TheaterInner() {
                 <span
                   className={cn(
                     "h-2.5 w-2.5 rounded-full",
-                    st === "running" && "animate-pulse bg-[#67b3ef] shadow-[0_0_8px_#67b3ef88]",
+                    st === "running" && "animate-pulse bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
                     st === "done" && "bg-[hsl(var(--severity-low))]",
-                    st === "idle" && "bg-muted-foreground/35",
-                    st === "not_wired" && "bg-muted-foreground/20"
+                    st === "idle" && "bg-neutral-600",
+                    st === "not_wired" && "bg-neutral-700"
                   )}
                   title={st}
                 />
                 <span
                   className={cn(
-                    st === "running" ? "font-medium text-foreground" : "text-muted-foreground"
+                    st === "running" ? "font-semibold text-white" : "text-neutral-400"
                   )}
                 >
                   {a.label}

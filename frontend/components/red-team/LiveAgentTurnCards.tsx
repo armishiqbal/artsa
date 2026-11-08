@@ -99,17 +99,17 @@ export function LiveAgentTurnCards({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 pb-2">
         <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-blue-600" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+          <Terminal className="h-4 w-4 text-neutral-400" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-white">
             Multi-Agent Turn Execution · Round {round ?? "Latest"}
           </h3>
-          <span className="rounded bg-blue-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-blue-700 border border-blue-200">
+          <span className="rounded border border-neutral-700 bg-neutral-900 px-2 py-0.5 font-mono text-[10px] font-semibold text-neutral-300">
             CrewAI Sequential Chain
           </span>
         </div>
-        <span className="font-mono text-[11px] text-muted-foreground">
+        <span className="font-mono text-[11px] text-neutral-500">
           {roundEvents.length} events logged in this round
         </span>
       </div>
@@ -130,46 +130,46 @@ export function LiveAgentTurnCards({
               className={cn(
                 "rounded-lg border p-3.5 transition-all text-xs",
                 state === "breached" &&
-                  "border-red-300 bg-red-50/50 shadow-2xs",
+                  "border-rose-900/60 bg-rose-950/20 shadow-2xs",
                 state === "contained" &&
-                  "border-emerald-300 bg-emerald-50/40 shadow-2xs",
+                  "border-emerald-900/60 bg-emerald-950/20 shadow-2xs",
                 state === "running" &&
-                  "border-blue-400 bg-blue-50/30 ring-1 ring-blue-300 shadow-2xs",
+                  "border-emerald-500/40 bg-emerald-950/30 ring-1 ring-emerald-500/20 shadow-2xs",
                 state === "completed" &&
-                  "border-slate-200 bg-white shadow-2xs",
+                  "border-neutral-800 bg-[#0e0e0e] shadow-2xs",
                 state === "standby" &&
-                  "border-slate-200/80 bg-slate-50/60 opacity-75",
+                  "border-neutral-800/80 bg-[#0a0a0a] opacity-75",
                 state === "pending" &&
-                  "border-dashed border-slate-200 bg-slate-50/40 opacity-60"
+                  "border-dashed border-neutral-800 bg-[#080808] opacity-60"
               )}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex items-start gap-2.5 min-w-0">
                   <div
                     className={cn(
-                      "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-slate-800",
-                      state === "breached" && "border-red-300 bg-red-100 text-red-800",
-                      state === "contained" && "border-emerald-300 bg-emerald-100 text-emerald-800",
-                      state === "running" && "border-blue-300 bg-blue-100 text-blue-800 animate-pulse",
+                      "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border",
+                      state === "breached" && "border-rose-800/50 bg-rose-950/50 text-rose-400",
+                      state === "contained" && "border-emerald-800/50 bg-emerald-950/50 text-emerald-400",
+                      state === "running" && "border-emerald-500/50 bg-emerald-950/50 text-emerald-400 animate-pulse",
                       (state === "completed" || state === "standby" || state === "pending") &&
-                        "border-slate-200 bg-slate-100 text-slate-700"
+                        "border-neutral-800 bg-neutral-900 text-neutral-300"
                     )}
                   >
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                         Hop {spec.order}
                       </span>
-                      <span className="font-semibold text-slate-900 truncate">
+                      <span className="font-semibold text-white truncate">
                         {spec.name}
                       </span>
-                      <span className="text-slate-500 text-[11px] font-sans truncate">
+                      <span className="text-neutral-400 text-[11px] font-sans truncate">
                         ({spec.role})
                       </span>
                     </div>
-                    <p className="mt-1 text-slate-700 font-sans leading-relaxed">
+                    <p className="mt-1 text-neutral-300 font-sans leading-relaxed">
                       {evt?.summary ?? (
                         state === "standby"
                           ? "Standby · Activates conditionally if Judge records confirmed breach"
@@ -182,43 +182,43 @@ export function LiveAgentTurnCards({
                 <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-start">
                   {/* HMAC verification badge */}
                   {state === "pending" || state === "standby" ? (
-                    <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
-                      <Lock className="h-2.5 w-2.5 text-slate-400" />
+                    <span className="inline-flex items-center gap-1 rounded border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 font-mono text-[10px] text-neutral-500">
+                      <Lock className="h-2.5 w-2.5 text-neutral-500" />
                       {state === "standby" ? "Standby Handoff" : "Awaiting Handoff"}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-700">
-                      <Lock className="h-2.5 w-2.5 text-slate-500" />
+                    <span className="inline-flex items-center gap-1 rounded border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 font-mono text-[10px] text-neutral-300">
+                      <Lock className="h-2.5 w-2.5 text-emerald-400" />
                       HMAC Verified
                     </span>
                   )}
 
                   {/* Outcome badge */}
                   {state === "breached" ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 font-mono text-[10px] font-bold text-red-800 border border-red-200">
-                      <AlertTriangle className="h-3 w-3 text-red-600" />
+                    <span className="inline-flex items-center gap-1 rounded border border-rose-800/50 bg-rose-950/60 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-400">
+                      <AlertTriangle className="h-3 w-3 text-rose-400" />
                       Breach Detected
                     </span>
                   ) : state === "contained" ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-800 border border-emerald-200">
-                      <Shield className="h-3 w-3 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1 rounded border border-emerald-800/50 bg-emerald-950/60 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
+                      <Shield className="h-3 w-3 text-emerald-400" />
                       Contained
                     </span>
                   ) : state === "running" ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 font-mono text-[10px] font-bold text-blue-800 border border-blue-200 animate-pulse">
+                    <span className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-950/60 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400 animate-pulse">
                       Executing
                     </span>
                   ) : state === "completed" ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-medium text-slate-700 border border-slate-200">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1 rounded border border-neutral-800 bg-neutral-900 px-2 py-0.5 font-mono text-[10px] font-medium text-neutral-300">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
                       Turn Complete
                     </span>
                   ) : state === "standby" ? (
-                    <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-500 border border-slate-200">
+                    <span className="inline-flex items-center rounded border border-neutral-800 bg-neutral-900/60 px-2 py-0.5 font-mono text-[10px] text-neutral-500">
                       Standby
                     </span>
                   ) : (
-                    <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-400">
+                    <span className="inline-flex items-center rounded border border-neutral-800 bg-neutral-900/40 px-2 py-0.5 font-mono text-[10px] text-neutral-600">
                       Pending
                     </span>
                   )}
@@ -226,14 +226,14 @@ export function LiveAgentTurnCards({
               </div>
 
               {/* Tools declaration and active tokens */}
-              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-slate-200/60 pt-2">
-                <span className="font-mono text-[10px] font-medium text-slate-500 flex items-center gap-1">
-                  <Wrench className="h-3 w-3 text-slate-400" /> Tools:
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-neutral-800 pt-2">
+                <span className="font-mono text-[10px] font-medium text-neutral-500 flex items-center gap-1">
+                  <Wrench className="h-3 w-3 text-neutral-500" /> Tools:
                 </span>
                 {tools.map((t) => (
                   <span
                     key={t}
-                    className="rounded bg-slate-100 px-1.5 py-0.2 font-mono text-[10px] text-slate-700 border border-slate-200/80"
+                    className="rounded border border-neutral-800 bg-[#141414] px-1.5 py-0.2 font-mono text-[10px] text-neutral-400"
                   >
                     {t}
                   </span>
@@ -243,7 +243,7 @@ export function LiveAgentTurnCards({
                   <button
                     type="button"
                     onClick={() => toggleTrace(spec.id)}
-                    className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-slate-800 hover:text-black font-semibold hover:underline"
+                    className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-neutral-300 hover:text-white font-semibold hover:underline"
                   >
                     {isExpanded ? (
                       <>
@@ -260,12 +260,12 @@ export function LiveAgentTurnCards({
 
               {/* Expandable Trace / Payload Details */}
               {isExpanded && snippet ? (
-                <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2.5 font-mono text-[11px] text-slate-800">
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 pb-1 mb-1 border-b border-slate-200">
+                <div className="mt-2 rounded-md border border-neutral-800 bg-[#070707] p-2.5 font-mono text-[11px] text-neutral-300">
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500 pb-1 mb-1 border-b border-neutral-800">
                     <span>Cryptographic Custody Token:</span>
-                    <span className="font-mono font-bold text-slate-700">{hmacToken}</span>
+                    <span className="font-mono font-bold text-neutral-300">{hmacToken}</span>
                   </div>
-                  <pre className="whitespace-pre-wrap font-mono leading-relaxed text-slate-800">
+                  <pre className="whitespace-pre-wrap font-mono leading-relaxed text-neutral-300">
                     {snippet}
                   </pre>
                 </div>

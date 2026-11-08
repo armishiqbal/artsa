@@ -191,7 +191,14 @@ export function LiveAiActivityViz({
                   </span>
                   <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-[#67b3ef]"
+                      className={cn(
+                        "h-full rounded-full",
+                        a.maxRisk >= 80
+                          ? "bg-[hsl(var(--severity-critical))]"
+                          : a.maxRisk >= 50
+                            ? "bg-[hsl(var(--severity-high))]"
+                            : "bg-[hsl(var(--severity-low))]"
+                      )}
                       style={{ width: `${Math.min(100, a.maxRisk)}%` }}
                     />
                   </div>

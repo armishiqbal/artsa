@@ -122,7 +122,7 @@ export function RedTeamScanWizard({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         disabled={isRunning}
         onClick={() => !isRunning && onOpenChange(false)}
@@ -131,14 +131,14 @@ export function RedTeamScanWizard({
         role="dialog"
         aria-modal="true"
         aria-labelledby="scan-wizard-title"
-        className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-xl border border-border bg-background sm:rounded-xl"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-xl border border-neutral-800 bg-[#0e0e0e] text-white sm:rounded-xl shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3 bg-[#121212]">
           <div>
-            <p id="scan-wizard-title" className="text-sm font-semibold text-foreground">
+            <p id="scan-wizard-title" className="text-sm font-semibold text-white">
               New scan
             </p>
-            <p className="font-mono text-[10px] text-muted-foreground">
+            <p className="font-mono text-[10px] text-neutral-400">
               Target · depth · start engagement
             </p>
           </div>
@@ -146,7 +146,7 @@ export function RedTeamScanWizard({
             type="button"
             size="sm"
             variant="ghost"
-            className="h-8 w-8 p-0"
+            className="h-8 w-8 p-0 text-neutral-400 hover:text-white hover:bg-neutral-800"
             disabled={isRunning}
             onClick={() => onOpenChange(false)}
             aria-label="Close dialog"
@@ -157,15 +157,15 @@ export function RedTeamScanWizard({
 
         <div className="space-y-5 overflow-y-auto p-4 sm:p-5">
           <section className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#67b3ef]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-neutral-400">
               1 · Target
             </p>
             {providersLoading ? (
-              <Skeleton className="h-20 w-full rounded-[8px]" />
+              <Skeleton className="h-20 w-full rounded-[8px] bg-neutral-900" />
             ) : providers.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-[13px] text-neutral-400">
                 No providers.{" "}
-                <Link href="/red-team/surface" className="text-[#67b3ef] hover:underline">
+                <Link href="/red-team/surface" className="text-white underline hover:text-neutral-200">
                   Add a target
                 </Link>
               </p>
@@ -183,16 +183,16 @@ export function RedTeamScanWizard({
                         setModelName(p.model);
                       }}
                       className={cn(
-                        "flex w-full items-center justify-between gap-3 rounded-[8px] border px-3 py-2 text-left",
+                        "flex w-full items-center justify-between gap-3 rounded-[8px] border px-3 py-2 text-left transition-colors",
                         active
-                          ? "border-primary/45 bg-primary/10"
-                          : "border-border bg-muted hover:border-border",
+                          ? "border-neutral-500 bg-neutral-900 ring-1 ring-white/20"
+                          : "border-neutral-800 bg-[#141414] hover:border-neutral-700",
                         !p.configured && "opacity-50"
                       )}
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-[13px] font-medium text-foreground">{p.name}</p>
-                        <p className="truncate font-mono text-[10px] text-muted-foreground">{p.model}</p>
+                        <p className="truncate text-[13px] font-medium text-white">{p.name}</p>
+                        <p className="truncate font-mono text-[10px] text-neutral-400">{p.model}</p>
                       </div>
                       <Badge
                         variant={p.configured ? "success" : "secondary"}
@@ -210,13 +210,13 @@ export function RedTeamScanWizard({
                 placeholder="Base URL"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
-                className="h-9 font-mono text-[12px]"
+                className="h-9 font-mono text-[12px] border-neutral-800 bg-neutral-900 text-white placeholder:text-neutral-500"
               />
             ) : null}
           </section>
 
           <section className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#67b3ef]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-neutral-400">
               2 · Attack depth
             </p>
             <div className="grid gap-2">
@@ -229,42 +229,42 @@ export function RedTeamScanWizard({
                     type="button"
                     onClick={() => setAttackProfile(profile.id)}
                     className={cn(
-                      "flex items-start gap-3 rounded-[8px] border px-3 py-2.5 text-left",
+                      "flex items-start gap-3 rounded-[8px] border px-3 py-2.5 text-left transition-colors",
                       active
-                        ? "border-primary/45 bg-primary/10"
-                        : "border-border bg-muted hover:border-border"
+                        ? "border-neutral-500 bg-neutral-900 ring-1 ring-white/20"
+                        : "border-neutral-800 bg-[#141414] hover:border-neutral-700"
                     )}
                   >
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#67b3ef]" />
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-white" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-medium text-foreground">{profile.label}</span>
+                        <span className="text-[13px] font-medium text-white">{profile.label}</span>
                         {profile.depthBadge ? (
-                          <Badge variant="outline" className="meta-badge">
+                          <Badge variant="outline" className="meta-badge border-neutral-700 text-neutral-300">
                             {profile.depthBadge}
                           </Badge>
                         ) : null}
                       </div>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">{profile.description}</p>
+                      <p className="mt-0.5 text-[11px] text-neutral-400">{profile.description}</p>
                     </div>
                   </button>
                 );
               })}
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 pt-1">
               {lenses.map((L) => (
-                <Badge key={L} variant="secondary" className="meta-badge">
+                <Badge key={L} variant="secondary" className="meta-badge bg-neutral-800 text-neutral-300 border-neutral-700">
                   {L}
                 </Badge>
               ))}
               {profileMeta.categories.map((c) => (
-                <Badge key={c} variant="outline" className="meta-badge font-mono">
+                <Badge key={c} variant="outline" className="meta-badge font-mono border-neutral-800 text-neutral-400">
                   {c}
                 </Badge>
               ))}
             </div>
             {profileAsi.length > 0 && (
-              <p className="font-mono text-[10px] text-muted-foreground">
+              <p className="font-mono text-[10px] text-neutral-400">
                 ASI: {profileAsi.map((a) => a.code).join(" · ")}
               </p>
             )}
@@ -275,33 +275,34 @@ export function RedTeamScanWizard({
           </section>
 
           <section className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#67b3ef]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-neutral-400">
               3 · Session
             </p>
             <Input
               placeholder="Scan label (optional)"
               value={campaignName}
               onChange={(e) => setCampaignName(e.target.value)}
+              className="border-neutral-800 bg-neutral-900 text-white placeholder:text-neutral-500"
             />
             <textarea
-              className="min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-h-[64px] w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-[13px] text-white placeholder:text-neutral-500 outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
               placeholder="Focus objective (optional)"
               value={focusObjective}
               onChange={(e) => setFocusObjective(e.target.value)}
             />
             <div className="flex items-center justify-between gap-3">
-              <label className="text-[12px] text-muted-foreground">
+              <label className="text-[12px] text-neutral-400">
                 Rounds
                 <Input
                   type="number"
                   min={1}
                   max={50}
-                  className="mt-1 h-9 w-24"
+                  className="mt-1 h-9 w-24 border-neutral-800 bg-neutral-900 text-white"
                   value={rounds}
                   onChange={(e) => setRounds(Math.max(1, Number(e.target.value) || 1))}
                 />
               </label>
-              <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              <label className="flex items-center gap-2 text-[12px] text-neutral-400">
                 <input
                   type="checkbox"
                   checked={useLlmJudge}
@@ -313,10 +314,10 @@ export function RedTeamScanWizard({
           </section>
         </div>
 
-        <div className="border-t border-border p-4">
+        <div className="border-t border-neutral-800 p-4 bg-[#121212]">
           <Button
             size="lg"
-            className="w-full gap-2"
+            className="w-full gap-2 bg-white text-black font-semibold hover:bg-neutral-200"
             disabled={!canLaunch}
             onClick={handleLaunch}
           >
